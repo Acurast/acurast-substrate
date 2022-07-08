@@ -1,6 +1,6 @@
 [package]
-name = "pallet-template"
-authors = ["Anonymous"]
+name = "pallet-acurast"
+authors = ["Papers AG"]
 description = "FRAME pallet template for defining custom runtime logic."
 version = "0.1.0"
 license = "Unlicense"
@@ -19,14 +19,20 @@ scale-info = { version = "2.0.0", default-features = false, features = ["derive"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.23" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+sp-runtime-interface = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+
+p256 = { version = "0.10.1", features = ["ecdsa", "sha256"] }
+# getrandom = { version = "0.2.6", features = ["js"] }
 
 [dev-dependencies]
 serde = { version = "1.0.132" }
 
 # Substrate
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+
 
 [features]
 default = ["std"]

@@ -5,14 +5,11 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 
-#[cfg(test)]
-mod mock;
+use sp_core::crypto::KeyTypeId;
 
-#[cfg(test)]
-mod tests;
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"acrt");
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod crypto;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -103,3 +100,12 @@ pub mod pallet {
 		}
 	}
 }
+
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;

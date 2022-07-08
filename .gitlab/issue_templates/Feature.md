@@ -39,5 +39,5 @@
 
 
 <!--- these standard labels will be added to this issue, leave it as it is --->
-/label ~"type::feature" ~"proj::youves"
+/label ~"type::feature" ~"proj::acurast"
 

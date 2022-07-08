@@ -23,6 +23,6 @@ If you use this format, add the + at the end of the path
 
 
 <!--- these standard labels will be added to this issue, leave it as it is --->
-/label ~2141 ~"proj::youves"
+/label ~2141 ~"proj::acurast"
 
 

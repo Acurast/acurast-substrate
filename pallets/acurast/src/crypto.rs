@@ -3,7 +3,7 @@
 pub mod p256 {
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use p256::ecdsa::{SigningKey, VerifyingKey};
-	use p256::{PublicKey, SecretKey};
+	use p256::{PublicKey, SecretKey, EncodedPoint};
 	use scale_info::TypeInfo;
 	use sp_core::crypto::Infallible;
 	use sp_runtime::app_crypto::{CryptoTypePublicPair, RuntimePublic, UncheckedFrom};
@@ -23,6 +23,7 @@ pub mod p256 {
 	pub use app::Pair as AppPair;
 	pub use app::{Public as AppPublic, Signature as AppSignature};
 
+	#[cfg_attr(feature = "full_crypto", derive(Hash))]
 	#[derive(
 		PartialEq,
 		Eq,
@@ -41,9 +42,42 @@ pub mod p256 {
 	pub struct Public(pub [u8; 32]);
 
 	impl Public {
+		/// A new instance from the given 32-byte "compressed" variant
 		pub fn from_raw(data: [u8; 32]) -> Self {
 			Public(data)
 		}
+
+		/// Create a new instance from the given full (uncompressed) public key.
+		/// This will convert the full public key into the compressed format.
+		#[cfg(feature = "std")]
+		pub fn from_full(full: &[u8]) -> Result<Self, p256::elliptic_curve::Error> {
+			let pubkey_conversion = if full.len() == 64 {
+				// Tag it as uncompressed public key.
+				let mut tagged_full = [0u8; 65];
+				tagged_full[0] = 0x04;
+				tagged_full[1..].copy_from_slice(full);
+				PublicKey::from_sec1_bytes(&tagged_full)
+			} else {
+				PublicKey::from_sec1_bytes(full)
+			};
+			// return Err if conversion from bytes is unsuccessful
+
+			match pubkey_conversion {
+				Err(e) => Err(e),
+
+				Ok(pubkey) => {
+					let encoded_point = EncodedPoint::from(pubkey);
+					let compressed_point = encoded_point.compress();
+					let compressed_array = compressed_point.as_bytes().try_into().unwrap();
+					
+					Ok(Public(compressed_array))	// return Ok if successfull
+				}
+			}
+			// let pubkey = pubkey_conversion?;
+
+			
+		}
+
 
 		pub fn as_array_ref(&self) -> &[u8; 32] {
 			self.as_ref()
@@ -214,10 +248,11 @@ pub mod p256 {
 		}
 
 		fn sign(&self, message: &[u8]) -> Self::Signature {
-			use p256::ecdsa::signature::Signer;
-			let key = SigningKey::from(&self.secret);
-			let signature = key.sign(message).to_vec();
-			(&signature[..]).try_into().unwrap()
+			// use p256::ecdsa::signature::Signer;
+			// let key = SigningKey::from(&self.secret);
+			// let signature = key.sign(message).to_vec();
+			// (&signature[..]).try_into().unwrap()
+			todo!()
 		}
 
 		fn verify<M: AsRef<[u8]>>(

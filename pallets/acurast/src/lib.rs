@@ -9,7 +9,10 @@ use sp_core::crypto::KeyTypeId;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"acrt");
 
-pub mod crypto;
+
+// #[cfg(feature = "full_crypto")]
+pub mod secp256r1;
+
 
 #[frame_support::pallet]
 pub mod pallet {

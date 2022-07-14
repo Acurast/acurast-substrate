@@ -2,15 +2,29 @@
 
 pub mod p256 {
 	use codec::{Decode, Encode, MaxEncodedLen};
+	use scale_info::TypeInfo;
+	use sp_runtime_interface::pass_by::PassByInner;
+
+	// #[cfg(feature = "std")]
+	// use sp_core::crypto::Ss58Codec;
+	// use sp_core::crypto::{
+	// 	ByteArray, CryptoType, CryptoTypeId, CryptoTypePublicPair, Derive, Public as TraitPublic,
+	// 	UncheckedFrom,
+	// };
+
+	
+	#[cfg(feature = "std")]
+	use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
 	use p256::ecdsa::{SigningKey, VerifyingKey};
 	use p256::{PublicKey, SecretKey, EncodedPoint};
-	use scale_info::TypeInfo;
 	use sp_core::crypto::Infallible;
 	use sp_runtime::app_crypto::{CryptoTypePublicPair, RuntimePublic, UncheckedFrom};
 	use sp_runtime::{CryptoTypeId, KeyTypeId};
-	use sp_runtime_interface::pass_by::PassByInner;
 	use sp_std::vec::Vec;
 
+	/// An identifier used to match public keys against ecdsa keys
+	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"p256");
 	mod app {
 
 		sp_runtime::app_crypto::app_crypto!(super, crate::KEY_TYPE);
@@ -39,11 +53,11 @@ pub mod p256 {
 		Hash,
 		Debug,
 	)]
-	pub struct Public(pub [u8; 32]);
+	pub struct Public(pub [u8; 33]);
 
 	impl Public {
-		/// A new instance from the given 32-byte "compressed" variant
-		pub fn from_raw(data: [u8; 32]) -> Self {
+		/// A new instance from the given 33-byte "compressed" variant
+		pub fn from_raw(data: [u8; 33]) -> Self {
 			Public(data)
 		}
 
@@ -79,9 +93,13 @@ pub mod p256 {
 		}
 
 
-		pub fn as_array_ref(&self) -> &[u8; 32] {
+		pub fn as_array_ref(&self) -> &[u8; 33] {
 			self.as_ref()
 		}
+	}
+	
+	impl sp_core::crypto::ByteArray for Public {
+		const LEN: usize = 33;
 	}
 
 	impl sp_core::Public for Public {
@@ -90,8 +108,21 @@ pub mod p256 {
 		}
 	}
 
-	impl sp_core::crypto::CryptoType for Public {
-		type Pair = Pair;
+	// impl From<Public> for [u8; 33] {
+	// 	fn from(x: Public) -> [u8; 33] {
+	// 		x.0
+	// 	}
+	// }
+	impl From<Public> for CryptoTypePublicPair {
+		fn from(key: Public) -> Self {
+			(&key).into()
+		}
+	}
+
+	impl From<&Public> for CryptoTypePublicPair {
+		fn from(key: &Public) -> Self {
+			CryptoTypePublicPair(CRYPTO_ID, key.to_raw_vec())
+		}
 	}
 
 	impl sp_core::crypto::Derive for Public {
@@ -103,33 +134,21 @@ pub mod p256 {
 		}
 	}
 
-	impl sp_core::crypto::ByteArray for Public {
-		const LEN: usize = 32;
-	}
-
-	impl AsRef<[u8; 32]> for Public {
-		fn as_ref(&self) -> &[u8; 32] {
-			&self.0
-		}
-	}
-
 	impl AsRef<[u8]> for Public {
 		fn as_ref(&self) -> &[u8] {
 			&self.0[..]
 		}
 	}
 
+	// impl AsRef<[u8; 33]> for Public {
+	// 	fn as_ref(&self) -> &[u8; 33] {
+	// 		&self.0
+	// 	}
+	// }
+
 	impl AsMut<[u8]> for Public {
 		fn as_mut(&mut self) -> &mut [u8] {
 			&mut self.0[..]
-		}
-	}
-
-	impl std::ops::Deref for Public {
-		type Target = [u8];
-
-		fn deref(&self) -> &Self::Target {
-			&self.0
 		}
 	}
 
@@ -140,25 +159,83 @@ pub mod p256 {
 			if data.len() != <Self as sp_core::crypto::ByteArray>::LEN {
 				return Err(());
 			}
-			let mut r = [0u8; 32];
+			let mut r = [0u8; 33];
 			r.copy_from_slice(data);
 			Ok(Self::unchecked_from(r))
 		}
 	}
 
-	impl UncheckedFrom<[u8; 32]> for Public {
-		fn unchecked_from(x: [u8; 32]) -> Self {
-			Public::from_raw(x)
+	#[cfg(feature = "full_crypto")]
+	impl From<Pair> for Public {
+		fn from(x: Pair) -> Self {
+			x.public()
 		}
 	}
 
-	impl From<Public> for [u8; 32] {
-		fn from(x: Public) -> [u8; 32] {
-			x.0
+	impl UncheckedFrom<[u8; 33]> for Public {
+		fn unchecked_from(x: [u8; 33]) -> Self {
+			Public(x)
 		}
 	}
 
-	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"p256");
+	#[cfg(feature = "std")]
+	impl std::fmt::Display for Public {
+		fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+			write!(f, "{}", self.to_ss58check())
+		}
+	}
+
+	impl sp_std::fmt::Debug for Public {
+		#[cfg(feature = "std")]
+		fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", sp_core::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
+		}
+
+		#[cfg(not(feature = "std"))]
+		fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			Ok(())
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl Serialize for Public {
+		fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+		where
+			S: Serializer,
+		{
+			serializer.serialize_str(&self.to_ss58check())
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl<'de> Deserialize<'de> for Public {
+		fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+		where
+			D: Deserializer<'de>,
+		{
+			Public::from_ss58check(&String::deserialize(deserializer)?)
+				.map_err(|e| de::Error::custom(format!("{:?}", e)))
+		}
+	}
+
+	// impl std::ops::Deref for Public {
+	// 	type Target = [u8];
+
+	// 	fn deref(&self) -> &Self::Target {
+	// 		&self.0
+	// 	}
+	// }
+
+
+
+
+
+
+	impl sp_core::crypto::CryptoType for Public {
+		type Pair = Pair;
+	}
+
 
 	#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash, Debug)]
 	pub struct Signature(pub [u8; 64]);
@@ -292,6 +369,7 @@ pub mod p256 {
 		fn all(key_type: KeyTypeId) -> Vec<Self> {
 			// sp_io::crypto::sr25519_public_keys(key_type)
 			todo!()
+
 		}
 
 		fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {

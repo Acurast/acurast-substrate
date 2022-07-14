@@ -24,8 +24,11 @@ sp-runtime-interface = { git = "https://github.com/paritytech/substrate", defaul
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 
-# p256 = { version = "0.11.1", features = ["ecdsa", "sha256"] }
 p256 = { version = "0.10.1", features = ["ecdsa", "sha256"]}
+serde = "1.0.139"
+substrate-bip39 = { version = "0.4.4", optional=false}
+tiny-bip39 = { version = "0.8.1", optional=false}
+hex = "0.4.3"
 # getrandom = { version = "0.2.6", features = ["js"] }
 
 [dev-dependencies]

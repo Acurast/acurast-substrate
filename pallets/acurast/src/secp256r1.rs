@@ -12,7 +12,7 @@ use sp_core::crypto::{
 
 use sp_core::{
 	crypto::{DeriveJunction, Pair as TraitPair, SecretStringError},
-	hashing::blake2_256,
+	hashing::blake2_256, H256
 };
 
 use p256::{
@@ -84,6 +84,22 @@ impl Public {
             }
         }
 	}
+
+	/// A new instance from an H256.
+	///
+	/// NOTE: No checking goes on to ensure this is a real public key. Only use it if
+	/// you are certain that the array actually is a pubkey. GIGO!
+	pub fn from_h256(x: H256) -> Self {
+		let x_point: [u8; 32] = x.into();
+		let mut public_bytes = [0u8; 33];
+		public_bytes[0] = 0x02;
+		public_bytes[1..].copy_from_slice(&x_point);
+		// TODO: should we chose one side of the curve here?
+		Public(public_bytes)
+	}
+
+		
+
 }
 
 impl ByteArray for Public {
@@ -139,6 +155,28 @@ impl TryFrom<&[u8]> for Public {
 	}
 }
 
+impl TryFrom<AcurastMultiSignature> for Signature {
+    type Error = ();
+
+    fn try_from(value: AcurastMultiSignature) -> Result<Self, Self::Error> {
+        match value {
+            AcurastMultiSignature::Primitive(_) => Err(()),
+            AcurastMultiSignature::P256(val) => Ok(val),
+        }
+    }
+}
+
+impl TryFrom<AcurastMultiSigner> for Public {
+    type Error = ();
+
+    fn try_from(value: AcurastMultiSigner) -> Result<Self, Self::Error> {
+        match value {
+            AcurastMultiSigner::Primitive(_) => Err(()),
+            AcurastMultiSigner::P256(val) => Ok(val),
+        }
+    }
+}
+
 impl From<Pair> for Public {
 	fn from(x: Pair) -> Self {
 		x.public()
@@ -148,6 +186,12 @@ impl From<Pair> for Public {
 impl UncheckedFrom<[u8; 33]> for Public {
 	fn unchecked_from(x: [u8; 33]) -> Self {
 		Public(x)
+	}
+}
+
+impl UncheckedFrom<sp_core::H256> for Public {
+	fn unchecked_from(x: sp_core::H256) -> Self {
+		Public::from_h256(x)
 	}
 }
 
@@ -333,7 +377,7 @@ impl TraitPair for Pair {
 	///
 	/// You should never need to use this; generate(), generate_with_phrase
 	fn from_seed(seed: &Seed) -> Pair {
-		return Self::from_seed_slice(&seed[..]).expect("seed has valid length; qed")
+		Self::from_seed_slice(&seed[..]).expect("seed has valid length; qed")
 	}
 	
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
@@ -490,6 +534,8 @@ mod app {
 
 pub use app::Pair as AppPair;
 pub use app::{Public as AppPublic, Signature as AppSignature};
+
+use crate::multi_primitives::{AcurastMultiSignature, AcurastMultiSigner};
 
 impl sp_runtime::traits::IdentifyAccount for Public {
 	type AccountId = Self;

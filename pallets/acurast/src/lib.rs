@@ -19,18 +19,18 @@ pub mod crypto {
 	use sp_runtime::{
 		app_crypto::app_crypto,
 		traits::Verify,
-		MultiSignature, MultiSigner,
 	};
+	use crate::multi_primitives::*;
 	use crate::secp256r1;
 	app_crypto!(secp256r1, KEY_TYPE);
 
 	pub struct TestAuthId;
 
-	// impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
-	// 	type RuntimeAppPublic = Public;
-	// 	type GenericSignature = secp256r1::Signature;
-	// 	type GenericPublic = secp256r1::Public;
-	// }
+	impl frame_system::offchain::AppCrypto<AcurastMultiSigner, AcurastMultiSignature> for TestAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = secp256r1::Signature;
+		type GenericPublic = secp256r1::Public;
+	}
 
 	// implemented for mock runtime in test
 	impl frame_system::offchain::AppCrypto<<secp256r1::Signature as Verify>::Signer, secp256r1::Signature>

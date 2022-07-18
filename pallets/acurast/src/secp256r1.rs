@@ -477,3 +477,33 @@ impl RuntimePublic for Public {
 		todo!()
 	}
 }
+
+
+mod app {
+	use super::KeyTypeId;
+	sp_application_crypto::app_crypto!(super, KeyTypeId(*b"t256"));
+
+	impl sp_application_crypto::BoundToRuntimeAppPublic for Public {
+		type Public = Self;
+	}
+}
+
+pub use app::Pair as AppPair;
+pub use app::{Public as AppPublic, Signature as AppSignature};
+
+impl sp_runtime::traits::IdentifyAccount for Public {
+	type AccountId = Self;
+	fn into_account(self) -> Self {
+		self
+	}
+}
+
+impl sp_runtime::traits::Verify for Signature {
+	type Signer = Public;
+
+	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &Public) -> bool {
+		// sp_io::crypto::sr25519_verify(self, msg.get(), signer)
+		todo!()
+	}
+}
+

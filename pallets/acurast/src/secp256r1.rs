@@ -1,23 +1,20 @@
 //! ECDSA secp256r1 API.
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::ecdsa::DeriveError;
-use sp_runtime_interface::pass_by::PassByInner;
 use sp_core::crypto::Ss58Codec;
+use sp_core::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic};
+use sp_core::ecdsa::DeriveError;
 use sp_runtime::app_crypto::{CryptoTypePublicPair, RuntimePublic, UncheckedFrom};
 use sp_runtime::{CryptoTypeId, KeyTypeId};
-use sp_core::crypto::{
-	ByteArray, CryptoType, Derive, Public as TraitPublic,
-};
+use sp_runtime_interface::pass_by::PassByInner;
 
 use sp_core::{
 	crypto::{DeriveJunction, Pair as TraitPair, SecretStringError},
-	hashing::blake2_256, H256
+	hashing::blake2_256,
+	H256,
 };
 
-use p256::{
-	PublicKey, SecretKey, EncodedPoint, ecdsa::{SigningKey}
-};
+use p256::{ecdsa::SigningKey, EncodedPoint, PublicKey, SecretKey};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sp_std::vec::Vec;
 
@@ -44,7 +41,7 @@ use bip39::{Language, Mnemonic, MnemonicType};
 	PartialEq,
 	PartialOrd,
 	Ord,
-	Hash
+	Hash,
 )]
 pub struct Public(pub [u8; 33]);
 
@@ -61,28 +58,28 @@ impl Public {
 	///
 	/// This will convert the full public key into the compressed format.
 	pub fn from_full(full: &[u8]) -> Result<Self, p256::elliptic_curve::Error> {
-        let pubkey_conversion = if full.len() == 64 {
-            // Tag it as uncompressed public key.
-            let mut tagged_full = [0u8; 65];
-            tagged_full[0] = 0x04;
-            tagged_full[1..].copy_from_slice(full);
-            PublicKey::from_sec1_bytes(&tagged_full)
-        } else {
-            PublicKey::from_sec1_bytes(full)
-        };
-        // return Err if conversion from bytes is unsuccessful
+		let pubkey_conversion = if full.len() == 64 {
+			// Tag it as uncompressed public key.
+			let mut tagged_full = [0u8; 65];
+			tagged_full[0] = 0x04;
+			tagged_full[1..].copy_from_slice(full);
+			PublicKey::from_sec1_bytes(&tagged_full)
+		} else {
+			PublicKey::from_sec1_bytes(full)
+		};
+		// return Err if conversion from bytes is unsuccessful
 
-        match pubkey_conversion {
-            Err(e) => Err(e),
+		match pubkey_conversion {
+			Err(e) => Err(e),
 
-            Ok(pubkey) => {
-                let encoded_point = EncodedPoint::from(pubkey);
-                let compressed_point = encoded_point.compress();
-                let compressed_array = compressed_point.as_bytes().try_into().unwrap();
-                
-                Ok(Public(compressed_array))	// return Ok if successfull
-            }
-        }
+			Ok(pubkey) => {
+				let encoded_point = EncodedPoint::from(pubkey);
+				let compressed_point = encoded_point.compress();
+				let compressed_array = compressed_point.as_bytes().try_into().unwrap();
+
+				Ok(Public(compressed_array)) // return Ok if successfull
+			},
+		}
 	}
 
 	/// A new instance from an H256.
@@ -97,9 +94,6 @@ impl Public {
 		// TODO: should we chose one side of the curve here?
 		Public(public_bytes)
 	}
-
-		
-
 }
 
 impl ByteArray for Public {
@@ -147,7 +141,7 @@ impl TryFrom<&[u8]> for Public {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != Self::LEN {
-			return Err(())
+			return Err(());
 		}
 		let mut r = [0u8; Self::LEN];
 		r.copy_from_slice(data);
@@ -156,25 +150,25 @@ impl TryFrom<&[u8]> for Public {
 }
 
 impl TryFrom<AcurastMultiSignature> for Signature {
-    type Error = ();
+	type Error = ();
 
-    fn try_from(value: AcurastMultiSignature) -> Result<Self, Self::Error> {
-        match value {
-            AcurastMultiSignature::Primitive(_) => Err(()),
-            AcurastMultiSignature::P256(val) => Ok(val),
-        }
-    }
+	fn try_from(value: AcurastMultiSignature) -> Result<Self, Self::Error> {
+		match value {
+			AcurastMultiSignature::Primitive(_) => Err(()),
+			AcurastMultiSignature::P256(val) => Ok(val),
+		}
+	}
 }
 
 impl TryFrom<AcurastMultiSigner> for Public {
-    type Error = ();
+	type Error = ();
 
-    fn try_from(value: AcurastMultiSigner) -> Result<Self, Self::Error> {
-        match value {
-            AcurastMultiSigner::Primitive(_) => Err(()),
-            AcurastMultiSigner::P256(val) => Ok(val),
-        }
-    }
+	fn try_from(value: AcurastMultiSigner) -> Result<Self, Self::Error> {
+		match value {
+			AcurastMultiSigner::Primitive(_) => Err(()),
+			AcurastMultiSigner::P256(val) => Ok(val),
+		}
+	}
 }
 
 impl From<Pair> for Public {
@@ -320,7 +314,6 @@ impl UncheckedFrom<[u8; 65]> for Signature {
 	}
 }
 
-
 /// A key pair.
 #[derive(Clone)]
 pub struct Pair {
@@ -342,8 +335,8 @@ impl TraitPair for Pair {
 	type Seed = Seed;
 	type Signature = Signature;
 	type DeriveError = DeriveError;
-	
-	// Using default fn generate() 
+
+	// Using default fn generate()
 
 	/// Generate new secure (random) key pair and provide the recovery phrase.
 	///
@@ -379,20 +372,21 @@ impl TraitPair for Pair {
 	fn from_seed(seed: &Seed) -> Pair {
 		Self::from_seed_slice(&seed[..]).expect("seed has valid length; qed")
 	}
-	
+
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
 	///
 	/// You should never need to use this; generate(), generate_with_phrase
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Pair, SecretStringError> {
-		let secret = SecretKey::from_be_bytes(seed_slice).expect("NistP256 Secretkey converison not possible");
+		let secret = SecretKey::from_be_bytes(seed_slice)
+			.expect("NistP256 Secretkey converison not possible");
 		let public = secret.public_key();
 		let pub_bytes = {
 			let encoded_point = EncodedPoint::from(public);
 			let compressed_point = encoded_point.compress();
 			compressed_point.as_bytes().try_into().unwrap()
 		};
-		Ok(Pair {public: Public(pub_bytes), secret})
+		Ok(Pair { public: Public(pub_bytes), secret })
 	}
 
 	/// Derive a child key from a series of given junctions.
@@ -424,7 +418,7 @@ impl TraitPair for Pair {
 		// Signature(*p256_signinature.as_ref().try_into().expect("couldn't convert into 64 byte array"))
 		let sig_vec = p256_signature.to_vec();
 		let signature: Self::Signature = (&sig_vec[..]).try_into().unwrap();
-		return signature
+		return signature;
 	}
 
 	/// Verify a signature on a message. Returns true if the signature is good.
@@ -432,37 +426,38 @@ impl TraitPair for Pair {
 		use p256::ecdsa::VerifyingKey;
 		let public_key = match PublicKey::from_sec1_bytes(pubkey.as_ref()) {
 			Ok(pk) => pk,
-			Err(_) => return false
+			Err(_) => return false,
 		};
 
 		let verifying_key = VerifyingKey::from(public_key);
 
 		let signature = match p256::ecdsa::Signature::try_from(sig.as_ref()) {
 			Ok(sign) => sign,
-			Err(_) => return false
+			Err(_) => return false,
 		};
 
-		match p256::ecdsa::signature::Verifier::verify(&verifying_key, message.as_ref(), &signature) {
+		match p256::ecdsa::signature::Verifier::verify(&verifying_key, message.as_ref(), &signature)
+		{
 			Ok(_) => return true,
-			_ => return false
+			_ => return false,
 		}
 	}
-	
+
 	/// Verify a signature on a message. Returns true if the signature is good.
 	///
 	/// This doesn't use the type system to ensure that `sig` and `pubkey` are the correct
 	/// size. Use it only if you're coming from byte buffers and need the speed.
 	fn verify_weak<P: AsRef<[u8]>, M: AsRef<[u8]>>(sig: &[u8], message: M, pubkey: P) -> bool {
 		// TODO: weak version, for now use normal verify
-		let signature = match Self::Signature::try_from(sig){
+		let signature = match Self::Signature::try_from(sig) {
 			Err(_) => return false,
-			Ok(sign) => sign
+			Ok(sign) => sign,
 		};
-		let public = match Self::Public::try_from(pubkey.as_ref()){
+		let public = match Self::Public::try_from(pubkey.as_ref()) {
 			Err(_) => return false,
-			Ok(pk) => pk
+			Ok(pk) => pk,
 		};
-		
+
 		Self::verify(&signature, message, &public)
 	}
 
@@ -488,7 +483,6 @@ impl Pair {
 			Self::from_seed(&padded_seed)
 		})
 	}
-
 }
 
 // we require access to keystore because the implemented methods don't work on new algorithms.
@@ -522,10 +516,9 @@ impl RuntimePublic for Public {
 	}
 }
 
-
 mod app {
 	use super::KeyTypeId;
-	sp_application_crypto::app_crypto!(super, KeyTypeId(*b"t256"));
+	sp_application_crypto::app_crypto!(super, KeyTypeId(*b"p256"));
 
 	impl sp_application_crypto::BoundToRuntimeAppPublic for Public {
 		type Public = Self;
@@ -552,4 +545,3 @@ impl sp_runtime::traits::Verify for Signature {
 		todo!()
 	}
 }
-

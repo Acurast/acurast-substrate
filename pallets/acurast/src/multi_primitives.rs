@@ -3,8 +3,8 @@ pub use acurast_multi_signer::*;
 
 mod acurast_multi_signature {
 
-	use crate::secp256r1;
 	use sp_application_crypto::ByteArray;
+	use sp_core::secp256r1;
 	use sp_runtime::{
 		app_crypto::{ecdsa, ed25519, sr25519},
 		MultiSignature,
@@ -66,6 +66,17 @@ mod acurast_multi_signature {
 			}
 		}
 	}
+
+	impl TryFrom<AcurastMultiSignature> for secp256r1::Signature {
+		type Error = ();
+
+		fn try_from(value: AcurastMultiSignature) -> Result<Self, Self::Error> {
+			match value {
+				AcurastMultiSignature::Primitive(_) => Err(()),
+				AcurastMultiSignature::P256(val) => Ok(val),
+			}
+		}
+	}
 }
 
 mod acurast_multi_signer {
@@ -74,8 +85,8 @@ mod acurast_multi_signer {
 		MultiSigner,
 	};
 
-	use crate::secp256r1;
 	use sp_core::crypto::AccountId32;
+	use sp_core::secp256r1;
 
 	/// Public key for any known crypto algorithm.
 	#[derive(
@@ -151,6 +162,17 @@ mod acurast_multi_signer {
 			match *self {
 				Self::Primitive(ref p) => p.fmt(fmt),
 				Self::P256(ref p) => write!(fmt, "p256: {}", p),
+			}
+		}
+	}
+
+	impl TryFrom<AcurastMultiSigner> for secp256r1::Public {
+		type Error = ();
+
+		fn try_from(value: AcurastMultiSigner) -> Result<Self, Self::Error> {
+			match value {
+				AcurastMultiSigner::Primitive(_) => Err(()),
+				AcurastMultiSigner::P256(val) => Ok(val),
 			}
 		}
 	}

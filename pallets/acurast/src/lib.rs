@@ -11,12 +11,11 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"acrt");
 
 // #[cfg(feature = "full_crypto")]
 pub mod multi_primitives;
-pub mod secp256r1;
 
 pub mod crypto {
 	use super::KEY_TYPE;
 	use crate::multi_primitives::*;
-	use crate::secp256r1;
+	use sp_core::secp256r1;
 	use sp_runtime::{app_crypto::app_crypto, traits::Verify};
 	app_crypto!(secp256r1, KEY_TYPE);
 

@@ -109,7 +109,9 @@ mod acurast_multi_signer {
 	/// we convert the hash into some AccountId, it's fine to use any scheme.
 	impl<T: Into<sp_core::H256>> sp_core::crypto::UncheckedFrom<T> for AcurastMultiSigner {
 		fn unchecked_from(x: T) -> Self {
-			AcurastMultiSigner::P256(secp256r1::Public::unchecked_from(x.into()))
+			AcurastMultiSigner::Primitive(MultiSigner::Sr25519(sr25519::Public::unchecked_from(
+				x.into(),
+			)))
 		}
 	}
 

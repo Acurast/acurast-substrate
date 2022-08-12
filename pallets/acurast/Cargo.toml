@@ -28,6 +28,7 @@ sp-io = { git = "https://github.com/paritytech/substrate", default-features = fa
 
 [dev-dependencies]
 serde = { version = "1.0.132" }
+hex = "0.4"
 
 # Substrate
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }

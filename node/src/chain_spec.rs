@@ -3,7 +3,7 @@ use parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOS
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{ecdsa, ed25519, secp256r1, sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
@@ -64,7 +64,7 @@ pub fn template_session_keys(keys: AuraId) -> parachain_template_runtime::Sessio
 pub fn development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
+	properties.insert("tokenSymbol".into(), "ACRST".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -108,7 +108,7 @@ pub fn development_config() -> ChainSpec {
 		None,
 		None,
 		None,
-		None,
+		Some(properties),
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: 1000,
@@ -119,7 +119,7 @@ pub fn development_config() -> ChainSpec {
 pub fn local_testnet_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
+	properties.insert("tokenSymbol".into(), "ACRST".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -217,5 +217,34 @@ fn testnet_genesis(
 		polkadot_xcm: parachain_template_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use hex;
+	use sp_core::blake2_256;
+	use sp_runtime::app_crypto::Ss58Codec;
+
+	use super::*;
+
+	#[test]
+	fn test_account() {
+		let seed = "Test";
+		let pair = secp256r1::Pair::from_string(&format!("//{}", seed), None)
+			.expect("static values are valid; qed");
+		let pub_key = get_public_from_seed::<secp256r1::Public>(seed);
+		dbg!(pub_key);
+		let account_secp256r1 = get_account_id_from_seed::<secp256r1::Public>(seed);
+		dbg!(account_secp256r1.to_ss58check());
+
+		let mut payload = hex::decode("0a000090b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22070010a5d4e85500000001000000010000005cfdeae7470e90b39af86e693284ba495c890a970af063e11316d42fe1b2c539d5828168a2e0a34d4fc7902c5817b5e135576e56cf962a65ab742fdc35e02cb0").expect("Decode Hex string");
+		if payload.len() > 256 {
+			payload = blake2_256(&payload).to_vec();
+		}
+		dbg!(hex::encode(&payload));
+		let signature = pair.sign(&payload);
+		assert!(secp256r1::Pair::verify(&signature, &payload, &pair.public()));
+		dbg!(signature);
 	}
 }

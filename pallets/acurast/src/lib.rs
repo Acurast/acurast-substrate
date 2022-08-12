@@ -9,37 +9,6 @@ use sp_core::crypto::KeyTypeId;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"acrt");
 
-// #[cfg(feature = "full_crypto")]
-pub mod multi_primitives;
-
-pub mod crypto {
-	use super::KEY_TYPE;
-	use crate::multi_primitives::*;
-	use sp_core::secp256r1;
-	use sp_runtime::{app_crypto::app_crypto, traits::Verify};
-	app_crypto!(secp256r1, KEY_TYPE);
-
-	pub struct TestAuthId;
-
-	impl frame_system::offchain::AppCrypto<AcurastMultiSigner, AcurastMultiSignature> for TestAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = secp256r1::Signature;
-		type GenericPublic = secp256r1::Public;
-	}
-
-	// implemented for mock runtime in test
-	impl
-		frame_system::offchain::AppCrypto<
-			<secp256r1::Signature as Verify>::Signer,
-			secp256r1::Signature,
-		> for TestAuthId
-	{
-		type RuntimeAppPublic = Public;
-		type GenericSignature = secp256r1::Signature;
-		type GenericPublic = secp256r1::Public;
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};

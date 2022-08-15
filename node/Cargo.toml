@@ -1,5 +1,5 @@
 [package]
-name = "parachain-template-node"
+name = "acurast-node"
 version = "0.1.0"
 authors = ["Anonymous"]
 description = "A new Cumulus FRAME-based Substrate Node, ready for hacking together a parachain."
@@ -23,7 +23,7 @@ hex-literal = "0.3.4"
 jsonrpsee = { version = "0.13.1", features = ["server"] }
 
 # Local
-parachain-template-runtime = { path = "../runtime" }
+acurast-runtime = { path = "../runtime" }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.23" }
@@ -91,7 +91,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/substrate"
 [features]
 default = []
 runtime-benchmarks = [
-	"parachain-template-runtime/runtime-benchmarks",
+	"acurast-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
-try-runtime = ["parachain-template-runtime/try-runtime"]
+try-runtime = ["acurast-runtime/try-runtime"]

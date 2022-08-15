@@ -14,6 +14,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+substrate-bip39 = { version = "0.4.4", optional = true }
+tiny-bip39 = { version = "0.8.2", optional = true }
+serde = { version = "1.0.136", optional = true, features = ["derive"] }
+p256 = { version = "0.10.1", default-features = false, features = ["ecdsa", "sha256"] }
+hex = { version = "0.4", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.23" }
@@ -25,6 +30,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.23" }
+log = { version = "0.4.17", default-features = false }
 
 [dev-dependencies]
 serde = { version = "1.0.132" }
@@ -35,13 +41,29 @@ sp-io = { git = "https://github.com/paritytech/substrate", default-features = fa
 
 
 [features]
-default = ["std"]
+default = ["std", "full_crypto"]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 std = [
+	"full_crypto",
 	"codec/std",
 	"scale-info/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"substrate-bip39",
+	"tiny-bip39",
+	"serde",
+	"p256/std",
+	"hex/std",
+	"log/std",
+	"sp-core/std",
+	"sp-application-crypto/std"
 ]
 try-runtime = [ "frame-support/try-runtime" ]
+full_crypto = [
+	"sp-core/full_crypto",
+	# Don't add `panic_handler` and `alloc_error_handler` since they are expected to be provided
+	# by the user anyway.
+	"sp-io/disable_panic_handler",
+	"sp-io/disable_oom",
+]

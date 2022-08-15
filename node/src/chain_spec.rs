@@ -1,14 +1,13 @@
+use acurast_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 use cumulus_primitives_core::ParaId;
-use parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{ecdsa, ed25519, secp256r1, sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec =
-	sc_service::GenericChainSpec<parachain_template_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -57,8 +56,8 @@ where
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn template_session_keys(keys: AuraId) -> parachain_template_runtime::SessionKeys {
-	parachain_template_runtime::SessionKeys { aura: keys }
+pub fn template_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
+	acurast_runtime::SessionKeys { aura: keys }
 }
 
 pub fn development_config() -> ChainSpec {
@@ -181,23 +180,23 @@ fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> parachain_template_runtime::GenesisConfig {
-	parachain_template_runtime::GenesisConfig {
-		system: parachain_template_runtime::SystemConfig {
-			code: parachain_template_runtime::WASM_BINARY
+) -> acurast_runtime::GenesisConfig {
+	acurast_runtime::GenesisConfig {
+		system: acurast_runtime::SystemConfig {
+			code: acurast_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 		},
-		balances: parachain_template_runtime::BalancesConfig {
+		balances: acurast_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		parachain_info: parachain_template_runtime::ParachainInfoConfig { parachain_id: id },
-		collator_selection: parachain_template_runtime::CollatorSelectionConfig {
+		parachain_info: acurast_runtime::ParachainInfoConfig { parachain_id: id },
+		collator_selection: acurast_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
 			..Default::default()
 		},
-		session: parachain_template_runtime::SessionConfig {
+		session: acurast_runtime::SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
@@ -214,37 +213,8 @@ fn testnet_genesis(
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		polkadot_xcm: parachain_template_runtime::PolkadotXcmConfig {
+		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use hex;
-	use sp_core::blake2_256;
-	use sp_runtime::app_crypto::Ss58Codec;
-
-	use super::*;
-
-	#[test]
-	fn test_account() {
-		let seed = "Test";
-		let pair = secp256r1::Pair::from_string(&format!("//{}", seed), None)
-			.expect("static values are valid; qed");
-		let pub_key = get_public_from_seed::<secp256r1::Public>(seed);
-		dbg!(pub_key);
-		let account_secp256r1 = get_account_id_from_seed::<secp256r1::Public>(seed);
-		dbg!(account_secp256r1.to_ss58check());
-
-		let mut payload = hex::decode("0a000090b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22070010a5d4e85500000001000000010000005cfdeae7470e90b39af86e693284ba495c890a970af063e11316d42fe1b2c539d5828168a2e0a34d4fc7902c5817b5e135576e56cf962a65ab742fdc35e02cb0").expect("Decode Hex string");
-		if payload.len() > 256 {
-			payload = blake2_256(&payload).to_vec();
-		}
-		dbg!(hex::encode(&payload));
-		let signature = pair.sign(&payload);
-		assert!(secp256r1::Pair::verify(&signature, &payload, &pair.public()));
-		dbg!(signature);
 	}
 }

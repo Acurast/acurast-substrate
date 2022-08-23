@@ -9,6 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
+use acurast_p256_crypto::MultiSignature;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -16,7 +17,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult,
 };
 
 use sp_std::prelude::*;
@@ -54,7 +55,7 @@ use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
 /// Import the template pallet.
-pub use pallet_template;
+pub use pallet_acurast;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -169,8 +170,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("template-parachain"),
-	impl_name: create_runtime_str!("template-parachain"),
+	spec_name: create_runtime_str!("acurast"),
+	impl_name: create_runtime_str!("acurast"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -305,6 +306,7 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const IsRelay: bool = false;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -374,6 +376,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
+	type CheckAssociatedRelayNumber = cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -452,8 +455,24 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 /// Configure the pallet template in pallets/template.
-impl pallet_template::Config for Runtime {
+impl pallet_acurast::Config for Runtime {
 	type Event = Event;
+	type RegistrationPayload = ();
+	type FulfillmentRouter = FulfillmentRouter;
+}
+
+pub struct FulfillmentRouter;
+impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
+	fn received_fulfillment(
+		from: <Runtime as frame_system::Config>::AccountId,
+		_fulfillment: pallet_acurast::Fulfillment,
+		_registration: pallet_acurast::Registration<
+			<Runtime as pallet_acurast::Config>::RegistrationPayload,
+		>,
+		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
+	) {
+		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
+	}
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -489,7 +508,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Template
-		TemplatePallet: pallet_template::{Pallet, Call, Storage, Event<T>}  = 40,
+		AcurastPallet: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 );
 
@@ -619,7 +638,7 @@ impl_runtime_apis! {
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade() -> (Weight, Weight) {
-			log::info!("try-runtime::on_runtime_upgrade parachain-template.");
+			log::info!("try-runtime::on_runtime_upgrade acurast.");
 			let weight = Executive::try_runtime_upgrade().unwrap();
 			(weight, RuntimeBlockWeights::get().max_block)
 		}

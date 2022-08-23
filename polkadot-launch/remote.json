@@ -1,0 +1,34 @@
+{
+	"relaychain": {
+		"chain": "atera-local",
+		"nodes": [
+			{
+                "host": "validator-1.atera.papers.tech",
+                "ip": "167.235.71.125",
+                "privateKeyPath": "secrets/id_ed25519",
+				"name": "alice"
+			},
+			{
+                "host": "validator-2.atera.papers.tech",
+                "ip": "195.201.229.243",
+                "privateKeyPath": "secrets/id_ed25519",
+				"name": "bob"
+			}
+		]
+	},
+	"parachains": [
+		{
+            "chain": "atera-dev",
+			"nodes": [
+				{
+                    "host": "collator-1.acurast.papers.tech",
+                    "ip": "167.235.129.124",
+                    "privateKeyPath": "secrets/id_ed25519",
+					"name": "alice"
+				}
+			]
+		}
+	],
+	"types": {},
+	"finalization": true
+}

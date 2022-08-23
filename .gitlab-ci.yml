@@ -3,8 +3,8 @@ include:
     file: '/.base-gitlab-ci.yml'
 
 variables:
-  CLI_TAG_PROD: eu.gcr.io/papers-kubernetes/papers/atera/polkadot-launch:latest
-  CLI_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/papers/atera/polkadot-launch:latest
+  CLI_TAG_PROD: eu.gcr.io/papers-kubernetes/papers/atera-association/polkadot-launch:latest
+  CLI_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/papers/atera-association/polkadot-launch:latest
 
 stages:
   - build

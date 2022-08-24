@@ -36,8 +36,8 @@ deploy-dev:
     # the cli was specifically adapted to support loading all files from stdin (separated by blank line as documented in --help)
     # mounting config/secret files (with 'docker run -v') is not possible because the runner and dind container don't share the same host environment
     - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote.json > tmp
-    - docker run --rm -i $CLI_TAG cli.js deploy --no-r -k < tmp
-    - docker run --rm -i $CLI_TAG cli.js register -k < tmp
+    - docker run --pull=always --rm -i $CLI_TAG cli.js deploy --no-r -t $CI_COMMIT_SHA -k < tmp
+    - docker run --pull=always --rm -i $CLI_TAG cli.js register -t $CI_COMMIT_SHA -k < tmp
     - rm tmp
   environment: development
 
@@ -54,8 +54,8 @@ deploy-with-relay-dev:
     # the cli was specifically adapted to support loading all files from stdin (separated by blank line as documented in --help)
     # mounting config/secret files (with 'docker run -v') is not possible because the runner and dind container don't share the same host environment
     - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote.json > tmp
-    - docker run --rm -i $CLI_TAG cli.js deploy -k < tmp
-    - docker run --rm -i $CLI_TAG cli.js register -k < tmp
+    - docker run --pull=always --rm -i $CLI_TAG cli.js deploy -t $CI_COMMIT_SHA -k < tmp
+    - docker run --pull=always --rm -i $CLI_TAG cli.js register -t $CI_COMMIT_SHA -k < tmp
     - rm tmp
   environment: development
 

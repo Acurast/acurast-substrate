@@ -3,10 +3,8 @@ pub mod p256 {
 	use bip39::{Language, Mnemonic, MnemonicType};
 	use codec::{Decode, Encode, MaxEncodedLen};
 
-	#[cfg(feature = "full_crypto")]
-	use p256::ecdsa::{signature::Signer, SigningKey};
 	use p256::{
-		ecdsa::{signature::Verifier, VerifyingKey},
+		ecdsa::{recoverable, signature::Signer, SigningKey, VerifyingKey},
 		EncodedPoint, PublicKey, SecretKey,
 	};
 	use scale_info::TypeInfo;
@@ -76,7 +74,7 @@ pub mod p256 {
 
 		fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 			if data.len() != Self::LEN {
-				return Err(());
+				return Err(())
 			}
 			let mut r = [0u8; Self::LEN];
 			r.copy_from_slice(data);
@@ -179,6 +177,15 @@ pub mod p256 {
 	#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 	pub struct Signature(pub [u8; 65]);
 
+	impl TryFrom<recoverable::Signature> for Signature {
+		type Error = ();
+
+		fn try_from(data: recoverable::Signature) -> Result<Self, Self::Error> {
+			let signature_bytes = p256::ecdsa::signature::Signature::as_bytes(&data);
+			Signature::try_from(signature_bytes)
+		}
+	}
+
 	impl TryFrom<&[u8]> for Signature {
 		type Error = ();
 
@@ -275,23 +282,21 @@ pub mod p256 {
 		type Signer = Public;
 
 		fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &Self::Signer) -> bool {
-			let message = msg.get();
-			let signature_bytes: &[u8] = self.as_ref();
-			let maybe_public_key = PublicKey::from_sec1_bytes(signer.as_ref());
-			let public_key = match maybe_public_key {
-				Ok(pk) => pk,
-				Err(_) => return false,
-			};
+			match PublicKey::from_sec1_bytes(signer.as_ref()) {
+				Ok(public_key) => {
+					let message = msg.get();
+					let signature_bytes: &[u8] = self.as_ref();
+					let verifying_key = VerifyingKey::from(public_key);
+					let verifying_key_from_signature =
+						recoverable::Signature::try_from(signature_bytes.as_ref())
+							.unwrap()
+							.recover_verify_key(message)
+							.unwrap();
 
-			let verifying_key = VerifyingKey::from(public_key);
-			let maybe_signature = p256::ecdsa::Signature::try_from(signature_bytes[1..].as_ref());
-
-			let signature = match maybe_signature {
-				Ok(sign) => sign,
-				Err(_) => return false,
-			};
-
-			verifying_key.verify(message, &signature).is_ok()
+					verifying_key == verifying_key_from_signature
+				},
+				Err(_) => false,
+			}
 		}
 	}
 
@@ -426,10 +431,9 @@ pub mod p256 {
 		/// Sign a message.
 		fn sign(&self, message: &[u8]) -> Signature {
 			let key = SigningKey::from(&self.secret);
-			let p256_signature = key.sign(message);
-			let sig_vec = [&self.public.0[0..1], &p256_signature.to_vec()].concat();
-			let signature: Signature = (&sig_vec[..]).try_into().unwrap();
-			return signature;
+			let p256_signature: recoverable::Signature = key.sign(message);
+
+			Signature::try_from(p256_signature).expect("invalid signature")
 		}
 
 		/// Verify a signature on a message. Returns true if the signature is good.
@@ -482,5 +486,103 @@ pub mod p256 {
 				Self::from_seed(&padded_seed)
 			})
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::application_crypto::p256::Pair;
+	use hex_literal::hex;
+	use sp_application_crypto::DeriveJunction;
+	use sp_core::{
+		crypto::{Pair as TraitPair, DEV_PHRASE},
+		hashing::blake2_256,
+	};
+	use sp_runtime::AccountId32;
+
+	fn build_dummy_pair() -> Pair {
+		let seed = "Test";
+		Pair::from_string(&format!("//{}", seed), None).expect("static values are valid; qed")
+	}
+
+	#[test]
+	fn generate_account_id() {
+		let pair = build_dummy_pair();
+
+		let account_id: AccountId32 = blake2_256(pair.get_public().as_ref()).into();
+		assert_eq!("5CahxeGW24hPXsUTZsiiBgsuBbsQqga8oY6ai4uKMm5X4wym", account_id.to_string());
+	}
+
+	#[test]
+	fn test_account() {
+		let pair = build_dummy_pair();
+
+		let payload = hex!("0a000090b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22070010a5d4e84502000001000000010000003ce9390c8bd3361b348592b2c3008ece6c530e415821abb9759215e8dc83f0490e70b9cbbbcd07a80821fd7dfca9c93ae922688b37a484d5fd68dedcc2cabaa5");
+
+		let signature = pair.sign(&payload);
+		assert!(Pair::verify(&signature, &payload, &pair.public()));
+	}
+
+	#[test]
+	fn default_phrase_should_be_used() {
+		assert_eq!(
+			Pair::from_string("//Alice///password", None).unwrap().public(),
+			Pair::from_string(&format!("{}//Alice", DEV_PHRASE), Some("password"))
+				.unwrap()
+				.public(),
+		);
+	}
+
+	#[test]
+	fn seed_and_derive_should_work() {
+		let seed = hex!("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+		let pair = Pair::from_seed(&seed);
+		assert_eq!(pair.seed(), seed);
+		let path = vec![DeriveJunction::Hard([0u8; 32])];
+		let derived = pair.derive(path.into_iter(), None).ok().unwrap();
+		assert_eq!(
+			derived.0.seed(),
+			hex!("6188237fc80465cd043c58ac7623eaefa9f4db5ce8dee2cd00c6458c5303cf30")
+		);
+	}
+
+	#[test]
+	fn test_vector_should_work() {
+		let seed = hex!("f67b03b2c6e4bf86cce50298dbce351b332c3be65ced9f312b6d9ffc3de6b04f");
+		let pair = Pair::from_seed(&seed);
+		let public = pair.public();
+
+		let public_key_bytes =
+			hex!("02c156afee1ce52ef83a0dd168c1144eb20008697e6664fa132ba23c128cce8055");
+		assert_eq!(public, p256::Public::from_raw(public_key_bytes),);
+		let message = b"".to_vec();
+
+		let signature = hex!("696e710fc4516d0a2ba91162777b5f0a4d0e9849a6121a4bae00a0d2df70b5d2ef6e26b0191024872aa22530ed3bef47cd8b0c635e659c79a4cc4a1533013b9c01");
+		let signature = p256::Signature(signature);
+
+		assert!(pair.sign(&message[..]) == signature);
+		assert!(Pair::verify(&signature, &message[..], &public));
+	}
+
+	#[test]
+	fn test_vector_by_string_should_work() {
+		let pair = Pair::from_string(
+			"0xf67b03b2c6e4bf86cce50298dbce351b332c3be65ced9f312b6d9ffc3de6b04f",
+			None,
+		)
+		.unwrap();
+		let public = pair.public();
+		assert_eq!(
+			public,
+			p256::Public::from_raw(hex!(
+				"02c156afee1ce52ef83a0dd168c1144eb20008697e6664fa132ba23c128cce8055"
+			)),
+		);
+		let message = b"";
+		let signature = hex!("696e710fc4516d0a2ba91162777b5f0a4d0e9849a6121a4bae00a0d2df70b5d2ef6e26b0191024872aa22530ed3bef47cd8b0c635e659c79a4cc4a1533013b9c01");
+		let signature = p256::Signature(signature);
+		assert!(pair.sign(&message[..]) == signature);
+		assert!(Pair::verify(&signature, &message[..], &public));
 	}
 }

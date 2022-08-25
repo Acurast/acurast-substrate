@@ -11,15 +11,20 @@ scale-info = { version = "2.0.0", default-features = false, features = ["derive"
 substrate-bip39 = { version = "0.4.4", optional = true }
 tiny-bip39 = { version = "0.8.2", optional = true }
 serde = { version = "1.0.136", optional = true, features = ["derive"] }
-p256 = { version = "0.10.1", default-features = false, features = ["ecdsa", "sha256"] }
 hex = { version = "0.4", default-features = false }
 
+p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, branch = "p256/v0.10.1", features = ["ecdsa", "sha256"] }
+
 # Substrate
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
 sp-runtime-interface = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.25" }
+
+[dev-dependencies]
+hex-literal = "0.3"
 
 [features]
 default = ["std", "full_crypto"]

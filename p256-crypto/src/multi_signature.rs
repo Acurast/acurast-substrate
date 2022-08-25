@@ -1,14 +1,15 @@
-use crate::core::p256::{Public, Signature};
 use codec::{Decode, Encode, MaxEncodedLen};
+
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_application_crypto::ByteArray;
 use sp_core::{crypto::UncheckedFrom, ecdsa, ed25519, sr25519, RuntimeDebug, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, Lazy, Verify},
 	AccountId32, MultiSignature as SPMultiSignature, MultiSigner as SPMultiSigner,
 };
+
+use crate::application_crypto::p256::{Public, Signature};
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -140,13 +141,7 @@ impl IdentifyAccount for MultiSigner {
 				let msigner: SPMultiSigner = who.into();
 				msigner.into_account()
 			},
-			Self::P256(who) => {
-				let pub_key_bytes: [u8; 33] = who.into();
-				let mut account_bytes = [0u8; 32];
-				account_bytes.copy_from_slice(&pub_key_bytes[1..]);
-
-				account_bytes.into()
-			},
+			Self::P256(who) => sp_io::hashing::blake2_256(who.as_ref()).into(),
 		}
 	}
 }
@@ -233,7 +228,7 @@ impl std::fmt::Display for MultiSigner {
 
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
-	fn verify<L: Lazy<[u8]>>(&self, msg: L, signer: &AccountId32) -> bool {
+	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
 		match (self, signer) {
 			(Self::Ed25519(multi_sig), _) => {
 				let msig: SPMultiSignature = multi_sig.clone().into();
@@ -248,12 +243,14 @@ impl Verify for MultiSignature {
 				msig.verify(msg, signer)
 			},
 			(Self::P256(ref sig), who) => {
-				let signature_bytes: &[u8] = sig.as_ref();
-				let maybe_public_key =
-					Public::from_slice([&signature_bytes[0..1], who.as_ref()].concat().as_ref());
-				match maybe_public_key {
-					Ok(signer) => sig.verify(msg, &signer),
-					Err(()) => false,
+				match p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
+					.unwrap()
+					.recover_verify_key(&msg.get())
+				{
+					Ok(pubkey) =>
+						&sp_io::hashing::blake2_256(&pubkey.to_bytes().as_slice()) ==
+							<dyn AsRef<[u8; 32]>>::as_ref(who),
+					_ => false,
 				}
 			},
 		}

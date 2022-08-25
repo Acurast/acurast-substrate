@@ -84,12 +84,14 @@ name = "acurast-p256-crypto"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "hex-literal",
  "p256",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-application-crypto",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
  "sp-std",
@@ -5142,8 +5144,7 @@ dependencies = [
 [[package]]
 name = "p256"
 version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19736d80675fbe9fe33426268150b951a3fb8f5cfca2a23a17c85ef3adb24e3b"
+source = "git+https://github.com/Acurast/elliptic-curves?branch=p256/v0.10.1#4ecf0f5385ffd9554b3dfc13e3edb1de550a1a19"
 dependencies = [
  "ecdsa",
  "elliptic-curve",

@@ -457,7 +457,7 @@ impl pallet_collator_selection::Config for Runtime {
 /// Configure the pallet template in pallets/template.
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
-	type RegistrationPayload = ();
+	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 }
 
@@ -467,7 +467,7 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 		from: <Runtime as frame_system::Config>::AccountId,
 		_fulfillment: pallet_acurast::Fulfillment,
 		_registration: pallet_acurast::Registration<
-			<Runtime as pallet_acurast::Config>::RegistrationPayload,
+			<Runtime as pallet_acurast::Config>::RegistrationExtra,
 		>,
 		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
 	) {

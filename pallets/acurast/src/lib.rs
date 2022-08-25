@@ -18,7 +18,7 @@ pub mod pallet {
 		fn received_fulfillment(
 			from: T::AccountId,
 			fulfillment: Fulfillment,
-			registration: Registration<T::RegistrationPayload>,
+			registration: Registration<T::RegistrationExtra>,
 			requester: <T::Lookup as StaticLookup>::Target,
 		);
 	}
@@ -26,7 +26,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type RegistrationPayload: FullCodec
+		type RegistrationExtra: FullCodec
 			+ MaxEncodedLen
 			+ TypeInfo
 			+ Sized
@@ -52,7 +52,7 @@ pub mod pallet {
 		T: FullCodec + MaxEncodedLen + TypeInfo + Sized + Clone + PartialEq + Debug,
 	{
 		pub script: BoundedVec<u8, ConstU32<53>>,
-		pub payload: T,
+		pub extra: T,
 	}
 
 	#[pallet::storage]
@@ -63,19 +63,21 @@ pub mod pallet {
 		T::AccountId,
 		Blake2_128Concat,
 		BoundedVec<u8, ConstU32<53>>,
-		Registration<T::RegistrationPayload>,
+		Registration<T::RegistrationExtra>,
 	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A registration was successfully stored. [registration, who]
-		RegistrationStored(Registration<T::RegistrationPayload>, T::AccountId),
+		RegistrationStored(Registration<T::RegistrationExtra>, T::AccountId),
+		/// A registration was successfully removed. [registration, who]
+		RegistrationRemoved(BoundedVec<u8, ConstU32<53>>, T::AccountId),
 		/// A fulfillment has been posted. [who, fulfillment, registration, receiver]
 		ReceivedFulfillment(
 			T::AccountId,
 			Fulfillment,
-			Registration<T::RegistrationPayload>,
+			Registration<T::RegistrationExtra>,
 			T::AccountId,
 		),
 	}
@@ -94,7 +96,7 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn register(
 			origin: OriginFor<T>,
-			registration: Registration<T::RegistrationPayload>,
+			registration: Registration<T::RegistrationExtra>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			<StoredRegistration<T>>::insert(
@@ -103,6 +105,17 @@ pub mod pallet {
 				registration.clone(),
 			);
 			Self::deposit_event(Event::RegistrationStored(registration, who));
+			Ok(().into())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn deregister(
+			origin: OriginFor<T>,
+			script: BoundedVec<u8, ConstU32<53>>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			<StoredRegistration<T>>::remove(who.clone(), script.clone());
+			Self::deposit_event(Event::RegistrationRemoved(script, who));
 			Ok(().into())
 		}
 

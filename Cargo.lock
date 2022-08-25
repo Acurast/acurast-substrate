@@ -5144,7 +5144,7 @@ dependencies = [
 [[package]]
 name = "p256"
 version = "0.10.1"
-source = "git+https://github.com/Acurast/elliptic-curves?branch=p256/v0.10.1#4ecf0f5385ffd9554b3dfc13e3edb1de550a1a19"
+source = "git+https://github.com/Acurast/elliptic-curves?branch=p256/v0.10.1#da73fd4d8aad6bef73578df1ee6e8c6cf8dd15d0"
 dependencies = [
  "ecdsa",
  "elliptic-curve",

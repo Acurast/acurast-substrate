@@ -115,7 +115,7 @@ pub fn development_config() -> ChainSpec {
 	)
 }
 
-pub fn atera_development_config() -> ChainSpec {
+pub fn acurast_development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ACRST".into());

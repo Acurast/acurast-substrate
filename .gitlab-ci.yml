@@ -53,7 +53,7 @@ deploy-with-relay-dev:
     # what looks cumbersome is the only sane way to move files into a docker-in-docker (dind) container
     # the cli was specifically adapted to support loading all files from stdin (separated by blank line as documented in --help)
     # mounting config/secret files (with 'docker run -v') is not possible because the runner and dind container don't share the same host environment
-    - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote.json > tmp
+    - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote-with-atera.json > tmp
     - docker run --pull=always --rm -i $CLI_TAG cli.js deploy -k < tmp
     - docker run --pull=always --rm -i $CLI_TAG cli.js register -k < tmp
     - rm tmp

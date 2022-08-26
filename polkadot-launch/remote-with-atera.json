@@ -31,7 +31,19 @@
                     "name": "alice"
                 }
             ]
-        }
+        },
+        {
+            "chain": "local",
+            "imageName": "eu.gcr.io/papers-dev-kubernetes/papers/atera-association/atera-cumulus-parachain",
+			"nodes": [
+				{
+                    "host": "collator-1.atera.papers.tech",
+                    "ip": "195.201.220.16",
+                    "privateKeyPath": "secrets/id_ed25519",
+					"name": "alice"
+				}
+			]
+		}
     ],
     "types": {},
     "finalization": true

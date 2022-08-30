@@ -1,4 +1,4 @@
-# Acurast Parachain
+# Acurast Substrate
 
 ## Build
 

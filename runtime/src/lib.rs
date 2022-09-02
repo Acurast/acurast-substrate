@@ -459,19 +459,23 @@ impl pallet_acurast::Config for Runtime {
 	type Event = Event;
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
+	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 }
 
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	fn received_fulfillment(
+		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
 		from: <Runtime as frame_system::Config>::AccountId,
 		_fulfillment: pallet_acurast::Fulfillment,
 		_registration: pallet_acurast::Registration<
+			<Runtime as frame_system::Config>::AccountId,
 			<Runtime as pallet_acurast::Config>::RegistrationExtra,
 		>,
 		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
-	) {
+	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
 		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
+		Ok(().into())
 	}
 }
 
@@ -508,7 +512,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Template
-		AcurastPallet: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
+		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 );
 

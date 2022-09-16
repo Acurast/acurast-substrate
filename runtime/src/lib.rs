@@ -434,6 +434,7 @@ parameter_types! {
 	pub const SessionLength: BlockNumber = 6 * HOURS;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
+	pub Admins: Vec<AccountId> = vec![];
 }
 
 // We allow root only to execute privileged collator selection operations.
@@ -461,6 +462,7 @@ impl pallet_acurast::Config for Runtime {
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
+	type AllowedRevocationListUpdate = Admins;
 }
 
 pub struct FulfillmentRouter;
@@ -469,7 +471,7 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
 		from: <Runtime as frame_system::Config>::AccountId,
 		_fulfillment: pallet_acurast::Fulfillment,
-		_registration: pallet_acurast::Registration<
+		_registration: pallet_acurast::JobRegistration<
 			<Runtime as frame_system::Config>::AccountId,
 			<Runtime as pallet_acurast::Config>::RegistrationExtra,
 		>,

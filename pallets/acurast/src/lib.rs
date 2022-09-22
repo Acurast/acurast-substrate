@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod primitives;
+
 pub use pallet::*;
 
 #[frame_support::pallet]

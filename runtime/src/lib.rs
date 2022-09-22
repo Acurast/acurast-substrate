@@ -56,6 +56,7 @@ use xcm_executor::XcmExecutor;
 
 /// Import the template pallet.
 pub use pallet_acurast;
+use crate::xcm_config::XcmRouter;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -215,6 +216,11 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
+
+/// Charge fee for stored bytes and items.
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+	(items as Balance + bytes as Balance) * UNIT / 1_000_000
+}
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -509,8 +515,48 @@ construct_runtime!(
 
 		// Template
 		AcurastPallet: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
+		TestPallet: test_pallet::{Pallet, Call, Storage, Event<T>} = 41,
+		Assets: pallet_assets = 42,
+		// XcmAssets: pallet_xcm_assets::{Pallet, Call, Storage, Event<T>} = 43
 	}
 );
+
+impl test_pallet::Config for Runtime {
+	type Event = Event;
+	type Origin = Origin;
+	type XcmSender = XcmRouter;
+}
+
+pub type AssetId = u128;
+parameter_types! {
+    pub const AssetDeposit: Balance = 1_000_000;
+    pub const ApprovalDeposit: Balance = 1_000_000;
+    pub const AssetsStringLimit: u32 = 50;
+    /// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
+    // https://github.com/paritytech/substrate/blob/069917b/frame/assets/src/lib.rs#L257L271
+    pub const MetadataDepositBase: Balance = deposit(1, 68);
+    pub const MetadataDepositPerByte: Balance = deposit(0, 1);
+    pub const AssetAccountDeposit: Balance = deposit(1, 18);
+}
+
+pub type AssetBalance = parachains_common::Balance;
+
+impl pallet_assets::Config for Runtime {
+	type Event = Event;
+	type Balance = AssetBalance;
+	type AssetId = parachains_common::AssetId;
+	type Currency = Balances;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type AssetDeposit = AssetDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type AssetAccountDeposit = AssetAccountDeposit;
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = AssetsStringLimit;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

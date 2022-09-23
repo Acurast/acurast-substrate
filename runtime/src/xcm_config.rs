@@ -71,10 +71,43 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// Native signed account converter; this just converts an `AccountId32` origin into a normal
 	// `Origin::Signed` origin of the same 32-byte value.
 	SignedAccountId32AsNative<RelayNetwork, Origin>,
+
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+	SignedAccountId32FromXcm<Origin>,
+
 	XcmPassthrough<Origin>,
+
 );
 
+
+use frame_support::traits::{EnsureOrigin, Get, GetBacking, OriginTrait};
+use xcm_executor::traits::{Convert, ConvertOrigin};
+pub struct SignedAccountId32FromXcm<Origin>(PhantomData<(Origin)>);
+impl< Origin: OriginTrait> ConvertOrigin<Origin>
+for SignedAccountId32FromXcm<Origin>
+	where
+		Origin::AccountId: From<[u8; 32]>,
+{
+	fn convert_origin(
+		origin: impl Into<MultiLocation>,
+		kind: OriginKind,
+	) -> Result<Origin, MultiLocation> {
+		let origin = origin.into();
+		log::trace!(
+			target: "xcm::origin_conversion",
+			"SignedAccountId32AsNative origin: {:?}, kind: {:?}",
+			origin, kind,
+		);
+ 		match (kind, origin) {
+			(
+				OriginKind::Xcm,
+				MultiLocation { parents: 1, interior: X2(Junction::Parachain(para_id), Junction::AccountId32 { id, network }) },
+			) =>
+				Ok(Origin::signed(id.into())),
+			(_, origin) => Err(origin),
+		}
+	}
+}
 parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = 1_000_000_000;
@@ -161,6 +194,8 @@ pub type Barrier = DenyThenTry<
 	),
 >;
 
+pub type OpenBarrier = AllowUnpaidExecutionFrom<Everything>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type Call = Call;
@@ -171,7 +206,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = NativeAsset;
 	type IsTeleporter = (); // Teleporting is disabled.
 	type LocationInverter = LocationInverter<Ancestry>;
-	type Barrier = Barrier;
+	type Barrier = OpenBarrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, Call, MaxInstructions>;
 	type Trader =
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>;

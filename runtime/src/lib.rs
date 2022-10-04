@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod weights;
 pub mod xcm_config;
+mod constants;
 
 use acurast_p256_crypto::MultiSignature;
 use pallet_acurast::JobAssignmentUpdateBarrier;
@@ -57,6 +58,7 @@ use xcm_executor::XcmExecutor;
 
 /// Import the template pallet.
 pub use pallet_acurast;
+use sp_runtime::traits::{ConstU128, ConstU32};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -529,6 +531,7 @@ construct_runtime!(
 
 		// Template
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
+		Assets: pallet_assets = 41,
 	}
 );
 
@@ -747,4 +750,21 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
+}
+
+impl pallet_assets::Config for Runtime {
+	type Event = Event;
+	type Balance = Balance;
+	type AssetId = parachains_common::AssetId;
+	type Currency = Balances;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type AssetDeposit = ConstU128<{ UNIT }>;
+	type AssetAccountDeposit = ConstU128<{ UNIT }>;
+	type MetadataDepositBase = ConstU128<{ UNIT }>;
+	type MetadataDepositPerByte = ConstU128<{ 10 * MICROUNIT }>;
+	type ApprovalDeposit = ConstU128<{ 10 * MICROUNIT }>;
+	type StringLimit = ConstU32<50>;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }

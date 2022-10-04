@@ -10,6 +10,7 @@ mod weights;
 pub mod xcm_config;
 
 use acurast_p256_crypto::MultiSignature;
+use pallet_acurast::JobAssignmentUpdateBarrier;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -434,7 +435,6 @@ parameter_types! {
 	pub const SessionLength: BlockNumber = 6 * HOURS;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub Admins: Vec<AccountId> = vec![];
 }
 
 // We allow root only to execute privileged collator selection operations.
@@ -462,7 +462,20 @@ impl pallet_acurast::Config for Runtime {
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
-	type AllowedRevocationListUpdate = Admins;
+	type RevocationListUpdateBarrier = ();
+	type JobAssignmentUpdateBarrier = Barrier;
+}
+
+pub struct Barrier;
+impl JobAssignmentUpdateBarrier<Runtime> for Barrier {
+	fn can_update_assigned_jobs(
+		origin: &<Runtime as frame_system::Config>::AccountId,
+		updates: &Vec<
+			pallet_acurast::JobAssignmentUpdate<<Runtime as frame_system::Config>::AccountId>,
+		>,
+	) -> bool {
+		updates.iter().all(|update| &update.job_id.0 == origin)
+	}
 }
 
 pub struct FulfillmentRouter;

@@ -1,5 +1,5 @@
 use frame_support::weights::{
-    constants::{ExtrinsicBaseWeight, WEIGHT_PER_SECOND}, WeightToFeePolynomial,
+    constants::{ExtrinsicBaseWeight, WEIGHT_PER_SECOND},
 };
 use polkadot_core_primitives::Balance;
 pub use sp_runtime::Perbill;

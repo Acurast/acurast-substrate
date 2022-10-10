@@ -292,9 +292,9 @@ fn testnet_genesis(
 }
 
 const NATIVE_ASSET_ID: u32 = 42;
-const NATIVE_IS_SUFFICIENT: bool = false;
-const NATIVE_MIN_BALANCE: u128 = 1_000_000;
-const NATIVE_INITIAL_BALANCE: u128 = 100;
+const NATIVE_IS_SUFFICIENT: bool = true;
+const NATIVE_MIN_BALANCE: u128 = 1;
+const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "RNA";
 const NATIVE_TOKEN_DECIMALS: u8 = 0;

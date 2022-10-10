@@ -14,6 +14,7 @@ use polkadot_runtime_common::impls::ToAuthor;
 use xcm::latest::prelude::*;
 use xcm_builder::{AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteAssetId, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents};
 use xcm_executor::{traits::ShouldExecute, XcmExecutor};
+use pallet_acurast::xcm_adapters::StatemintTransactor;
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
@@ -223,7 +224,8 @@ pub type Reserves = (NativeAsset, ReserveAssetsFrom<StatemintLocation>);
 /// (this is rather simplistic, a more refined implementation could implement
 /// something like an "asset manager" where only assets that have been specifically
 /// registered are considered for reserve-based asset transfers).
-pub type StatemintFungiblesTransactor = FungiblesAdapter<
+pub type StatemintFungiblesTransactor = StatemintTransactor<
+	Runtime,
 	// Use this fungibles implementation:
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:

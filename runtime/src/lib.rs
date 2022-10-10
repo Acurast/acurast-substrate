@@ -11,7 +11,6 @@ pub mod xcm_config;
 mod constants;
 
 use acurast_p256_crypto::MultiSignature;
-use pallet_acurast::JobAssignmentUpdateBarrier;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -437,6 +436,7 @@ parameter_types! {
 	pub const SessionLength: BlockNumber = 6 * HOURS;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
+	pub Admins: Vec<AccountId> = vec![];
 }
 
 // We allow root only to execute privileged collator selection operations.
@@ -458,26 +458,19 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+}
+
 /// Configure the pallet template in pallets/template.
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
-	type RevocationListUpdateBarrier = ();
-	type JobAssignmentUpdateBarrier = Barrier;
-}
-
-pub struct Barrier;
-impl JobAssignmentUpdateBarrier<Runtime> for Barrier {
-	fn can_update_assigned_jobs(
-		origin: &<Runtime as frame_system::Config>::AccountId,
-		updates: &Vec<
-			pallet_acurast::JobAssignmentUpdate<<Runtime as frame_system::Config>::AccountId>,
-		>,
-	) -> bool {
-		updates.iter().all(|update| &update.job_id.0 == origin)
-	}
+	type AllowedRevocationListUpdate = Admins;
+	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
+	type PalletId = AcurastPalletId;
 }
 
 pub struct FulfillmentRouter;
@@ -531,7 +524,7 @@ construct_runtime!(
 
 		// Template
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
-		Assets: pallet_assets = 41,
+		Assets: pallet_assets::{Pallet, Config<T>, Event<T>, Storage},
 	}
 );
 
@@ -758,8 +751,8 @@ impl pallet_assets::Config for Runtime {
 	type AssetId = parachains_common::AssetId;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type AssetDeposit = ConstU128<{ UNIT }>;
-	type AssetAccountDeposit = ConstU128<{ UNIT }>;
+	type AssetDeposit = ConstU128<0>;
+	type AssetAccountDeposit = ConstU128<0>;
 	type MetadataDepositBase = ConstU128<{ UNIT }>;
 	type MetadataDepositPerByte = ConstU128<{ 10 * MICROUNIT }>;
 	type ApprovalDeposit = ConstU128<{ 10 * MICROUNIT }>;

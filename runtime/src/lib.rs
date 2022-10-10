@@ -57,6 +57,7 @@ use xcm_executor::XcmExecutor;
 
 /// Import the template pallet.
 pub use pallet_acurast;
+use pallet_acurast::JobAssignmentUpdateBarrier;
 use sp_runtime::traits::{ConstU128, ConstU32};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -468,10 +469,23 @@ impl pallet_acurast::Config for Runtime {
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
-	type AllowedRevocationListUpdate = Admins;
 	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
 	type PalletId = AcurastPalletId;
+	type RevocationListUpdateBarrier = ();
+	type JobAssignmentUpdateBarrier = JobBarrier;
 }
+pub struct JobBarrier;
+impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
+	fn can_update_assigned_jobs(
+		origin: &<Runtime as frame_system::Config>::AccountId,
+		updates: &Vec<
+			pallet_acurast::JobAssignmentUpdate<<Runtime as frame_system::Config>::AccountId>,
+		>,
+	) -> bool {
+		updates.iter().all(|update| &update.job_id.0 == origin)
+	}
+}
+
 
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {

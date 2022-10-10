@@ -12,7 +12,7 @@ use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use xcm::latest::prelude::*;
-use xcm_builder::{AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteAssetId, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents};
+use xcm_builder::{AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteAssetId, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents};
 use xcm_executor::{traits::ShouldExecute, XcmExecutor};
 use pallet_acurast::xcm_adapters::StatemintTransactor;
 
@@ -83,7 +83,7 @@ for SignedAccountId32FromXcm<Origin>
  		match (kind, origin) {
 			(
 				OriginKind::Xcm,
-				MultiLocation { parents: 1, interior: X2(Parachain(_pid), AccountId32 { id, network}) },
+				MultiLocation { parents: 1, interior: X2(Parachain(_pid), AccountId32 { id, .. }) },
 			) =>
 				Ok(Origin::signed(id.into())),
 			(_, origin) => Err(origin),

@@ -6,7 +6,3 @@ members = [
 	"node",
 	"runtime",
 ]
-
-# Patching for local development. needs to be commented out on the remote repo
-[patch."https://github.com/Acurast/acurast-core"]
-pallet-acurast = { path = "../acurast-core/pallets/acurast"}

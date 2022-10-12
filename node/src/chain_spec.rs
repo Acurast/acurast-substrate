@@ -1,4 +1,4 @@
-use acurast_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT, AssetsConfig};
+use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DEPOSIT};
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -272,22 +272,15 @@ fn testnet_genesis(
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
 		assets: AssetsConfig {
-			assets: vec![(
-				NATIVE_ASSET_ID,
-				BURN_ACCOUNT,
-				NATIVE_IS_SUFFICIENT,
-				NATIVE_MIN_BALANCE,
-			)],
+			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
 			metadata: vec![(
 				NATIVE_ASSET_ID,
 				NATIVE_TOKEN_NAME.into(),
 				NATIVE_TOKEN_SYMBOL.into(),
 				NATIVE_TOKEN_DECIMALS,
 			)],
-			accounts: vec![
-				(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE),
-			]
-		}
+			accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],
+		},
 	}
 }
 
@@ -299,6 +292,3 @@ const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "RNA";
 const NATIVE_TOKEN_DECIMALS: u8 = 0;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
-
-
-

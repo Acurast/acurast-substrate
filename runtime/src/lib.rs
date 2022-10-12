@@ -6,9 +6,9 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod constants;
 mod weights;
 pub mod xcm_config;
-mod constants;
 
 use acurast_p256_crypto::MultiSignature;
 use smallvec::smallvec;
@@ -485,7 +485,6 @@ impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
 		updates.iter().all(|update| &update.job_id.0 == origin)
 	}
 }
-
 
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {

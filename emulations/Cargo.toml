@@ -1,0 +1,33 @@
+[package]
+name = "emulations"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# crates.io
+serde = { version = "1.0.132" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+scale-info = { version = "2.1.2", features = ["derive"] }
+rand = "0.8.5"
+
+# Runtimes
+proxy-runtime = { git = "https://github.com/Acurast/acurast-core", default-features = false, branch = "feat/job-payment" }
+acurast-runtime = { path = "../runtime", default-features = false }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.26" }
+statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.26" }
+
+# Emulator
+xcm-emulator = { git = "https://github.com/Acurast/xcm-emulator", default-features = false, branch = "xcmp-panic" }
+
+[features]
+default = ["std"]
+std = [
+    "proxy-runtime/std",
+    "acurast-runtime/std",
+    "polkadot-runtime/std",
+    "statemint-runtime/std",
+]
+
+

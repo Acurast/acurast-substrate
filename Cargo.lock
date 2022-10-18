@@ -32,6 +32,7 @@ dependencies = [
  "derive_more",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-system",
  "hex",
  "hex-literal",
  "jsonrpsee",
@@ -2157,7 +2158,6 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#b5d10d25e64a2f62b881e24ffeb79e2a1c7ee28a"
 dependencies = [
  "der 0.6.0",
  "elliptic-curve-vendored",
@@ -2215,7 +2215,6 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#b5d10d25e64a2f62b881e24ffeb79e2a1c7ee28a"
 dependencies = [
  "base16ct",
  "crypto-bigint 0.4.8",
@@ -5120,7 +5119,6 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#b5d10d25e64a2f62b881e24ffeb79e2a1c7ee28a"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5129,22 +5127,31 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#b5d10d25e64a2f62b881e24ffeb79e2a1c7ee28a"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "num-bigint 0.4.3",
  "p256",
  "p384_vendored",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-timestamp",
+ "parachain-info",
+ "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sha2 0.10.5",
+ "sp-core",
  "sp-io",
+ "sp-runtime",
  "sp-std",
+ "xcm",
+ "xcm-builder",
+ "xcm-executor",
 ]
 
 [[package]]
@@ -5157,6 +5164,7 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -9660,7 +9668,6 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#b5d10d25e64a2f62b881e24ffeb79e2a1c7ee28a"
 dependencies = [
  "digest 0.10.3",
  "rand_core 0.6.3",
@@ -11226,7 +11233,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.3",
  "rand 0.8.5",
  "static_assertions",

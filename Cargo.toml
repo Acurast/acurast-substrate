@@ -5,4 +5,9 @@ panic = "unwind"
 members = [
 	"node",
 	"runtime",
+#	"emulations",
+#	"emulations/payments-emulation",
 ]
+
+[patch."https://github.com/Acurast/acurast-core.git"]
+pallet-acurast = { path = "../acurast-core/pallets/acurast" }

@@ -1,10 +1,11 @@
-use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DEPOSIT};
+use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DEPOSIT, Runtime, pallet_acurast};
 use cumulus_primitives_core::ParaId;
+use frame_benchmarking::frame_support::pallet;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::traits::{IdentifyAccount, Verify, AccountIdConversion};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -154,6 +155,7 @@ pub fn acurast_development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					pallet_assets_account(),
 				],
 				2000.into(),
 			)
@@ -292,3 +294,7 @@ const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "RNA";
 const NATIVE_TOKEN_DECIMALS: u8 = 0;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
+
+pub fn pallet_assets_account() -> <Runtime as frame_system::Config>::AccountId {
+	<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating()
+}

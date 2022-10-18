@@ -57,8 +57,8 @@ use xcm_executor::XcmExecutor;
 
 /// Import the template pallet.
 pub use pallet_acurast;
-use pallet_acurast::JobAssignmentUpdateBarrier;
-use sp_runtime::traits::{ConstU128, ConstU32};
+use pallet_acurast::{JobAssignmentUpdateBarrier, RevocationListUpdateBarrier};
+use sp_runtime::traits::{AccountIdConversion, ConstU128, ConstU32};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -338,15 +338,15 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	/// The type for recording an account's balance.
 	type Balance = Balance;
+	type DustRemoval = ();
 	/// The ubiquitous event type.
 	type Event = Event;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 }
@@ -471,7 +471,7 @@ impl pallet_acurast::Config for Runtime {
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
 	type PalletId = AcurastPalletId;
-	type RevocationListUpdateBarrier = ();
+	type RevocationListUpdateBarrier = RevocationBarrier;
 	type JobAssignmentUpdateBarrier = JobBarrier;
 }
 pub struct JobBarrier;
@@ -483,6 +483,17 @@ impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
 		>,
 	) -> bool {
 		updates.iter().all(|update| &update.job_id.0 == origin)
+	}
+}
+
+pub struct RevocationBarrier;
+impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
+	fn can_update_revocation_list(
+		origin: &<Runtime as frame_system::Config>::AccountId,
+		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
+	) -> bool {
+		let pallet_account: <Runtime as frame_system::Config>::AccountId = <Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+		&pallet_account == origin
 	}
 }
 
@@ -554,6 +565,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_acurast, Acurast]
 	);
 }
 

@@ -473,6 +473,7 @@ impl pallet_acurast::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = RevocationBarrier;
 	type JobAssignmentUpdateBarrier = JobBarrier;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
 pub struct JobBarrier;
 impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {

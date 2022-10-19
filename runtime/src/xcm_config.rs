@@ -214,7 +214,7 @@ parameter_types! {
 	pub StatemintNativeAsset : MultiLocation = MultiLocation::new(1, X3(Parachain(1000), PalletInstance(50), GeneralIndex(42)));
 	pub StatemintNativePerSecond: (xcm::v1::AssetId, u128) = (
 		MultiLocation::new(1, X3(Parachain(1000), PalletInstance(50), GeneralIndex(42))).into(),
-		super::constants::default_fee_per_second() * 10
+		super::constants::default_fee_per_second()
 	);
 }
 

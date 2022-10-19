@@ -491,7 +491,7 @@ impl pallet_acurast::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = RevocationBarrier;
 	type JobAssignmentUpdateBarrier = JobBarrier;
-	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
+	// type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
 pub struct JobBarrier;
 impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
@@ -551,7 +551,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 12,
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,

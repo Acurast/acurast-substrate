@@ -5,6 +5,4 @@ panic = "unwind"
 members = [
 	"node",
 	"runtime",
-#	"emulations",
-#	"emulations/payments-emulation",
 ]

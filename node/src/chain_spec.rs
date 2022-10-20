@@ -38,6 +38,8 @@ impl Extensions {
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+const DEFAULT_PARACHAIN_ID: u32 = 2001;
+
 /// Generate collator keys from seed.
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
@@ -156,7 +158,7 @@ pub fn acurast_development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 					pallet_assets_account(),
 				],
-				2000.into(),
+				DEFAULT_PARACHAIN_ID.into(),
 			)
 		},
 		Vec::new(),
@@ -166,7 +168,7 @@ pub fn acurast_development_config() -> ChainSpec {
 		Some(properties),
 		Extensions {
 			relay_chain: "atera-local".into(), // You MUST set this to the correct network!
-			para_id: 2001,
+			para_id: DEFAULT_PARACHAIN_ID,
 		},
 	)
 }

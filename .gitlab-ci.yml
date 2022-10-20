@@ -2,10 +2,6 @@ include:
   - project: 'papers/papers-internal/internal'
     file: '/.base-gitlab-ci.yml'
 
-variables:
-  CLI_TAG_PROD: eu.gcr.io/papers-kubernetes/papers/atera-association/polkadot-launch:latest
-  CLI_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/papers/atera-association/polkadot-launch:latest
-
 stages:
   - build
   - publish
@@ -22,50 +18,3 @@ publish-dev:
 publish-prod:
   stage: publish
   extends: .publish-prod
-
-deploy-dev:
-  stage: deploy
-  extends: .run_dev
-  when: manual
-  variables:
-    CLI_TAG: $CLI_TAG_DEV
-  script:
-    - mkdir secrets
-    - echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d > secrets/id_ed25519
-    # what looks cumbersome is the only sane way to move files into a docker-in-docker (dind) container
-    # the cli was specifically adapted to support loading all files from stdin (separated by blank line as documented in --help)
-    # mounting config/secret files (with 'docker run -v') is not possible because the runner and dind container don't share the same host environment
-    - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote.json > tmp
-    - docker run --pull=always --rm -i $CLI_TAG cli.js deploy --no-r -k < tmp
-    - docker run --pull=always --rm -i $CLI_TAG cli.js register -k < tmp
-    - rm tmp
-  environment: development
-
-deploy-with-relay-dev:
-  stage: deploy
-  extends: .run_dev
-  when: manual
-  variables:
-    CLI_TAG: $CLI_TAG_DEV
-  script:
-    - mkdir secrets
-    - echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d > secrets/id_ed25519
-    # what looks cumbersome is the only sane way to move files into a docker-in-docker (dind) container
-    # the cli was specifically adapted to support loading all files from stdin (separated by blank line as documented in --help)
-    # mounting config/secret files (with 'docker run -v') is not possible because the runner and dind container don't share the same host environment
-    - cat <(echo $DEPLOY_SSH_PRIVATE_KEY | base64 -d) <(echo) $CI_PROJECT_DIR/polkadot-launch/remote-with-atera.json > tmp
-    - docker run --pull=always --rm -i $CLI_TAG cli.js deploy -k < tmp
-    - docker run --pull=always --rm -i $CLI_TAG cli.js register -k < tmp
-    - rm tmp
-  environment: development
-
-# # comment in once we have a separate production system
-# deploy-prod:
-#   stage: deploy
-#   extends: .run_prod
-#   when: manual
-#   variables:
-#     CLI_TAG: $CLI_TAG_PROD
-#   script:
-#     - !reference [.deploy-script, script]
-#   environment: production

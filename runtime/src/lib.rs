@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod constants;
 mod weights;
 pub mod xcm_config;
 
@@ -54,10 +55,11 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
+use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-use acurast_p256_crypto::MultiSignature;
-use pallet_acurast::JobAssignmentUpdateBarrier;
+use pallet_acurast::{JobAssignmentUpdateBarrier, RevocationListUpdateBarrier};
+use sp_runtime::traits::AccountIdConversion;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -435,6 +437,7 @@ parameter_types! {
 	pub const SessionLength: BlockNumber = 6 * HOURS;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
+	pub Admins: Vec<AccountId> = vec![];
 }
 
 // We allow root only to execute privileged collator selection operations.
@@ -471,26 +474,28 @@ impl pallet_assets::Config for Runtime {
 	type StringLimit = frame_support::traits::ConstU32<50>;
 	type Freezer = ();
 	type Extra = ();
-	type WeightInfo = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 }
 
+/// Configure the pallet template in pallets/template.
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
 	type RegistrationExtra = ();
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
-	type RevocationListUpdateBarrier = ();
-	type JobAssignmentUpdateBarrier = Barrier;
 	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
 	type PalletId = AcurastPalletId;
+	type RevocationListUpdateBarrier = RevocationBarrier;
+	type JobAssignmentUpdateBarrier = JobBarrier;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
 
-pub struct Barrier;
-impl JobAssignmentUpdateBarrier<Runtime> for Barrier {
+pub struct JobBarrier;
+impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
 	fn can_update_assigned_jobs(
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		updates: &Vec<
@@ -498,6 +503,18 @@ impl JobAssignmentUpdateBarrier<Runtime> for Barrier {
 		>,
 	) -> bool {
 		updates.iter().all(|update| &update.job_id.0 == origin)
+	}
+}
+
+pub struct RevocationBarrier;
+impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
+	fn can_update_revocation_list(
+		origin: &<Runtime as frame_system::Config>::AccountId,
+		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
+	) -> bool {
+		let pallet_account: <Runtime as frame_system::Config>::AccountId =
+			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+		&pallet_account == origin
 	}
 }
 
@@ -536,7 +553,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 12,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,
@@ -569,6 +586,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_acurast, Acurast]
 	);
 }
 

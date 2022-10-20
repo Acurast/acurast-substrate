@@ -1,10 +1,10 @@
-use acurast_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOSIT};
+use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DEPOSIT, Runtime, pallet_acurast};
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::traits::{IdentifyAccount, Verify, AccountIdConversion};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -100,7 +100,7 @@ pub fn development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				1000.into(),
+				2000.into(),
 			)
 		},
 		Vec::new(),
@@ -110,7 +110,7 @@ pub fn development_config() -> ChainSpec {
 		Some(properties),
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
-			para_id: 1000,
+			para_id: 2000,
 		},
 	)
 }
@@ -154,8 +154,9 @@ pub fn acurast_development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					pallet_assets_account(),
 				],
-				1000.into(),
+				2000.into(),
 			)
 		},
 		Vec::new(),
@@ -210,7 +211,7 @@ pub fn local_testnet_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
-				1000.into(),
+				2000.into(),
 			)
 		},
 		// Bootnodes
@@ -226,7 +227,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		// Extensions
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
-			para_id: 1000,
+			para_id: 2000,
 		},
 	)
 }
@@ -271,5 +272,28 @@ fn testnet_genesis(
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+		assets: AssetsConfig {
+			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
+			metadata: vec![(
+				NATIVE_ASSET_ID,
+				NATIVE_TOKEN_NAME.into(),
+				NATIVE_TOKEN_SYMBOL.into(),
+				NATIVE_TOKEN_DECIMALS,
+			)],
+			accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],
+		},
 	}
+}
+
+const NATIVE_ASSET_ID: u32 = 42;
+const NATIVE_IS_SUFFICIENT: bool = true;
+const NATIVE_MIN_BALANCE: u128 = 1;
+const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
+const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
+const NATIVE_TOKEN_SYMBOL: &str = "RNA";
+const NATIVE_TOKEN_DECIMALS: u8 = 0;
+const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
+
+pub fn pallet_assets_account() -> <Runtime as frame_system::Config>::AccountId {
+	<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating()
 }

@@ -10,7 +10,9 @@ mod constants;
 mod weights;
 pub mod xcm_config;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -28,12 +30,12 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::Everything,
+	traits::{ConstU32, Everything},
 	weights::{
 		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, Weight,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId,
+	BoundedVec, PalletId, RuntimeDebug,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -52,7 +54,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::latest::prelude::BodyId;
+use xcm::{latest::prelude::BodyId, v2::MultiLocation};
 use xcm_executor::XcmExecutor;
 
 use acurast_p256_crypto::MultiSignature;
@@ -60,6 +62,8 @@ use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
 use pallet_acurast::{JobAssignmentUpdateBarrier, RevocationListUpdateBarrier};
 use sp_runtime::traits::AccountIdConversion;
+
+use pallet_acurast_xcm_sender;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -484,7 +488,7 @@ parameter_types! {
 /// Configure the pallet template in pallets/template.
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
-	type RegistrationExtra = ();
+	type RegistrationExtra = RegistrationExtra;
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
@@ -523,16 +527,35 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	fn received_fulfillment(
 		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
 		from: <Runtime as frame_system::Config>::AccountId,
-		_fulfillment: pallet_acurast::Fulfillment,
-		_registration: pallet_acurast::JobRegistration<
+		fulfillment: pallet_acurast::Fulfillment,
+		registration: pallet_acurast::JobRegistration<
 			<Runtime as frame_system::Config>::AccountId,
 			<Runtime as pallet_acurast::Config>::RegistrationExtra,
 		>,
 		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
 	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
 		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
+
+		AcurastSender::send(
+			from,
+			registration.extra.destination,
+			fulfillment.payload,
+			registration.extra.parameters.map(|params| params.into()),
+		)?;
+
 		Ok(().into())
 	}
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct RegistrationExtra {
+	destination: MultiLocation,
+	parameters: Option<BoundedVec<u8, ConstU32<256>>>,
+}
+
+impl pallet_acurast_xcm_sender::Config for Runtime {
+	type Event = Event;
+	type XcmSender = crate::xcm_config::XcmRouter;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -568,8 +591,9 @@ construct_runtime!(
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
-		// Acurast
+		// Acurast pallets
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
+		AcurastSender: pallet_acurast_xcm_sender::{Pallet, Event<T>} = 41,
 	}
 );
 

@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d0ba54180981114893c9bb3f1f44b5c529af2111"
+source = "git+https://github.com/Acurast/acurast-core.git#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "hex",
  "p256",
@@ -125,6 +125,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-acurast",
+ "pallet-acurast-xcm-sender",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -5272,6 +5273,23 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+ "xcm",
+ "xcm-builder",
+ "xcm-executor",
+]
+
+[[package]]
+name = "pallet-acurast-xcm-sender"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "scale-info",
  "sp-std",
  "xcm",
  "xcm-builder",
@@ -11349,7 +11367,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
  "rand 0.8.5",
  "static_assertions",

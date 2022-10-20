@@ -474,7 +474,7 @@ impl pallet_assets::Config for Runtime {
 	type StringLimit = frame_support::traits::ConstU32<50>;
 	type Freezer = ();
 	type Extra = ();
-	type WeightInfo = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -491,8 +491,9 @@ impl pallet_acurast::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = RevocationBarrier;
 	type JobAssignmentUpdateBarrier = JobBarrier;
-	// type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
+
 pub struct JobBarrier;
 impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
 	fn can_update_assigned_jobs(

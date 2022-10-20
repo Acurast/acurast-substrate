@@ -10,7 +10,9 @@ mod constants;
 mod weights;
 pub mod xcm_config;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -28,16 +30,16 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::Everything,
+	traits::{ConstU32, Everything},
 	weights::{
 		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, Weight,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId,
+	BoundedVec, PalletId, RuntimeDebug,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, ensure_signed,
+	EnsureRoot,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -52,7 +54,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::{latest::prelude::BodyId, v2::{MultiLocation, Junctions::{X2}, Junction::{PalletInstance, Parachain}}};
+use xcm::{latest::prelude::BodyId, v2::MultiLocation};
 use xcm_executor::XcmExecutor;
 
 use acurast_p256_crypto::MultiSignature;
@@ -486,7 +488,7 @@ parameter_types! {
 /// Configure the pallet template in pallets/template.
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
-	type RegistrationExtra = ();
+	type RegistrationExtra = RegistrationExtra;
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
@@ -523,10 +525,10 @@ impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	fn received_fulfillment(
-		origin: frame_system::pallet_prelude::OriginFor<Runtime>,
+		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
 		from: <Runtime as frame_system::Config>::AccountId,
 		fulfillment: pallet_acurast::Fulfillment,
-		_registration: pallet_acurast::JobRegistration<
+		registration: pallet_acurast::JobRegistration<
 			<Runtime as frame_system::Config>::AccountId,
 			<Runtime as pallet_acurast::Config>::RegistrationExtra,
 		>,
@@ -534,13 +536,21 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
 		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
 
-		let account = ensure_signed(origin)?;
-		let location = MultiLocation { parents: 1, interior: X2(Parachain(2000), PalletInstance(130)) };
-
-		AcurastSender::send(account, location, fulfillment.payload, None)?;
+		AcurastSender::send(
+			from,
+			registration.extra.destination,
+			fulfillment.payload,
+			registration.extra.parameters.map(|params| params.into()),
+		)?;
 
 		Ok(().into())
 	}
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct RegistrationExtra {
+	destination: MultiLocation,
+	parameters: Option<BoundedVec<u8, ConstU32<256>>>,
 }
 
 impl pallet_acurast_xcm_sender::Config for Runtime {

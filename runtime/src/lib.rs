@@ -55,11 +55,11 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
+use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-use acurast_p256_crypto::MultiSignature;
 use pallet_acurast::{JobAssignmentUpdateBarrier, RevocationListUpdateBarrier};
-use sp_runtime::traits::{AccountIdConversion, ConstU128, ConstU32};
+use sp_runtime::traits::AccountIdConversion;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -512,7 +512,8 @@ impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
 	) -> bool {
-		let pallet_account: <Runtime as frame_system::Config>::AccountId = <Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+		let pallet_account: <Runtime as frame_system::Config>::AccountId =
+			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 		&pallet_account == origin
 	}
 }
@@ -552,7 +553,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 12,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,

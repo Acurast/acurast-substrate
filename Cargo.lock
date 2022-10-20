@@ -2229,6 +2229,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "der 0.6.0",
  "elliptic-curve-vendored",
@@ -2300,6 +2301,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "base16ct",
  "crypto-bigint 0.4.9",
@@ -5239,6 +5241,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5247,6 +5250,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -9802,6 +9806,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
 dependencies = [
  "digest 0.10.5",
  "rand_core 0.6.4",

@@ -483,9 +483,25 @@ impl pallet_assets::Config for Runtime {
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 }
 
-/// Configure the pallet template in pallets/template.
+impl pallet_acurast_fee_manager::Config for Runtime {
+	type Event = Event;
+	type DefaultFeePercentage = DefaultFeePercentage;
+}
+
+pub struct FeeManagement;
+impl pallet_acurast::FeeManager for FeeManagement {
+	fn get_fee_percentage() -> sp_runtime::Percent {
+		AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
+	}
+
+	fn pallet_id() -> PalletId {
+		PalletId(*b"acrstfee")
+	}
+}
+
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
 	type RegistrationExtra = RegistrationExtra;
@@ -495,6 +511,7 @@ impl pallet_acurast::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = RevocationBarrier;
 	type JobAssignmentUpdateBarrier = JobBarrier;
+	type FeeManager = FeeManagement;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
 
@@ -594,6 +611,7 @@ construct_runtime!(
 		// Acurast pallets
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
 		AcurastSender: pallet_acurast_xcm_sender::{Pallet, Event<T>} = 41,
+		AcurastFeeManager: pallet_acurast_fee_manager::{Pallet, Call, Storage, Event} = 42,
 	}
 );
 
@@ -611,6 +629,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast, Acurast]
+		[pallet_acurast_fee_manager, AcurastFeeManager]
 	);
 }
 

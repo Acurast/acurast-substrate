@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "hex",
  "p256",
@@ -125,6 +125,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-acurast",
+ "pallet-acurast-fee-manager",
  "pallet-acurast-xcm-sender",
  "pallet-assets",
  "pallet-aura",
@@ -2230,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "der 0.6.0",
  "elliptic-curve-vendored",
@@ -2302,7 +2303,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "base16ct",
  "crypto-bigint 0.4.9",
@@ -5242,7 +5243,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5251,7 +5252,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -5272,7 +5273,6 @@ dependencies = [
  "sha2 0.10.6",
  "sp-core",
  "sp-io",
- "sp-runtime",
  "sp-std",
  "xcm",
  "xcm-builder",
@@ -5280,9 +5280,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-acurast-fee-manager"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+]
+
+[[package]]
 name = "pallet-acurast-xcm-sender"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9824,7 +9837,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#20d56bc9fa92beb6122ada6f11a82e0f31d3b451"
+source = "git+https://github.com/Acurast/acurast-core.git#6c88d44fe3684cce4b32eceaf3cfbb4c43b0a948"
 dependencies = [
  "digest 0.10.5",
  "rand_core 0.6.4",
@@ -11367,7 +11380,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.5",
  "rand 0.8.5",
  "static_assertions",

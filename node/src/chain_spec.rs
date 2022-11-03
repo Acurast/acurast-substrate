@@ -2,6 +2,7 @@ use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DE
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
+use sc_telemetry::serde_json::Value;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify, AccountIdConversion};
@@ -65,9 +66,9 @@ pub fn template_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 pub fn development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ACRST".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert(String::from("tokenSymbol"), Value::String(String::from("ACRST")));
+	properties.insert(String::from("tokenDecimals"), 42.into());
+	properties.insert(String::from("ss58Format"), 42.into());
 
 	ChainSpec::from_genesis(
 		// Name
@@ -278,8 +279,8 @@ fn testnet_genesis(
 			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
 			metadata: vec![(
 				NATIVE_ASSET_ID,
-				NATIVE_TOKEN_NAME.into(),
-				NATIVE_TOKEN_SYMBOL.into(),
+				NATIVE_TOKEN_NAME.as_bytes().to_vec(),
+				NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
 				NATIVE_TOKEN_DECIMALS,
 			)],
 			accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],

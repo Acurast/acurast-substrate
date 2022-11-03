@@ -2,12 +2,13 @@ extern crate core;
 
 // parent re-exports
 use emulations::emulators::xcm_emulator;
-use emulations::runtimes::{acurast_runtime, polkadot_runtime, proxy_runtime, statemint_runtime};
+use emulations::runtimes::{acurast_runtime, polkadot_runtime, proxy_parachain_runtime, statemint_runtime};
 
 // needed libs
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
 use frame_support::traits::GenesisBuild;
+use frame_support::weights::Weight;
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::traits::{Dispatchable, StaticLookup};
@@ -36,10 +37,10 @@ decl_test_parachain! {
 
 decl_test_parachain! {
     pub struct ProxyParachain {
-        Runtime = proxy_runtime::Runtime,
-        Origin = proxy_runtime::Origin,
-        XcmpMessageHandler = proxy_runtime::XcmpQueue,
-        DmpMessageHandler = proxy_runtime::DmpQueue,
+        Runtime = proxy_parachain_runtime::Runtime,
+        Origin = proxy_parachain_runtime::Origin,
+        XcmpMessageHandler = proxy_parachain_runtime::XcmpQueue,
+        DmpMessageHandler = proxy_parachain_runtime::DmpQueue,
         new_ext = proxy_ext(2001),
     }
 }
@@ -79,7 +80,7 @@ pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
         .unwrap();
 
     let parachain_info_config = parachain_info::GenesisConfig {
-        parachain_id: para_id.into(),
+        parachain_id: ParaId::from(para_id),
     };
 
     <parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
@@ -91,11 +92,15 @@ pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
     let pallet_assets_account: <Runtime as frame_system::Config>::AccountId =
         <Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 
+    let fee_manager_account: <Runtime as frame_system::Config>::AccountId =
+        acurast_runtime::FeeManagerPalletId::get().into_account_truncating();
+
     pallet_balances::GenesisConfig::<Runtime> {
         balances: vec![
             (ALICE, INITIAL_BALANCE),
-            (pallet_assets_account, INITIAL_BALANCE),
             (BOB, INITIAL_BALANCE),
+            (pallet_assets_account, INITIAL_BALANCE),
+            (fee_manager_account, INITIAL_BALANCE),
         ],
     }
     .assimilate_storage(&mut t)
@@ -117,8 +122,8 @@ pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
         )],
         metadata: vec![(
             NATIVE_ASSET_ID,
-            NATIVE_TOKEN_NAME.into(),
-            NATIVE_TOKEN_SYMBOL.into(),
+            NATIVE_TOKEN_NAME.as_bytes().to_vec(),
+            NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
             NATIVE_TOKEN_DECIMALS,
         )],
         accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],
@@ -140,14 +145,14 @@ pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
 }
 
 pub fn proxy_ext(para_id: u32) -> sp_io::TestExternalities {
-    use proxy_runtime::{Runtime, System};
+    use proxy_parachain_runtime::{Runtime, System};
 
     let mut t = frame_system::GenesisConfig::default()
         .build_storage::<Runtime>()
         .unwrap();
 
     let parachain_info_config = parachain_info::GenesisConfig {
-        parachain_id: para_id.into(),
+        parachain_id: ParaId::from(para_id),
     };
 
     <parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
@@ -182,7 +187,7 @@ pub fn statemint_ext(para_id: u32) -> sp_io::TestExternalities {
         .unwrap();
 
     let parachain_info_config = parachain_info::GenesisConfig {
-        parachain_id: para_id.into(),
+        parachain_id: ParaId::from(para_id),
     };
 
     <parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
@@ -234,7 +239,7 @@ fn default_parachains_host_configuration(
         max_upward_queue_count: 8,
         max_upward_queue_size: 1024 * 1024,
         max_downward_message_size: 1024,
-        ump_service_total_weight: 4 * 1_000_000_000,
+        ump_service_total_weight: Weight::from_ref_time(4 * 1_000_000_000),
         max_upward_message_size: 50 * 1024,
         max_upward_message_num_per_candidate: 5,
         hrmp_sender_deposit: 0,
@@ -413,8 +418,8 @@ mod network_tests {
     fn xcmp() {
         Network::reset();
 
-        let remark = proxy_runtime::Call::System(
-            frame_system::Call::<proxy_runtime::Runtime>::remark_with_event {
+        let remark = proxy_parachain_runtime::Call::System(
+            frame_system::Call::<proxy_parachain_runtime::Runtime>::remark_with_event {
                 remark: "Hello from acurast!".as_bytes().to_vec(),
             },
         );
@@ -431,7 +436,7 @@ mod network_tests {
         });
 
         ProxyParachain::execute_with(|| {
-            use proxy_runtime::{Event, System};
+            use proxy_parachain_runtime::{Event, System};
             System::events()
                 .iter()
                 .for_each(|r| println!(">>> {:?}", r.event));
@@ -658,7 +663,7 @@ mod statemint_backed_native_assets {
         // asset translation with the Balances pallet and not the Assets pallet
         // reserve backed transfer of token 1 from statemint to acurast
         StatemintParachain::execute_with(|| {
-            let xcm = StatemintXcmPallet::reserve_transfer_assets(
+            let xcm = StatemintXcmPallet::limited_reserve_transfer_assets(
                 statemint_runtime::Origin::signed(ALICE),
                 Box::new(
                     MultiLocation {
@@ -683,6 +688,7 @@ mod statemint_backed_native_assets {
                     .into(),
                 ),
                 0,
+                WeightLimit::Unlimited
             );
             assert_ok!(xcm);
         });
@@ -697,7 +703,7 @@ mod statemint_backed_native_assets {
             let alice_balance_fung = AcurastMinter::balance(42, &ALICE);
             let alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
             assert_eq!(alice_balance_fung, 0);
-            assert_eq!(alice_balance_native, 1453652000000);
+            assert_eq!(alice_balance_native, 1495365200000);
         })
     }
 
@@ -719,6 +725,8 @@ mod job_payments {
         Fulfillment, JobAssignmentUpdate, JobRegistration, ListUpdateOperation,
     };
     use acurast_runtime::Runtime as AcurastRuntime;
+    use emulations::runtimes::acurast_runtime::{RegistrationExtra, Reward};
+    use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;
 
     const SCRIPT_BYTES: [u8; 53] = hex_literal::hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
@@ -773,45 +781,39 @@ mod job_payments {
 
         // transfer both tokens to alice's account in acurast
         StatemintParachain::execute_with(|| {
-            let xcm = StatemintXcmPallet::reserve_transfer_assets(
-                statemint_runtime::Origin::signed(ALICE),
-                Box::new(
-                    MultiLocation {
-                        parents: 1,
-                        interior: X1(Parachain(2000)),
-                    }
+            let xcm = StatemintXcmPallet::limited_reserve_transfer_assets(statemint_runtime::Origin::signed(ALICE), Box::new(
+                MultiLocation {
+                    parents: 1,
+                    interior: X1(Parachain(2000)),
+                }
                     .into(),
-                ),
-                Box::new(
-                    X1(Junction::AccountId32 {
-                        network: NetworkId::Any,
-                        id: ALICE.into(),
-                    })
+            ), Box::new(
+                X1(Junction::AccountId32 {
+                    network: NetworkId::Any,
+                    id: ALICE.into(),
+                })
                     .into()
                     .into(),
-                ),
-                Box::new(
-                    vec![
-                        MultiAsset {
-                            id: Concrete(X2(PalletInstance(50), GeneralIndex(42)).into()),
-                            fun: Fungible(INITIAL_BALANCE / 2),
-                        },
-                        // MultiAsset {
-                        //     id: Concrete(MultiLocation {
-                        //         parents: 1,
-                        //         interior: Here,
-                        //     }),
-                        //     fun: Fungible(INITIAL_BALANCE / 4),
-                        // },
-                        MultiAsset {
-                            id: Concrete(X2(PalletInstance(50), GeneralIndex(69)).into()),
-                            fun: Fungible(INITIAL_BALANCE / 2),
-                        },
-                    ]
+            ), Box::new(
+                vec![
+                    MultiAsset {
+                        id: Concrete(X2(PalletInstance(50), GeneralIndex(42)).into()),
+                        fun: Fungible(INITIAL_BALANCE / 2),
+                    },
+                    // MultiAsset {
+                    //     id: Concrete(MultiLocation {
+                    //         parents: 1,
+                    //         interior: Here,
+                    //     }),
+                    //     fun: Fungible(INITIAL_BALANCE / 4),
+                    // },
+                    MultiAsset {
+                        id: Concrete(X2(PalletInstance(50), GeneralIndex(69)).into()),
+                        fun: Fungible(INITIAL_BALANCE / 2),
+                    },
+                ]
                     .into(),
-                ),
-                0,
-            );
+            ), 0, WeightLimit::Unlimited);
             assert_ok!(xcm);
         });
 
@@ -821,7 +823,7 @@ mod job_payments {
             let _x = 1; // put breakpoint here
         });
 
-        // check that funds were minted correctly
+        // check that funds were minted correctlyx
         AcurastParachain::execute_with(|| {
             let _events = acurast_runtime::System::events();
             let alice_balance_69 = AcurastMinter::balance(69, &ALICE);
@@ -868,6 +870,11 @@ mod job_payments {
 
     #[test]
     fn create_job_and_fulfill_local() {
+        let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
+            <AcurastRuntime as pallet_acurast::Config>::PalletId::get()
+                .into_account_truncating();
+
+        let reward_amount = INITIAL_BALANCE / 2;
         let job_token = MultiAsset {
             id: Concrete(MultiLocation {
                 parents: 1,
@@ -890,8 +897,11 @@ mod job_payments {
                     script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
                     allowed_sources: None,
                     allow_only_verified_sources: false,
-                    payment: job_token.clone(),
-                    extra: (),
+                    reward: Reward(job_token.clone()),
+                    extra: RegistrationExtra{
+                        destination: MultiLocation { parents: 1, interior: X2(Parachain(2001), PalletInstance(40)) },
+                        parameters: None
+                    },
                 },
             });
 
@@ -913,10 +923,8 @@ mod job_payments {
             let _events = acurast_runtime::System::events();
             let _alice_balance_69 = AcurastMinter::balance(69, &ALICE);
             let _bob_balance_69 = AcurastMinter::balance(69, &BOB);
-            let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
-                <AcurastRuntime as pallet_acurast::Config>::PalletId::get()
-                    .into_account_truncating();
-            let _pallet_balance_69 = AcurastMinter::balance(69, pallet_account);
+
+            let _pallet_balance_69 = AcurastMinter::balance(69, pallet_account.clone());
             let _alice_balance_false = AcurastMinter::balance(42, &ALICE);
             let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
             let _x = 10;
@@ -931,6 +939,9 @@ mod job_payments {
                 script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
                 payload: payload.to_vec(),
             };
+
+            let pallet_balance = pallet_assets::Pallet::<acurast_runtime::Runtime>::balance(69, pallet_account.clone());
+            // 500_000_000_000
             let fulfill_call = Acurast(fulfill {
                 fulfillment,
                 requester: sp_runtime::MultiAddress::Id(ALICE.clone()),
@@ -942,6 +953,7 @@ mod job_payments {
 
         // check fulfill event
         AcurastParachain::execute_with(|| {
+            let fee_amount = acurast_runtime::FeeManagement::get_fee_percentage().mul_floor(reward_amount);
             let _events = acurast_runtime::System::events();
             let _alice_balance_69 = AcurastMinter::balance(69, &ALICE);
             let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
@@ -951,129 +963,18 @@ mod job_payments {
                 <AcurastRuntime as pallet_acurast::Config>::PalletId::get()
                     .into_account_truncating();
             let _pallet_balance_69 = AcurastMinter::balance(69, pallet_account);
-            assert_eq!(bob_balance_69, INITIAL_BALANCE / 2)
-        })
-    }
-}
 
-#[cfg(test)]
-mod xcmp_panic {
-    use super::*;
-    use frame_support::assert_ok;
 
-    use crate::{
-        acurast_runtime, statemint_runtime, AcurastMinter, AcurastParachain, Network,
-        StatemintMinter, StatemintParachain, StatemintXcmPallet, ALICE, INITIAL_BALANCE,
-    };
-
-    #[test]
-    fn panics() {
-        Network::reset();
-        // create acurast native token in statemint to pay for execution of xcm
-        StatemintParachain::execute_with(|| {
-            let result = StatemintMinter::create(
-                statemint_runtime::Origin::signed(ALICE),
-                42,
-                sp_runtime::MultiAddress::Id(ALICE),
-                10,
-            );
-            assert_ok!(result);
-
-            let result = StatemintMinter::mint(
-                statemint_runtime::Origin::signed(ALICE),
-                42,
-                sp_runtime::MultiAddress::Id(ALICE),
-                INITIAL_BALANCE,
-            );
-            assert_ok!(result);
-
-            let alice_balance = StatemintMinter::balance(42, &ALICE);
-
-            assert_eq!(alice_balance, INITIAL_BALANCE);
+            assert_eq!(bob_balance_69, reward_amount - fee_amount)
         });
 
-        // create another token in statemint to pay for job
-        StatemintParachain::execute_with(|| {
-            let result = StatemintMinter::create(
-                statemint_runtime::Origin::signed(ALICE),
-                69,
-                sp_runtime::MultiAddress::Id(ALICE),
-                10,
-            );
-            assert_ok!(result);
-
-            let result = StatemintMinter::mint(
-                statemint_runtime::Origin::signed(ALICE),
-                69,
-                sp_runtime::MultiAddress::Id(ALICE),
-                INITIAL_BALANCE,
-            );
-            assert_ok!(result);
-
-            let alice_balance = StatemintMinter::balance(69, &ALICE);
-
-            assert_eq!(alice_balance, INITIAL_BALANCE);
+        ProxyParachain::execute_with(|| {
+            use proxy_parachain_runtime::{System, Event};
+            let events = System::events();
+            assert!(events.iter().any(|r| matches!(
+                r.event,
+                Event::AcurastReceiver(pallet_acurast_xcm_receiver::Event::FulfillReceived { .. })
+            )));
         });
-
-        // transfer both tokens to alice's account in acurast
-        StatemintParachain::execute_with(|| {
-            let xcm = StatemintXcmPallet::reserve_transfer_assets(
-                statemint_runtime::Origin::signed(ALICE),
-                Box::new(
-                    MultiLocation {
-                        parents: 1,
-                        interior: X1(Parachain(2000)),
-                    }
-                    .into(),
-                ),
-                Box::new(
-                    X1(Junction::AccountId32 {
-                        network: NetworkId::Any,
-                        id: ALICE.into(),
-                    })
-                    .into()
-                    .into(),
-                ),
-                Box::new(
-                    vec![
-                        // MultiAsset {
-                        // 	id: Concrete(X2(PalletInstance(50), GeneralIndex(42)).into()),
-                        // 	fun: Fungible(INITIAL_BALANCE/2)
-                        // },
-                        MultiAsset {
-                            id: Concrete(X2(PalletInstance(50), GeneralIndex(69)).into()),
-                            fun: Fungible(INITIAL_BALANCE / 2),
-                        },
-                        MultiAsset {
-                            id: Concrete(MultiLocation {
-                                parents: 1,
-                                interior: Here,
-                            }),
-                            fun: Fungible(INITIAL_BALANCE / 2),
-                        },
-                    ]
-                    .into(),
-                ),
-                1,
-            );
-            assert_ok!(xcm);
-        });
-
-        // check events in debug
-        StatemintParachain::execute_with(|| {
-            let _events = statemint_runtime::System::events();
-            let _x = 1; // put breakpoint here
-        });
-
-        // check that funds were minted correctly
-        AcurastParachain::execute_with(|| {
-            let _events = acurast_runtime::System::events();
-            let alice_balance_69 = AcurastMinter::balance(69, &ALICE);
-            let alice_balance_false = AcurastMinter::balance(42, &ALICE);
-            let alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
-            assert_eq!(alice_balance_false, 0);
-            assert_eq!(alice_balance_native, 1453652000000);
-            assert_eq!(alice_balance_69, INITIAL_BALANCE / 2);
-        })
     }
 }

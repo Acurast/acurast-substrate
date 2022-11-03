@@ -522,7 +522,7 @@ impl pallet_acurast::Config for Runtime {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-pub struct Reward(MultiAsset);
+pub struct Reward(pub MultiAsset);
 impl pallet_acurast::Reward for Reward {
 	type AssetId = <Runtime as pallet_assets::Config>::AssetId;
 	type Balance = <Runtime as pallet_balances::Config>::Balance;
@@ -604,8 +604,8 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct RegistrationExtra {
-	destination: MultiLocation,
-	parameters: Option<BoundedVec<u8, ConstU32<256>>>,
+	pub destination: MultiLocation,
+	pub parameters: Option<BoundedVec<u8, ConstU32<256>>>,
 }
 
 impl pallet_acurast_xcm_sender::Config for Runtime {

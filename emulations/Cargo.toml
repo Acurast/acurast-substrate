@@ -13,18 +13,19 @@ scale-info = { version = "2.1.2", features = ["derive"] }
 rand = "0.8.5"
 
 # Runtimes
-proxy-runtime = { git = "https://github.com/Acurast/acurast-core", default-features = false, branch = "feat/job-payment" }
 acurast-runtime = { path = "../runtime", default-features = false }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.26" }
-statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.26" }
+proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.29" }
+statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.29" }
 
 # Emulator
-xcm-emulator = { git = "https://github.com/Acurast/xcm-emulator", default-features = false, branch = "xcmp-panic" }
+#xcm-emulator = { git = "https://github.com/Acurast/xcm-emulator", default-features = false, branch = "xcmp-panic" }
+xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", default-features = false, ref = "0460d04c798028e7bef82c907082e11753ed173b"}
 
 [features]
 default = ["std"]
 std = [
-    "proxy-runtime/std",
+    "proxy-parachain-runtime/std",
     "acurast-runtime/std",
     "polkadot-runtime/std",
     "statemint-runtime/std",

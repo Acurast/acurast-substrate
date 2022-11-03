@@ -1,7 +1,7 @@
 pub mod runtimes {
     pub use acurast_runtime;
     pub use polkadot_runtime;
-    pub use proxy_runtime;
+    pub use proxy_parachain_runtime;
     pub use statemint_runtime;
 }
 

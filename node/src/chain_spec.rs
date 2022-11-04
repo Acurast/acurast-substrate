@@ -1,11 +1,13 @@
-use acurast_runtime::{AccountId, AssetsConfig, AuraId, Signature, EXISTENTIAL_DEPOSIT, Runtime, pallet_acurast};
+use acurast_runtime::{
+	pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT,
+};
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use sc_telemetry::serde_json::Value;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify, AccountIdConversion};
+use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;

@@ -25,6 +25,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use frame_support::dispatch::PostDispatchInfo;
+use frame_support::weights::Pays;
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::Everything,
@@ -34,8 +36,6 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_support::dispatch::PostDispatchInfo;
-use frame_support::weights::Pays;
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -55,7 +55,6 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 // XCM Imports
 use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
-
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -468,15 +467,11 @@ impl pallet_acurast_xcm_receiver::traits::ParachainBarrier<Runtime> for Parachai
 		// Ensure that the call comes from an xcm message
 		let location = pallet_xcm::ensure_xcm(origin)?;
 
-		let is_valid_origin = location
-			.interior()
-			.iter()
-			.any(|junction| allowed_parachains.contains(junction));
+		let is_valid_origin =
+			location.interior().iter().any(|junction| allowed_parachains.contains(junction));
 
 		if !is_valid_origin {
-			return Err(sp_runtime::DispatchError::Other(
-				"MultiLocation not allowed.",
-			));
+			return Err(sp_runtime::DispatchError::Other("MultiLocation not allowed."));
 		}
 
 		Ok(())
@@ -489,10 +484,7 @@ impl pallet_acurast_xcm_receiver::traits::OnFulfillment<Runtime> for OnAcurastFu
 		_payload: Vec<u8>,
 		_parameters: Option<Vec<u8>>,
 	) -> frame_support::sp_runtime::DispatchResultWithInfo<PostDispatchInfo> {
-		Ok(PostDispatchInfo {
-			actual_weight: None,
-			pays_fee: Pays::No,
-		})
+		Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::No })
 	}
 }
 
@@ -503,7 +495,6 @@ impl pallet_acurast_xcm_receiver::Config for Runtime {
 	type OnFulfillment = OnAcurastFulfillment;
 	type Barrier = ParachainBarrier;
 }
-
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(

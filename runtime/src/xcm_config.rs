@@ -8,7 +8,7 @@ use frame_support::{
 	log, match_types, parameter_types,
 	traits::{Everything, Nothing},
 };
-use pallet_acurast::xcm_adapters::StatemintTransactor;
+use pallet_acurast::xcm_adapters::{AssetTransactor, MultiAssetConverter};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
@@ -154,8 +154,8 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 
 		// An unexpected reserve transfer has arrived from the Relay Chain. Generally, `IsReserve`
 		// should not allow this, but we just log it here.
-		if matches!(origin, MultiLocation { parents: 1, interior: Here }) &&
-			message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
+		if matches!(origin, MultiLocation { parents: 1, interior: Here })
+			&& message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
 		{
 			log::warn!(
 				target: "xcm::barriers",
@@ -205,15 +205,17 @@ impl<T: Get<MultiLocation>> FilterAssetLocation for ReserveAssetsFrom<T> {
 }
 
 parameter_types! {
-	pub StatemintLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	pub StatemintChainId: u32 = 1000;
+	pub StatemintAssetsPalletIndex: u8 = 50;
+	pub StatemintLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(StatemintChainId::get())));
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// Statemint's Assets pallet index
 	pub StatemintAssetsPalletLocation: MultiLocation =
-		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+		MultiLocation::new(1, X2(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get())));
 
-	pub StatemintNativeAsset : MultiLocation = MultiLocation::new(1, X3(Parachain(1000), PalletInstance(50), GeneralIndex(42)));
+	pub StatemintNativeAsset : MultiLocation = MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(42)));
 	pub StatemintNativePerSecond: (xcm::v1::AssetId, u128) = (
-		MultiLocation::new(1, X3(Parachain(1000), PalletInstance(50), GeneralIndex(42))).into(),
+		MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(42))).into(),
 		super::constants::default_fee_per_second()
 	);
 }
@@ -225,7 +227,7 @@ parameter_types! {
 			fun: WildFungibility::Fungible
 		}),
 
-		MultiLocation::new(1, X1(Parachain(1000))),
+		MultiLocation::new(1, X1(Parachain(StatemintChainId::get()))),
 	);
 }
 
@@ -236,13 +238,37 @@ pub type Reserves = (
 	Case<StatemintDot>,
 );
 
+pub struct StatemintAssetConverter;
+impl MultiAssetConverter<<Runtime as pallet_assets::Config>::AssetId> for StatemintAssetConverter {
+	type Error = XcmError;
+
+	fn try_convert(
+		asset: &MultiAsset,
+	) -> Result<<Runtime as pallet_assets::Config>::AssetId, Self::Error> {
+		match &asset.id {
+			Concrete(location) => {
+				if let Some(Junction::GeneralIndex(id)) =
+					location.match_and_split(&StatemintAssetsPalletLocation::get())
+				{
+					(*id)
+						.try_into()
+						.map_err(|_| XcmError::FailedToTransactAsset("Asset not supported"))
+				} else {
+					Err(XcmError::FailedToTransactAsset("Asset not supported"))
+				}
+			},
+			Abstract(_) => Err(XcmError::FailedToTransactAsset("Asset not supported")),
+		}
+	}
+}
+
 /// Means for transacting assets from Statemine.
 /// We assume Statemine acts as reserve for all assets defined in its Assets pallet,
 /// and the same asset ID is used locally.
 /// (this is rather simplistic, a more refined implementation could implement
 /// something like an "asset manager" where only assets that have been specifically
 /// registered are considered for reserve-based asset transfers).
-pub type StatemintFungiblesTransactor = StatemintTransactor<
+pub type StatemintFungiblesTransactor = AssetTransactor<
 	Runtime,
 	// Use this fungibles implementation:
 	Assets,
@@ -261,6 +287,7 @@ pub type StatemintFungiblesTransactor = StatemintTransactor<
 	Nothing,
 	// We don't track any teleports of `Assets`.
 	CheckingAccount,
+	StatemintAssetConverter,
 >;
 
 /// Means for transacting assets on this chain.

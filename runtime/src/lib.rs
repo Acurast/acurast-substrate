@@ -43,7 +43,7 @@ use frame_system::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{StatemintAssetsPalletLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -54,13 +54,18 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::{latest::prelude::BodyId, v2::MultiLocation};
+use xcm::{
+	latest::prelude::BodyId,
+	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
+};
 use xcm_executor::XcmExecutor;
 
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-use pallet_acurast::{JobAssignmentUpdateBarrier, RevocationListUpdateBarrier};
+use pallet_acurast::{
+	AssetBarrier, AssetRewardManager, JobAssignmentUpdateBarrier, RevocationListUpdateBarrier,
+};
 use sp_runtime::traits::AccountIdConversion;
 
 use pallet_acurast_xcm_sender;
@@ -483,6 +488,7 @@ impl pallet_assets::Config for Runtime {
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 }
 
@@ -498,7 +504,7 @@ impl pallet_acurast::FeeManager for FeeManagement {
 	}
 
 	fn pallet_id() -> PalletId {
-		PalletId(*b"acrstfee")
+		FeeManagerPalletId::get()
 	}
 }
 
@@ -507,16 +513,46 @@ impl pallet_acurast::Config for Runtime {
 	type RegistrationExtra = RegistrationExtra;
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
-	type AssetTransactor = pallet_acurast::payments::StatemintAssetTransactor;
 	type PalletId = AcurastPalletId;
-	type RevocationListUpdateBarrier = RevocationBarrier;
-	type JobAssignmentUpdateBarrier = JobBarrier;
-	type FeeManager = FeeManagement;
+	type RevocationListUpdateBarrier = Barrier;
+	type JobAssignmentUpdateBarrier = Barrier;
+	type RewardManager = AssetRewardManager<Reward, Barrier, FeeManagement>;
+	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 }
 
-pub struct JobBarrier;
-impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+pub struct Reward(pub MultiAsset);
+impl pallet_acurast::Reward for Reward {
+	type AssetId = <Runtime as pallet_assets::Config>::AssetId;
+	type Balance = <Runtime as pallet_balances::Config>::Balance;
+	type Error = ();
+
+	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
+		match &self.0.id {
+			AssetId::Concrete(location) => {
+				if let Some(Junction::GeneralIndex(id)) =
+					location.match_and_split(&StatemintAssetsPalletLocation::get())
+				{
+					(*id).try_into().map_err(|_| ())
+				} else {
+					Err(())
+				}
+			},
+			_ => Err(()),
+		}
+	}
+
+	fn try_get_amount(&self) -> Result<Self::Balance, Self::Error> {
+		match self.0.fun {
+			Fungibility::Fungible(amount) => Ok(amount),
+			_ => Err(()),
+		}
+	}
+}
+
+pub struct Barrier;
+impl JobAssignmentUpdateBarrier<Runtime> for Barrier {
 	fn can_update_assigned_jobs(
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		updates: &Vec<
@@ -527,8 +563,7 @@ impl JobAssignmentUpdateBarrier<Runtime> for JobBarrier {
 	}
 }
 
-pub struct RevocationBarrier;
-impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
+impl RevocationListUpdateBarrier<Runtime> for Barrier {
 	fn can_update_revocation_list(
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
@@ -539,16 +574,19 @@ impl RevocationListUpdateBarrier<Runtime> for RevocationBarrier {
 	}
 }
 
+impl AssetBarrier<Reward> for Barrier {
+	fn can_use_asset(asset: &Reward) -> bool {
+		<Reward as pallet_acurast::Reward>::try_get_asset_id(&asset).is_ok()
+	}
+}
+
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	fn received_fulfillment(
 		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
 		from: <Runtime as frame_system::Config>::AccountId,
 		fulfillment: pallet_acurast::Fulfillment,
-		registration: pallet_acurast::JobRegistration<
-			<Runtime as frame_system::Config>::AccountId,
-			<Runtime as pallet_acurast::Config>::RegistrationExtra,
-		>,
+		registration: pallet_acurast::JobRegistrationFor<Runtime>,
 		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
 	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
 		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
@@ -566,8 +604,8 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct RegistrationExtra {
-	destination: MultiLocation,
-	parameters: Option<BoundedVec<u8, ConstU32<256>>>,
+	pub destination: MultiLocation,
+	pub parameters: Option<BoundedVec<u8, ConstU32<256>>>,
 }
 
 impl pallet_acurast_xcm_sender::Config for Runtime {

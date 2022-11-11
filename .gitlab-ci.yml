@@ -14,6 +14,11 @@ build:
 publish-dev:
   stage: publish
   extends: .publish-dev
+  only:
+    - master
+    - main
+    - develop
+    - feat/marketplace-integration
 
 publish-prod:
   stage: publish

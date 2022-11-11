@@ -1,13 +1,13 @@
-use acurast_runtime::{
-	pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT,
-};
+use acurast_runtime::{pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT};
 use cumulus_primitives_core::ParaId;
+use frame_benchmarking::frame_support;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use sc_telemetry::serde_json::Value;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use frame_support::PalletId;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -159,7 +159,8 @@ pub fn acurast_development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					pallet_assets_account(),
+					PalletId(*b"acrstpid").into_account_truncating(),
+					PalletId(*b"acrstfee").into_account_truncating(),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 			)

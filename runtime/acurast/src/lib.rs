@@ -58,7 +58,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 use xcm::{
-	latest::prelude::BodyId,
+	latest::prelude::{BodyId, X3},
 	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
 };
 use xcm_executor::XcmExecutor;

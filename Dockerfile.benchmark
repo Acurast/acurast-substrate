@@ -1,0 +1,29 @@
+FROM rust:1.62 AS builder
+RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+RUN rustup update nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
+
+WORKDIR /code
+COPY . .
+RUN cargo build --release --features runtime-benchmarks
+
+# adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
+FROM docker.io/library/ubuntu:20.04
+
+
+
+RUN #useradd -m -u 1000 -U -s /bin/sh -d /app app
+RUN mkdir /data
+RUN #chown -R app:app /data
+RUN mkdir /data/ci
+
+COPY --from=builder /code/scripts/ci/run_benches_for_runtime.sh /data/ci/run_benches_for_runtime.sh
+COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
+#COPY --from=builder /code /usr/local/code
+
+### check if executable works in this container
+RUN usr/local/bin/acurast-node --version
+#
+#USER app
+
+ENTRYPOINT ["/data/ci/run_benches_for_runtime.sh"]
+#CMD [ "ls /usr/local/code" ]

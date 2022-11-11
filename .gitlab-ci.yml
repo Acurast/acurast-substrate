@@ -2,6 +2,11 @@ include:
   - project: 'papers/papers-internal/internal'
     file: '/.base-gitlab-ci.yml'
 
+variables:
+  BENCHMARK_TAG: benchmark_$CI_COMMIT_SHA
+  IMAGE_TAG: image_$BENCHMARK_TAG
+  CONTAINER_TAG: container_$BENCHMARK_TAG
+
 stages:
   - build
   - publish
@@ -14,7 +19,28 @@ build:
 publish-dev:
   stage: publish
   extends: .publish-dev
+  only:
+    - master
+    - main
+    - develop
+    - feat/marketplace-integration
 
 publish-prod:
   stage: publish
   extends: .publish-prod
+
+benchmark-all:
+  stage: build
+  when: manual
+  script:
+    - docker build -t $IMAGE_TAG -f Dockerfile.benchmark .
+    - docker run --name $CONTAINER_TAG $IMAGE_TAG acurast
+    - docker cp $CONTAINER_TAG:/data/ci/weights ./benchmarked-weights/
+  after_script:
+    - docker stop $CONTAINER_TAG
+    - docker rm -f $CONTAINER_TAG
+    - docker image rm $IMAGE_TAG
+
+  artifacts:
+    paths:
+      - ./benchmarked-weights

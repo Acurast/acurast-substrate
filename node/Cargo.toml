@@ -18,7 +18,7 @@ hex-literal = "0.3.4"
 jsonrpsee = { version = "0.15.1", features = ["server"] }
 
 # Local
-acurast-runtime = { path = "../runtime" }
+acurast-runtime = { path = "../runtime/acurast" }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.29" }

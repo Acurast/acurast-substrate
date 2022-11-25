@@ -1,6 +1,4 @@
-use acurast_runtime::{
-	pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT,
-};
+use acurast_runtime::{AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT};
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -64,7 +62,7 @@ pub fn template_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
 }
 
-pub fn development_config() -> ChainSpec {
+pub fn acurast_development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ACRST".into());
@@ -103,7 +101,8 @@ pub fn development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					pallet_assets_account(),
+					acurast_pallet_account(),
+					fee_manager_pallet_account(),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 			)
@@ -159,8 +158,10 @@ pub fn local_testnet_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					acurast_pallet_account(),
+					fee_manager_pallet_account(),
 				],
-				2000.into(),
+				DEFAULT_PARACHAIN_ID.into(),
 			)
 		},
 		// Bootnodes
@@ -168,7 +169,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		// Telemetry
 		None,
 		// Protocol ID
-		Some("template-local"),
+		Some("acurast-local"),
 		// Fork ID
 		None,
 		// Properties
@@ -176,7 +177,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		// Extensions
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
-			para_id: 2000,
+			para_id: DEFAULT_PARACHAIN_ID,
 		},
 	)
 }
@@ -243,6 +244,10 @@ const NATIVE_TOKEN_SYMBOL: &str = "RNA";
 const NATIVE_TOKEN_DECIMALS: u8 = 0;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
 
-pub fn pallet_assets_account() -> <Runtime as frame_system::Config>::AccountId {
-	<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating()
+pub fn acurast_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
+	acurast_runtime::AcurastPalletId::get().into_account_truncating()
+}
+
+pub fn fee_manager_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
+	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }

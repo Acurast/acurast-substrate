@@ -12,8 +12,6 @@ pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmarking::*;
 
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -60,7 +58,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 use xcm::{
-	latest::prelude::{BodyId, X2, X3},
+	latest::prelude::{BodyId, X3},
 	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
 };
 use xcm_executor::XcmExecutor;

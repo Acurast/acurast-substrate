@@ -1,5 +1,5 @@
 use super::{
-	AccountId, Assets, Balance, Balances, Call, Event, Origin, ParachainInfo, ParachainSystem,
+	AccountId, Assets, AcurastAssetAmount, Balances, Call, Event, Origin, ParachainInfo, ParachainSystem,
 	PolkadotXcm, Runtime, WeightToFee, XcmpQueue,
 };
 use core::marker::PhantomData;
@@ -275,7 +275,7 @@ pub type StatemintFungiblesTransactor = AssetTransactor<
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ConvertedConcreteAssetId<
 		parachains_common::AssetId,
-		Balance,
+		AcurastAssetAmount,
 		AsPrefixedGeneralIndex<StatemintAssetsPalletLocation, parachains_common::AssetId, JustTry>,
 		JustTry,
 	>,

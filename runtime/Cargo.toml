@@ -25,6 +25,7 @@ smallvec = "1.6.1"
 
 # Acurast
 pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-acurast-xcm-sender = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
@@ -111,7 +112,6 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
-	"pallet-acurast/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -134,9 +134,11 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-acurast/std",
 	"acurast-p256-crypto/std",
 	"pallet-acurast-xcm-sender/std",
-	"pallet-acurast-fee-manager/std"
+	"pallet-acurast-fee-manager/std",
+	"pallet-acurast-marketplace/std"
 ]
 
 runtime-benchmarks = [
@@ -149,6 +151,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
+	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",

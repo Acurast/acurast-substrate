@@ -103,8 +103,7 @@ pub fn development_config() -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					PalletId(*b"acrstpid").into_account_truncating(),
-					PalletId(*b"acrstfee").into_account_truncating(),
+					pallet_assets_account(),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 			)

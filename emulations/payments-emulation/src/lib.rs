@@ -671,7 +671,7 @@ mod job_payments {
 	};
 	use acurast_runtime::Runtime as AcurastRuntime;
 	use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;
-	use emulations::runtimes::acurast_runtime::{RegistrationExtra, Reward};
+	use emulations::runtimes::acurast_runtime::{RegistrationExtra, AcurastAsset};
 
 	const SCRIPT_BYTES: [u8; 53] = hex_literal::hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
@@ -839,7 +839,7 @@ mod job_payments {
 					script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
 					allowed_sources: None,
 					allow_only_verified_sources: false,
-					reward: Reward(job_token.clone()),
+					reward: AcurastAsset(job_token.clone()),
 					extra: RegistrationExtra {
 						destination: MultiLocation {
 							parents: 1,

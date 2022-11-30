@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use acurast_runtime::{opaque::Block, AccountId, Balance, Index as Nonce};
+use acurast_runtime::{opaque::Block, AccountId, AcurastAssetAmount, Index as Nonce};
 
 use sc_client_api::AuxStore;
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
@@ -41,7 +41,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, AcurastAssetAmount>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,

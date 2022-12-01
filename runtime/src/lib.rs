@@ -33,7 +33,7 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{Everything},
+	traits::Everything,
 	weights::{
 		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, Weight,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -58,7 +58,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 use xcm::{
-	latest::prelude::{BodyId, X3},
+	latest::prelude::BodyId,
 	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
 };
 use xcm_executor::XcmExecutor;
@@ -69,9 +69,9 @@ pub use pallet_acurast;
 use pallet_acurast::RevocationListUpdateBarrier;
 use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_xcm_sender;
-use xcm::prelude::{Concrete, Fungible, GeneralIndex, PalletInstance, Parachain};
 use pallet_acurast_marketplace::JobRequirements;
+use pallet_acurast_xcm_sender;
+use xcm::prelude::Fungible;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -533,7 +533,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastAssetAmount;
-	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
+	type RewardManager =
+		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
@@ -546,13 +547,7 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	type Error = ();
 
 	fn with_amount(&mut self, amount: Self::AssetAmount) -> Result<&Self, Self::Error> {
-		self.0 = MultiAsset {
-			id: Concrete(MultiLocation {
-				parents: 1,
-				interior: X3(Parachain(1000), PalletInstance(50), GeneralIndex(22)),
-			}),
-			fun: Fungible(amount),
-		};
+		self.0 = MultiAsset { id: self.0.id.clone(), fun: Fungible(amount) };
 		Ok(self)
 	}
 

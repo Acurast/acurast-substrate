@@ -1,6 +1,6 @@
 use super::{
-	AccountId, Assets, AcurastAssetAmount, Balances, Call, Event, Origin, ParachainInfo, ParachainSystem,
-	PolkadotXcm, Runtime, WeightToFee, XcmpQueue,
+	AccountId, AcurastAssetAmount, Assets, Balances, Call, Event, Origin, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, WeightToFee, XcmpQueue,
 };
 use core::marker::PhantomData;
 use frame_support::traits::{Get, OriginTrait};

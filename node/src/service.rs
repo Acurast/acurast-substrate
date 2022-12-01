@@ -8,7 +8,9 @@ use jsonrpsee::RpcModule;
 
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
-use acurast_runtime::{opaque::Block, AccountId, AcurastAssetAmount, Hash, Index as Nonce, RuntimeApi};
+use acurast_runtime::{
+	opaque::Block, AccountId, AcurastAssetAmount, Hash, Index as Nonce, RuntimeApi,
+};
 
 // Cumulus Imports
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};

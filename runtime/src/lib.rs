@@ -523,7 +523,7 @@ impl pallet_acurast::Config for Runtime {
 	type RevocationListUpdateBarrier = Barrier;
 	type JobAssignmentUpdateBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<Runtime>;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 }
 

@@ -4,7 +4,7 @@ panic = "unwind"
 [workspace]
 members = [
 	"node",
-	"runtime",
+	"runtime/acurast",
 #	"emulations",
 #	"emulations/payments-emulation",
 #	"examples/proxy-parachain/runtime",

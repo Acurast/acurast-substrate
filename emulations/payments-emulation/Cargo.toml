@@ -16,7 +16,7 @@ hex-literal = "0.3.4"
 
 # Acurast
 pallet-acurast-xcm-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/marketplace-benchmark-refactor" }
-
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/marketplace-benchmark-refactor" }
 
 # Substrate
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.29" }

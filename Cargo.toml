@@ -5,15 +5,14 @@ panic = "unwind"
 inherits = "release"
 debug = true
 
-
 [workspace]
 members = [
 	"node",
 	"runtime/acurast",
-#	"emulations",
-#	"emulations/payments-emulation",
-#	"examples/proxy-parachain/runtime",
-#	"examples/proxy-parachain/node",
+	"emulations",
+	"emulations/payments-emulation",
+	"examples/proxy-parachain/runtime",
+	"examples/proxy-parachain/node",
 ]
 
 [profile.production]

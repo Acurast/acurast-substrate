@@ -6,9 +6,6 @@
 
 runtime="$1"
 
-#echo "[+] Compiling benchmarks..."
-#cargo build --profile production --locked --features=runtime-benchmarks
-
 # Load all pallet names in an array.
 PALLETS=($(
   /usr/local/bin/acurast-node benchmark pallet --list --chain="${runtime}-dev" |\
@@ -30,29 +27,77 @@ rm -f $ERR_FILE
 mkdir /data/ci/weights
 
 # Benchmark each pallet.
+
+
 for PALLET in "${PALLETS[@]}"; do
   echo "[+] Benchmarking $PALLET for $runtime";
 
-  output_file=""
-  if [[ $PALLET == *"::"* ]]; then
-    # translates e.g. "pallet_foo::bar" to "pallet_foo_bar"
-    output_file="${PALLET//::/_}.rs"
-  fi
+  if [ PALLET == "pallet_acurast_marketplace" ]
+  then
+    output_file=""
+      if [[ $PALLET == *"::"* ]]; then
+        # translates e.g. "pallet_foo::bar" to "pallet_foo_bar"
+        output_file="${PALLET//::/_}.rs"
+      fi
 
-  OUTPUT=$(
-    /usr/local/bin/acurast-node benchmark pallet \
-    --chain="${runtime}-dev" \
-    --steps=50 \
-    --repeat=20 \
-    --pallet="$PALLET" \
-    --extrinsic="*" \
-    --execution=wasm \
-    --wasm-execution=compiled \
-    --output="/data/ci/weights/${output_file}" 2>&1
-  )
-  if [ $? -ne 0 ]; then
-    echo "$OUTPUT" >> "$ERR_FILE"
-    echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+      # do first weight with hooks
+      OUTPUT=$(
+        /usr/local/bin/acurast-node benchmark pallet \
+        --chain="${runtime}-dev" \
+        --steps=50 \
+        --repeat=20 \
+        --pallet="$PALLET" \
+        --extrinsic="register, deregister, update_allowed_sources" \
+        --execution=wasm \
+        --wasm-execution=compiled \
+        --output="/data/ci/weights/${output_file}_with_hooks" 2>&1
+        --template="/data/hbs/weights_with_hooks.hbs"
+      )
+      if [ $? -ne 0 ]; then
+        echo "$OUTPUT" >> "$ERR_FILE"
+        echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+      fi
+
+      # do second weight without hooks
+      OUTPUT=$(
+        /usr/local/bin/acurast-node benchmark pallet \
+        --chain="${runtime}-dev" \
+        --steps=50 \
+        --repeat=20 \
+        --pallet="$PALLET" \
+        --extrinsic="advertise, delete_advertisements" \
+        --execution=wasm \
+        --wasm-execution=compiled \
+        --output="/data/ci/weights/${output_file}_without_hooks" 2>&1
+        --template="/data/hbs/weights.hbs"
+      )
+      if [ $? -ne 0 ]; then
+        echo "$OUTPUT" >> "$ERR_FILE"
+        echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+      fi
+
+  else
+    output_file=""
+      if [[ $PALLET == *"::"* ]]; then
+        # translates e.g. "pallet_foo::bar" to "pallet_foo_bar"
+        output_file="${PALLET//::/_}.rs"
+      fi
+
+      OUTPUT=$(
+        /usr/local/bin/acurast-node benchmark pallet \
+        --chain="${runtime}-dev" \
+        --steps=50 \
+        --repeat=20 \
+        --pallet="$PALLET" \
+        --extrinsic="*" \
+        --execution=wasm \
+        --wasm-execution=compiled \
+        --output="/data/ci/weights/${output_file}" 2>&1
+      )
+      if [ $? -ne 0 ]; then
+        echo "$OUTPUT" >> "$ERR_FILE"
+        echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+      fi
   fi
 done
 
@@ -74,7 +119,8 @@ done
 
 # Check if the error file exists.
 if [ -f "$ERR_FILE" ]; then
-  echo "[-] Some benchmarks failed. See: $ERR_FILE"
+  echo -e "[-] Some benchmarks failed, printing log...\n"
+  cat $ERR_FILE
 else
   echo "[+] All benchmarks passed."
 fi

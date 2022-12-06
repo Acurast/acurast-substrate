@@ -15,8 +15,10 @@ RUN #useradd -m -u 1000 -U -s /bin/sh -d /app app
 RUN mkdir /data
 RUN #chown -R app:app /data
 RUN mkdir /data/ci
+RUN mkdir /data/hbs
 
 COPY --from=builder /code/scripts/ci/run_benches_for_runtime.sh /data/ci/run_benches_for_runtime.sh
+COPY --from=builder ~/.cargo/git/checkouts/acurast-core-*/*/pallets/marketplace/src/*.hbs /data/hbs
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
 #COPY --from=builder /code /usr/local/code
 

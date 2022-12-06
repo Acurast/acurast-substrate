@@ -50,8 +50,8 @@ for PALLET in "${PALLETS[@]}"; do
         --extrinsic="register, deregister, update_allowed_sources" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="/data/ci/weights/${output_file}_with_hooks" 2>&1
-        --template="/data/hbs/weights_with_hooks.hbs"
+        --output="/data/ci/weights/${output_file}_with_hooks" \
+        --template="/data/hbs/weights_with_hooks.hbs" 2>&1
       )
       if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
@@ -68,8 +68,8 @@ for PALLET in "${PALLETS[@]}"; do
         --extrinsic="advertise, delete_advertisements" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="/data/ci/weights/${output_file}_without_hooks" 2>&1
-        --template="/data/hbs/weights.hbs"
+        --output="/data/ci/weights/${output_file}_without_hooks" \
+        --template="/data/hbs/weights.hbs" 2>&1
       )
       if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"

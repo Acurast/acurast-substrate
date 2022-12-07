@@ -496,6 +496,7 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
 }
 
 impl pallet_acurast_fee_manager::Config for Runtime {
@@ -522,8 +523,12 @@ impl pallet_acurast::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
 	type JobAssignmentUpdateBarrier = ();
+	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
+	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
+		Runtime,
+		pallet_acurast::weights::WeightInfo<Runtime>,
+	>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 }
 
@@ -593,6 +598,34 @@ impl pallet_acurast_marketplace::AssetBarrier<AcurastAsset> for Barrier {
 	}
 }
 
+impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
+	fn accept_attestation_for_origin(
+		_origin: &<Runtime as frame_system::Config>::AccountId,
+		attestation: &pallet_acurast::Attestation,
+	) -> bool {
+		let attestation_application_id =
+			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
+				attestation
+					.key_description
+					.software_enforced
+					.attestation_application_id
+					.as_ref(),
+			);
+
+		if let Some(attestation_application_id) = attestation_application_id {
+			let package_names = attestation_application_id
+				.package_infos
+				.iter()
+				.map(|package_info| package_info.package_name.as_slice())
+				.collect::<Vec<_>>();
+			let allowed = AcurastProcessorPackageNames::get();
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
+		}
+
+		false
+	}
+}
+
 pub struct FulfillmentRouter;
 impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	fn received_fulfillment(
@@ -620,6 +653,7 @@ pub struct RegistrationExtra {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
 	pub requirements: JobRequirements<AcurastAsset>,
+	pub expected_fulfillment_fee: AcurastAssetAmount,
 }
 
 impl From<RegistrationExtra> for JobRequirements<AcurastAsset> {

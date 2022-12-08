@@ -3,10 +3,9 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, WeightToFee, XcmpQueue,
 };
 use core::marker::PhantomData;
-use frame_support::traits::{Get, OriginTrait};
 use frame_support::{
 	log, match_types, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Everything, Get, Nothing, OriginTrait},
 };
 use pallet_acurast::xcm_adapters::{AssetTransactor, MultiAssetConverter};
 use pallet_xcm::XcmPassthrough;
@@ -21,8 +20,10 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	UsingComponents,
 };
-use xcm_executor::traits::{ConvertOrigin, FilterAssetLocation, JustTry};
-use xcm_executor::{traits::ShouldExecute, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertOrigin, FilterAssetLocation, JustTry, ShouldExecute},
+	XcmExecutor,
+};
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
@@ -142,20 +143,20 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: MultiLocation { parents: 1, interior: Here },
 					..
-				} | DepositReserveAsset { dest: MultiLocation { parents: 1, interior: Here }, .. }
-					| TransferReserveAsset {
+				} | DepositReserveAsset { dest: MultiLocation { parents: 1, interior: Here }, .. } |
+					TransferReserveAsset {
 						dest: MultiLocation { parents: 1, interior: Here },
 						..
 					}
 			)
 		}) {
-			return Err(()); // Deny
+			return Err(()) // Deny
 		}
 
 		// An unexpected reserve transfer has arrived from the Relay Chain. Generally, `IsReserve`
 		// should not allow this, but we just log it here.
-		if matches!(origin, MultiLocation { parents: 1, interior: Here })
-			&& message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
+		if matches!(origin, MultiLocation { parents: 1, interior: Here }) &&
+			message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
 		{
 			log::warn!(
 				target: "xcm::barriers",
@@ -179,9 +180,9 @@ pub type Barrier = DenyThenTry<
 
 //- From PR https://github.com/paritytech/cumulus/pull/936
 fn matches_prefix(prefix: &MultiLocation, loc: &MultiLocation) -> bool {
-	prefix.parent_count() == loc.parent_count()
-		&& loc.len() >= prefix.len()
-		&& prefix
+	prefix.parent_count() == loc.parent_count() &&
+		loc.len() >= prefix.len() &&
+		prefix
 			.interior()
 			.iter()
 			.zip(loc.interior().iter())
@@ -194,11 +195,10 @@ impl<T: Get<MultiLocation>> FilterAssetLocation for ReserveAssetsFrom<T> {
 	fn filter_asset_location(asset: &MultiAsset, origin: &MultiLocation) -> bool {
 		let prefix = T::get();
 		log::trace!(target: "xcm::AssetsFrom", "prefix: {:?}, origin: {:?}", prefix, origin);
-		&prefix == origin
-			&& match asset {
-				MultiAsset { id: Concrete(asset_loc), fun: Fungible(_a) } => {
-					matches_prefix(&prefix, asset_loc)
-				},
+		&prefix == origin &&
+			match asset {
+				MultiAsset { id: Concrete(asset_loc), fun: Fungible(_a) } =>
+					matches_prefix(&prefix, asset_loc),
 				_ => false,
 			}
 	}

@@ -1,3 +1,4 @@
+#![feature(int_log)]
 //! Substrate Parachain Node Template CLI
 
 #![warn(missing_docs)]

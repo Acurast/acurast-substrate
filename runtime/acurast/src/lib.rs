@@ -57,10 +57,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::{
-	latest::prelude::{BodyId, X3},
-	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
-};
+use xcm::prelude::*;
 use xcm_executor::XcmExecutor;
 
 use acurast_p256_crypto::MultiSignature;
@@ -71,7 +68,7 @@ use sp_runtime::traits::AccountIdConversion;
 
 use pallet_acurast_marketplace::JobRequirements;
 use pallet_acurast_xcm_sender;
-use xcm::prelude::Fungible;
+use xcm::prelude::{Fungible, PalletInstance, Parachain, X2};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -536,6 +533,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type Event = Event;
 	type RegistrationExtra = RegistrationExtra;
 	type PalletId = AcurastPalletId;
+	type Reward = AcurastAsset;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastAssetAmount;
 	type RewardManager =
@@ -576,6 +574,18 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 			Fungibility::Fungible(amount) => Ok(amount),
 			_ => Err(()),
 		}
+	}
+}
+
+impl From<pallet_acurast_marketplace::types::MinimumAssetImplementation> for AcurastAsset {
+	fn from(asset: pallet_acurast_marketplace::types::MinimumAssetImplementation) -> Self {
+		AcurastAsset(MultiAsset {
+			id: Concrete(MultiLocation {
+				parents: 1,
+				interior: X3(Parachain(1000), PalletInstance(50), GeneralIndex(asset.id as u128)),
+			}),
+			fun: Fungible(asset.amount),
+		})
 	}
 }
 
@@ -659,6 +669,26 @@ pub struct RegistrationExtra {
 impl From<RegistrationExtra> for JobRequirements<AcurastAsset> {
 	fn from(extra: RegistrationExtra) -> Self {
 		extra.requirements
+	}
+}
+
+// impl Into<RegistrationExtra> for JobRequirements<AcurastAsset> {
+// 	fn into(self) -> RegistrationExtra {
+// 		RegistrationExtra {
+// 			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
+// 			parameters: None,
+// 			requirements: self
+// 		}
+// 	}
+// }
+
+impl From<JobRequirements<AcurastAsset>> for RegistrationExtra {
+	fn from(req: JobRequirements<AcurastAsset>) -> Self {
+		RegistrationExtra {
+			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
+			parameters: None,
+			requirements: req,
+		}
 	}
 }
 

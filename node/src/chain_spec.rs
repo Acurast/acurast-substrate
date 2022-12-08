@@ -1,10 +1,17 @@
-use acurast_runtime::{AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT};
+use std::str::FromStr;
+
+use acurast_runtime::{
+	AccountId, AssetsConfig, AuraId, Runtime, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
+};
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use sp_runtime::{
+	traits::{AccountIdConversion, IdentifyAccount, Verify},
+	AccountId32,
+};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -222,6 +229,7 @@ fn testnet_genesis(
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
+		sudo: SudoConfig { key: acurast_sudo_account() },
 		assets: AssetsConfig {
 			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
 			metadata: vec![(
@@ -250,4 +258,11 @@ pub fn acurast_pallet_account() -> <Runtime as frame_system::Config>::AccountId 
 
 pub fn fee_manager_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
+}
+
+pub fn acurast_sudo_account() -> Option<<Runtime as frame_system::Config>::AccountId> {
+	<Runtime as frame_system::Config>::AccountId::from_str(
+		"5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx",
+	)
+	.ok()
 }

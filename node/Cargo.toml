@@ -20,7 +20,7 @@ cfg-if = "1.0.0"
 
 # Local
 acurast-runtime = { path = "../runtime/acurast" }
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/marketplace-benchmark-refactor" }
 
 
 

@@ -757,6 +757,8 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		// [pallet_acurast, Acurast]
+		// [pallet_acurast_xcm_sender, AcurastSender]
 		[pallet_acurast_marketplace, AcurastMarketplace]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 	);

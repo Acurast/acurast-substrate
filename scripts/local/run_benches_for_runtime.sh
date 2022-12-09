@@ -32,12 +32,6 @@ for PALLET in "${PALLETS[@]}"; do
 
   if [ "$PALLET" == "pallet_acurast_marketplace" ]
   then
-    output_file=""
-      if [[ $PALLET == *"::"* ]]; then
-        # translates e.g. "pallet_foo::bar" to "pallet_foo_bar"
-        output_file="${PALLET//::/_}.rs"
-      fi
-
       # do first weight with hooks
       OUTPUT=$(
        ./target/release/acurast-node benchmark pallet \
@@ -48,7 +42,7 @@ for PALLET in "${PALLETS[@]}"; do
         --extrinsic="register, deregister, update_allowed_sources" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="./scripts/local/weights/${output_file}_with_hooks" \
+        --output="./scripts/local/weights/pallet_acurast_marketplace_with_hooks.rs" \
         --template="../acurast-core/pallets/marketplace/src/weights_with_hooks.hbs" 2>&1
       )
       if [ $? -ne 0 ]; then
@@ -66,7 +60,7 @@ for PALLET in "${PALLETS[@]}"; do
         --extrinsic="advertise, delete_advertisement" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="./scripts/local/weights/${output_file}_without_hooks" \
+        --output="./scripts/local/weights/pallet_acurast_marketplace_without_hooks.rs" \
         --template="../acurast-core/pallets/marketplace/src/weights_with_hooks.hbs" 2>&1
       )
       if [ $? -ne 0 ]; then
@@ -77,6 +71,7 @@ for PALLET in "${PALLETS[@]}"; do
   else
     output_file=""
       if [[ $PALLET == *"::"* ]]; then
+        echo "$PALLET"
         # translates e.g. "pallet_foo::bar" to "pallet_foo_bar"
         output_file="${PALLET//::/_}.rs"
       fi

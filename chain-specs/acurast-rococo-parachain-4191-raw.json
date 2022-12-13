@@ -2,7 +2,9 @@
   "name": "Acurast Rococo Testnet",
   "id": "acurast-rococo",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/ip4/138.201.85.115/tcp/40335/p2p/12D3KooWPCRpT7CAEKvgBLyhPvuvrakvJx5aaDGT68AJTqLeJVEa"
+  ],
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {

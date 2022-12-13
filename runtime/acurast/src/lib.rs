@@ -66,7 +66,7 @@ pub use pallet_acurast;
 use pallet_acurast::RevocationListUpdateBarrier;
 use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_marketplace::JobRequirements;
+use pallet_acurast_marketplace::{JobRequirements, MinimumAssetImplementation, Reward};
 use pallet_acurast_xcm_sender;
 use xcm::prelude::{Fungible, PalletInstance, Parachain, X2};
 
@@ -514,7 +514,7 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 
 impl pallet_acurast::Config for Runtime {
 	type Event = Event;
-	type RegistrationExtra = RegistrationExtra;
+	type RegistrationExtra = RegistrationExtra<Self>;
 	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type PalletId = AcurastPalletId;
@@ -531,20 +531,19 @@ impl pallet_acurast::Config for Runtime {
 
 impl pallet_acurast_marketplace::Config for Runtime {
 	type Event = Event;
-	type RegistrationExtra = RegistrationExtra;
+	type RegistrationExtra = RegistrationExtra<Self>;
 	type PalletId = AcurastPalletId;
 	type Reward = AcurastAsset;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastAssetAmount;
-	type RewardManager =
-		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
+	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<Barrier, FeeManagement>;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
-impl pallet_acurast_marketplace::Reward for AcurastAsset {
+impl Reward for AcurastAsset {
 	type AssetId = AcurastAssetId;
 	type AssetAmount = <Runtime as pallet_balances::Config>::Balance;
 	type Error = ();
@@ -577,8 +576,8 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	}
 }
 
-impl From<pallet_acurast_marketplace::types::MinimumAssetImplementation> for AcurastAsset {
-	fn from(asset: pallet_acurast_marketplace::types::MinimumAssetImplementation) -> Self {
+impl From<MinimumAssetImplementation> for AcurastAsset {
+	fn from(asset: MinimumAssetImplementation) -> Self {
 		AcurastAsset(MultiAsset {
 			id: Concrete(MultiLocation {
 				parents: 1,
@@ -586,6 +585,15 @@ impl From<pallet_acurast_marketplace::types::MinimumAssetImplementation> for Acu
 			}),
 			fun: Fungible(asset.amount),
 		})
+	}
+}
+
+impl From<AcurastAsset> for MinimumAssetImplementation {
+	fn from(asset: AcurastAsset) -> Self {
+		MinimumAssetImplementation {
+			id: asset.try_get_asset_id().unwrap(),
+			amount: asset.try_get_amount().unwrap(),
+		}
 	}
 }
 
@@ -604,7 +612,7 @@ impl RevocationListUpdateBarrier<Runtime> for Barrier {
 
 impl pallet_acurast_marketplace::AssetBarrier<AcurastAsset> for Barrier {
 	fn can_use_asset(asset: &AcurastAsset) -> bool {
-		<AcurastAsset as pallet_acurast_marketplace::Reward>::try_get_asset_id(&asset).is_ok()
+		<AcurastAsset as Reward>::try_get_asset_id(&asset).is_ok()
 	}
 }
 
@@ -629,7 +637,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name));
+			return package_names.iter().all(|package_name| allowed.contains(package_name))
 		}
 
 		false
@@ -659,35 +667,43 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 }
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
-pub struct RegistrationExtra {
+pub struct RegistrationExtra<T: pallet_acurast_marketplace::Config> {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
-	pub requirements: JobRequirements<AcurastAsset>,
+	pub requirements: JobRequirements<T>,
 	pub expected_fulfillment_fee: AcurastAssetAmount,
 }
 
-impl From<RegistrationExtra> for JobRequirements<AcurastAsset> {
-	fn from(extra: RegistrationExtra) -> Self {
+impl<T: pallet_acurast_marketplace::Config> From<RegistrationExtra<T>> for JobRequirements<T> {
+	fn from(extra: RegistrationExtra<T>) -> Self {
 		extra.requirements
 	}
 }
 
-// impl Into<RegistrationExtra> for JobRequirements<AcurastAsset> {
-// 	fn into(self) -> RegistrationExtra {
-// 		RegistrationExtra {
-// 			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
-// 			parameters: None,
-// 			requirements: self
-// 		}
-// 	}
-// }
-
-impl From<JobRequirements<AcurastAsset>> for RegistrationExtra {
-	fn from(req: JobRequirements<AcurastAsset>) -> Self {
+impl<T: pallet_acurast_marketplace::Config> From<JobRequirements<T>> for RegistrationExtra<T> {
+	fn from(req: JobRequirements<T>) -> Self {
 		RegistrationExtra {
 			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
 			parameters: None,
 			requirements: req,
+			expected_fulfillment_fee: 0,
+		}
+	}
+}
+
+impl<T: pallet_acurast_marketplace::Config> pallet_acurast::BenchmarkDefault
+	for RegistrationExtra<T>
+{
+	fn benchmark_default() -> Self {
+		return RegistrationExtra {
+			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
+			parameters: None,
+			requirements: JobRequirements::<T> {
+				slots: 1,
+				cpu_milliseconds: 5000,
+				reward: MinimumAssetImplementation { id: 22, amount: 1_000_000_000 }.into(),
+			},
+			expected_fulfillment_fee: 0,
 		}
 	}
 }
@@ -757,8 +773,8 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		// [pallet_acurast, Acurast]
-		// [pallet_acurast_xcm_sender, AcurastSender]
+		[pallet_acurast, Acurast]
+		//TODO:  [pallet_acurast_xcm_sender, AcurastSender]
 		[pallet_acurast_marketplace, AcurastMarketplace]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 	);

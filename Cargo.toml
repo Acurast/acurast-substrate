@@ -15,3 +15,7 @@ members = [
 inherits = "release"
 lto = true
 codegen-units = 1
+
+[patch."https://github.com/Acurast/acurast-core.git"]
+pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
+pallet-acurast = { path = "../acurast-core/pallets/acurast" }

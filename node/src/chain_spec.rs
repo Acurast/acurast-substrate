@@ -1,6 +1,6 @@
 use acurast_runtime::{
-	pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, EXISTENTIAL_DEPOSIT,
-	SudoConfig
+	pallet_acurast, AccountId, AssetsConfig, AuraId, Runtime, Signature, SudoConfig,
+	EXISTENTIAL_DEPOSIT,
 };
 use std::str::FromStr;
 

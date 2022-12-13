@@ -61,7 +61,7 @@ for PALLET in "${PALLETS[@]}"; do
         --execution=wasm \
         --wasm-execution=compiled \
         --output="./scripts/local/weights/pallet_acurast_marketplace_without_hooks.rs" \
-        --template="../acurast-core/pallets/marketplace/src/weights_with_hooks.hbs" 2>&1
+        --template="../acurast-core/pallets/marketplace/src/weights.hbs" 2>&1
       )
       if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"

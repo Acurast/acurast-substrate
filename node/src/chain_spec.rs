@@ -9,6 +9,7 @@ use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
+	app_crypto::Ss58Codec,
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	AccountId32,
 };
@@ -21,7 +22,7 @@ const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+	<TPublic::Pair as Pair>::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -46,6 +47,14 @@ impl Extensions {
 type AccountPublic = <Signature as Verify>::Signer;
 
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
+const ROCOCO_PARACHAIN_ID: u32 = 4191;
+const NATIVE_IS_SUFFICIENT: bool = true;
+const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
+const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
+const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
+const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
+const NATIVE_TOKEN_DECIMALS: u8 = 12;
+const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
 
 /// Generate collator keys from seed.
 ///
@@ -73,7 +82,7 @@ pub fn acurast_development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ACRST".into());
-	properties.insert("tokenDecimals".into(), 12.into());
+	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), 42.into());
 
 	ChainSpec::from_genesis(
@@ -96,20 +105,20 @@ pub fn acurast_development_config() -> ChainSpec {
 					),
 				],
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					acurast_pallet_account(),
-					fee_manager_pallet_account(),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
+					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 			)
@@ -130,7 +139,7 @@ pub fn local_testnet_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ACRST".into());
-	properties.insert("tokenDecimals".into(), 12.into());
+	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), 42.into());
 
 	ChainSpec::from_genesis(
@@ -153,20 +162,20 @@ pub fn local_testnet_config() -> ChainSpec {
 					),
 				],
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-					acurast_pallet_account(),
-					fee_manager_pallet_account(),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
+					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
+					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 			)
@@ -189,9 +198,59 @@ pub fn local_testnet_config() -> ChainSpec {
 	)
 }
 
+pub fn acurast_rococo_config() -> ChainSpec {
+	// Give your base currency a unit name and decimal places
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
+	properties.insert("ss58Format".into(), 42.into());
+
+	ChainSpec::from_genesis(
+		// Name
+		"Acurast Rococo Testnet",
+		// ID
+		"acurast-rococo",
+		ChainType::Live,
+		move || {
+			testnet_genesis(
+				// initial collators.
+				vec![
+					(
+						AccountId32::from_str("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+							.unwrap(),
+						AuraId::from_string("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+							.unwrap(),
+						AuraId::from_string("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+							.unwrap(),
+					),
+				],
+				vec![
+					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+					(acurast_sudo_account(), acurast_runtime::AcurastAssetAmount::MAX),
+				],
+				ROCOCO_PARACHAIN_ID.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions {
+			relay_chain: "rococo".into(), // You MUST set this to the correct network!
+			para_id: ROCOCO_PARACHAIN_ID,
+		},
+	)
+}
+
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
-	endowed_accounts: Vec<AccountId>,
+	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastAssetAmount)>,
 	id: ParaId,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
@@ -200,9 +259,7 @@ fn testnet_genesis(
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 		},
-		balances: acurast_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-		},
+		balances: acurast_runtime::BalancesConfig { balances: endowed_accounts },
 		parachain_info: acurast_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: acurast_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
@@ -229,28 +286,28 @@ fn testnet_genesis(
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		sudo: SudoConfig { key: acurast_sudo_account() },
+		sudo: SudoConfig { key: Some(acurast_sudo_account()) },
 		assets: AssetsConfig {
-			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
+			assets: vec![(
+				acurast_runtime::xcm_config::NativeAssetId::get(),
+				BURN_ACCOUNT,
+				NATIVE_IS_SUFFICIENT,
+				NATIVE_MIN_BALANCE,
+			)],
 			metadata: vec![(
-				NATIVE_ASSET_ID,
+				acurast_runtime::xcm_config::NativeAssetId::get(),
 				NATIVE_TOKEN_NAME.as_bytes().to_vec(),
 				NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
 				NATIVE_TOKEN_DECIMALS,
 			)],
-			accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],
+			accounts: vec![(
+				acurast_runtime::xcm_config::NativeAssetId::get(),
+				BURN_ACCOUNT,
+				NATIVE_INITIAL_BALANCE,
+			)],
 		},
 	}
 }
-
-const NATIVE_ASSET_ID: u32 = 42;
-const NATIVE_IS_SUFFICIENT: bool = true;
-const NATIVE_MIN_BALANCE: u128 = 1;
-const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
-const NATIVE_TOKEN_SYMBOL: &str = "RNA";
-const NATIVE_TOKEN_DECIMALS: u8 = 0;
-const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
 
 pub fn acurast_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
 	acurast_runtime::AcurastPalletId::get().into_account_truncating()
@@ -260,9 +317,9 @@ pub fn fee_manager_pallet_account() -> <Runtime as frame_system::Config>::Accoun
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }
 
-pub fn acurast_sudo_account() -> Option<<Runtime as frame_system::Config>::AccountId> {
+pub fn acurast_sudo_account() -> <Runtime as frame_system::Config>::AccountId {
 	<Runtime as frame_system::Config>::AccountId::from_str(
 		"5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx",
 	)
-	.ok()
+	.expect("valid account id")
 }

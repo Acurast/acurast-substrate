@@ -637,12 +637,7 @@ impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
 	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
 		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
 
-		AcurastSender::send(
-			from,
-			registration.extra.destination,
-			fulfillment.payload,
-			registration.extra.parameters.map(|params| params.into()),
-		)?;
+		log::info!("\n\nPayload: {:?}\n\n", fulfillment.payload);
 
 		Ok(().into())
 	}

@@ -231,14 +231,29 @@ fn testnet_genesis(
 		},
 		sudo: SudoConfig { key: acurast_sudo_account() },
 		assets: AssetsConfig {
-			assets: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE)],
-			metadata: vec![(
-				NATIVE_ASSET_ID,
-				NATIVE_TOKEN_NAME.as_bytes().to_vec(),
-				NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
-				NATIVE_TOKEN_DECIMALS,
-			)],
-			accounts: vec![(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE)],
+			assets: vec![
+				(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_IS_SUFFICIENT, NATIVE_MIN_BALANCE),
+				(dev_asset::ASSET_ID, acurast_pallet_account(), dev_asset::ASSET_IS_SUFFICIENT, dev_asset::MIN_BALANCE),
+			],
+			metadata: vec![
+				(
+					NATIVE_ASSET_ID,
+					NATIVE_TOKEN_NAME.as_bytes().to_vec(),
+					NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
+					NATIVE_TOKEN_DECIMALS,
+				),
+				(
+					dev_asset::ASSET_ID,
+					dev_asset::TOKEN_NAME.as_bytes().to_vec(),
+					dev_asset::TOKEN_SYMBOL.as_bytes().to_vec(),
+					dev_asset::TOKEN_DECIMALS
+				),
+			],
+			accounts: vec![
+				(NATIVE_ASSET_ID, BURN_ACCOUNT, NATIVE_INITIAL_BALANCE),
+				(dev_asset::ASSET_ID, get_account_id_from_seed::<sr25519::Public>("Alice"), dev_asset::INITIAL_BALANCE),
+				(dev_asset::ASSET_ID, get_account_id_from_seed::<sr25519::Public>("Bob"), dev_asset::INITIAL_BALANCE)
+			],
 		},
 	}
 }
@@ -251,6 +266,16 @@ const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "RNA";
 const NATIVE_TOKEN_DECIMALS: u8 = 0;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
+
+pub mod dev_asset {
+	pub const ASSET_ID: u32 = 22;
+	pub const ASSET_IS_SUFFICIENT: bool = false;
+	pub const MIN_BALANCE: u128 = 1;
+	pub const INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
+	pub const TOKEN_NAME: &str = "TEST";
+	pub const TOKEN_SYMBOL: &str = "TEST";
+	pub const TOKEN_DECIMALS: u8 = 12;
+}
 
 pub fn acurast_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
 	acurast_runtime::AcurastPalletId::get().into_account_truncating()

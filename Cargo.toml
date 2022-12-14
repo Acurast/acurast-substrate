@@ -1,6 +1,11 @@
 [profile.release]
 panic = "unwind"
 
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+
+
 [workspace]
 members = [
 	"node",

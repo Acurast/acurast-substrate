@@ -10,9 +10,6 @@ mod constants;
 mod weights;
 pub mod xcm_config;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use scale_info::TypeInfo;
@@ -66,7 +63,7 @@ pub use pallet_acurast;
 use pallet_acurast::RevocationListUpdateBarrier;
 use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_marketplace::{JobRequirements, MinimumAssetImplementation, Reward};
+use pallet_acurast_marketplace::{types::AcurastAsset, JobRequirements, Reward};
 use pallet_acurast_xcm_sender;
 use xcm::prelude::{Fungible, PalletInstance, Parachain, X2};
 
@@ -534,67 +531,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RegistrationExtra = RegistrationExtra<Self>;
 	type PalletId = AcurastPalletId;
 	type Reward = AcurastAsset;
-	type AssetId = AcurastAssetId;
-	type AssetAmount = AcurastAssetAmount;
 	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<Barrier, FeeManagement>;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-pub struct AcurastAsset(pub MultiAsset);
-
-impl Reward for AcurastAsset {
-	type AssetId = AcurastAssetId;
-	type AssetAmount = <Runtime as pallet_balances::Config>::Balance;
-	type Error = ();
-
-	fn with_amount(&mut self, amount: Self::AssetAmount) -> Result<&Self, Self::Error> {
-		self.0 = MultiAsset { id: self.0.id.clone(), fun: Fungible(amount) };
-		Ok(self)
-	}
-
-	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
-		match &self.0.id {
-			AssetId::Concrete(location) => {
-				if let Some(Junction::GeneralIndex(id)) =
-					location.match_and_split(&StatemintAssetsPalletLocation::get())
-				{
-					(*id).try_into().map_err(|_| ())
-				} else {
-					Err(())
-				}
-			},
-			_ => Err(()),
-		}
-	}
-
-	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
-		match self.0.fun {
-			Fungibility::Fungible(amount) => Ok(amount),
-			_ => Err(()),
-		}
-	}
-}
-
-impl From<MinimumAssetImplementation> for AcurastAsset {
-	fn from(asset: MinimumAssetImplementation) -> Self {
-		AcurastAsset(MultiAsset {
-			id: Concrete(MultiLocation {
-				parents: 1,
-				interior: X3(Parachain(1000), PalletInstance(50), GeneralIndex(asset.id as u128)),
-			}),
-			fun: Fungible(asset.amount),
-		})
-	}
-}
-
-impl From<AcurastAsset> for MinimumAssetImplementation {
-	fn from(asset: AcurastAsset) -> Self {
-		MinimumAssetImplementation {
-			id: asset.try_get_asset_id().unwrap(),
-			amount: asset.try_get_amount().unwrap(),
-		}
-	}
 }
 
 pub struct Barrier;
@@ -691,18 +629,14 @@ impl<T: pallet_acurast_marketplace::Config> From<JobRequirements<T>> for Registr
 	}
 }
 
-impl<T: pallet_acurast_marketplace::Config> pallet_acurast::BenchmarkDefault
+impl<T: pallet_acurast_marketplace::Config<Reward = AcurastAsset>> pallet_acurast::BenchmarkDefault
 	for RegistrationExtra<T>
 {
 	fn benchmark_default() -> Self {
 		return RegistrationExtra {
 			destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
 			parameters: None,
-			requirements: JobRequirements::<T> {
-				slots: 1,
-				cpu_milliseconds: 5000,
-				reward: MinimumAssetImplementation { id: 22, amount: 1_000_000_000 }.into(),
-			},
+			requirements: JobRequirements::benchmark_default(),
 			expected_fulfillment_fee: 0,
 		}
 	}
@@ -773,6 +707,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		// when marketplace is used, some extrinsics shouldn not be benchmarked because they will fail
 		[pallet_acurast, Acurast]
 		//TODO:  [pallet_acurast_xcm_sender, AcurastSender]
 		[pallet_acurast_marketplace, AcurastMarketplace]

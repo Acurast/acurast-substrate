@@ -7,6 +7,7 @@
 runtime="$1"
 
 # Load all pallet names in an array.
+# shellcheck disable=SC2207
 PALLETS=($(
   ./target/release/acurast-node benchmark pallet --list --chain="${runtime}-dev" |\
     tail -n+2 |\
@@ -30,20 +31,41 @@ mkdir ./scripts/local/weights
 for PALLET in "${PALLETS[@]}"; do
   echo "[+] Benchmarking $PALLET for $runtime";
 
-  if [ "$PALLET" == "pallet_acurast_marketplace" ]
+    if [ "$PALLET" == "pallet_acurast" ]
+    then
+        # do first weight with hooks
+        OUTPUT=$(
+          ./target/release/acurast-node benchmark pallet \
+          --chain=acurast-dev \
+          --steps=50 \
+          --repeat=20 \
+          --pallet="pallet_acurast" \
+          --extrinsic="*" \
+          --execution=wasm \
+          --wasm-execution=compiled \
+          --output="./scripts/local/weights/" \
+          --template="../acurast-core/pallets/acurast/src/weights.hbs"
+        )
+        if [ $? -ne 0 ]; then
+          echo "$OUTPUT" >> "$ERR_FILE"
+          echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+        fi
+
+  elif [ "$PALLET" == "pallet_acurast_marketplace" ]
   then
       # do first weight with hooks
       OUTPUT=$(
-       ./target/release/acurast-node benchmark pallet \
-        --chain="${runtime}-dev" \
+        ./target/release/acurast-node benchmark pallet \
+        --chain=acurast-dev \
         --steps=50 \
         --repeat=20 \
-        --pallet="$PALLET" \
-        --extrinsic="register, deregister, update_allowed_sources" \
+        --pallet="pallet_acurast_marketplace" \
+        --extrinsic="register, deregister" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="./scripts/local/weights/pallet_acurast_marketplace_with_hooks.rs" \
-        --template="../acurast-core/pallets/marketplace/src/weights_with_hooks.hbs" 2>&1
+        --output="./scripts/local/weights/marketplace_hooks.rs" \
+        --template="../acurast-core/pallets/marketplace/src/weights_with_hooks.hbs"
+
       )
       if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
@@ -53,15 +75,15 @@ for PALLET in "${PALLETS[@]}"; do
       # do second weight without hooks
       OUTPUT=$(
         ./target/release/acurast-node benchmark pallet \
-        --chain="${runtime}-dev" \
+        --chain="acurast-dev" \
         --steps=50 \
         --repeat=20 \
-        --pallet="$PALLET" \
+        --pallet="pallet_acurast_marketplace" \
         --extrinsic="advertise, delete_advertisement" \
         --execution=wasm \
         --wasm-execution=compiled \
-        --output="./scripts/local/weights/pallet_acurast_marketplace_without_hooks.rs" \
-        --template="../acurast-core/pallets/marketplace/src/weights.hbs" 2>&1
+        --output="./scripts/local/weights/marketplace_nohooks.rs" \
+        --template="../acurast-core/pallets/marketplace/src/weights.hbs"
       )
       if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"

@@ -1,25 +1,24 @@
 extern crate core;
 
 // parent re-exports
-use emulations::emulators::xcm_emulator;
-use emulations::runtimes::{
-	acurast_runtime, polkadot_runtime, proxy_parachain_runtime, statemint_runtime,
+use emulations::{
+	emulators::xcm_emulator,
+	runtimes::{acurast_runtime, polkadot_runtime, proxy_parachain_runtime, statemint_runtime},
 };
 
 // needed libs
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
-use frame_support::traits::GenesisBuild;
-use frame_support::weights::Weight;
-use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::AccountIdConversion;
-use sp_runtime::AccountId32;
-use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
-use xcm::latest::prelude::*;
 use emulations::emulators::xcm_emulator::TestExt;
-use sp_runtime::traits::StaticLookup;
-use frame_support::dispatch::Dispatchable;
+use frame_support::{dispatch::Dispatchable, traits::GenesisBuild, weights::Weight};
 use pallet_acurast_marketplace::FeeManager;
+use polkadot_parachain::primitives::Sibling;
+use sp_runtime::{
+	traits::{AccountIdConversion, StaticLookup},
+	AccountId32,
+};
+use xcm::latest::prelude::*;
+use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 decl_test_relay_chain! {
 	pub struct PolkadotRelay {
@@ -298,10 +297,7 @@ pub fn child_para_account_id(id: u32) -> polkadot_core_primitives::AccountId {
 
 // Helper function for forming buy execution message
 fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
-	BuyExecution {
-		fees: fees.into(),
-		weight_limit: Unlimited,
-	}
+	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
 type AcurastXcmPallet = pallet_xcm::Pallet<acurast_runtime::Runtime>;
@@ -472,8 +468,8 @@ mod network_tests {
 			let pallet_balance =
 				pallet_balances::Pallet::<acurast_runtime::Runtime>::free_balance(&ALICE);
 			assert!(
-				pallet_balance < (&full_deposit + &fee_margin)
-					&& pallet_balance > (full_deposit - fee_margin)
+				pallet_balance < (&full_deposit + &fee_margin) &&
+					pallet_balance > (full_deposit - fee_margin)
 			);
 		});
 	}
@@ -681,18 +677,17 @@ mod statemint_backed_native_assets {
 
 #[cfg(test)]
 mod jobs {
-	use frame_support::assert_ok;
-	use frame_support::dispatch::RawOrigin;
+	use frame_support::{assert_ok, dispatch::RawOrigin};
 
 	use super::*;
-	use crate::acurast_runtime::pallet_acurast;
-	use crate::pallet_acurast::{
-		Fulfillment, JobAssignmentUpdate, JobRegistration, ListUpdateOperation,
+	use crate::{
+		acurast_runtime::pallet_acurast,
+		pallet_acurast::{Fulfillment, JobAssignmentUpdate, JobRegistration, ListUpdateOperation},
 	};
 	use acurast_runtime::Runtime as AcurastRuntime;
 	// use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;
-	use emulations::runtimes::acurast_runtime::{RegistrationExtra, AcurastAsset};
-	use pallet_acurast_marketplace::JobRequirements;
+	use emulations::runtimes::acurast_runtime::RegistrationExtra;
+	use pallet_acurast_marketplace::{types::AcurastAsset, JobRequirements};
 	use sp_runtime::BoundedVec;
 
 	const SCRIPT_BYTES: [u8; 53] = hex_literal::hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
@@ -835,10 +830,10 @@ mod jobs {
 
 	#[test]
 	fn create_job_and_fulfill_local() {
-		use acurast_runtime::Call::AcurastMarketplace;
-		use pallet_acurast_marketplace::Call::advertise;
-		use acurast_runtime::Runtime as AcurastRuntime;
-		use pallet_acurast_marketplace::{AdvertisementFor, PricingVariant};
+		use acurast_runtime::{Call::AcurastMarketplace, Runtime as AcurastRuntime};
+		use pallet_acurast_marketplace::{
+			types::AcurastAsset, AdvertisementFor, Call::advertise, PricingVariant,
+		};
 
 		let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 			<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
@@ -860,18 +855,17 @@ mod jobs {
 		// advertise resources
 		AcurastParachain::execute_with(|| {
 			let advertise_call = AcurastMarketplace(advertise {
-				advertisement: AdvertisementFor::<AcurastRuntime>{
-					pricing: BoundedVec::try_from(vec![
-						PricingVariant {
-							reward_asset: 69,
-							price_per_cpu_millisecond: 1_000_000, // 12 zeroes is 1 unit, I assume 1 unit per second so I take 3 zeroes out
-							bonus: 0,
-							maximum_slash: 0,
-						}
-					]).unwrap(),
+				advertisement: AdvertisementFor::<AcurastRuntime> {
+					pricing: BoundedVec::try_from(vec![PricingVariant {
+						reward_asset: 69,
+						price_per_cpu_millisecond: 1_000_000, // 12 zeroes is 1 unit, I assume 1 unit per second so I take 3 zeroes out
+						bonus: 0,
+						maximum_slash: 0,
+					}])
+					.unwrap(),
 					capacity: 4,
 					allowed_consumers: None,
-				}
+				},
 			});
 
 			assert_ok!(advertise_call.dispatch(bob_origin.clone()));
@@ -889,14 +883,17 @@ mod jobs {
 					// only for debug purposes. The whole point of acurast is leveraging the TEE attestations
 					// which are used only when this is set to true
 					allow_only_verified_sources: false,
-					extra: RegistrationExtra {
+					extra: RegistrationExtra::<AcurastRuntime> {
 						destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
 						parameters: None,
+
 						requirements: JobRequirements {
 							slots: 1,
 							cpu_milliseconds: 5000,
-							reward: AcurastAsset(job_token.clone())
+							reward: AcurastAsset(job_token.clone()),
 						},
+						// requirements: JobRequirements {},
+						expected_fulfillment_fee: 0,
 					},
 				},
 			});
@@ -943,12 +940,9 @@ mod jobs {
 
 		// check fulfill event
 		ProxyParachain::execute_with(|| {
-			use proxy_parachain_runtime::{Event, System};
+			use emulations::runtimes::proxy_parachain_runtime::{Event, System};
 			let events = System::events();
-			assert!(events.iter().any(|r| matches!(
-				r.event,
-				Event::AcurastReceiver(pallet_acurast_xcm_receiver::Event::FulfillReceived { .. })
-			)));
+			assert!(events.iter().any(|r| matches!(r.event, Event::AcurastReceiver(..))));
 		});
 	}
 }

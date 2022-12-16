@@ -207,15 +207,16 @@ impl<T: Get<MultiLocation>> FilterAssetLocation for ReserveAssetsFrom<T> {
 parameter_types! {
 	pub StatemintChainId: u32 = 1000;
 	pub StatemintAssetsPalletIndex: u8 = 50;
+	pub NativeAssetId: u32 = 100;
 	pub StatemintLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(StatemintChainId::get())));
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// Statemint's Assets pallet index
 	pub StatemintAssetsPalletLocation: MultiLocation =
 		MultiLocation::new(1, X2(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get())));
 
-	pub StatemintNativeAsset : MultiLocation = MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(42)));
+	pub StatemintNativeAsset: MultiLocation = MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(NativeAssetId::get() as u128)));
 	pub StatemintNativePerSecond: (xcm::v1::AssetId, u128) = (
-		MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(42))).into(),
+		MultiLocation::new(1, X3(Parachain(StatemintChainId::get()), PalletInstance(StatemintAssetsPalletIndex::get()), GeneralIndex(NativeAssetId::get() as u128))).into(),
 		super::constants::default_fee_per_second()
 	);
 }

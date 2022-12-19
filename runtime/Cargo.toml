@@ -59,6 +59,7 @@ sp-session = { git = "https://github.com/paritytech/substrate", default-features
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.29" }
 sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.29" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.29" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.29" }
 
 # Polkadot
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.29" }
@@ -138,7 +139,8 @@ std = [
 	"acurast-p256-crypto/std",
 	"pallet-acurast-xcm-sender/std",
 	"pallet-acurast-fee-manager/std",
-	"pallet-acurast-marketplace/std"
+	"pallet-acurast-marketplace/std",
+ 	"pallet-scheduler/std"
 ]
 
 runtime-benchmarks = [

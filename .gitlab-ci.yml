@@ -3,9 +3,23 @@ include:
     file: '/.base-gitlab-ci.yml'
 
 stages:
+  - checks
   - build
   - publish
   - deploy
+
+.prepare_rust:
+  image: rust:1.62
+  before_script:
+    - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+    - rustup update nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
+
+format-check:
+  stage: checks
+  extends: .prepare_rust
+  script:
+    - rustup component add rustfmt --toolchain nightly
+    - cargo +nightly fmt --check
 
 build:
   stage: build

@@ -1,8 +1,8 @@
 use crate::{AcurastAsset, RegistrationExtra};
 use pallet_acurast_marketplace::JobRequirements;
-use xcm::prelude::{Concrete, Fungible, GeneralIndex, PalletInstance, Parachain};
 use xcm::{
 	latest::prelude::{X2, X3},
+	prelude::{Concrete, Fungible, GeneralIndex, PalletInstance, Parachain},
 	v2::{MultiAsset, MultiLocation},
 };
 

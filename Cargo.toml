@@ -4,11 +4,7 @@ panic = "unwind"
 [workspace]
 members = [
 	"node",
-	"runtime",
-#	"emulations",
-#	"emulations/payments-emulation",
-#	"examples/proxy-parachain/runtime",
-#	"examples/proxy-parachain/node",
+	"runtime"
 ]
 
 [profile.production]

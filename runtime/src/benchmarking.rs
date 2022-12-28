@@ -41,7 +41,7 @@ impl Default for RegistrationExtra {
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
-				cpu_milliseconds: 5,
+				duration: 5,
 				reward: AcurastAsset(MultiAsset {
 					id: Concrete(MultiLocation {
 						parents: 1,

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use acurast_runtime::{
-	AccountId, AssetsConfig, AuraId, Runtime, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
+	AccountId, AssetsConfig, AuraId, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -21,8 +21,8 @@ pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	<TPublic::Pair as Pair>::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -60,7 +60,7 @@ const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8;
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_public_from_seed::<AuraId>(seed)
+	get_from_seed::<AuraId>(seed)
 }
 
 /// Helper function to generate an account ID from seed
@@ -68,13 +68,13 @@ pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
-	AccountPublic::from(get_public_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn template_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
+pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
 }
 
@@ -135,7 +135,7 @@ pub fn acurast_development_config() -> ChainSpec {
 	)
 }
 
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ACRST".into());
@@ -192,7 +192,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		Some(properties),
 		// Extensions
 		Extensions {
-			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+			relay_chain: relay_chain.into(), // You MUST set this to the correct network!
 			para_id: DEFAULT_PARACHAIN_ID,
 		},
 	)
@@ -231,7 +231,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::AcurastAssetAmount::MAX),
+					(acurast_sudo_account(), acurast_runtime::AcurastBalance::MAX),
 				],
 				ROCOCO_PARACHAIN_ID.into(),
 			)
@@ -250,7 +250,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
-	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastAssetAmount)>,
+	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
 	id: ParaId,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
@@ -271,9 +271,9 @@ fn testnet_genesis(
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                 // account id
-						acc,                         // validator id
-						template_session_keys(aura), // session keys
+						acc.clone(),                // account id
+						acc,                        // validator id
+						acurast_session_keys(aura), // session keys
 					)
 				})
 				.collect(),
@@ -309,17 +309,15 @@ fn testnet_genesis(
 	}
 }
 
-pub fn acurast_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
+pub fn acurast_pallet_account() -> AccountId {
 	acurast_runtime::AcurastPalletId::get().into_account_truncating()
 }
 
-pub fn fee_manager_pallet_account() -> <Runtime as frame_system::Config>::AccountId {
+pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }
 
-pub fn acurast_sudo_account() -> <Runtime as frame_system::Config>::AccountId {
-	<Runtime as frame_system::Config>::AccountId::from_str(
-		"5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx",
-	)
-	.expect("valid account id")
+pub fn acurast_sudo_account() -> AccountId {
+	AccountId::from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
+		.expect("valid account id")
 }

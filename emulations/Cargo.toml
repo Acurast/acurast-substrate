@@ -15,8 +15,8 @@ rand = "0.8.5"
 # Runtimes
 acurast-runtime = { path = "../runtime", default-features = false }
 proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.29" }
-statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.29" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.36" }
+statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.36" }
 
 # Emulator
 # xcm-emulator = { git = "https://github.com/Acurast/xcm-emulator", default-features = false }
@@ -30,5 +30,3 @@ std = [
     "polkadot-runtime/std",
     "statemint-runtime/std",
 ]
-
-

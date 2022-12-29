@@ -15,6 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.1.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -92,6 +93,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "hex",
  "p256",
@@ -2184,6 +2186,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2256,6 +2259,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5046,6 +5050,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5064,6 +5069,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5085,6 +5091,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5103,6 +5110,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5115,6 +5123,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5142,6 +5151,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-xcm-sender"
 version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9794,6 +9804,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/reward_assets#e34178b4d2eeeeb0df9a0bad141bde752a3de5db"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",
@@ -12453,7 +12464,3 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "pallet-acurast-xcm-receiver"
-version = "0.0.1"

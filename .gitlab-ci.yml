@@ -28,6 +28,11 @@ build:
 publish-dev:
   stage: publish
   extends: .publish-dev
+  only:
+    - master
+    - main
+    - develop
+    - scheduling
 
 publish-prod:
   stage: publish

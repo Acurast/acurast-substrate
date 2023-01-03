@@ -9,7 +9,7 @@ stages:
   - deploy
 
 .prepare_rust:
-  image: rust:1.62
+  image: rust:latest
   before_script:
     - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
     - rustup update nightly && rustup target add wasm32-unknown-unknown --toolchain nightly

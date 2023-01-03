@@ -121,6 +121,7 @@ pub fn acurast_development_config() -> ChainSpec {
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
 			)
 		},
 		Vec::new(),
@@ -178,6 +179,7 @@ pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
 			)
 		},
 		// Bootnodes
@@ -234,6 +236,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 					(acurast_sudo_account(), acurast_runtime::AcurastBalance::MAX),
 				],
 				ROCOCO_PARACHAIN_ID.into(),
+				acurast_sudo_account(),
 			)
 		},
 		Vec::new(),
@@ -252,6 +255,7 @@ fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
 	id: ParaId,
+	sudo_account: AccountId,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
 		system: acurast_runtime::SystemConfig {
@@ -286,7 +290,7 @@ fn testnet_genesis(
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		sudo: SudoConfig { key: Some(acurast_sudo_account()) },
+		sudo: SudoConfig { key: Some(sudo_account) },
 		assets: AssetsConfig {
 			assets: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),

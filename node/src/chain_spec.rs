@@ -135,30 +135,24 @@ pub fn acurast_development_config() -> ChainSpec {
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				AssetsConfig {
-					assets: vec![
-						(
-							TEST_TOKEN_ID,
-							get_test_token_holder(),
-							TEST_TOKEN_IS_SUFFICIENT,
-							TEST_TOKEN_MIN_BALANCE,
-						)
-					],
-					metadata: vec![
-						(
-							TEST_TOKEN_ID,
-							TEST_TOKEN_NAME.as_bytes().to_vec(),
-							TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
-							TEST_TOKEN_DECIMALS
-						)
-					],
-					accounts: vec![
-						(
-							TEST_TOKEN_ID,
-							get_test_token_holder(),
-							TEST_TOKEN_INITIAL_BALANCE
-						)
-					],
-				}
+					assets: vec![(
+						TEST_TOKEN_ID,
+						get_test_token_holder(),
+						TEST_TOKEN_IS_SUFFICIENT,
+						TEST_TOKEN_MIN_BALANCE,
+					)],
+					metadata: vec![(
+						TEST_TOKEN_ID,
+						TEST_TOKEN_NAME.as_bytes().to_vec(),
+						TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
+						TEST_TOKEN_DECIMALS,
+					)],
+					accounts: vec![(
+						TEST_TOKEN_ID,
+						get_test_token_holder(),
+						TEST_TOKEN_INITIAL_BALANCE,
+					)],
+				},
 			)
 		},
 		Vec::new(),
@@ -218,30 +212,24 @@ pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				AssetsConfig {
-					assets: vec![
-						(
-							TEST_TOKEN_ID,
-							get_test_token_holder(),
-							TEST_TOKEN_IS_SUFFICIENT,
-							TEST_TOKEN_MIN_BALANCE,
-						)
-					],
-					metadata: vec![
-						(
-							TEST_TOKEN_ID,
-							TEST_TOKEN_NAME.as_bytes().to_vec(),
-							TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
-							TEST_TOKEN_DECIMALS
-						)
-					],
-					accounts: vec![
-						(
-							TEST_TOKEN_ID,
-							get_test_token_holder(),
-							TEST_TOKEN_INITIAL_BALANCE
-						)
-					],
-				}
+					assets: vec![(
+						TEST_TOKEN_ID,
+						get_test_token_holder(),
+						TEST_TOKEN_IS_SUFFICIENT,
+						TEST_TOKEN_MIN_BALANCE,
+					)],
+					metadata: vec![(
+						TEST_TOKEN_ID,
+						TEST_TOKEN_NAME.as_bytes().to_vec(),
+						TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
+						TEST_TOKEN_DECIMALS,
+					)],
+					accounts: vec![(
+						TEST_TOKEN_ID,
+						get_test_token_holder(),
+						TEST_TOKEN_INITIAL_BALANCE,
+					)],
+				},
 			)
 		},
 		// Bootnodes
@@ -299,11 +287,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				],
 				ROCOCO_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
-				AssetsConfig {
-					assets: vec![],
-					metadata: vec![],
-					accounts: vec![],
-				},
+				AssetsConfig { assets: vec![], metadata: vec![], accounts: vec![] },
 			)
 		},
 		Vec::new(),
@@ -323,7 +307,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
 	id: ParaId,
 	sudo_account: AccountId,
-	assets: AssetsConfig
+	assets: AssetsConfig,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
 		system: acurast_runtime::SystemConfig {
@@ -365,18 +349,27 @@ fn testnet_genesis(
 				BURN_ACCOUNT,
 				NATIVE_IS_SUFFICIENT,
 				NATIVE_MIN_BALANCE,
-			)].into_iter().chain(assets.assets).collect(),
+			)]
+			.into_iter()
+			.chain(assets.assets)
+			.collect(),
 			metadata: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),
 				NATIVE_TOKEN_NAME.as_bytes().to_vec(),
 				NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
 				NATIVE_TOKEN_DECIMALS,
-			)].into_iter().chain(assets.metadata).collect(),
+			)]
+			.into_iter()
+			.chain(assets.metadata)
+			.collect(),
 			accounts: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),
 				BURN_ACCOUNT,
 				NATIVE_INITIAL_BALANCE,
-			)].into_iter().chain(assets.accounts).collect(),
+			)]
+			.into_iter()
+			.chain(assets.accounts)
+			.collect(),
 		},
 	}
 }

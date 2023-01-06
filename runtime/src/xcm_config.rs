@@ -2,12 +2,12 @@ use super::{
 	AccountId, AcurastBalance, Assets, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
+use crate::xcm_adapters::AssetTransactor;
 use core::marker::PhantomData;
 use frame_support::{
 	log, match_types, parameter_types,
 	traits::{Everything, Get, Nothing, OriginTrait},
 };
-use pallet_acurast::xcm_adapters::AssetTransactor;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
@@ -246,7 +246,6 @@ pub type Reserves = (
 /// something like an "asset manager" where only assets that have been specifically
 /// registered are considered for reserve-based asset transfers).
 pub type StatemintFungiblesTransactor = AssetTransactor<
-	Runtime,
 	// Use this fungibles implementation:
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:

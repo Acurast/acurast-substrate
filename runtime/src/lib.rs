@@ -12,6 +12,7 @@ pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod xcm_adapters;
 
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;

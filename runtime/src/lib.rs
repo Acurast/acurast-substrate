@@ -68,6 +68,16 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as AcurastAssetId, Balance as AcurastBalance};
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AcurastBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
+		codec::Compact(id)
+	}
+}
+
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
@@ -500,6 +510,9 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -538,11 +551,9 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
-	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
-	type JobAssignmentUpdateBarrier = ();
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
@@ -647,28 +658,6 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		}
 
 		false
-	}
-}
-
-pub struct FulfillmentRouter;
-impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
-	fn received_fulfillment(
-		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
-		from: <Runtime as frame_system::Config>::AccountId,
-		fulfillment: pallet_acurast::Fulfillment,
-		registration: pallet_acurast::JobRegistrationFor<Runtime>,
-		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
-	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
-		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
-
-		AcurastSender::send(
-			from,
-			registration.extra.destination,
-			fulfillment.payload,
-			registration.extra.parameters.map(|params| params.into()),
-		)?;
-
-		Ok(().into())
 	}
 }
 

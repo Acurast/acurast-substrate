@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -93,7 +93,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "hex",
  "p256",
@@ -2185,7 +2185,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2258,7 +2258,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5049,7 +5049,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5068,7 +5068,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5090,7 +5090,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5103,7 +5103,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5130,7 +5130,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-xcm-sender"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6257,7 +6257,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.5",
+ "parking_lot_core 0.9.6",
 ]
 
 [[package]]
@@ -6276,9 +6276,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ff9f3fef3968a3ec5945535ed654cb38ff72d7495a25619e2247fb15a2ed9ba"
+checksum = "ba1ef8814b5c993410bb3adfad7a5ed269563e4a2f90c41f5d85be7fb47133bf"
 dependencies = [
  "cfg-if",
  "libc",
@@ -6325,9 +6325,9 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "pest"
-version = "2.5.2"
+version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f6e86fb9e7026527a0d46bc308b841d73170ef8f443e1807f6ef88526a816d4"
+checksum = "4257b4a04d91f7e9e6290be5d3da4804dd5784fafde3a497d73eb2b4a158c30a"
 dependencies = [
  "thiserror",
  "ucd-trie",
@@ -6335,9 +6335,9 @@ dependencies = [
 
 [[package]]
 name = "pest_derive"
-version = "2.5.2"
+version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96504449aa860c8dcde14f9fba5c58dc6658688ca1fe363589d6327b8662c603"
+checksum = "241cda393b0cdd65e62e07e12454f1f25d57017dcc514b1514cd3c4645e3a0a6"
 dependencies = [
  "pest",
  "pest_generator",
@@ -6345,9 +6345,9 @@ dependencies = [
 
 [[package]]
 name = "pest_generator"
-version = "2.5.2"
+version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "798e0220d1111ae63d66cb66a5dcb3fc2d986d520b98e49e1852bfdb11d7c5e7"
+checksum = "46b53634d8c8196302953c74d5352f33d0c512a9499bd2ce468fc9f4128fa27c"
 dependencies = [
  "pest",
  "pest_meta",
@@ -6358,13 +6358,13 @@ dependencies = [
 
 [[package]]
 name = "pest_meta"
-version = "2.5.2"
+version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "984298b75898e30a843e278a9f2452c31e349a073a0ce6fd950a12a74464e065"
+checksum = "0ef4f1332a8d4678b41966bb4cc1d0676880e84183a1ecc3f4b69f03e99c7a51"
 dependencies = [
  "once_cell",
  "pest",
- "sha1",
+ "sha2 0.10.6",
 ]
 
 [[package]]
@@ -9691,17 +9691,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha1"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f04293dc80c3993519f2d7f6f511707ee7094fe0c6d3406feb330cdb3540eba3"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest 0.10.6",
-]
-
-[[package]]
 name = "sha2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9794,7 +9783,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#6a4b8146563ae6d8e4dbd0e3e07510530ca6b6d1"
+source = "git+https://github.com/Acurast/acurast-core.git#ec67765a5773672cb2e2cca8214362d18cdb6456"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",

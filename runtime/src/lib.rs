@@ -12,6 +12,7 @@ pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+mod xcm_adapters;
 
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -66,6 +67,16 @@ use xcm::{
 use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as AcurastAssetId, Balance as AcurastBalance};
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AcurastBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
+		codec::Compact(id)
+	}
+}
 
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
@@ -499,24 +510,37 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
+	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
 }
 
-impl pallet_acurast_fee_manager::Config for Runtime {
+impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
+}
+
+impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 }
 
 pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
 		AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
+	}
+
+	fn get_matcher_percentage() -> sp_runtime::Percent {
+		AcurastMatcherFeeManager::fee_percentage(AcurastMatcherFeeManager::fee_version())
 	}
 
 	fn pallet_id() -> PalletId {
@@ -527,11 +551,9 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
-	type FulfillmentRouter = FulfillmentRouter;
 	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
-	type JobAssignmentUpdateBarrier = ();
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
@@ -554,6 +576,9 @@ impl pallet_acurast_marketplace::Config for Runtime {
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
+
+// #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+// pub struct AcurastAssetId(pub AssetId);
 
 impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	type AssetId = AcurastAssetId;
@@ -578,6 +603,7 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 			},
 			_ => Err(()),
 		}
+		// Ok(AcurastAssetId(self.0.id.clone()))
 	}
 
 	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
@@ -635,37 +661,17 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 	}
 }
 
-pub struct FulfillmentRouter;
-impl pallet_acurast::FulfillmentRouter<Runtime> for FulfillmentRouter {
-	fn received_fulfillment(
-		_origin: frame_system::pallet_prelude::OriginFor<Runtime>,
-		from: <Runtime as frame_system::Config>::AccountId,
-		fulfillment: pallet_acurast::Fulfillment,
-		registration: pallet_acurast::JobRegistrationFor<Runtime>,
-		requester: <<Runtime as frame_system::Config>::Lookup as sp_runtime::traits::StaticLookup>::Target,
-	) -> frame_support::pallet_prelude::DispatchResultWithPostInfo {
-		log::info!("Received fulfillment from {:?} for {:?}", from, requester);
-
-		AcurastSender::send(
-			from,
-			registration.extra.destination,
-			fulfillment.payload,
-			registration.extra.parameters.map(|params| params.into()),
-		)?;
-
-		Ok(().into())
-	}
-}
-
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 pub struct RegistrationExtra {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
-	pub requirements: JobRequirements<AcurastAsset>,
+	pub requirements: JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>,
 	pub expected_fulfillment_fee: AcurastBalance,
 }
 
-impl From<RegistrationExtra> for JobRequirements<AcurastAsset> {
+impl From<RegistrationExtra>
+	for JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>
+{
 	fn from(extra: RegistrationExtra) -> Self {
 		extra.requirements
 	}
@@ -753,8 +759,9 @@ construct_runtime!(
 		// Acurast pallets
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
 		AcurastSender: pallet_acurast_xcm_sender::{Pallet, Event<T>} = 41,
-		AcurastFeeManager: pallet_acurast_fee_manager::{Pallet, Call, Storage, Event} = 42,
+		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
+		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 	}
 );
 

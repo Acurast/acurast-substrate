@@ -667,7 +667,7 @@ mod job_payments {
 	use super::*;
 	use crate::acurast_runtime::pallet_acurast;
 	use crate::pallet_acurast::{
-		Fulfillment, JobAssignmentUpdate, JobRegistration, ListUpdateOperation,
+		Fulfillment, JobRegistration, ListUpdateOperation,
 	};
 	use acurast_runtime::Runtime as AcurastRuntime;
 	use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;

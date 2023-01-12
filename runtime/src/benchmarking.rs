@@ -1,5 +1,6 @@
 use crate::{AcurastAsset, RegistrationExtra};
 use pallet_acurast_marketplace::JobRequirements;
+use sp_runtime::AccountId32 as AccountId;
 use xcm::{
 	latest::prelude::{X2, X3},
 	prelude::{Concrete, Fungible, GeneralIndex, PalletInstance, Parachain},
@@ -18,8 +19,8 @@ impl From<pallet_acurast_marketplace::benchmarking::MockAsset> for AcurastAsset 
 	}
 }
 
-impl From<JobRequirements<AcurastAsset>> for RegistrationExtra {
-	fn from(requirements: JobRequirements<AcurastAsset>) -> Self {
+impl From<JobRequirements<AcurastAsset, AccountId>> for RegistrationExtra {
+	fn from(requirements: JobRequirements<AcurastAsset, AccountId>) -> Self {
 		RegistrationExtra {
 			destination: MultiLocation {
 				parents: 1,
@@ -27,6 +28,7 @@ impl From<JobRequirements<AcurastAsset>> for RegistrationExtra {
 			},
 			parameters: None,
 			requirements,
+			expected_fulfillment_fee: 200,
 		}
 	}
 }
@@ -41,7 +43,6 @@ impl Default for RegistrationExtra {
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
-				cpu_milliseconds: 5,
 				reward: AcurastAsset(MultiAsset {
 					id: Concrete(MultiLocation {
 						parents: 1,
@@ -49,7 +50,9 @@ impl Default for RegistrationExtra {
 					}),
 					fun: Fungible(20100),
 				}),
+				instant_match: None,
 			},
+			expected_fulfillment_fee: 200,
 		}
 	}
 }

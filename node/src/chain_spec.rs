@@ -48,6 +48,7 @@ type AccountPublic = <Signature as Verify>::Signer;
 
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
 const ROCOCO_PARACHAIN_ID: u32 = 4191;
+const KUSAMA_PARACHAIN_ID: u32 = 2239;
 const NATIVE_IS_SUFFICIENT: bool = true;
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
 const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
@@ -233,10 +234,10 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::AcurastBalance::MAX),
+					(acurast_rococo_sudo_account(), acurast_runtime::AcurastBalance::MAX),
 				],
 				ROCOCO_PARACHAIN_ID.into(),
-				acurast_sudo_account(),
+				acurast_rococo_sudo_account(),
 			)
 		},
 		Vec::new(),
@@ -247,6 +248,69 @@ pub fn acurast_rococo_config() -> ChainSpec {
 		Extensions {
 			relay_chain: "rococo".into(), // You MUST set this to the correct network!
 			para_id: ROCOCO_PARACHAIN_ID,
+		},
+	)
+}
+
+pub fn acurast_kusama_config() -> ChainSpec {
+	// Give your base currency a unit name and decimal places
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
+	properties.insert("ss58Format".into(), 42.into());
+
+	ChainSpec::from_genesis(
+		// Name
+		"Acurast Kusama",
+		// ID
+		"acurast-kusama",
+		ChainType::Live,
+		move || {
+			kusama_genesis(
+				// initial collators.
+				vec![
+					(
+						AccountId32::from_str("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
+							.unwrap(),
+						AuraId::from_string("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
+							.unwrap(),
+						AuraId::from_string("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
+							.unwrap(),
+						AuraId::from_string("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
+							.unwrap(),
+						AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
+							.unwrap(),
+					),
+				],
+				vec![
+					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+					(acurast_kusama_sudo_account(), NATIVE_MIN_BALANCE * 1_000_000_000),
+				],
+				KUSAMA_PARACHAIN_ID.into(),
+				acurast_kusama_sudo_account(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions {
+			relay_chain: "kusama".into(), // You MUST set this to the correct network!
+			para_id: KUSAMA_PARACHAIN_ID,
 		},
 	)
 }
@@ -313,6 +377,50 @@ fn testnet_genesis(
 	}
 }
 
+fn kusama_genesis(
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
+	id: ParaId,
+	sudo_account: AccountId,
+) -> acurast_runtime::GenesisConfig {
+	acurast_runtime::GenesisConfig {
+		system: acurast_runtime::SystemConfig {
+			code: acurast_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+		},
+		balances: acurast_runtime::BalancesConfig { balances: endowed_accounts },
+		parachain_info: acurast_runtime::ParachainInfoConfig { parachain_id: id },
+		collator_selection: acurast_runtime::CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
+			..Default::default()
+		},
+		session: acurast_runtime::SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),                // account id
+						acc,                        // validator id
+						acurast_session_keys(aura), // session keys
+					)
+				})
+				.collect(),
+		},
+		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
+		// of this.
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
+		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
+			safe_xcm_version: Some(SAFE_XCM_VERSION),
+		},
+		sudo: SudoConfig { key: Some(sudo_account) },
+		assets: AssetsConfig { assets: vec![], metadata: vec![], accounts: vec![] },
+	}
+}
+
 pub fn acurast_pallet_account() -> AccountId {
 	acurast_runtime::AcurastPalletId::get().into_account_truncating()
 }
@@ -321,7 +429,12 @@ pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }
 
-pub fn acurast_sudo_account() -> AccountId {
+pub fn acurast_rococo_sudo_account() -> AccountId {
 	AccountId::from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
+		.expect("valid account id")
+}
+
+pub fn acurast_kusama_sudo_account() -> AccountId {
+	AccountId::from_str("5CLiYDEbpsdH8o6bYW6tDMfHi4NdsMWTmQ2WnsdU4H9CzcaL")
 		.expect("valid account id")
 }

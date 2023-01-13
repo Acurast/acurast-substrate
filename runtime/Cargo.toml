@@ -23,11 +23,11 @@ scale-info = { version = "2.3.1", default-features = false, features = ["derive"
 smallvec = "1.10.0"
 
 # Acurast
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-pallet-acurast-xcm-sender = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, rev = "ec67765a5773672cb2e2cca8214362d18cdb6456" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, rev = "ec67765a5773672cb2e2cca8214362d18cdb6456" }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, rev = "ec67765a5773672cb2e2cca8214362d18cdb6456" }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, rev = "ec67765a5773672cb2e2cca8214362d18cdb6456" }
+pallet-acurast-xcm-sender = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, rev = "ec67765a5773672cb2e2cca8214362d18cdb6456" }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }

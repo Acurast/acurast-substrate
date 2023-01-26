@@ -66,7 +66,12 @@ use xcm::{
 };
 use xcm_executor::XcmExecutor;
 
-pub use parachains_common::{AssetId as AcurastAssetId, Balance as AcurastBalance};
+pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
+
+type AcurastAssetId = AssetId;
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+pub struct AcurastAsset(pub MultiAsset);
+
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AcurastBenchmarkHelper;
@@ -507,8 +512,8 @@ parameter_types! {
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = AcurastBalance;
-	type AssetId = AcurastAssetId;
-	type AssetIdParameter = codec::Compact<AcurastAssetId>;
+	type AssetId = InternalAssetId;
+	type AssetIdParameter = codec::Compact<InternalAssetId>;
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
@@ -528,12 +533,18 @@ impl pallet_assets::Config for Runtime {
 	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
+impl pallet_acurast_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_acurast_assets::weights::SubstrateWeight<Runtime>;
+}
+
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
+	pub const ReportTolerance: u64 = 12_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
@@ -585,19 +596,13 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
 	type PalletId = AcurastPalletId;
+	type ReportTolerance = ReportTolerance;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastBalance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
-
-/// Struct used for reward assets.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-pub struct AcurastAsset(pub MultiAsset);
-
-// #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-// pub struct AcurastAssetId(pub AssetId);
 
 /// Implementation of the Reward trait on AcurastAsset.
 impl pallet_acurast_marketplace::Reward for AcurastAsset {
@@ -611,24 +616,12 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	}
 
 	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
-		match &self.0.id {
-			AssetId::Concrete(location) => {
-				if let Some(Junction::GeneralIndex(id)) =
-					location.match_and_split(&StatemintAssetsPalletLocation::get())
-				{
-					(*id).try_into().map_err(|_| ())
-				} else {
-					Err(())
-				}
-			},
-			_ => Err(()),
-		}
-		// Ok(AcurastAssetId(self.0.id.clone()))
+		Ok(self.0.id.clone())
 	}
 
 	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
 		match self.0.fun {
-			Fungibility::Fungible(amount) => Ok(amount),
+			Fungible(amount) => Ok(amount),
 			_ => Err(()),
 		}
 	}
@@ -767,7 +760,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 12,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets`
+		AcurastAssets: pallet_acurast_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,

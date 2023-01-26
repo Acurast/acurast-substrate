@@ -1,7 +1,8 @@
+use core::marker::PhantomData;
 use std::str::FromStr;
 
 use acurast_runtime::{
-	AccountId, AssetsConfig, AuraId, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
+	AccountId, AssetsConfig, AcurastAssetsConfig, AuraId, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -13,6 +14,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	AccountId32,
 };
+use xcm::latest::AssetId;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -314,6 +316,9 @@ fn testnet_genesis(
 				NATIVE_INITIAL_BALANCE,
 			)],
 		},
+		acurast_assets: AcurastAssetsConfig{
+			assets: vec![(100u32, acurast_runtime::xcm_config::NativeAssetId::get())],
+		}
 	}
 }
 

@@ -340,6 +340,7 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
+/// Runtime configuration for pallet_timestamp.
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
@@ -352,6 +353,7 @@ parameter_types! {
 	pub const UncleGenerations: u32 = 0;
 }
 
+/// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type UncleGenerations = UncleGenerations;
@@ -365,6 +367,7 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 }
 
+/// Runtime configuration for pallet_balances.
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = MaxLocks;
 	/// The type for recording an account's balance.
@@ -385,6 +388,7 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 
+/// Runtime configuration for pallet_transaction_payment.
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
@@ -399,6 +403,7 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 }
 
+/// Runtime configuration for cumulus_pallet_parachain_system.
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
@@ -411,10 +416,13 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
 }
 
+/// Runtime configuration for parachain_info.
 impl parachain_info::Config for Runtime {}
 
+/// Runtime configuration for cumulus_pallet_aura_ext.
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
+/// Runtime configuration for cumulus_pallet_xcmp_queue.
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -426,6 +434,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type WeightInfo = ();
 }
 
+/// Runtime configuration for cumulus_pallet_dmp_queue.
 impl cumulus_pallet_dmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -438,6 +447,7 @@ parameter_types! {
 	pub const MaxAuthorities: u32 = 100_000;
 }
 
+/// Runtime configuration for pallet_session.
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
@@ -452,6 +462,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
+/// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -471,6 +482,7 @@ parameter_types! {
 // We allow root only to execute privileged collator selection operations.
 pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
 
+/// Runtime configuration for pallet_collator_selection.
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -491,6 +503,7 @@ parameter_types! {
 	pub const RootAccountId: AccountId = sp_runtime::AccountId32::new([0u8; 32]);
 }
 
+/// Runtime configuration for pallet_assets.
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = AcurastBalance;
@@ -523,16 +536,19 @@ parameter_types! {
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
 }
 
+/// Runtime configuration for pallet_acurast_fee_manager instance 1.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
 }
 
+/// Runtime configuration for pallet_acurast_fee_manager instance 2.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 }
 
+/// Reward fee management implementation.
 pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
@@ -548,6 +564,7 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	}
 }
 
+/// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
@@ -563,6 +580,7 @@ impl pallet_acurast::Config for Runtime {
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 }
 
+/// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
@@ -574,12 +592,14 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
+/// Struct used for reward assets.
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
 // #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 // pub struct AcurastAssetId(pub AssetId);
 
+/// Implementation of the Reward trait on AcurastAsset.
 impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	type AssetId = AcurastAssetId;
 	type AssetAmount = <Runtime as pallet_balances::Config>::Balance;
@@ -614,6 +634,7 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	}
 }
 
+/// Struct use for various barrier implementations.
 pub struct Barrier;
 
 impl RevocationListUpdateBarrier<Runtime> for Barrier {
@@ -654,13 +675,14 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
 	}
 }
 
+/// Struct defining the extra fields for a `JobRegistration`.
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 pub struct RegistrationExtra {
 	pub destination: MultiLocation,
@@ -677,11 +699,13 @@ impl From<RegistrationExtra>
 	}
 }
 
+/// Runtime configuration for pallet_acurast_xcm_sender.
 impl pallet_acurast_xcm_sender::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmSender = crate::xcm_config::XcmRouter;
 }
 
+/// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -693,6 +717,7 @@ parameter_types! {
 	pub const PreimageByteDeposit: AcurastBalance = 1 * MICROUNIT;
 }
 
+/// Runtime configuration for pallet_preimage.
 impl pallet_preimage::Config for Runtime {
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
@@ -707,6 +732,7 @@ parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
 
+/// Runtime configuration for pallet_scheduler.
 impl pallet_scheduler::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;

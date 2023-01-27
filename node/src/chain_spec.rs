@@ -78,6 +78,7 @@ pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
 }
 
+/// Returns the development [ChainSpec].
 pub fn acurast_development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -136,6 +137,7 @@ pub fn acurast_development_config() -> ChainSpec {
 	)
 }
 
+/// Returns the local testnet [ChainSpec].
 pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -200,6 +202,7 @@ pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 	)
 }
 
+/// Returns the rococo [ChainSpec].
 pub fn acurast_rococo_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -251,6 +254,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 	)
 }
 
+/// Returns the testnet [acurast_runtime::GenesisConfig].
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
@@ -313,14 +317,17 @@ fn testnet_genesis(
 	}
 }
 
+/// Returns the pallet_acurast account id.
 pub fn acurast_pallet_account() -> AccountId {
 	acurast_runtime::AcurastPalletId::get().into_account_truncating()
 }
 
+/// Returns the pallet_fee_manager account id.
 pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }
 
+/// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
 	AccountId::from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
 		.expect("valid account id")

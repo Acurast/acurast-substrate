@@ -7,8 +7,7 @@ use xcm::latest::{Error as XcmError, MultiAsset, MultiLocation, Result as XcmRes
 use xcm_builder::{FungiblesMutateAdapter, FungiblesTransferAdapter};
 use xcm_executor::traits::{Convert, MatchesFungibles, TransactAsset};
 
-/// wrapper around FungiblesAdapter. It proxies to it and just on deposit_asset if it failed due to
-/// the asset not being created, then creates it and calls the adapter again
+/// Wrapper around FungiblesAdapter. It does not add any custom behaviour now, but we might need to customize it later.
 pub struct AssetTransactor<
 	Assets,
 	Matcher,

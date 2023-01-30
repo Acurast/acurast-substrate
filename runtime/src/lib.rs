@@ -49,7 +49,7 @@ use frame_system::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{StatemintAssetsPalletLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -62,16 +62,15 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 // XCM Imports
 use xcm::{
 	latest::prelude::BodyId,
-	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
+	v2::{AssetId, MultiAsset, MultiLocation},
 };
 use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
 
-type AcurastAssetId = AssetId;
+pub(crate) type AcurastAssetId = AssetId;
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
-
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AcurastBenchmarkHelper;

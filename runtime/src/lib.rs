@@ -78,7 +78,15 @@ pub struct AcurastBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
-		codec::Compact(id)
+		let asset_id = AssetId::Concrete(MultiLocation::new(
+			1,
+			X3(
+				Parachain(1000),
+				PalletInstance(50),
+				GeneralIndex(id as u128),
+			),
+		));
+		codec::Compact(asset_id)
 	}
 }
 
@@ -600,6 +608,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type AssetAmount = AcurastBalance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
+	type AssetValidator = AcurastAssets;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 

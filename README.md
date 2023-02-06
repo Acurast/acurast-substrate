@@ -1,5 +1,9 @@
 # Acurast Substrate
 
+Acurast Substrate is a [Cumulus](https://github.com/paritytech/cumulus/)-based parachain. The [Cumulus Parachain Tempalte](https://github.com/paritytech/cumulus/tree/master/parachain-template) was used as the base for the node and runtime implementation.
+
+To learn more about Acurast please visit the [website](https://acurast.com/) and [documentation](https://docs.acurast.com/).
+
 ## Build
 
 ```

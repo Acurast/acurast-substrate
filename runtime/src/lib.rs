@@ -14,15 +14,20 @@ pub mod xcm_config;
 pub mod benchmarking;
 mod xcm_adapters;
 
+use core::marker::PhantomData;
+
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, ConstU64, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
+	traits::{
+		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, IdentifyAccount,
+		PostDispatchInfoOf, Verify, Zero,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -35,8 +40,16 @@ use sp_version::RuntimeVersion;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	pallet_prelude::InvalidTransaction,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, Everything},
+	traits::{
+		fungible::{Inspect, Mutate},
+		fungibles::{InspectEnumerable, Transfer},
+		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
+		WithdrawReasons,
+	},
+	unsigned::TransactionValidityError,
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -45,7 +58,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureRoot, EnsureRootWithSuccess,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -399,10 +412,86 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 
+type NegativeImbalanceOf<C, T> =
+	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+pub struct TransactionCharger<OU>(PhantomData<OU>);
+impl<OU> pallet_transaction_payment::OnChargeTransaction<Runtime> for TransactionCharger<OU>
+where
+	OU: OnUnbalanced<NegativeImbalanceOf<Balances, Runtime>>,
+{
+	type Balance = AcurastBalance;
+	type LiquidityInfo = Option<NegativeImbalanceOf<Balances, Runtime>>;
+
+	fn withdraw_fee(
+		who: &<Runtime as frame_system::Config>::AccountId,
+		call: &<Runtime as frame_system::Config>::RuntimeCall,
+		_dispatch_info: &DispatchInfoOf<<Runtime as frame_system::Config>::RuntimeCall>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		if fee.is_zero() {
+			return Ok(None);
+		}
+
+		let withdraw_reason = if tip.is_zero() {
+			WithdrawReasons::TRANSACTION_PAYMENT
+		} else {
+			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+		};
+
+		let fee_payer = match call {
+			RuntimeCall::AcurastProcessorManager(call) => match call {
+				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } => {
+					pairing.account.clone()
+				},
+				_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
+			},
+			_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
+		};
+
+		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
+		{
+			Ok(imbalance) => Ok(Some(imbalance)),
+			Err(_) => Err(InvalidTransaction::Payment.into()),
+		}
+	}
+
+	fn correct_and_deposit_fee(
+		who: &<Runtime as frame_system::Config>::AccountId,
+		_dispatch_info: &DispatchInfoOf<<Runtime as frame_system::Config>::RuntimeCall>,
+		_post_info: &PostDispatchInfoOf<<Runtime as frame_system::Config>::RuntimeCall>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Result<(), TransactionValidityError> {
+		if let Some(paid) = already_withdrawn {
+			let fee_payer =
+				AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone());
+			// Calculate how much refund we should return
+			let refund_amount = paid.peek().saturating_sub(corrected_fee);
+			// refund to the the account that paid the fees. If this fails, the
+			// account might have dropped below the existential balance. In
+			// that case we don't refund anything.
+			let refund_imbalance = Balances::deposit_into_existing(&fee_payer, refund_amount)
+				.unwrap_or_else(|_| <Balances as Currency<AccountId>>::PositiveImbalance::zero());
+			// merge the imbalance caused by paying the fees and refunding parts of it again.
+			let adjusted_paid = paid
+				.offset(refund_imbalance)
+				.same()
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			// Call someone else to handle the imbalance (fee and tip separately)
+			let (tip, fee) = adjusted_paid.split(tip);
+			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+		}
+		Ok(())
+	}
+}
+
 /// Runtime configuration for pallet_transaction_payment.
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = TransactionCharger<()>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<AcurastBalance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -675,7 +764,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
@@ -705,10 +794,95 @@ impl From<RegistrationExtra>
 	}
 }
 
-/// Runtime configuration for pallet_acurast_xcm_sender.
-impl pallet_acurast_xcm_sender::Config for Runtime {
+impl pallet_acurast_processor_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmSender = crate::xcm_config::XcmRouter;
+	type Proof = MultiSignature;
+	type ManagerId = u128;
+	type ManagerIdProvider = AcurastManagerIdProvider;
+	type ProcessorAssetRecovery = AcurastProcessorRecovery;
+	type MaxPairingUpdates = ConstU32<20>;
+	type Counter = u128;
+	type PairingProofExpirationTime = ConstU128<600000>;
+	type UnixTime = pallet_timestamp::Pallet<Runtime>;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub const ManagerCollectionId: u128 = 0;
+}
+
+pub struct AcurastManagerIdProvider;
+
+impl pallet_acurast_processor_manager::ManagerIdProvider<Runtime> for AcurastManagerIdProvider {
+	fn create_manager_id(
+		id: <Runtime as pallet_acurast_processor_manager::Config>::ManagerId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(ManagerCollectionId::get()).is_none() {
+			Uniques::create_collection(
+				&ManagerCollectionId::get(),
+				&RootAccountId::get(),
+				&RootAccountId::get(),
+			)?;
+		}
+		Uniques::do_mint(ManagerCollectionId::get(), id, owner.clone(), |_| Ok(()))
+	}
+
+	fn manager_id_for(
+		owner: &<Runtime as frame_system::Config>::AccountId,
+	) -> Result<
+		<Runtime as pallet_acurast_processor_manager::Config>::ManagerId,
+		sp_runtime::DispatchError,
+	> {
+		Uniques::owned_in_collection(&ManagerCollectionId::get(), owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+	}
+
+	fn owner_for(
+		manager_id: <Runtime as pallet_acurast_processor_manager::Config>::ManagerId,
+	) -> Result<
+		<Runtime as frame_system::Config>::AccountId,
+		frame_support::pallet_prelude::DispatchError,
+	> {
+		Uniques::owner(ManagerCollectionId::get(), manager_id).ok_or(
+			frame_support::pallet_prelude::DispatchError::Other(
+				"Onwer for provided Manager ID not found",
+			),
+		)
+	}
+}
+
+pub struct AcurastProcessorRecovery;
+
+impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
+	for AcurastProcessorRecovery
+{
+	fn recover_assets(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+		destination_account: &<Runtime as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		let usable_balance = Balances::reducible_balance(processor, true);
+		if usable_balance > 0 {
+			let burned = Balances::burn_from(processor, usable_balance)?;
+			Balances::mint_into(destination_account, burned)?;
+		}
+
+		let ids = Assets::asset_ids();
+		for id in ids {
+			let balance = Assets::balance(id, processor);
+			if balance > 0 {
+				<Assets as Transfer<<Runtime as frame_system::Config>::AccountId>>::transfer(
+					id,
+					&processor,
+					&destination_account,
+					balance,
+					false,
+				)?;
+			}
+		}
+		Ok(())
+	}
 }
 
 /// Runtime configuration for pallet_sudo.
@@ -752,6 +926,26 @@ impl pallet_scheduler::Config for Runtime {
 	type Preimages = Preimage;
 }
 
+impl pallet_uniques::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = u128;
+	type ItemId = u128;
+	type Currency = Balances;
+	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type CreateOrigin =
+		AsEnsureOriginWithArg<EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
+	type Locker = ();
+	type CollectionDeposit = ConstU128<0>;
+	type ItemDeposit = ConstU128<0>;
+	type MetadataDepositBase = ConstU128<0>;
+	type AttributeDepositBase = ConstU128<0>;
+	type DepositPerByte = ConstU128<0>;
+	type StringLimit = ConstU32<256>;
+	type KeyLimit = ConstU32<256>;
+	type ValueLimit = ConstU32<256>;
+	type WeightInfo = pallet_uniques::weights::SubstrateWeight<Self>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -775,6 +969,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
 		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets`
 		AcurastAssets: pallet_acurast_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,
@@ -791,7 +986,7 @@ construct_runtime!(
 
 		// Acurast pallets
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
-		AcurastSender: pallet_acurast_xcm_sender::{Pallet, Event<T>} = 41,
+		AcurastProcessorManager: pallet_acurast_processor_manager::{Pallet, Call, Storage, Event<T>} = 41,
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
@@ -942,21 +1137,21 @@ impl_runtime_apis! {
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
-		fn on_runtime_upgrade() -> (Weight, Weight) {
+		fn on_runtime_upgrade(checks: bool) -> (Weight, Weight) {
 			log::info!("try-runtime::on_runtime_upgrade parachain-acurast.");
-			let weight = Executive::try_runtime_upgrade().unwrap();
+			let weight = Executive::try_runtime_upgrade(checks).unwrap();
 			(weight, RuntimeBlockWeights::get().max_block)
 		}
 
-		fn execute_block(block: Block, state_root_check: bool, select: frame_try_runtime::TryStateSelect) -> Weight {
+		fn execute_block(block: Block, state_root_check: bool, signature_check: bool, try_state: frame_try_runtime::TryStateSelect) -> Weight {
 			log::info!(
 				target: "runtime::parachain-acurast", "try-runtime: executing block #{} ({:?}) / root checks: {:?} / sanity-checks: {:?}",
 				block.header.number,
 				block.header.hash(),
 				state_root_check,
-				select,
+				try_state,
 			);
-			Executive::try_execute_block(block, state_root_check, select).expect("try_execute_block failed")
+			Executive::try_execute_block(block, state_root_check, signature_check, try_state).expect("try_execute_block failed")
 		}
 	}
 

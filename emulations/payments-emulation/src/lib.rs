@@ -1,19 +1,23 @@
 extern crate core;
 
 // parent re-exports
-use emulations::emulators::xcm_emulator;
-use emulations::runtimes::{
-	acurast_runtime, polkadot_runtime, proxy_parachain_runtime, statemint_runtime,
+use emulations::{
+	emulators::xcm_emulator,
+	runtimes::{acurast_runtime, polkadot_runtime, proxy_parachain_runtime, statemint_runtime},
 };
 
 // needed libs
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
-use frame_support::traits::GenesisBuild;
-use frame_support::weights::Weight;
+use emulations::emulators::xcm_emulator::TestExt;
+use frame_support::{dispatch::Dispatchable, traits::GenesisBuild, weights::Weight};
+use pallet_acurast_marketplace::FeeManager;
 use polkadot_parachain::primitives::Sibling;
-use sp_runtime::traits::AccountIdConversion;
-use sp_runtime::AccountId32;
+use sp_runtime::{
+	traits::{AccountIdConversion, StaticLookup},
+	AccountId32,
+};
+use xcm::latest::prelude::*;
 use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 decl_test_relay_chain! {
@@ -291,6 +295,18 @@ pub fn child_para_account_id(id: u32) -> polkadot_core_primitives::AccountId {
 	ParaId::from(id).into_account_truncating()
 }
 
+// Helper function for forming buy execution message
+fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
+	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
+}
+
+type AcurastXcmPallet = pallet_xcm::Pallet<acurast_runtime::Runtime>;
+type PolkadotXcmPallet = pallet_xcm::Pallet<polkadot_runtime::Runtime>;
+type StatemintXcmPallet = pallet_xcm::Pallet<statemint_runtime::Runtime>;
+
+type StatemintMinter = pallet_assets::Pallet<statemint_runtime::Runtime>;
+type AcurastMinter = pallet_assets::Pallet<statemint_runtime::Runtime>;
+
 #[cfg(test)]
 mod network_tests {
 	use super::*;
@@ -452,8 +468,8 @@ mod network_tests {
 			let pallet_balance =
 				pallet_balances::Pallet::<acurast_runtime::Runtime>::free_balance(&ALICE);
 			assert!(
-				pallet_balance < (&full_deposit + &fee_margin)
-					&& pallet_balance > (full_deposit - fee_margin)
+				pallet_balance < (&full_deposit + &fee_margin) &&
+					pallet_balance > (full_deposit - fee_margin)
 			);
 		});
 	}
@@ -660,18 +676,19 @@ mod statemint_backed_native_assets {
 }
 
 #[cfg(test)]
-mod job_payments {
-	use frame_support::assert_ok;
-	use frame_support::dispatch::RawOrigin;
+mod jobs {
+	use frame_support::{assert_ok, dispatch::RawOrigin};
 
 	use super::*;
-	use crate::acurast_runtime::pallet_acurast;
-	use crate::pallet_acurast::{
-		Fulfillment, JobRegistration, ListUpdateOperation,
+	use crate::{
+		acurast_runtime::pallet_acurast,
+		pallet_acurast::{Fulfillment, JobAssignmentUpdate, JobRegistration, ListUpdateOperation},
 	};
 	use acurast_runtime::Runtime as AcurastRuntime;
-	use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;
-	use emulations::runtimes::acurast_runtime::{RegistrationExtra, AcurastAsset};
+	// use emulations::runtimes::acurast_runtime::pallet_acurast::FeeManager;
+	use emulations::runtimes::acurast_runtime::RegistrationExtra;
+	use pallet_acurast_marketplace::{types::AcurastAsset, JobRequirements};
+	use sp_runtime::BoundedVec;
 
 	const SCRIPT_BYTES: [u8; 53] = hex_literal::hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
@@ -813,6 +830,11 @@ mod job_payments {
 
 	#[test]
 	fn create_job_and_fulfill_local() {
+		use acurast_runtime::{Call::AcurastMarketplace, Runtime as AcurastRuntime};
+		use pallet_acurast_marketplace::{
+			types::AcurastAsset, AdvertisementFor, Call::advertise, PricingVariant,
+		};
+
 		let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 			<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 
@@ -825,11 +847,31 @@ mod job_payments {
 			fun: Fungible(INITIAL_BALANCE / 2),
 		};
 		let alice_origin = acurast_runtime::Origin::signed(ALICE.clone());
+		let bob_origin = acurast_runtime::Origin::signed(BOB.clone());
 
-		// fund alice's account with job payment tokens
+		// fund alice's accounft with job payment tokens
 		send_native_and_token();
 
-		// register job and assign processor
+		// advertise resources
+		AcurastParachain::execute_with(|| {
+			let advertise_call = AcurastMarketplace(advertise {
+				advertisement: AdvertisementFor::<AcurastRuntime> {
+					pricing: BoundedVec::try_from(vec![PricingVariant {
+						reward_asset: 69,
+						price_per_cpu_millisecond: 1_000_000, // 12 zeroes is 1 unit, I assume 1 unit per second so I take 3 zeroes out
+						bonus: 0,
+						maximum_slash: 0,
+					}])
+					.unwrap(),
+					capacity: 4,
+					allowed_consumers: None,
+				},
+			});
+
+			assert_ok!(advertise_call.dispatch(bob_origin.clone()));
+		});
+
+		// register job
 		AcurastParachain::execute_with(|| {
 			use acurast_runtime::Call::Acurast;
 			use pallet_acurast::Call::{register, update_job_assignments};
@@ -838,29 +880,26 @@ mod job_payments {
 				registration: JobRegistration {
 					script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
 					allowed_sources: None,
+					// only for debug purposes. The whole point of acurast is leveraging the TEE attestations
+					// which are used only when this is set to true
 					allow_only_verified_sources: false,
-					reward: AcurastAsset(job_token.clone()),
-					extra: RegistrationExtra {
-						destination: MultiLocation {
-							parents: 1,
-							interior: X2(Parachain(2001), PalletInstance(40)),
-						},
+					extra: RegistrationExtra::<AcurastRuntime> {
+						destination: (1, X2(Parachain(2001), PalletInstance(40))).into(),
 						parameters: None,
+
+						requirements: JobRequirements {
+							slots: 1,
+							cpu_milliseconds: 5000,
+							reward: AcurastAsset(job_token.clone()),
+						},
+						// requirements: JobRequirements {},
+						expected_fulfillment_fee: 0,
 					},
 				},
 			});
 
 			let dispatch_status = register_call.dispatch(alice_origin.clone());
 			assert_ok!(dispatch_status);
-
-			let updates = vec![JobAssignmentUpdate {
-				operation: ListUpdateOperation::Add,
-				assignee: BOB.clone(),
-				job_id: (ALICE.clone(), SCRIPT_BYTES.to_vec().try_into().unwrap()),
-			}];
-			let assign_call = Acurast(update_job_assignments { updates });
-			let _dispatch_status = assign_call.dispatch(alice_origin.clone());
-			let _x = 10;
 		});
 
 		// check job event
@@ -900,29 +939,10 @@ mod job_payments {
 		});
 
 		// check fulfill event
-		AcurastParachain::execute_with(|| {
-			let fee_amount =
-				acurast_runtime::FeeManagement::get_fee_percentage().mul_floor(reward_amount);
-			let _events = acurast_runtime::System::events();
-			let _alice_balance_69 = AcurastMinter::balance(69, &ALICE);
-			let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
-			let bob_balance_69 = AcurastMinter::balance(69, &BOB);
-			let _bob_balance_native = acurast_runtime::Balances::free_balance(&BOB);
-			let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
-				<AcurastRuntime as pallet_acurast::Config>::PalletId::get()
-					.into_account_truncating();
-			let _pallet_balance_69 = AcurastMinter::balance(69, pallet_account);
-
-			assert_eq!(bob_balance_69, reward_amount - fee_amount)
-		});
-
 		ProxyParachain::execute_with(|| {
-			use proxy_parachain_runtime::{Event, System};
+			use emulations::runtimes::proxy_parachain_runtime::{Event, System};
 			let events = System::events();
-			assert!(events.iter().any(|r| matches!(
-				r.event,
-				Event::AcurastReceiver(pallet_acurast_xcm_receiver::Event::FulfillReceived { .. })
-			)));
+			assert!(events.iter().any(|r| matches!(r.event, Event::AcurastReceiver(..))));
 		});
 	}
 }

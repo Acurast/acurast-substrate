@@ -25,8 +25,8 @@ pub mod constants {
 		/// By default, Substrate uses `RocksDB`, so this will be the weight used throughout
 		/// the runtime.
 		pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			read: 25_000 * constants::WEIGHT_PER_NANOS.ref_time(),
-			write: 100_000 * constants::WEIGHT_PER_NANOS.ref_time(),
+			read: constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(25_000),
+			write: constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(100_000),
 		};
 	}
 

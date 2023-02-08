@@ -31,7 +31,7 @@ decl_test_relay_chain! {
 decl_test_parachain! {
 	pub struct AcurastParachain {
 		Runtime = acurast_runtime::Runtime,
-		Origin = acurast_runtime::Origin,
+		RuntimeOrigin = acurast_runtime::RuntimeOrigin,
 		XcmpMessageHandler = acurast_runtime::XcmpQueue,
 		DmpMessageHandler = acurast_runtime::DmpQueue,
 		new_ext = acurast_ext(2000),
@@ -41,7 +41,7 @@ decl_test_parachain! {
 decl_test_parachain! {
 	pub struct ProxyParachain {
 		Runtime = proxy_parachain_runtime::Runtime,
-		Origin = proxy_parachain_runtime::Origin,
+		RuntimeOrigin = proxy_parachain_runtime::RuntimeOrigin,
 		XcmpMessageHandler = proxy_parachain_runtime::XcmpQueue,
 		DmpMessageHandler = proxy_parachain_runtime::DmpQueue,
 		new_ext = proxy_ext(2001),
@@ -51,7 +51,7 @@ decl_test_parachain! {
 decl_test_parachain! {
 	pub struct StatemintParachain {
 		Runtime = statemint_runtime::Runtime,
-		Origin = statemint_runtime::Origin,
+		RuntimeOrigin = statemint_runtime::RuntimeOrigin,
 		XcmpMessageHandler = statemint_runtime::XcmpQueue,
 		DmpMessageHandler = statemint_runtime::DmpQueue,
 		new_ext = statemint_ext(1000),

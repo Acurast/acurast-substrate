@@ -80,11 +80,7 @@ impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastB
 	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
 		let asset_id = AssetId::Concrete(MultiLocation::new(
 			1,
-			X3(
-				Parachain(1000),
-				PalletInstance(50),
-				GeneralIndex(id as u128),
-			),
+			X3(Parachain(1000), PalletInstance(50), GeneralIndex(id as u128)),
 		));
 		codec::Compact(asset_id)
 	}

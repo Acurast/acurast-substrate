@@ -27,7 +27,7 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime,
-	dispatch::{DispatchClass,PostDispatchInfo, Pays},
+	dispatch::{DispatchClass, Pays, PostDispatchInfo},
 	parameter_types,
 	traits::{ConstU32, ConstU64, ConstU8, Everything},
 	weights::{
@@ -463,7 +463,7 @@ impl pallet_acurast_xcm_receiver::traits::ParachainBarrier<Runtime> for Parachai
 			location.interior().iter().any(|junction| allowed_parachains.contains(junction));
 
 		if !is_valid_origin {
-			return Err(sp_runtime::DispatchError::Other("MultiLocation not allowed."));
+			return Err(sp_runtime::DispatchError::Other("MultiLocation not allowed."))
 		}
 
 		Ok(())

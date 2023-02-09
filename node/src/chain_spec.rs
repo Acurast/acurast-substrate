@@ -377,7 +377,12 @@ fn testnet_genesis(
 			.collect(),
 		},
 		acurast_assets: AcurastAssetsConfig {
-			assets: vec![(100u32, acurast_runtime::xcm_config::StatemintChainId::get(), acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(), acurast_runtime::xcm_config::NativeAssetId::get() as u128)],
+			assets: vec![(
+				100u32,
+				acurast_runtime::xcm_config::StatemintChainId::get(),
+				acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
+				acurast_runtime::xcm_config::NativeAssetId::get() as u128,
+			)],
 		},
 	}
 }

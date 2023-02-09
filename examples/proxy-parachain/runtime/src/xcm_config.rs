@@ -1,6 +1,6 @@
 use super::{
-	AccountId, Balances, RuntimeCall, RuntimeEvent, RuntimeOrigin, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime,
-	WeightToFee, XcmpQueue,
+	AccountId, Balances, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -68,7 +68,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	// recognized.
 	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
 	// Native signed account converter; this just converts an `AccountId32` origin into a normal
-	// `Origin::Signed` origin of the same 32-byte value.
+	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
 	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
 	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
 	XcmPassthrough<RuntimeOrigin>,
@@ -100,9 +100,9 @@ where
 	Deny: ShouldExecute,
 	Allow: ShouldExecute,
 {
-	fn should_execute<Call>(
+	fn should_execute<RuntimeCall>(
 		origin: &MultiLocation,
-		message: &mut Xcm<Call>,
+		message: &mut Xcm<RuntimeCall>,
 		max_weight: XCMWeight,
 		weight_credit: &mut XCMWeight,
 	) -> Result<(), ()> {
@@ -111,12 +111,13 @@ where
 	}
 }
 
-// See issue #5233
+// See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
 impl ShouldExecute for DenyReserveTransferToRelayChain {
-	fn should_execute<Call>(
+	fn should_execute<RuntimeCall>(
 		origin: &MultiLocation,
-		message: &mut Xcm<Call>,
+
+		message: &mut Xcm<RuntimeCall>,
 		_max_weight: XCMWeight,
 		_weight_credit: &mut XCMWeight,
 	) -> Result<(), ()> {
@@ -126,20 +127,20 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: MultiLocation { parents: 1, interior: Here },
 					..
-				} | DepositReserveAsset { dest: MultiLocation { parents: 1, interior: Here }, .. }
-					| TransferReserveAsset {
+				} | DepositReserveAsset { dest: MultiLocation { parents: 1, interior: Here }, .. } |
+					TransferReserveAsset {
 						dest: MultiLocation { parents: 1, interior: Here },
 						..
 					}
 			)
 		}) {
-			return Err(()); // Deny
+			return Err(()) // Deny
 		}
 
 		// An unexpected reserve transfer has arrived from the Relay Chain. Generally, `IsReserve`
 		// should not allow this, but we just log it here.
-		if matches!(origin, MultiLocation { parents: 1, interior: Here })
-			&& message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
+		if matches!(origin, MultiLocation { parents: 1, interior: Here }) &&
+			message.0.iter().any(|inst| matches!(inst, ReserveAssetDeposited { .. }))
 		{
 			log::warn!(
 				target: "xcm::barriers",

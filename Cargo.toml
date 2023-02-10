@@ -16,11 +16,12 @@ inherits = "release"
 lto = true
 codegen-units = 1
 
-#[patch.'https://github.com/Acurast/acurast-core']
-#pallet-acurast = { path = "../acurast-core/pallets/acurast" }
-#pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
-#pallet-acurast-fee-manager = { path = "../acurast-core/pallets/fee-manager" }
-#acurast-p256-crypto = { path = "../acurast-core/p256-crypto" }
-#pallet-acurast-xcm-sender = { path = "../acurast-core/pallets/acurast-xcm-sender" }
-#pallet-acurast-xcm-receiver = { path = "../acurast-core/pallets/acurast-xcm-receiver" }
-#pallet-acurast-assets = { path = "../acurast-core/pallets/assets" }
+[patch.'https://github.com/Acurast/acurast-core']
+pallet-acurast = { path = "../acurast-core/pallets/acurast" }
+pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
+pallet-acurast-fee-manager = { path = "../acurast-core/pallets/fee-manager" }
+acurast-p256-crypto = { path = "../acurast-core/p256-crypto" }
+pallet-acurast-xcm-sender = { path = "../acurast-core/pallets/acurast-xcm-sender" }
+pallet-acurast-xcm-receiver = { path = "../acurast-core/pallets/acurast-xcm-receiver" }
+pallet-acurast-assets = { path = "../acurast-core/pallets/assets" }
+pallet-acurast-proxy = { path = "../acurast-core/pallets/proxy" }

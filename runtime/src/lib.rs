@@ -68,7 +68,7 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
 
-pub(crate) type AcurastAssetId = AssetId;
+pub type AcurastAssetId = AssetId;
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
@@ -89,10 +89,10 @@ impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastB
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-use pallet_acurast::RevocationListUpdateBarrier;
+pub use pallet_acurast_marketplace;
+pub use pallet_acurast_assets;
 use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_marketplace::JobRequirements;
 use pallet_acurast_xcm_sender;
 use xcm::prelude::Fungible;
 
@@ -634,7 +634,7 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 /// Struct use for various barrier implementations.
 pub struct Barrier;
 
-impl RevocationListUpdateBarrier<Runtime> for Barrier {
+impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	fn can_update_revocation_list(
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
@@ -684,12 +684,12 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 pub struct RegistrationExtra {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
-	pub requirements: JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>,
+	pub requirements: pallet_acurast_marketplace::JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>,
 	pub expected_fulfillment_fee: AcurastBalance,
 }
 
 impl From<RegistrationExtra>
-	for JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>
+	for pallet_acurast_marketplace::JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>
 {
 	fn from(extra: RegistrationExtra) -> Self {
 		extra.requirements

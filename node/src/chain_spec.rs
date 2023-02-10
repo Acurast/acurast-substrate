@@ -138,7 +138,7 @@ pub fn acurast_development_config() -> ChainSpec {
 				AssetsConfig {
 					assets: vec![(
 						TEST_TOKEN_ID,
-						get_test_token_holder(),
+						acurast_pallet_account(),
 						TEST_TOKEN_IS_SUFFICIENT,
 						TEST_TOKEN_MIN_BALANCE,
 					)],
@@ -216,7 +216,7 @@ pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 				AssetsConfig {
 					assets: vec![(
 						TEST_TOKEN_ID,
-						get_test_token_holder(),
+						acurast_pallet_account(),
 						TEST_TOKEN_IS_SUFFICIENT,
 						TEST_TOKEN_MIN_BALANCE,
 					)],

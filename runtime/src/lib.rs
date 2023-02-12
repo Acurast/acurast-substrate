@@ -89,8 +89,8 @@ impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastB
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-pub use pallet_acurast_marketplace;
 pub use pallet_acurast_assets;
+pub use pallet_acurast_marketplace;
 use sp_runtime::traits::AccountIdConversion;
 
 use pallet_acurast_xcm_sender;
@@ -684,12 +684,18 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 pub struct RegistrationExtra {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
-	pub requirements: pallet_acurast_marketplace::JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>,
+	pub requirements: pallet_acurast_marketplace::JobRequirements<
+		AcurastAsset,
+		<Runtime as frame_system::Config>::AccountId,
+	>,
 	pub expected_fulfillment_fee: AcurastBalance,
 }
 
 impl From<RegistrationExtra>
-	for pallet_acurast_marketplace::JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>
+	for pallet_acurast_marketplace::JobRequirements<
+		AcurastAsset,
+		<Runtime as frame_system::Config>::AccountId,
+	>
 {
 	fn from(extra: RegistrationExtra) -> Self {
 		extra.requirements

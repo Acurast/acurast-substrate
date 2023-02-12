@@ -356,7 +356,7 @@ fn testnet_genesis(
 				NATIVE_MIN_BALANCE,
 			)]
 			.into_iter()
-			.chain(assets.assets)
+			.chain(assets.assets.clone())
 			.collect(),
 			metadata: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),
@@ -382,7 +382,17 @@ fn testnet_genesis(
 				acurast_runtime::xcm_config::StatemintChainId::get(),
 				acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
 				acurast_runtime::xcm_config::NativeAssetId::get() as u128,
-			)],
+			)]
+			.into_iter()
+			.chain(assets.assets.iter().map(|asset| {
+				(
+					asset.0,
+					acurast_runtime::xcm_config::StatemintChainId::get(),
+					acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
+					asset.0 as u128,
+				)
+			}))
+			.collect(),
 		},
 	}
 }

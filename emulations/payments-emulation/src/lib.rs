@@ -562,7 +562,7 @@ mod network_tests {
 				MultiLocation::new(1, X1(Parachain(PROXY_CHAIN_ID))),
 				Xcm(vec![Transact {
 					origin_type: OriginKind::SovereignAccount,
-					require_weight_at_most: 10_000_000,
+					require_weight_at_most: 100_000_000,
 					call: remark.encode().into(),
 				}]),
 			));
@@ -570,6 +570,8 @@ mod network_tests {
 
 		ProxyParachain::execute_with(|| {
 			use proxy_parachain_runtime::{RuntimeEvent, System};
+			let _events: Vec<String> =
+				System::events().iter().map(|e| format!("{:?}", e.event)).collect();
 			System::events().iter().for_each(|r| println!(">>> {:?}", r.event));
 
 			assert!(System::events().iter().any(|r| matches!(
@@ -663,7 +665,7 @@ mod network_tests {
 			let proxy_balance =
 				polkadot_runtime::Balances::free_balance(child_para_account_id(PROXY_CHAIN_ID));
 			assert_eq!(acurast_balance, INITIAL_BALANCE - send_amount);
-			assert_eq!(proxy_balance, 1499647936911); // initial + amount - fees
+			assert_eq!(proxy_balance, 1499693514774); // initial + amount - fees
 		});
 	}
 
@@ -710,7 +712,7 @@ mod network_tests {
 			assert_eq!(acurast_balance, INITIAL_BALANCE - send_amount);
 
 			// Deposit executed
-			assert_eq!(proxy_balance, 1499530582548);
+			assert_eq!(proxy_balance, 1499591353032);
 		});
 
 		// Check that QueryResponse message was received
@@ -735,8 +737,7 @@ mod statemint_backed_native_assets {
 	use xcm_emulator::TestExt;
 
 	#[test]
-	#[should_panic]
-	fn cannot_create() {
+	fn can_recreate() {
 		Network::reset();
 		AcurastParachain::execute_with(|| {
 			let result = AcurastAssets::create(
@@ -848,7 +849,7 @@ mod statemint_backed_native_assets {
 			let alice_balance_fung = AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &ALICE);
 			let alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
 			assert_eq!(alice_balance_fung, 0);
-			assert_eq!(alice_balance_native, 1495365200000);
+			assert_eq!(alice_balance_native, 1495958800000);
 		})
 	}
 

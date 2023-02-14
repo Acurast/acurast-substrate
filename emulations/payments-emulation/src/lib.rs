@@ -942,7 +942,7 @@ mod jobs {
 							id: Concrete(
 								X2(
 									PalletInstance(STATEMINT_ASSETS_PALLET_INDEX),
-									GeneralIndex(STATEMINT_NATIVE_ID as u128),
+									GeneralIndex(TEST_TOKEN_ID as u128),
 								)
 								.into(),
 							),
@@ -952,23 +952,16 @@ mod jobs {
 							id: Concrete(
 								X2(
 									PalletInstance(STATEMINT_ASSETS_PALLET_INDEX),
-									GeneralIndex(TEST_TOKEN_ID as u128),
+									GeneralIndex(STATEMINT_NATIVE_ID as u128),
 								)
 								.into(),
 							),
 							fun: Fungible(INITIAL_BALANCE / 2),
 						},
-						// MultiAsset {
-						//     id: Concrete(MultiLocation {
-						//         parents: 1,
-						//         interior: Here,
-						//     }),
-						//     fun: Fungible(INITIAL_BALANCE / 4),
-						// },
 					]
 					.into(),
 				),
-				0,
+				1,
 				WeightLimit::Unlimited,
 			);
 			assert_ok!(xcm);

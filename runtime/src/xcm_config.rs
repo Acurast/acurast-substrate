@@ -1,8 +1,8 @@
 use super::{
-	AccountId, AcurastBalance, Assets, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AcurastAssets, AcurastBalance, Assets, Balances, ParachainInfo, ParachainSystem,
+	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
-use crate::xcm_adapters::AssetTransactor;
+use crate::{xcm_adapters::AssetTransactor, InternalAssetId};
 use core::marker::PhantomData;
 use frame_support::{
 	log, match_types, parameter_types,
@@ -13,10 +13,10 @@ use polkadot_parachain::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use xcm::latest::{prelude::*, Weight as XCMWeight};
 use xcm_builder::{
-	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
-	AsPrefixedGeneralIndex, Case, ConvertedConcreteAssetId, CurrencyAdapter, EnsureXcmOrigin,
-	FixedRateOfFungible, FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, Case,
+	ConvertedConcreteAssetId, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible,
+	FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	UsingComponents,
 };
@@ -250,9 +250,9 @@ pub type StatemintFungiblesTransactor = AssetTransactor<
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ConvertedConcreteAssetId<
-		parachains_common::AssetId,
+		InternalAssetId,
 		AcurastBalance,
-		AsPrefixedGeneralIndex<StatemintAssetsPalletLocation, parachains_common::AssetId, JustTry>,
+		AcurastAssets, // use our asset mapper as converter
 		JustTry,
 	>,
 	// Convert an XCM MultiLocation into a local account id:

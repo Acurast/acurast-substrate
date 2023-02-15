@@ -23,12 +23,12 @@ scale-info = { version = "2.3.1", default-features = false, features = ["derive"
 smallvec = "1.10.0"
 
 # Acurast
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
-pallet-acurast-xcm-sender = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
-pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/reward_assets" }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-xcm-sender = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }

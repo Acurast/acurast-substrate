@@ -49,7 +49,7 @@ use frame_system::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{StatemintAssetsPalletLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -62,11 +62,15 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 // XCM Imports
 use xcm::{
 	latest::prelude::BodyId,
-	v2::{AssetId, Fungibility, Junction, MultiAsset, MultiLocation},
+	v2::{AssetId, MultiAsset, MultiLocation},
 };
 use xcm_executor::XcmExecutor;
 
-pub use parachains_common::{AssetId as AcurastAssetId, Balance as AcurastBalance};
+pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
+
+pub type AcurastAssetId = AssetId;
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+pub struct AcurastAsset(pub MultiAsset);
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AcurastBenchmarkHelper;
@@ -74,17 +78,21 @@ pub struct AcurastBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
-		codec::Compact(id)
+		let asset_id = AssetId::Concrete(MultiLocation::new(
+			1,
+			X3(Parachain(1000), PalletInstance(50), GeneralIndex(id as u128)),
+		));
+		codec::Compact(asset_id)
 	}
 }
 
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-use pallet_acurast::RevocationListUpdateBarrier;
+pub use pallet_acurast_assets;
+pub use pallet_acurast_marketplace;
 use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_marketplace::JobRequirements;
 use pallet_acurast_xcm_sender;
 use xcm::prelude::Fungible;
 
@@ -344,7 +352,10 @@ parameter_types! {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
+	#[cfg(all(not(test), not(feature = "emulation")))]
 	type OnTimestampSet = Aura;
+	#[cfg(any(test, feature = "emulation"))]
+	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
@@ -507,8 +518,8 @@ parameter_types! {
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = AcurastBalance;
-	type AssetId = AcurastAssetId;
-	type AssetIdParameter = codec::Compact<AcurastAssetId>;
+	type AssetId = InternalAssetId;
+	type AssetIdParameter = codec::Compact<InternalAssetId>;
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
@@ -528,12 +539,18 @@ impl pallet_assets::Config for Runtime {
 	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
+impl pallet_acurast_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_acurast_assets::weights::SubstrateWeight<Runtime>;
+}
+
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
+	pub const ReportTolerance: u64 = 12_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
@@ -585,19 +602,14 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = RegistrationExtra;
 	type PalletId = AcurastPalletId;
+	type ReportTolerance = ReportTolerance;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastBalance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
+	type AssetValidator = AcurastAssets;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
-
-/// Struct used for reward assets.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-pub struct AcurastAsset(pub MultiAsset);
-
-// #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
-// pub struct AcurastAssetId(pub AssetId);
 
 /// Implementation of the Reward trait on AcurastAsset.
 impl pallet_acurast_marketplace::Reward for AcurastAsset {
@@ -611,24 +623,12 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 	}
 
 	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
-		match &self.0.id {
-			AssetId::Concrete(location) => {
-				if let Some(Junction::GeneralIndex(id)) =
-					location.match_and_split(&StatemintAssetsPalletLocation::get())
-				{
-					(*id).try_into().map_err(|_| ())
-				} else {
-					Err(())
-				}
-			},
-			_ => Err(()),
-		}
-		// Ok(AcurastAssetId(self.0.id.clone()))
+		Ok(self.0.id.clone())
 	}
 
 	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
 		match self.0.fun {
-			Fungibility::Fungible(amount) => Ok(amount),
+			Fungible(amount) => Ok(amount),
 			_ => Err(()),
 		}
 	}
@@ -637,7 +637,7 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 /// Struct use for various barrier implementations.
 pub struct Barrier;
 
-impl RevocationListUpdateBarrier<Runtime> for Barrier {
+impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	fn can_update_revocation_list(
 		origin: &<Runtime as frame_system::Config>::AccountId,
 		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
@@ -687,12 +687,18 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 pub struct RegistrationExtra {
 	pub destination: MultiLocation,
 	pub parameters: Option<Vec<u8>>,
-	pub requirements: JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>,
+	pub requirements: pallet_acurast_marketplace::JobRequirements<
+		AcurastAsset,
+		<Runtime as frame_system::Config>::AccountId,
+	>,
 	pub expected_fulfillment_fee: AcurastBalance,
 }
 
 impl From<RegistrationExtra>
-	for JobRequirements<AcurastAsset, <Runtime as frame_system::Config>::AccountId>
+	for pallet_acurast_marketplace::JobRequirements<
+		AcurastAsset,
+		<Runtime as frame_system::Config>::AccountId,
+	>
 {
 	fn from(extra: RegistrationExtra) -> Self {
 		extra.requirements
@@ -767,7 +773,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 12,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets`
+		AcurastAssets: pallet_acurast_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,

@@ -11,7 +11,11 @@ use emulations::{
 // needed libs
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
-use frame_support::{dispatch::Dispatchable, traits::{GenesisBuild, Hooks}, weights::Weight};
+use frame_support::{
+	dispatch::Dispatchable,
+	traits::{GenesisBuild, Hooks},
+	weights::Weight,
+};
 use hex_literal::hex;
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::{

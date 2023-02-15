@@ -378,21 +378,11 @@ fn testnet_genesis(
 		},
 		acurast_assets: AcurastAssetsConfig {
 			assets: vec![(
-				100u32,
+				TEST_TOKEN_ID,
 				acurast_runtime::xcm_config::StatemintChainId::get(),
 				acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
-				acurast_runtime::xcm_config::NativeAssetId::get() as u128,
-			)]
-			.into_iter()
-			.chain(assets.assets.iter().map(|asset| {
-				(
-					asset.0,
-					acurast_runtime::xcm_config::StatemintChainId::get(),
-					acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
-					asset.0 as u128,
-				)
-			}))
-			.collect(),
+				TEST_TOKEN_ID as u128,
+			)],
 		},
 	}
 }

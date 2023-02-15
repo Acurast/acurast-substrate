@@ -310,7 +310,10 @@ impl frame_system::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
+	#[cfg(all(not(test), not(feature = "emulation")))]
 	type OnTimestampSet = Aura;
+    #[cfg(any(test, feature = "emulation"))]
+	type OnTimestampSet = ();
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }

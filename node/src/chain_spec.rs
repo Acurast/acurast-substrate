@@ -351,7 +351,7 @@ fn testnet_genesis(
 		assets: AssetsConfig {
 			assets: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),
-				BURN_ACCOUNT,
+				acurast_pallet_account(),
 				NATIVE_IS_SUFFICIENT,
 				NATIVE_MIN_BALANCE,
 			)]

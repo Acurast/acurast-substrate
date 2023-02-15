@@ -154,11 +154,16 @@ pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
 		assets: vec![
 			(
 				STATEMINT_NATIVE_ID,
-				BURN_ACCOUNT,
+				acurast_runtime::AcurastPalletId::get().into_account_truncating(),
 				STATEMINT_NATIVE_IS_SUFFICIENT,
 				STATEMINT_NATIVE_MIN_BALANCE,
 			),
-			(TEST_TOKEN_ID, ALICE, TEST_TOKEN_IS_SUFFICIENT, TEST_TOKEN_MIN_BALANCE),
+			(
+				TEST_TOKEN_ID,
+				acurast_runtime::AcurastPalletId::get().into_account_truncating(),
+				TEST_TOKEN_IS_SUFFICIENT,
+				TEST_TOKEN_MIN_BALANCE,
+			),
 		],
 		metadata: vec![
 			(
@@ -395,7 +400,18 @@ pub fn bob_account_id() -> AccountId32 {
 }
 const SCRIPT_BYTES: [u8; 53] = hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
-pub fn owned_asset(amount: u128) -> AcurastAsset {
+pub fn test_token_asset_id() -> AssetId {
+	Concrete(MultiLocation {
+		parents: 1,
+		interior: X3(
+			Parachain(STATEMINT_CHAIN_ID),
+			PalletInstance(STATEMINT_ASSETS_PALLET_INDEX),
+			GeneralIndex(TEST_TOKEN_ID as u128),
+		),
+	})
+}
+
+pub fn test_asset(amount: u128) -> AcurastAsset {
 	AcurastAsset(MultiAsset {
 		id: Concrete(MultiLocation {
 			parents: 1,
@@ -409,24 +425,6 @@ pub fn owned_asset(amount: u128) -> AcurastAsset {
 	})
 }
 
-pub fn registration() -> JobRegistration<AccountId32, JobRequirements<AcurastAsset, AccountId32>> {
-	JobRegistration {
-		script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
-		allowed_sources: None,
-		allow_only_verified_sources: false,
-		schedule: Schedule {
-			duration: 5000,
-			start_time: 1_671_800_400_000, // 23.12.2022 13:00
-			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
-			interval: 1_800_000,           // 30min
-			max_start_delay: 5000,
-		},
-		memory: 5_000u32,
-		network_requests: 5,
-		storage: 20_000u32,
-		extra: JobRequirements { slots: 1, reward: owned_asset(20000), instant_match: None },
-	}
-}
 pub fn asset(id: u32) -> AssetId {
 	AssetId::Concrete(MultiLocation::new(
 		1,
@@ -437,25 +435,30 @@ pub fn asset(id: u32) -> AssetId {
 		),
 	))
 }
+
 pub fn advertisement(
 	fee_per_millisecond: u128,
+	fee_per_storage_byte: u128,
+	storage_capacity: u32,
+	max_memory: u32,
+	network_request_quota: u8,
 ) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance> {
 	let pricing: BoundedVec<
 		PricingVariant<AcurastAssetId, AcurastBalance>,
 		ConstU32<MAX_PRICING_VARIANTS>,
 	> = bounded_vec![PricingVariant {
-		reward_asset: asset(TEST_TOKEN_ID),
+		reward_asset: test_token_asset_id(),
 		fee_per_millisecond,
-		fee_per_storage_byte: 0,
+		fee_per_storage_byte,
 		base_fee_per_execution: 0,
 		scheduling_window: SchedulingWindow::Delta(2_628_000_000), // 1 month
 	}];
 	Advertisement {
 		pricing,
 		allowed_consumers: None,
-		storage_capacity: 5,
-		max_memory: 5000,
-		network_request_quota: 8,
+		storage_capacity,
+		max_memory,
+		network_request_quota,
 	}
 }
 
@@ -872,6 +875,7 @@ mod jobs {
 	};
 
 	// use pallet_acurast_marketplace::FeeManager;
+	use crate::pallet_acurast::Call::deregister;
 	use emulations::runtimes::acurast_runtime::RegistrationExtra;
 	use sp_runtime::BoundedVec;
 	use xcm_emulator::TestExt;
@@ -1029,124 +1033,139 @@ mod jobs {
 		});
 	}
 
-	// #[test]
-	// fn create_match_report_job() {
-	// 	use acurast_runtime::{RuntimeCall::AcurastMarketplace, Runtime as AcurastRuntime};
-	// 	use pallet_acurast_marketplace::{
-	// 		AdvertisementFor, Call::advertise, PricingVariant,
-	// 	};
-	// 	use mock::advertisement;
-	//
-	// 	let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
-	// 		<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
-	//
-	// 	let reward_amount = INITIAL_BALANCE / 2;
-	// 	let job_token = MultiAsset {
-	// 		id: Concrete(MultiLocation {
-	// 			parents: 1,
-	// 			interior: X3(Parachain(STATEMINT_CHAIN_ID), PalletInstance(STATEMINT_ASSETS_PALLET_INDEX), GeneralIndex(TEST_ASSET_ID)),
-	// 		}),
-	// 		fun: Fungible(INITIAL_BALANCE / 2),
-	// 	};
-	// 	let alice_origin = acurast_runtime::Origin::signed(ALICE.clone());
-	// 	let bob_origin = acurast_runtime::Origin::signed(BOB.clone());
-	//
-	// 	// fund alice's accounft with job payment tokens
-	// 	send_native_and_token();
-	//
-	// 	// advertise resources
-	// 	AcurastParachain::execute_with(|| {
-	// 		let advertise_call = AcurastMarketplace(advertise {
-	// 			advertisement: advertisement(10000u128),
-	// 		});
-	//
-	// 		assert_ok!(advertise_call.dispatch(bob_origin.clone()));
-	// 	});
-	//
-	// 	// register job
-	// 	AcurastParachain::execute_with(|| {
-	// 		use acurast_runtime::RuntimeCall::Acurast;
-	// 		use acurast_runtime::pallet_acurast::Call::{register, update_job_assignments};
-	//
-	// 		let register_call = Acurast(register {
-	// 			registration: registration(),
-	// 		});
-	//
-	// 		let dispatch_status = register_call.dispatch(alice_origin.clone());
-	// 		assert_ok!(dispatch_status);
-	// 	});
-	//
-	// 	// check job event
-	// 	AcurastParachain::execute_with(|| {
-	// 		let _events: Vec<String> = acurast_runtime::System::events()
-	// .iter()
-	// .map(|e| format!("{:?}", e.event))
-	// .collect();
-	// 		let _alice_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, &ALICE);
-	// 		let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, &BOB);
-	//
-	// 		let _pallet_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, pallet_account.clone());
-	// 		let _alice_balance_false = AcurastAssetsInternal::balance(NATIVE_ASSET_ID, &ALICE);
-	// 		let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
-	// 		let _x = 10;
-	// 	});
-	//
-	// 	// fulfill job
-	// 	AcurastParachain::execute_with(|| {
-	// 		use acurast_runtime::Call::Acurast;
-	// 		use acurast_runtime::pallet_acurast::Call::fulfill;
-	// 		let payload: [u8; 32] = rand::random();
-	// 		let fulfillment = Fulfillment {
-	// 			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
-	// 			payload: payload.to_vec(),
-	// 		};
-	//
-	// 		let pallet_balance = pallet_assets::Pallet::<acurast_runtime::Runtime>::balance(
-	// 			TEST_ASSET_ID,
-	// 			pallet_account.clone(),
-	// 		);
-	// 		// 500_000_000_000
-	// 		let fulfill_call = Acurast(fulfill {
-	// 			fulfillment,
-	// 			requester: sp_runtime::MultiAddress::Id(ALICE.clone()),
-	// 		});
-	// 		let bob_origin = acurast_runtime::Origin::signed(BOB);
-	// 		let dispatch_status = fulfill_call.dispatch(bob_origin);
-	// 		assert_ok!(dispatch_status);
-	// 	});
-	//
-	// 	// check fulfill event
-	// 	ProxyParachain::execute_with(|| {
-	// 		use emulations::runtimes::proxy_parachain_runtime::{RuntimeEvent, System};
-	// 		let events = System::events()
-	// .iter()
-	// .map(|e| format!("{:?}", e.event))
-	// .collect();
-	// 		assert!(events.iter().any(|r| matches!(r.event, RuntimeEvent::AcurastReceiver(..))));
-	// 	});
-	// }
-	//
-	//
-	// fn next_block() {
-	// 	if System::block_number() >= 1 {
-	// 		// pallet_acurast_marketplace::on_finalize(System::block_number());
-	// 		Timestamp::on_finalize(System::block_number());
-	// 	}
-	// 	System::set_block_number(System::block_number() + 1);
-	// 	Timestamp::on_initialize(System::block_number());
-	// }
-	//
-	// /// A helper function to move time on in tests. It ensures `Timestamp::set` is only called once per block by advancing the block otherwise.
-	// fn later(now: u64) {
-	// 	// If this is not the very first timestamp ever set, we always advance the block before setting new time
-	// 	// this is because setting it twice in a block is not legal
-	// 	if Timestamp::get() > 0 {
-	// 		// pretend block was finalized
-	// 		let b = System::block_number();
-	// 		next_block(); // we cannot set time twice in same block
-	// 		assert_eq!(b + 1, System::block_number());
-	// 	}
-	// 	// pretend time moved on
-	// 	assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
-	// }
+	#[test]
+	fn create_match_report_job() {
+		use acurast_runtime::{
+			pallet_acurast_marketplace::{AdvertisementFor, PricingVariant},
+			Runtime as AcurastRuntime,
+			RuntimeCall::AcurastMarketplace,
+		};
+
+		let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
+			<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+
+		// // fund alice's account with job payment tokens
+		// send_native_and_token();
+
+		let now: u64 = 1_671_789_600_000; // 23.12.2022 10:00;
+
+		let ad = advertisement(10000, 1, 100_000, 50_000, 8);
+		let registration = JobRegistration {
+			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
+			allowed_sources: None,
+			allow_only_verified_sources: false,
+			schedule: Schedule {
+				duration: 5000,
+				start_time: 1_671_800_400_000, // 23.12.2022 13:00
+				end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+				interval: 1_800_000,           // 30min
+				max_start_delay: 5000,
+			},
+			memory: 5_000u32,
+			network_requests: 5,
+			storage: 20_000u32,
+			extra: RegistrationExtra {
+				destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+				parameters: None,
+				requirements: JobRequirements {
+					slots: 1,
+					reward: test_asset(20000),
+					instant_match: None,
+				},
+				expected_fulfillment_fee: 10000,
+			},
+		};
+
+		// advertise resources
+		AcurastParachain::execute_with(|| {
+			assert_ok!(
+				acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::advertise(
+					acurast_runtime::RuntimeOrigin::signed(BOB),
+					ad.clone(),
+				)
+			);
+		});
+
+		// register job
+		AcurastParachain::execute_with(|| {
+			assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
+				acurast_runtime::RuntimeOrigin::signed(FERDIE),
+				registration,
+			));
+		});
+
+		//
+		// 	// check job event
+		// 	AcurastParachain::execute_with(|| {
+		// 		let _events: Vec<String> = acurast_runtime::System::events()
+		// .iter()
+		// .map(|e| format!("{:?}", e.event))
+		// .collect();
+		// 		let _alice_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, &ALICE);
+		// 		let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, &BOB);
+		//
+		// 		let _pallet_balance_test_token = AcurastAssetsInternal::balance(TEST_ASSET_ID, pallet_account.clone());
+		// 		let _alice_balance_false = AcurastAssetsInternal::balance(NATIVE_ASSET_ID, &ALICE);
+		// 		let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
+		// 		let _x = 10;
+		// 	});
+		//
+		// 	// fulfill job
+		// 	AcurastParachain::execute_with(|| {
+		// 		use acurast_runtime::Call::Acurast;
+		// 		use acurast_runtime::pallet_acurast::Call::fulfill;
+		// 		let payload: [u8; 32] = rand::random();
+		// 		let fulfillment = Fulfillment {
+		// 			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
+		// 			payload: payload.to_vec(),
+		// 		};
+		//
+		// 		let pallet_balance = pallet_assets::Pallet::<acurast_runtime::Runtime>::balance(
+		// 			TEST_ASSET_ID,
+		// 			pallet_account.clone(),
+		// 		);
+		// 		// 500_000_000_000
+		// 		let fulfill_call = Acurast(fulfill {
+		// 			fulfillment,
+		// 			requester: sp_runtime::MultiAddress::Id(ALICE.clone()),
+		// 		});
+		// 		let bob_origin = acurast_runtime::Origin::signed(BOB);
+		// 		let dispatch_status = fulfill_call.dispatch(bob_origin);
+		// 		assert_ok!(dispatch_status);
+		// 	});
+		//
+		// 	// check fulfill event
+		// 	ProxyParachain::execute_with(|| {
+		// 		use emulations::runtimes::proxy_parachain_runtime::{RuntimeEvent, System};
+		// 		let events = System::events()
+		// .iter()
+		// .map(|e| format!("{:?}", e.event))
+		// .collect();
+		// 		assert!(events.iter().any(|r| matches!(r.event, RuntimeEvent::AcurastReceiver(..))));
+		// 	});
+		// }
+		//
+		//
+		// fn next_block() {
+		// 	if System::block_number() >= 1 {
+		// 		// pallet_acurast_marketplace::on_finalize(System::block_number());
+		// 		Timestamp::on_finalize(System::block_number());
+		// 	}
+		// 	System::set_block_number(System::block_number() + 1);
+		// 	Timestamp::on_initialize(System::block_number());
+		// }
+		//
+		// /// A helper function to move time on in tests. It ensures `Timestamp::set` is only called once per block by advancing the block otherwise.
+		// fn later(now: u64) {
+		// 	// If this is not the very first timestamp ever set, we always advance the block before setting new time
+		// 	// this is because setting it twice in a block is not legal
+		// 	if Timestamp::get() > 0 {
+		// 		// pretend block was finalized
+		// 		let b = System::block_number();
+		// 		next_block(); // we cannot set time twice in same block
+		// 		assert_eq!(b + 1, System::block_number());
+		// 	}
+		// 	// pretend time moved on
+		// 	assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+	}
 }

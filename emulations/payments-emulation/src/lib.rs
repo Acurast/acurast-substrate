@@ -11,7 +11,7 @@ use emulations::{
 // needed libs
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
-use frame_support::{dispatch::Dispatchable, traits::GenesisBuild, weights::Weight};
+use frame_support::{dispatch::Dispatchable, traits::{GenesisBuild, Hooks}, weights::Weight};
 use hex_literal::hex;
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::{
@@ -876,7 +876,10 @@ mod jobs {
 
 	// use pallet_acurast_marketplace::FeeManager;
 	use crate::pallet_acurast::Call::deregister;
-	use emulations::runtimes::acurast_runtime::RegistrationExtra;
+	use emulations::runtimes::acurast_runtime::{
+		pallet_acurast_marketplace::{Match, PlannedExecution},
+		RegistrationExtra,
+	};
 	use sp_runtime::BoundedVec;
 	use xcm_emulator::TestExt;
 
@@ -1102,8 +1105,8 @@ mod jobs {
 
 		let now: u64 = 1_671_789_600_000; // 23.12.2022 10:00;
 
-		let ad = advertisement(10000, 1, 100_000, 50_000, 8);
-		let reward_per_execution = 20_000;
+		let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+		let reward_per_execution = 10_000_000;
 		let registration = JobRegistration {
 			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
 			allowed_sources: None,
@@ -1124,7 +1127,7 @@ mod jobs {
 				requirements: JobRequirements {
 					slots: 1,
 					reward: test_asset(reward_per_execution),
-					instant_match: None,
+					instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 				},
 				expected_fulfillment_fee: 10000,
 			},
@@ -1142,6 +1145,9 @@ mod jobs {
 
 		// register job
 		AcurastParachain::execute_with(|| {
+			// pretend current time
+			later(now);
+
 			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
 			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE);
 
@@ -1151,8 +1157,8 @@ mod jobs {
 			));
 
 			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			// check we now have lower balance corresponding reward worth 2 executions
 			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution);
-			// reward worth 2 executions
 		});
 
 		// check job event
@@ -1207,26 +1213,27 @@ mod jobs {
 		// }
 		//
 		//
-		// fn next_block() {
-		// 	if System::block_number() >= 1 {
-		// 		// pallet_acurast_marketplace::on_finalize(System::block_number());
-		// 		Timestamp::on_finalize(System::block_number());
-		// 	}
-		// 	System::set_block_number(System::block_number() + 1);
-		// 	Timestamp::on_initialize(System::block_number());
-		// }
-		//
-		// /// A helper function to move time on in tests. It ensures `Timestamp::set` is only called once per block by advancing the block otherwise.
-		// fn later(now: u64) {
-		// 	// If this is not the very first timestamp ever set, we always advance the block before setting new time
-		// 	// this is because setting it twice in a block is not legal
-		// 	if Timestamp::get() > 0 {
-		// 		// pretend block was finalized
-		// 		let b = System::block_number();
-		// 		next_block(); // we cannot set time twice in same block
-		// 		assert_eq!(b + 1, System::block_number());
-		// 	}
-		// 	// pretend time moved on
-		// 	assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+	}
+
+	fn next_block() {
+		if acurast_runtime::System::block_number() >= 1 {
+			acurast_runtime::Timestamp::on_finalize(acurast_runtime::System::block_number());
+		}
+		acurast_runtime::System::set_block_number(acurast_runtime::System::block_number() + 1);
+		acurast_runtime::Timestamp::on_initialize(acurast_runtime::System::block_number());
+	}
+
+	/// A helper function to move time on in tests. It ensures `Timestamp::set` is only called once per block by advancing the block otherwise.
+	fn later(now: u64) {
+		// If this is not the very first timestamp ever set, we always advance the block before setting new time
+		// this is because setting it twice in a block is not legal
+		if acurast_runtime::Timestamp::get() > 0 {
+			// pretend block was finalized
+			let b = acurast_runtime::System::block_number();
+			next_block(); // we cannot set time twice in same block
+			assert_eq!(b + 1, acurast_runtime::System::block_number());
+		}
+		// pretend time moved on
+		assert_ok!(acurast_runtime::Timestamp::set(acurast_runtime::RuntimeOrigin::none(), now));
 	}
 }

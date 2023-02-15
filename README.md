@@ -6,11 +6,24 @@ To learn more about Acurast please visit the [website](https://acurast.com/) and
 
 ## Build
 
-```
+```sh
 cargo build --release
+
+# or
+
+make build-release
 ```
 
 ## Run
+
+### Using Zombienet
+
+```sh
+export PATH="$PATH:<absolute_path>/polkadot/target/release"
+make start
+```
+
+### Manual steps
 
 First build the plain chain spec:
 

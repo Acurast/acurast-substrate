@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 extern crate core;
 
 // parent re-exports
@@ -12,7 +10,8 @@ use emulations::{
 use crate::acurast_runtime::pallet_acurast;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
-	dispatch::Dispatchable,
+	assert_ok,
+	dispatch::RawOrigin,
 	traits::{GenesisBuild, Hooks},
 	weights::Weight,
 };
@@ -20,23 +19,22 @@ use hex_literal::hex;
 use polkadot_parachain::primitives::Sibling;
 use sp_runtime::{
 	bounded_vec,
-	traits::{
-		AccountIdConversion, AccountIdLookup, BlakeTwo256, ConstU128, ConstU32, StaticLookup,
-	},
+	traits::{AccountIdConversion, ConstU32, StaticLookup},
 	AccountId32, BoundedVec,
 };
 use xcm::latest::prelude::*;
-use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
+use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 use acurast_runtime::{
-	pallet_acurast::{JobRegistration, Schedule},
+	pallet_acurast::Schedule,
 	pallet_acurast_marketplace::{
 		types::MAX_PRICING_VARIANTS, Advertisement, FeeManager, JobRequirements, PricingVariant,
 		SchedulingWindow,
 	},
-	AccountId, AcurastAsset, AcurastAssetId, AcurastBalance, FeeManagement, InternalAssetId,
+	AccountId, AcurastAsset, AcurastAssetId, AcurastBalance, FeeManagement,
 	Runtime as AcurastRuntime,
 };
+use emulations::runtimes::acurast_runtime::pallet_acurast_marketplace::ExecutionOperationHash;
 
 decl_test_relay_chain! {
 	pub struct PolkadotRelay {
@@ -402,7 +400,22 @@ pub fn alice_account_id() -> AccountId32 {
 pub fn bob_account_id() -> AccountId32 {
 	[1; 32].into()
 }
+
+/// Type representing the utf8 bytes of a string containing the value of an ipfs url.
+/// The ipfs url is expected to point to a script.
+pub type Script = BoundedVec<u8, ConstU32<53>>;
+
 const SCRIPT_BYTES: [u8; 53] = hex!("697066733A2F2F00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+pub const OPERATION_HASH: [u8; 32] =
+	hex!("a3f18e4c6f0cdd0d8666f407610351cacb9a263678cf058294be9977b69f2cb3");
+
+pub fn script() -> Script {
+	SCRIPT_BYTES.to_vec().try_into().unwrap()
+}
+
+pub fn operation_hash() -> ExecutionOperationHash {
+	OPERATION_HASH.to_vec().try_into().unwrap()
+}
 
 pub fn test_token_asset_id() -> AssetId {
 	Concrete(MultiLocation {
@@ -740,8 +753,6 @@ mod network_tests {
 #[cfg(test)]
 mod statemint_backed_native_assets {
 	use super::*;
-	use frame_support::assert_ok;
-	use xcm_emulator::TestExt;
 
 	#[test]
 	fn can_recreate() {
@@ -869,23 +880,15 @@ mod statemint_backed_native_assets {
 
 #[cfg(test)]
 mod jobs {
-	use frame_support::{assert_ok, dispatch::RawOrigin};
-	use hex_literal::hex;
-
 	use super::*;
-	use crate::{
-		acurast_runtime::pallet_acurast,
-		pallet_acurast::{JobRegistration, ListUpdateOperation},
-	};
+
+	use crate::{acurast_runtime::pallet_acurast, pallet_acurast::JobRegistration};
 
 	// use pallet_acurast_marketplace::FeeManager;
-	use crate::pallet_acurast::Call::deregister;
 	use emulations::runtimes::acurast_runtime::{
-		pallet_acurast_marketplace::{Match, PlannedExecution},
+		pallet_acurast_marketplace::{ExecutionResult, PlannedExecution},
 		RegistrationExtra,
 	};
-	use sp_runtime::BoundedVec;
-	use xcm_emulator::TestExt;
 
 	#[test]
 	fn send_native_and_token() {
@@ -996,7 +999,7 @@ mod jobs {
 				.collect();
 			let alice_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
 			let alice_balance_false = AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &ALICE);
-			let alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
+			let _alice_balance_native = acurast_runtime::Balances::free_balance(&ALICE);
 			assert_eq!(alice_balance_false, 0);
 			// assert_eq!(alice_balance_native, 1453652000000);
 			assert_eq!(alice_balance_test_token, INITIAL_BALANCE / 2);
@@ -1008,13 +1011,10 @@ mod jobs {
 		Network::reset();
 
 		AcurastParachain::execute_with(|| {
-			let bstrin = <AcurastRuntime as pallet_acurast::Config>::PalletId::get();
-			let sstrin = String::from_utf8_lossy(&bstrin.0);
 			let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 				<AcurastRuntime as pallet_acurast::Config>::PalletId::get()
 					.into_account_truncating();
 
-			let hex_acc = format!("{:x?}", pallet_account);
 			let raw_origin =
 				RawOrigin::<<AcurastRuntime as frame_system::Config>::AccountId>::Signed(
 					pallet_account.clone(),
@@ -1042,11 +1042,7 @@ mod jobs {
 
 	#[test]
 	fn fund_register_job() {
-		use acurast_runtime::{
-			pallet_acurast_marketplace::{AdvertisementFor, PricingVariant},
-			Runtime as AcurastRuntime,
-			RuntimeCall::AcurastMarketplace,
-		};
+		use acurast_runtime::Runtime as AcurastRuntime;
 
 		let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 			<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
@@ -1056,7 +1052,7 @@ mod jobs {
 
 		let reward_per_execution = 20_000;
 		let registration = JobRegistration {
-			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
+			script: script(),
 			allowed_sources: None,
 			allow_only_verified_sources: false,
 			schedule: Schedule {
@@ -1081,28 +1077,41 @@ mod jobs {
 			},
 		};
 
-		// register job
 		AcurastParachain::execute_with(|| {
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token, INITIAL_BALANCE / 2);
+			// register job
+			{
+				let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+				assert_eq!(balance_test_token, INITIAL_BALANCE / 2);
 
-			assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
-				acurast_runtime::RuntimeOrigin::signed(ALICE), // ALICE's account should now be funded
-				registration,
-			));
+				assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
+					acurast_runtime::RuntimeOrigin::signed(ALICE), // ALICE's account should now be funded
+					registration,
+				));
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token, INITIAL_BALANCE / 2 - 2 * reward_per_execution); // reward worth 2 executions
+				let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+				assert_eq!(balance_test_token, INITIAL_BALANCE / 2 - 2 * reward_per_execution); // reward worth 2 executions
+			}
+			// check job event and balances
+			{
+				let _events: Vec<String> = acurast_runtime::System::events()
+					.iter()
+					.map(|e| format!("{:?}", e.event))
+					.collect();
+				let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+				let _ferdie_balance_test_token =
+					AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+				let _ferdie_balance_false =
+					AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
+				let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
+				let _pallet_balance_test_token =
+					AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+			}
 		});
 	}
 
 	#[test]
 	fn register_match_report_job() {
-		use acurast_runtime::{
-			pallet_acurast_marketplace::{AdvertisementFor, PricingVariant},
-			Runtime as AcurastRuntime,
-			RuntimeCall::AcurastMarketplace,
-		};
+		use acurast_runtime::Runtime as AcurastRuntime;
 
 		let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 			<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
@@ -1111,8 +1120,9 @@ mod jobs {
 
 		let ad = advertisement(1000, 1, 100_000, 50_000, 8);
 		let reward_per_execution = 10_000_000;
+		let job_id = (FERDIE, script());
 		let registration = JobRegistration {
-			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
+			script: script(),
 			allowed_sources: None,
 			allow_only_verified_sources: false,
 			schedule: Schedule {
@@ -1136,87 +1146,108 @@ mod jobs {
 				expected_fulfillment_fee: 10000,
 			},
 		};
+		let price_per_execution = 5000 * 1000 + 20_000 + 5 * 8;
 
 		// advertise resources
 		AcurastParachain::execute_with(|| {
+			// advertise
 			assert_ok!(
 				acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::advertise(
 					acurast_runtime::RuntimeOrigin::signed(BOB),
 					ad.clone(),
 				)
 			);
-		});
 
-		// register job
-		AcurastParachain::execute_with(|| {
 			// pretend current time
 			later(now);
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE);
+			// register job
+			{
+				let balance_ferdie_test_token =
+					AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+				assert_eq!(balance_ferdie_test_token, TEST_TOKEN_INITIAL_BALANCE);
 
-			assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
-				acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
-				registration,
+				assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
+					acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
+					registration.clone(),
+				));
+
+				let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+				// check we now have lower balance corresponding reward worth 2 executions
+				assert_eq!(
+					balance_test_token,
+					TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution
+				);
+			}
+
+			// check job event and balances
+			{
+				let _events: Vec<String> = acurast_runtime::System::events()
+					.iter()
+					.map(|e| format!("{:?}", e.event))
+					.collect();
+				let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+				let _ferdie_balance_test_token =
+					AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+				let _ferdie_balance_false =
+					AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
+				let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
+				let _pallet_balance_test_token =
+					AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+			}
+
+			// acknowledge
+			assert_ok!(acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::acknowledge_match(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
 			));
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			// check we now have lower balance corresponding reward worth 2 executions
-			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution);
-		});
+			// reports
+			{
+				let balance_bob_test_token_0 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+				assert_eq!(balance_bob_test_token_0, 0);
 
-		// check job event
-		AcurastParachain::execute_with(|| {
-			let _events: Vec<String> = acurast_runtime::System::events()
-				.iter()
-				.map(|e| format!("{:?}", e.event))
-				.collect();
-			let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
-			let _ferdie_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			let _ferdie_balance_false =
-				AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
-			let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
-			let _pallet_balance_test_token =
-				AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
-		});
+				let mut iter = registration.schedule.iter(0).unwrap();
 
-		//
-		// 	// fulfill job
-		// 	AcurastParachain::execute_with(|| {
-		// 		use acurast_runtime::Call::Acurast;
-		// 		use acurast_runtime::pallet_acurast::Call::fulfill;
-		// 		let payload: [u8; 32] = rand::random();
-		// 		let fulfillment = Fulfillment {
-		// 			script: SCRIPT_BYTES.to_vec().try_into().unwrap(),
-		// 			payload: payload.to_vec(),
-		// 		};
-		//
-		// 		let pallet_balance = pallet_assets::Pallet::<acurast_runtime::Runtime>::balance(
-		// 			TEST_TOKEN_ID,
-		// 			pallet_account.clone(),
-		// 		);
-		// 		// 500_000_000_000
-		// 		let fulfill_call = Acurast(fulfill {
-		// 			fulfillment,
-		// 			requester: sp_runtime::MultiAddress::Id(ALICE.clone()),
-		// 		});
-		// 		let bob_origin = acurast_runtime::Origin::signed(BOB);
-		// 		let dispatch_status = fulfill_call.dispatch(bob_origin);
-		// 		assert_ok!(dispatch_status);
-		// 	});
-		//
-		// 	// check fulfill event
-		// 	ProxyParachain::execute_with(|| {
-		// 		use emulations::runtimes::proxy_parachain_runtime::{RuntimeEvent, System};
-		// 		let events = System::events()
-		// .iter()
-		// .map(|e| format!("{:?}", e.event))
-		// .collect();
-		// 		assert!(events.iter().any(|r| matches!(r.event, RuntimeEvent::AcurastReceiver(..))));
-		// 	});
-		// }
-		//
-		//
+				later(iter.next().unwrap() + 1000);
+				assert_ok!(
+					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::report(
+						acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+						job_id.clone(),
+						false,
+						ExecutionResult::Success(operation_hash())
+					)
+				);
+
+				let balance_bob_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+				// check we now have higher balance corresponding reward gained
+				assert_eq!(
+					balance_bob_test_token_1,
+					price_per_execution -
+						FeeManagement::get_fee_percentage().mul_floor(price_per_execution) -
+						28
+				);
+
+				later(iter.next().unwrap() + 1000);
+				assert_ok!(
+					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::report(
+						acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+						job_id.clone(),
+						true,
+						ExecutionResult::Success(operation_hash())
+					)
+				);
+
+				let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+				// check we now have higher balance corresponding reward gained
+				assert_eq!(
+					balance_test_token_2,
+					balance_bob_test_token_1 + price_per_execution -
+						FeeManagement::get_fee_percentage().mul_floor(price_per_execution) -
+						28
+				);
+			}
+		});
 	}
 
 	fn next_block() {

@@ -430,7 +430,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None);
+			return Ok(None)
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -441,9 +441,8 @@ where
 
 		let fee_payer = match call {
 			RuntimeCall::AcurastProcessorManager(call) => match call {
-				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } => {
-					pairing.account.clone()
-				},
+				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } =>
+					pairing.account.clone(),
 				_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
 			},
 			_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
@@ -763,7 +762,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name));
+			return package_names.iter().all(|package_name| allowed.contains(package_name))
 		}
 
 		false

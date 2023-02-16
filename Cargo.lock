@@ -137,7 +137,7 @@ dependencies = [
  "pallet-acurast-assets",
  "pallet-acurast-fee-manager",
  "pallet-acurast-marketplace",
- "pallet-acurast-xcm-sender",
+ "pallet-acurast-processor-manager",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -150,6 +150,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
  "pallet-xcm",
  "parachain-info",
  "parachains-common",
@@ -5164,6 +5165,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-acurast-processor-manager"
+version = "0.1.0"
+source = "git+https://github.com/Acurast/acurast-core.git#08b779bb660234914648f4296f302593cd14d87d"
+dependencies = [
+ "acurast-common",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-assets",
+ "pallet-timestamp",
+ "pallet-uniques",
+ "parachains-common",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-acurast-xcm-receiver"
 version = "0.0.1"
 source = "git+https://github.com/Acurast/acurast-core.git#08b779bb660234914648f4296f302593cd14d87d"
@@ -5173,23 +5195,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-std",
-]
-
-[[package]]
-name = "pallet-acurast-xcm-sender"
-version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#08b779bb660234914648f4296f302593cd14d87d"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-xcm",
- "parity-scale-codec",
- "scale-info",
- "sp-std",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]

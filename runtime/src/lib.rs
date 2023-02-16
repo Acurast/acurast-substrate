@@ -21,7 +21,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, ConstU64, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -104,9 +104,8 @@ use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
 pub use pallet_acurast_assets;
 pub use pallet_acurast_marketplace;
-use sp_runtime::traits::AccountIdConversion;
 
-use pallet_acurast_xcm_sender;
+use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::Fungible;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -801,7 +800,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
-	type Counter = u128;
+	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type WeightInfo = ();

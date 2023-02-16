@@ -21,6 +21,13 @@ format-check:
     - rustup component add rustfmt --toolchain nightly
     - cargo +nightly fmt --check
 
+test:
+  stage: checks
+  extends: .prepare_rust
+  script:
+    - rustup component add rustfmt --toolchain nightly
+    - cargo +nightly test
+
 build:
   stage: build
   extends: .build

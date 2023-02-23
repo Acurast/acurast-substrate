@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -93,7 +93,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "hex",
  "p256",
@@ -2187,7 +2187,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2260,7 +2260,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5066,7 +5066,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5085,7 +5085,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5107,7 +5107,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5126,7 +5126,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5139,7 +5139,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5167,7 +5167,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5188,7 +5188,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-xcm-receiver"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10003,7 +10003,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#d21fde19c69316e72f2034b56fd7e62dd08e87be"
+source = "git+https://github.com/Acurast/acurast-core.git#b119ac347a6182853090844274cbbbd31e56e3a8"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",

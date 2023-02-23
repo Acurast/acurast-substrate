@@ -3,6 +3,7 @@ name = "acurast-runtime"
 authors = ["Papers AG"]
 description = "Acurast Runtime"
 version = "0.0.1"
+# SBP-M1 review: set proper license
 license = "Unlicense"
 homepage = "https://docs.acurast.com/"
 edition = "2021"

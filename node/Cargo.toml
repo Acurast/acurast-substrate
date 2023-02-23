@@ -2,6 +2,7 @@
 name = "acurast-node"
 description = "Acurast Node"
 version = "0.0.1"
+# SBP-M1 review: set proper license for the project
 license = "Unlicense"
 homepage = "https://docs.acurast.com/"
 edition = "2021"

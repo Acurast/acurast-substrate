@@ -1,10 +1,15 @@
-// use pallet_acurast_marketplace::FeeManager;
+use sp_runtime::Permill;
+
 use emulations::runtimes::acurast_runtime::{
 	pallet_acurast_marketplace::{ExecutionResult, PlannedExecution},
 	RegistrationExtra,
 };
+use reputation::{BetaReputation, ReputationEngine};
 
-use crate::tests::{acurast_runtime::pallet_acurast, pallet_acurast::JobRegistration, *};
+use crate::tests::{
+	acurast_runtime::{pallet_acurast, pallet_acurast::JobRegistration},
+	*,
+};
 
 #[test]
 fn send_native_and_token() {
@@ -168,7 +173,7 @@ fn fund_register_job() {
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
-		allow_only_verified_sources: false,
+		allow_only_verified_sources: true,
 		schedule: Schedule {
 			duration: 5000,
 			start_time: 1_671_800_400_000, // 23.12.2022 13:00
@@ -238,7 +243,7 @@ fn register_match_report_job() {
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
-		allow_only_verified_sources: false,
+		allow_only_verified_sources: true,
 		schedule: Schedule {
 			duration: 5000,
 			start_time: 1_671_800_400_000, // 23.12.2022 13:00
@@ -328,6 +333,15 @@ fn register_match_report_job() {
 					ExecutionResult::Success(operation_hash())
 				)
 			);
+			// reputation still ~50%
+			assert_eq!(
+				BetaReputation::<u128>::normalize(
+					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::stored_reputation(BOB, test_token_asset_id())
+						.unwrap()
+				)
+					.unwrap(),
+				Permill::from_parts(509_803)
+			);
 
 			let balance_bob_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
 			// check we now have higher balance corresponding reward gained
@@ -346,6 +360,15 @@ fn register_match_report_job() {
 					true,
 					ExecutionResult::Success(operation_hash())
 				)
+			);
+			// reputation increased
+			assert_eq!(
+				BetaReputation::<u128>::normalize(
+					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::stored_reputation(BOB, test_token_asset_id())
+						.unwrap()
+				)
+					.unwrap(),
+				Permill::from_parts(763_424)
 			);
 
 			let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);

@@ -687,6 +687,7 @@ impl pallet_acurast::Config for Runtime {
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxAllowedConsumers = frame_support::traits::ConstU16<100>;
 	type RegistrationExtra = RegistrationExtra;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
@@ -983,7 +984,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Acurast pallets
-		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>} = 40,
+		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>, Config<T>} = 40,
 		AcurastProcessorManager: pallet_acurast_processor_manager::{Pallet, Call, Storage, Event<T>} = 41,
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,

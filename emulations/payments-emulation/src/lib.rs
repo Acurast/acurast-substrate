@@ -28,8 +28,6 @@ mod tests {
 		AccountId, AcurastAsset, AcurastAssetId, AcurastBalance, FeeManagement,
 		Runtime as AcurastRuntime,
 	};
-	// needed libs
-	use acurast_runtime::pallet_acurast;
 	// parent re-exports
 	use emulations::{
 		emulators::xcm_emulator,
@@ -138,7 +136,8 @@ mod tests {
 		.unwrap();
 
 		let pallet_assets_account: <Runtime as frame_system::Config>::AccountId =
-			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+			<Runtime as acurast_runtime::pallet_acurast::Config>::PalletId::get()
+				.into_account_truncating();
 
 		let fee_manager_account: <Runtime as frame_system::Config>::AccountId =
 			acurast_runtime::FeeManagerPalletId::get().into_account_truncating();
@@ -214,6 +213,12 @@ mod tests {
 					TEST_TOKEN_ID as u128,
 				),
 			],
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		acurast_runtime::pallet_acurast::GenesisConfig::<Runtime> {
+			attestations: vec![(BOB, None)],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

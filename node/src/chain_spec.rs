@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use acurast_runtime::{
-	AccountId, AcurastAssetsConfig, AssetsConfig, AuraId, Signature, SudoConfig,
+	AccountId, AcurastAssetsConfig, AcurastConfig, AssetsConfig, AuraId, Signature, SudoConfig,
 	EXISTENTIAL_DEPOSIT,
 };
 use cumulus_primitives_core::ParaId;
@@ -136,6 +136,7 @@ pub fn acurast_development_config() -> ChainSpec {
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				AcurastConfig { attestations: vec![(get_test_token_holder(), None)] },
 				AssetsConfig {
 					assets: vec![(
 						TEST_TOKEN_ID,
@@ -214,6 +215,7 @@ pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				AcurastConfig { attestations: vec![] },
 				AssetsConfig {
 					assets: vec![(
 						TEST_TOKEN_ID,
@@ -291,6 +293,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				],
 				ROCOCO_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
+				AcurastConfig { attestations: vec![] },
 				AssetsConfig { assets: vec![], metadata: vec![], accounts: vec![] },
 			)
 		},
@@ -312,6 +315,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
 	id: ParaId,
 	sudo_account: AccountId,
+	acurast: AcurastConfig,
 	assets: AssetsConfig,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
@@ -348,6 +352,7 @@ fn testnet_genesis(
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
 		sudo: SudoConfig { key: Some(sudo_account) },
+		acurast,
 		assets: AssetsConfig {
 			assets: vec![(
 				acurast_runtime::xcm_config::NativeAssetId::get(),

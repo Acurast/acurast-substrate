@@ -444,6 +444,7 @@ mod tests {
 		storage_capacity: u32,
 		max_memory: u32,
 		network_request_quota: u8,
+		scheduling_window: SchedulingWindow,
 	) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance> {
 		let pricing: BoundedVec<
 			PricingVariant<AcurastAssetId, AcurastBalance>,
@@ -453,7 +454,7 @@ mod tests {
 			fee_per_millisecond,
 			fee_per_storage_byte,
 			base_fee_per_execution: 0,
-			scheduling_window: SchedulingWindow::Delta(2_628_000_000), // 1 month
+			scheduling_window,
 		}];
 		Advertisement {
 			pricing,

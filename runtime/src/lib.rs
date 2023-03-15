@@ -884,6 +884,23 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 	}
 }
 
+
+parameter_types! {
+	pub const TransmissionQuorum: u8 = 1;
+	pub const TransmissionRate: u64 = 1;
+}
+
+impl pallet_acurast_hyperdrive::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type TargetChainHash = sp_core::H256;
+	type TargetChainBlockNumber = u64;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = TransmissionRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
+}
+
+
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -989,6 +1006,7 @@ construct_runtime!(
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
+		AcurastHyperdrive: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
 	}
 );
 

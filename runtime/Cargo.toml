@@ -29,6 +29,7 @@ pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.gi
 acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }

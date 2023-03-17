@@ -21,6 +21,7 @@ hex-literal = { version = "0.3.4", optional = true }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.3.1", default-features = false, features = ["derive"] }
 smallvec = "1.10.0"
+derive_more = "0.99.17"
 
 # Acurast
 pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
@@ -30,6 +31,8 @@ acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", def
 pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+
+array-bytes = { version = "4.1", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }

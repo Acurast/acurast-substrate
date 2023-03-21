@@ -1052,7 +1052,7 @@ construct_runtime!(
 
 		// Acurast pallets
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>, Config<T>} = 40,
-		AcurastProcessorManager: pallet_acurast_processor_manager::{Pallet, Call, Storage, Event<T>} = 41,
+		AcurastProcessorManager: pallet_acurast_processor_manager::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,

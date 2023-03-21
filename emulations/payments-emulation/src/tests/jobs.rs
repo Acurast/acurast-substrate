@@ -1,8 +1,10 @@
 use sp_runtime::Permill;
 
 use emulations::runtimes::acurast_runtime::{
-	pallet_acurast_marketplace::{ExecutionResult, PlannedExecution},
-	RegistrationExtra,
+	pallet_acurast::MultiOrigin,
+	pallet_acurast_marketplace::{
+		ExecutionResult, MultiDestination, PlannedExecution, RegistrationExtra,
+	},
 };
 use reputation::{BetaReputation, ReputationEngine};
 
@@ -170,7 +172,7 @@ fn fund_register_job() {
 	send_native_and_token();
 
 	let reward_per_execution = 20_000;
-	let registration = JobRegistration {
+	let registration = JobRegistration::<AccountId32, _> {
 		script: script(),
 		allowed_sources: None,
 		allow_only_verified_sources: true,
@@ -185,7 +187,10 @@ fn fund_register_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		extra: RegistrationExtra {
-			destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
@@ -239,7 +244,7 @@ fn register_match_report_job() {
 
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8, SchedulingWindow::Delta(2_628_000_000)); // 1 month scheduling window
 	let reward_per_execution = 10_000_000;
-	let job_id = (FERDIE, script());
+	let job_id = (MultiOrigin::Acurast(FERDIE), 1u128);
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
@@ -255,7 +260,10 @@ fn register_match_report_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		extra: RegistrationExtra {
-			destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
@@ -392,7 +400,7 @@ fn register_match_report_job2() {
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8, SchedulingWindow::End(1_680_448_761_934));
 	// base_fee_per_execution + duration * fee_per_millisecond + storage * fee_per_storage_byte
 	let price_per_execution = 0 + 1000 * 1000 + 1 * 0;
-	let job_id = (FERDIE, script());
+	let job_id = (MultiOrigin::Acurast(FERDIE), 1u128);
 	let schedule = Schedule {
 		duration: 1000,
 		start_time: 1_677_752_518_599,
@@ -412,7 +420,10 @@ fn register_match_report_job2() {
 		network_requests: 0,
 		storage: 0u32,
 		extra: RegistrationExtra {
-			destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,

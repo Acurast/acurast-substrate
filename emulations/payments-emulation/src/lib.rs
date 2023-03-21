@@ -32,7 +32,11 @@ mod tests {
 	use emulations::{
 		emulators::xcm_emulator,
 		runtimes::{
-			acurast_runtime, acurast_runtime::pallet_acurast_marketplace::ExecutionOperationHash,
+			acurast_runtime,
+			acurast_runtime::{
+				pallet_acurast, pallet_acurast_marketplace,
+				pallet_acurast_marketplace::ExecutionOperationHash,
+			},
 			polkadot_runtime, proxy_parachain_runtime, statemint_runtime,
 		},
 	};
@@ -394,6 +398,8 @@ mod tests {
 	type StatemintXcmPallet = pallet_xcm::Pallet<statemint_runtime::Runtime>;
 
 	type StatemintAssets = pallet_assets::Pallet<statemint_runtime::Runtime>;
+	type Acurast = pallet_acurast::Pallet<acurast_runtime::Runtime>;
+	type AcurastMarketplace = pallet_acurast_marketplace::Pallet<acurast_runtime::Runtime>;
 	type AcurastAssetsInternal = pallet_assets::Pallet<acurast_runtime::Runtime>;
 	type AcurastAssets = acurast_runtime::pallet_acurast_assets::Pallet<acurast_runtime::Runtime>;
 

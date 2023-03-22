@@ -15,7 +15,7 @@ rand = "0.8.5"
 hex-literal = "0.3.4"
 
 # Acurast
-pallet-acurast-xcm-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
 # Substrate

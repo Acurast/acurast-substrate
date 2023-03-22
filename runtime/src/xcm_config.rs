@@ -189,6 +189,7 @@ fn matches_prefix(prefix: &MultiLocation, loc: &MultiLocation) -> bool {
 			.all(|(prefix_junction, junction)| prefix_junction == junction)
 }
 
+
 pub type OpenBarrier = AllowUnpaidExecutionFrom<Everything>;
 pub struct ReserveAssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> FilterAssetLocation for ReserveAssetsFrom<T> {
@@ -331,7 +332,9 @@ impl pallet_xcm::Config for Runtime {
 	// ^ Disable dispatchable execute on the XCM pallet.
 	// Needs to be `Everything` for local testing.
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+	// SBP-M1 review: are you sure you want to allow Teleporting Assets?
 	type XcmTeleportFilter = Everything;
+	// SBP-M1 review: it is better to use ReserveBasedAssetTransfer
 	type XcmReserveTransferFilter = Nothing;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type LocationInverter = LocationInverter<Ancestry>;

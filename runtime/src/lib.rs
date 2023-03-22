@@ -884,6 +884,8 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 	}
 }
 
+// SBP-M1 review: try not to use Sudo pallet
+// It is better to have more decentralised entity
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -946,6 +948,7 @@ impl pallet_uniques::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+// SBP-M1 review: FYI, remember not to change pallet order/indeces
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,

@@ -38,3 +38,6 @@ cumulus_based = true
   ws_port = 8802
   rpc_port = 8082
   args = [ "-lparachain=debug,runtime=debug" ]
+
+# SBP-M1 review: How about opening XRMP channels?
+# Just FYI, you can specify them here

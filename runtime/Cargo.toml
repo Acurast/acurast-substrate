@@ -32,8 +32,6 @@ pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", d
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
-array-bytes = { version = "4.1", default-features = false }
-
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }
 frame-executive = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }

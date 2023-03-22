@@ -83,24 +83,15 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
 
-/// Wrapper around [`AccountId32`] to allow the implementation of [`sp_std::str::FromStr`].
-///
-/// An equivalent impl of [`sp_std::str::FromStr`] exists in sp-core but wrongly is under the `std` feature flag.
+/// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(From, Into)]
-pub struct AcurastAccoundId(AccountId32);
-impl sp_std::str::FromStr for AcurastAccoundId {
-	type Err = &'static str;
+pub struct AcurastAccountId(AccountId32);
+impl TryFrom<Vec<u8>> for AcurastAccountId {
+	type Error = ();
 
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let hex_or_ss58_without_prefix = s.trim_start_matches("0x");
-		if hex_or_ss58_without_prefix.len() == 64 {
-			let id: AccountId32 = array_bytes::hex_n_into(hex_or_ss58_without_prefix)
-				.map_err(|_| "invalid hex address.")?;
-			Ok(AcurastAccoundId(id))
-		} else {
-			// Self::from_ss58check(s).map_err(|_| "invalid ss58 address.")
-			Ok(AccountId32::new([0u8; 32]).into())
-		}
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		let a: [u8; 32] = value.try_into().map_err(|_| ())?;
+		Ok(AcurastAccountId(AccountId32::new(a)))
 	}
 }
 
@@ -130,9 +121,7 @@ pub use pallet_acurast;
 pub use pallet_acurast_assets;
 pub use pallet_acurast_marketplace;
 
-use pallet_acurast_hyperdrive::{
-	tezos::TezosParser, MessageCounter, ParsedAction, RewardParser, StateOwner,
-};
+use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
 use pallet_acurast_marketplace::RegistrationExtra;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
@@ -902,8 +891,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActi
 	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) => {
-				let (who, _local_job_id) = job_id;
-				Acurast::register_for(&who, registration.into())?;
+				Acurast::register_for(job_id, registration.into())?;
 				Ok(().into())
 			},
 		}
@@ -943,9 +931,8 @@ parameter_types! {
 
 impl pallet_acurast_hyperdrive::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ParsableAccountId = AcurastAccoundId;
+	type ParsableAccountId = AcurastAccountId;
 	type TargetChainOwner = TezosContract;
-	type StateKey = MessageCounter;
 	type TargetChainHash = sp_core::H256;
 	type TargetChainBlockNumber = u64;
 	type Reward = AcurastAsset;
@@ -957,7 +944,7 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type MessageParser = TezosParser<
 		AcurastAsset,
 		AcurastBalance,
-		AcurastAccoundId,
+		AcurastAccountId,
 		AccountId,
 		Extra,
 		TezosAssetParser,

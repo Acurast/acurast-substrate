@@ -28,7 +28,7 @@ pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-
 pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-pallet-acurast-assets = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 

@@ -202,7 +202,7 @@ mod tests {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		acurast_runtime::pallet_acurast_assets::GenesisConfig::<Runtime> {
+		acurast_runtime::pallet_acurast_assets_manager::GenesisConfig::<Runtime> {
 			assets: vec![
 				(
 					STATEMINT_NATIVE_ID,
@@ -401,7 +401,8 @@ mod tests {
 	type Acurast = pallet_acurast::Pallet<acurast_runtime::Runtime>;
 	type AcurastMarketplace = pallet_acurast_marketplace::Pallet<acurast_runtime::Runtime>;
 	type AcurastAssetsInternal = pallet_assets::Pallet<acurast_runtime::Runtime>;
-	type AcurastAssets = acurast_runtime::pallet_acurast_assets::Pallet<acurast_runtime::Runtime>;
+	type AcurastAssets =
+		acurast_runtime::pallet_acurast_assets_manager::Pallet<acurast_runtime::Runtime>;
 
 	/// Type representing the utf8 bytes of a string containing the value of an ipfs url.
 	/// The ipfs url is expected to point to a script.

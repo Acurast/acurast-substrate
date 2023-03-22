@@ -115,10 +115,19 @@ impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastB
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_acurast_assets_manager::benchmarking::BenchmarkHelper<codec::Compact<AcurastAssetId>>
+	for AcurastBenchmarkHelper
+{
+	fn manager_account() -> frame_system::pallet::AccountId {
+		[0; 32].into()
+	}
+}
+
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-pub use pallet_acurast_assets;
+pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
 
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
@@ -644,9 +653,13 @@ impl pallet_assets::Config for Runtime {
 	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
-impl pallet_acurast_assets::Config for Runtime {
+impl pallet_acurast_assets_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_acurast_assets::weights::SubstrateWeight<Runtime>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -662,12 +675,14 @@ parameter_types! {
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
+	type UpdateOrigin = EnsureRoot<AccountId>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
+	type UpdateOrigin = EnsureRoot<AccountId>;
 }
 
 /// Reward fee management implementation.
@@ -690,22 +705,24 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = Extra;
-	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
+	type MaxAllowedSources = frame_support::traits::ConstU32<1000>;
+	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
+	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
 		Runtime,
 		pallet_acurast::weights::WeightInfo<Runtime>,
 	>;
-	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 }
 
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxAllowedConsumers = frame_support::traits::ConstU16<100>;
+	type MaxAllowedConsumers = frame_support::traits::ConstU32<100>;
+	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type RegistrationExtra = Extra;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
@@ -1035,8 +1052,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets`
-		AcurastAssets: pallet_acurast_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
+		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Collator support. The order of these 4 are important and shall not change.

@@ -22,7 +22,7 @@ scale-info = { version = "2.3.1", default-features = false, features = ["derive"
 smallvec = "1.10.0"
 
 # Acurast
-pallet-acurast-xcm-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }

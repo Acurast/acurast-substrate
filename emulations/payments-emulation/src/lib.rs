@@ -32,7 +32,11 @@ mod tests {
 	use emulations::{
 		emulators::xcm_emulator,
 		runtimes::{
-			acurast_runtime, acurast_runtime::pallet_acurast_marketplace::ExecutionOperationHash,
+			acurast_runtime,
+			acurast_runtime::{
+				pallet_acurast, pallet_acurast_marketplace,
+				pallet_acurast_marketplace::ExecutionOperationHash,
+			},
 			polkadot_runtime, proxy_parachain_runtime, statemint_runtime,
 		},
 	};
@@ -198,7 +202,7 @@ mod tests {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		acurast_runtime::pallet_acurast_assets::GenesisConfig::<Runtime> {
+		acurast_runtime::pallet_acurast_assets_manager::GenesisConfig::<Runtime> {
 			assets: vec![
 				(
 					STATEMINT_NATIVE_ID,
@@ -394,8 +398,11 @@ mod tests {
 	type StatemintXcmPallet = pallet_xcm::Pallet<statemint_runtime::Runtime>;
 
 	type StatemintAssets = pallet_assets::Pallet<statemint_runtime::Runtime>;
+	type Acurast = pallet_acurast::Pallet<acurast_runtime::Runtime>;
+	type AcurastMarketplace = pallet_acurast_marketplace::Pallet<acurast_runtime::Runtime>;
 	type AcurastAssetsInternal = pallet_assets::Pallet<acurast_runtime::Runtime>;
-	type AcurastAssets = acurast_runtime::pallet_acurast_assets::Pallet<acurast_runtime::Runtime>;
+	type AcurastAssets =
+		acurast_runtime::pallet_acurast_assets_manager::Pallet<acurast_runtime::Runtime>;
 
 	/// Type representing the utf8 bytes of a string containing the value of an ipfs url.
 	/// The ipfs url is expected to point to a script.
@@ -444,6 +451,7 @@ mod tests {
 		storage_capacity: u32,
 		max_memory: u32,
 		network_request_quota: u8,
+		scheduling_window: SchedulingWindow,
 	) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance> {
 		let pricing: BoundedVec<
 			PricingVariant<AcurastAssetId, AcurastBalance>,
@@ -453,7 +461,7 @@ mod tests {
 			fee_per_millisecond,
 			fee_per_storage_byte,
 			base_fee_per_execution: 0,
-			scheduling_window: SchedulingWindow::Delta(2_628_000_000), // 1 month
+			scheduling_window,
 		}];
 		Advertisement {
 			pricing,

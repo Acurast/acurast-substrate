@@ -101,29 +101,6 @@ pub struct AcurastAsset(pub MultiAsset);
 
 type Extra = RegistrationExtra<AcurastAsset, AcurastBalance, AccountId>;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct AcurastBenchmarkHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
-		let asset_id = AssetId::Concrete(MultiLocation::new(
-			1,
-			X3(Parachain(1000), PalletInstance(50), GeneralIndex(id as u128)),
-		));
-		codec::Compact(asset_id)
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_acurast_assets_manager::benchmarking::BenchmarkHelper<codec::Compact<AcurastAssetId>>
-	for AcurastBenchmarkHelper
-{
-	fn manager_account() -> frame_system::pallet::AccountId {
-		[0; 32].into()
-	}
-}
-
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
@@ -650,7 +627,7 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 impl pallet_acurast_assets_manager::Config for Runtime {
@@ -659,7 +636,7 @@ impl pallet_acurast_assets_manager::Config for Runtime {
 	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -716,6 +693,8 @@ impl pallet_acurast::Config for Runtime {
 		Runtime,
 		pallet_acurast::weights::WeightInfo<Runtime>,
 	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 /// Runtime configuration for pallet_acurast_marketplace.
@@ -1028,6 +1007,8 @@ impl pallet_uniques::Config for Runtime {
 	type StringLimit = ConstU32<256>;
 	type KeyLimit = ConstU32<256>;
 	type ValueLimit = ConstU32<256>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 	type WeightInfo = pallet_uniques::weights::SubstrateWeight<Self>;
 }
 

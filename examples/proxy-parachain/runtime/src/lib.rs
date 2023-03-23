@@ -17,7 +17,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, DispatchResultWithInfo, MultiSignature,
 };
 
 use sp_std::prelude::*;
@@ -40,6 +40,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+use pallet_acurast_fulfillment_receiver::Fulfillment;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -448,47 +449,20 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
-pub struct ParachainBarrier;
-impl pallet_acurast_xcm_receiver::traits::ParachainBarrier<Runtime> for ParachainBarrier {
-	fn ensure_xcm_origin(
-		origin: frame_system::pallet_prelude::OriginFor<Runtime>,
-	) -> Result<(), sp_runtime::DispatchError> {
-		// List of allowed parachains
-		let allowed_parachains = [
-			// Acurast
-			xcm::opaque::latest::Junction::Parachain(2000),
-		];
-
-		// Ensure that the call comes from an xcm message
-		let location = pallet_xcm::ensure_xcm(origin)?;
-
-		let is_valid_origin =
-			location.interior().iter().any(|junction| allowed_parachains.contains(junction));
-
-		if !is_valid_origin {
-			return Err(sp_runtime::DispatchError::Other("MultiLocation not allowed."))
-		}
-
-		Ok(())
-	}
-}
-
 pub struct OnAcurastFulfillment;
-impl pallet_acurast_xcm_receiver::traits::OnFulfillment<Runtime> for OnAcurastFulfillment {
-	fn fulfill(
-		_payload: Vec<u8>,
-		_parameters: Option<Vec<u8>>,
-	) -> frame_support::sp_runtime::DispatchResultWithInfo<PostDispatchInfo> {
+impl pallet_acurast_fulfillment_receiver::traits::OnFulfillment<Runtime> for OnAcurastFulfillment {
+	fn on_fulfillment(
+		_from: <Runtime as frame_system::Config>::AccountId,
+		_fulfillment: Fulfillment,
+	) -> DispatchResultWithInfo<PostDispatchInfo> {
 		Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::No })
 	}
 }
 
-impl pallet_acurast_xcm_receiver::Config for Runtime {
+impl pallet_acurast_fulfillment_receiver::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Payload = Vec<u8>;
-	type Parameters = Vec<u8>;
 	type OnFulfillment = OnAcurastFulfillment;
-	type Barrier = ParachainBarrier;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -524,7 +498,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Acurast
-		AcurastReceiver: pallet_acurast_xcm_receiver::{Pallet, Call, Storage, Event<T>} = 40,
+		AcurastReceiver: pallet_acurast_fulfillment_receiver::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 );
 

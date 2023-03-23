@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -94,7 +94,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "hex",
  "p256",
@@ -114,7 +114,7 @@ dependencies = [
 [[package]]
 name = "acurast-reputation"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "num",
  "parity-scale-codec",
@@ -137,6 +137,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
+ "derive_more",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -147,8 +148,9 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-acurast",
- "pallet-acurast-assets",
+ "pallet-acurast-assets-manager",
  "pallet-acurast-fee-manager",
+ "pallet-acurast-hyperdrive",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-assets",
@@ -835,6 +837,9 @@ name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+dependencies = [
+ "sha2 0.9.9",
+]
 
 [[package]]
 name = "bstr"
@@ -2194,7 +2199,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2267,7 +2272,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5097,7 +5102,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5116,7 +5121,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5136,17 +5141,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-acurast-assets"
+name = "pallet-acurast-assets-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-assets",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
  "xcm",
@@ -5157,7 +5165,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5168,9 +5176,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-acurast-fulfillment-receiver"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
+dependencies = [
+ "acurast-common",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-acurast-hyperdrive"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
+dependencies = [
+ "derive_more",
+ "frame-support",
+ "frame-system",
+ "once_cell",
+ "pallet-acurast",
+ "pallet-acurast-marketplace",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+ "strum",
+ "strum_macros",
+ "tezos-core",
+ "tezos-michelson",
+]
+
+[[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -5179,7 +5224,7 @@ dependencies = [
  "hex-literal",
  "itertools",
  "pallet-acurast",
- "pallet-acurast-assets",
+ "pallet-acurast-assets-manager",
  "pallet-assets",
  "pallet-balances",
  "pallet-timestamp",
@@ -5199,7 +5244,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5207,25 +5252,13 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "pallet-assets",
+ "pallet-balances",
  "pallet-timestamp",
  "pallet-uniques",
- "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-acurast-xcm-receiver"
-version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
  "sp-std",
 ]
 
@@ -6406,7 +6439,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-acurast-xcm-receiver",
+ "pallet-acurast-fulfillment-receiver",
  "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
@@ -8053,7 +8086,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
- "pallet-acurast-xcm-receiver",
+ "pallet-acurast-fulfillment-receiver",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -10026,7 +10059,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#9a9cada0dbb088dca1a4f50f92d88674ef8281fc"
+source = "git+https://github.com/Acurast/acurast-core.git#f84eb2ce17435f458b9d2d9326f28c1fe119b507"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",
@@ -11260,6 +11293,34 @@ name = "termtree"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95059e91184749cb66be6dc994f67f182b6d897cb3df74a5bf66b5e709295fd8"
+
+[[package]]
+name = "tezos-core"
+version = "0.1.3"
+source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#3b5b42f29dc9371fcdaaebd646371dfd4d2ad7d6"
+dependencies = [
+ "blake2",
+ "bs58",
+ "cfg-if",
+ "derive_more",
+ "hex",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "tezos-michelson"
+version = "0.1.3"
+source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#3b5b42f29dc9371fcdaaebd646371dfd4d2ad7d6"
+dependencies = [
+ "chrono",
+ "derive_more",
+ "hex",
+ "num-integer",
+ "num-traits",
+ "tezos-core",
+]
 
 [[package]]
 name = "thiserror"

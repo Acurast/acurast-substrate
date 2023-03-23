@@ -1,8 +1,10 @@
 use sp_runtime::Permill;
 
 use emulations::runtimes::acurast_runtime::{
-	pallet_acurast_marketplace::{ExecutionResult, PlannedExecution},
-	RegistrationExtra,
+	pallet_acurast::MultiOrigin,
+	pallet_acurast_marketplace::{
+		ExecutionResult, MultiDestination, PlannedExecution, RegistrationExtra,
+	},
 };
 use reputation::{BetaReputation, ReputationEngine};
 
@@ -170,7 +172,7 @@ fn fund_register_job() {
 	send_native_and_token();
 
 	let reward_per_execution = 20_000;
-	let registration = JobRegistration {
+	let registration = JobRegistration::<AccountId32, _> {
 		script: script(),
 		allowed_sources: None,
 		allow_only_verified_sources: true,
@@ -185,7 +187,10 @@ fn fund_register_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		extra: RegistrationExtra {
-			destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
@@ -203,7 +208,7 @@ fn fund_register_job() {
 			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
 			assert_eq!(balance_test_token, INITIAL_BALANCE / 2);
 
-			assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
+			assert_ok!(Acurast::register(
 				acurast_runtime::RuntimeOrigin::signed(ALICE), // ALICE's account should now be funded
 				registration,
 			));
@@ -237,9 +242,8 @@ fn register_match_report_job() {
 
 	let now: u64 = 1_671_789_600_000; // 23.12.2022 10:00;
 
-	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8, SchedulingWindow::Delta(2_628_000_000)); // 1 month scheduling window
 	let reward_per_execution = 10_000_000;
-	let job_id = (FERDIE, script());
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
@@ -255,7 +259,10 @@ fn register_match_report_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		extra: RegistrationExtra {
-			destination: MultiLocation { parents: 1, interior: X1(Parachain(PROXY_CHAIN_ID)) },
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
 			parameters: None,
 			requirements: JobRequirements {
 				slots: 1,
@@ -266,27 +273,26 @@ fn register_match_report_job() {
 			expected_fulfillment_fee: 10000,
 		},
 	};
-	let price_per_execution = 5000 * 1000 + 20_000 + 5 * 8;
+	// base_fee_per_execution + duration * fee_per_millisecond + storage * fee_per_storage_byte
+	let price_per_execution = 0 + 5000 * 1000 + 20_000 * 1;
 
 	// advertise resources
 	AcurastParachain::execute_with(|| {
 		// advertise
-		assert_ok!(
-			acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::advertise(
-				acurast_runtime::RuntimeOrigin::signed(BOB),
-				ad.clone(),
-			)
-		);
+		assert_ok!(AcurastMarketplace::advertise(
+			acurast_runtime::RuntimeOrigin::signed(BOB),
+			ad.clone(),
+		));
 
 		// pretend current time
 		later(now);
 
 		// register job
-		{
+		let job_id = {
 			let balance_ferdie_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
 			assert_eq!(balance_ferdie_test_token, TEST_TOKEN_INITIAL_BALANCE);
 
-			assert_ok!(acurast_runtime::pallet_acurast::Pallet::<AcurastRuntime>::register(
+			assert_ok!(Acurast::register(
 				acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
 				registration.clone(),
 			));
@@ -294,7 +300,9 @@ fn register_match_report_job() {
 			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
 			// check we now have lower balance corresponding reward worth 2 executions
 			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution);
-		}
+
+			(MultiOrigin::Acurast(FERDIE), Acurast::job_id_sequence())
+		};
 
 		// check job event and balances
 		{
@@ -312,10 +320,166 @@ fn register_match_report_job() {
 		}
 
 		// acknowledge
-		assert_ok!(acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::acknowledge_match(
-            acurast_runtime::RuntimeOrigin::signed(BOB).into(),
-            job_id.clone(),
-        ));
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+			job_id.clone(),
+		));
+
+		// reports
+		{
+			let balance_test_token_0 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			assert_eq!(balance_test_token_0, 0);
+
+			let mut iter = registration.schedule.iter(0).unwrap();
+
+			later(iter.next().unwrap() + 1000);
+			assert_ok!(AcurastMarketplace::report(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
+				false,
+				ExecutionResult::Success(operation_hash())
+			));
+			// reputation still ~50%
+			assert_eq!(
+				BetaReputation::<u128>::normalize(
+					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+				)
+				.unwrap(),
+				Permill::from_parts(509_803)
+			);
+
+			let balance_bob_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			// check we now have higher balance corresponding reward gained
+			assert_eq!(
+				balance_bob_test_token_1,
+				price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+			);
+
+			later(iter.next().unwrap() + 1000);
+			assert_ok!(AcurastMarketplace::report(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
+				true,
+				ExecutionResult::Success(operation_hash())
+			));
+			// reputation increased
+			assert_eq!(
+				BetaReputation::<u128>::normalize(
+					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+				)
+				.unwrap(),
+				Permill::from_parts(763_424)
+			);
+
+			let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			// check we now have higher balance corresponding reward gained
+			assert_eq!(
+				balance_test_token_2,
+				balance_bob_test_token_1 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+			);
+		}
+	});
+}
+
+#[test]
+fn register_match_report_job2() {
+	use acurast_runtime::Runtime as AcurastRuntime;
+
+	let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
+		<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
+
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8, SchedulingWindow::End(1_680_448_761_934));
+	// base_fee_per_execution + duration * fee_per_millisecond + storage * fee_per_storage_byte
+	let price_per_execution = 0 + 1000 * 1000 + 1 * 0;
+	let schedule = Schedule {
+		duration: 1000,
+		start_time: 1_677_752_518_599,
+		end_time: 1_677_752_523_600,
+		interval: 1001,
+		max_start_delay: 0,
+	};
+	let count: u128 = schedule.execution_count() as u128;
+	assert_eq!(count, 5);
+	let reward_per_execution = price_per_execution + 10;
+	let registration = JobRegistration {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: true,
+		schedule: schedule.clone(),
+		memory: 0u32,
+		network_requests: 0,
+		storage: 0u32,
+		extra: RegistrationExtra {
+			destination: MultiDestination::Acurast(MultiLocation {
+				parents: 1,
+				interior: X1(Parachain(PROXY_CHAIN_ID)),
+			}),
+			parameters: None,
+			requirements: JobRequirements {
+				slots: 1,
+				reward: test_asset(reward_per_execution),
+				min_reputation: Some(500_000),
+				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
+			},
+			expected_fulfillment_fee: 0,
+		},
+	};
+
+	let now: u64 = schedule.start_time - 100_000;
+
+	// advertise resources
+	AcurastParachain::execute_with(|| {
+		// advertise
+		assert_ok!(AcurastMarketplace::advertise(
+			acurast_runtime::RuntimeOrigin::signed(BOB),
+			ad.clone(),
+		));
+
+		// pretend current time
+		later(now);
+
+		// register job
+		let job_id = {
+			let balance_ferdie_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			assert_eq!(balance_ferdie_test_token, TEST_TOKEN_INITIAL_BALANCE);
+
+			assert_ok!(Acurast::register(
+				acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
+				registration.clone(),
+			));
+
+			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			// check we now have lower balance corresponding reward worth 2 executions
+			assert_eq!(
+				balance_test_token,
+				TEST_TOKEN_INITIAL_BALANCE - count * reward_per_execution
+			);
+
+			(MultiOrigin::Acurast(FERDIE), Acurast::job_id_sequence())
+		};
+
+		// check job event and balances
+		{
+			let _events: Vec<String> = acurast_runtime::System::events()
+				.iter()
+				.map(|e| format!("{:?}", e.event))
+				.collect();
+			let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			let _ferdie_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			let _ferdie_balance_false =
+				AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
+			let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
+			let _pallet_balance_test_token =
+				AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+		}
+
+		// acknowledge
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+			job_id.clone(),
+		));
 
 		// reports
 		{
@@ -325,59 +489,80 @@ fn register_match_report_job() {
 			let mut iter = registration.schedule.iter(0).unwrap();
 
 			later(iter.next().unwrap() + 1000);
-			assert_ok!(
-				acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::report(
-					acurast_runtime::RuntimeOrigin::signed(BOB).into(),
-					job_id.clone(),
-					false,
-					ExecutionResult::Success(operation_hash())
-				)
-			);
+			assert_ok!(AcurastMarketplace::report(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
+				false,
+				ExecutionResult::Success(operation_hash())
+			));
 			// reputation still ~50%
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::stored_reputation(BOB, test_token_asset_id())
-						.unwrap()
+					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
 				)
-					.unwrap(),
+				.unwrap(),
 				Permill::from_parts(509_803)
 			);
 
-			let balance_bob_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			let balance_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
-				balance_bob_test_token_1,
+				balance_test_token_1,
 				price_per_execution -
-					FeeManagement::get_fee_percentage().mul_floor(price_per_execution) -
-					28
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
-			later(iter.next().unwrap() + 1000);
-			assert_ok!(
-				acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::report(
-					acurast_runtime::RuntimeOrigin::signed(BOB).into(),
-					job_id.clone(),
-					true,
-					ExecutionResult::Success(operation_hash())
-				)
-			);
-			// reputation increased
+			// DO NOT move time forward since we report again in same block
+			iter.next().unwrap();
+			assert_ok!(AcurastMarketplace::report(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
+				false,
+				ExecutionResult::Success(operation_hash())
+			));
+			// reputation still ~50%
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					acurast_runtime::pallet_acurast_marketplace::Pallet::<AcurastRuntime>::stored_reputation(BOB, test_token_asset_id())
-						.unwrap()
+					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
 				)
-					.unwrap(),
-				Permill::from_parts(763_424)
+				.unwrap(),
+				Permill::from_parts(509_803)
 			);
 
 			let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_2,
-				balance_bob_test_token_1 + price_per_execution -
-					FeeManagement::get_fee_percentage().mul_floor(price_per_execution) -
-					28
+				balance_test_token_1 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+			);
+
+			// MISS OUT on 2 submissions
+			iter.next().unwrap();
+			iter.next().unwrap();
+
+			iter.next().unwrap();
+			assert_ok!(AcurastMarketplace::report(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone(),
+				true,
+				ExecutionResult::Success(operation_hash())
+			));
+			// reputation increased, but less than in previous test
+			assert_eq!(
+				BetaReputation::<u128>::normalize(
+					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+				)
+				.unwrap(),
+				Permill::from_parts(573_039)
+			);
+
+			let balance_test_token_3 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &BOB);
+			// check we now have higher balance corresponding reward gained
+			assert_eq!(
+				balance_test_token_3,
+				balance_test_token_2 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 		}
 	});

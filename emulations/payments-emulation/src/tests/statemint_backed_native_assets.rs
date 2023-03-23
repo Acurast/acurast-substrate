@@ -5,7 +5,7 @@ fn can_recreate() {
 	Network::reset();
 	AcurastParachain::execute_with(|| {
 		let result = AcurastAssets::create(
-			acurast_runtime::RuntimeOrigin::signed(ALICE),
+			acurast_runtime::RuntimeOrigin::root(),
 			codec::Compact(STATEMINT_NATIVE_ID),
 			Concrete(MultiLocation {
 				parents: 1,

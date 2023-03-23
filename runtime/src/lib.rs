@@ -37,9 +37,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use derive_more::{From, Into};
 use frame_support::{
 	construct_runtime,
-	dispatch::DispatchClass,
+	dispatch::{DispatchClass, DispatchResultWithPostInfo},
 	pallet_prelude::InvalidTransaction,
 	parameter_types,
 	traits::{
@@ -54,13 +55,14 @@ use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId, RuntimeDebug,
+	PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
@@ -81,32 +83,34 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
 
+/// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
+#[derive(From, Into)]
+pub struct AcurastAccountId(AccountId32);
+impl TryFrom<Vec<u8>> for AcurastAccountId {
+	type Error = ();
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		let a: [u8; 32] = value.try_into().map_err(|_| ())?;
+		Ok(AcurastAccountId(AccountId32::new(a)))
+	}
+}
+
 pub type AcurastAssetId = AssetId;
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct AcurastBenchmarkHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<codec::Compact<AcurastAssetId>> for AcurastBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> codec::Compact<AcurastAssetId> {
-		let asset_id = AssetId::Concrete(MultiLocation::new(
-			1,
-			X3(Parachain(1000), PalletInstance(50), GeneralIndex(id as u128)),
-		));
-		codec::Compact(asset_id)
-	}
-}
+type Extra = RegistrationExtra<AcurastAsset, AcurastBalance, AccountId>;
 
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
 pub use pallet_acurast;
-pub use pallet_acurast_assets;
+pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
 
+use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
+use pallet_acurast_marketplace::RegistrationExtra;
 use sp_runtime::traits::AccountIdConversion;
-use xcm::prelude::Fungible;
+use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -598,7 +602,7 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RootAccountId: AccountId = sp_runtime::AccountId32::new([0u8; 32]);
+	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
 }
 
 /// Runtime configuration for pallet_assets.
@@ -623,12 +627,16 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
-impl pallet_acurast_assets::Config for Runtime {
+impl pallet_acurast_assets_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_acurast_assets::weights::SubstrateWeight<Runtime>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -644,12 +652,14 @@ parameter_types! {
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
+	type UpdateOrigin = EnsureRoot<AccountId>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
+	type UpdateOrigin = EnsureRoot<AccountId>;
 }
 
 /// Reward fee management implementation.
@@ -671,24 +681,28 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 /// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type RegistrationExtra = RegistrationExtra;
-	type MaxAllowedSources = frame_support::traits::ConstU16<1000>;
+	type RegistrationExtra = Extra;
+	type MaxAllowedSources = frame_support::traits::ConstU32<1000>;
+	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
+	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
 		Runtime,
 		pallet_acurast::weights::WeightInfo<Runtime>,
 	>;
-	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxAllowedConsumers = frame_support::traits::ConstU16<100>;
-	type RegistrationExtra = RegistrationExtra;
+	type MaxAllowedConsumers = frame_support::traits::ConstU32<100>;
+	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
+	type RegistrationExtra = Extra;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
 	type AssetId = AcurastAssetId;
@@ -767,29 +781,6 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		}
 
 		false
-	}
-}
-
-/// Struct defining the extra fields for a `JobRegistration`.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
-pub struct RegistrationExtra {
-	pub destination: MultiLocation,
-	pub parameters: Option<Vec<u8>>,
-	pub requirements: pallet_acurast_marketplace::JobRequirements<
-		AcurastAsset,
-		<Runtime as frame_system::Config>::AccountId,
-	>,
-	pub expected_fulfillment_fee: AcurastBalance,
-}
-
-impl From<RegistrationExtra>
-	for pallet_acurast_marketplace::JobRequirements<
-		AcurastAsset,
-		<Runtime as frame_system::Config>::AccountId,
-	>
-{
-	fn from(extra: RegistrationExtra) -> Self {
-		extra.requirements
 	}
 }
 
@@ -884,6 +875,80 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 	}
 }
 
+parameter_types! {
+	pub const TransmissionQuorum: u8 = 1;
+	pub const TransmissionRate: u64 = 1;
+
+	pub const TezosNativeAssetId: u128 = 5000;
+}
+
+pub struct AcurastActionExecutor;
+impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
+	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
+		match action {
+			ParsedAction::RegisterJob(job_id, registration) => {
+				Acurast::register_for(job_id, registration.into())?;
+				Ok(().into())
+			},
+		}
+	}
+}
+
+pub struct TezosAssetParser;
+impl RewardParser<AcurastAsset> for TezosAssetParser {
+	type Error = ();
+
+	fn parse(encoded: Vec<u8>) -> Result<AcurastAsset, Self::Error> {
+		let mut combined = vec![0u8; 16];
+		combined[16 - encoded.len()..].copy_from_slice(&encoded.as_ref());
+		let amount: u128 = u128::from_be_bytes(combined.as_slice().try_into().map_err(|_| ())?);
+		Ok(AcurastAsset(MultiAsset {
+			id: Concrete(MultiLocation {
+				parents: 1, // does not matter
+				// TODO this needs brain juice: How do we ensure the token from Tezos exists? Only support Native Token? -> introduce wrapper type for MultiLocation
+				interior: X2(GeneralIndex(5000), GeneralIndex(TezosNativeAssetId::get())),
+			}),
+			fun: Fungible(amount),
+		}))
+	}
+}
+
+const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
+	5, 10, 0, 0, 0, 22, 1, 243, 195, 72, 42, 102, 242, 237, 176, 113, 210, 17, 161, 198, 140, 7,
+	50, 112, 95, 68, 111, 0,
+];
+
+parameter_types! {
+	/// The initial Tezos Hyperdrive address:
+	///
+	/// Corresponds to `KT1Wofhobpo6jmHcyMQSNAAaxKqs7Du4kHTh`, packed: `0x050a0000001601f3c3482a66f2edb071d211a1c68c0732705f446f00`
+	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
+}
+
+impl pallet_acurast_hyperdrive::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParsableAccountId = AcurastAccountId;
+	type TargetChainOwner = TezosContract;
+	type TargetChainHash = sp_core::H256;
+	type TargetChainBlockNumber = u64;
+	type Reward = AcurastAsset;
+	type Balance = AcurastBalance;
+	type RegistrationExtra = Extra;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = TransmissionRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type MessageParser = TezosParser<
+		AcurastAsset,
+		AcurastBalance,
+		AcurastAccountId,
+		AccountId,
+		Extra,
+		TezosAssetParser,
+	>;
+	type ActionExecutor = AcurastActionExecutor;
+	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
+}
+
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -942,6 +1007,8 @@ impl pallet_uniques::Config for Runtime {
 	type StringLimit = ConstU32<256>;
 	type KeyLimit = ConstU32<256>;
 	type ValueLimit = ConstU32<256>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 	type WeightInfo = pallet_uniques::weights::SubstrateWeight<Self>;
 }
 
@@ -966,8 +1033,8 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets`
-		AcurastAssets: pallet_acurast_assets::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
+		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Collator support. The order of these 4 are important and shall not change.
@@ -989,6 +1056,8 @@ construct_runtime!(
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
+		// Hyperdrive (one instance for each connected chain)
+		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
 	}
 );
 

@@ -16,3 +16,6 @@
 .DS_Store
 .idea
 .vscode
+
+zombienet/bin
+!zombienet/bin/acurast-node

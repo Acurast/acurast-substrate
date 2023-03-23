@@ -3,34 +3,22 @@ name = "emulations"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "emulations"
+path = "lib.rs"
+crate-type = ["lib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# crates.io
-serde = { version = "1.0.132" }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
-scale-info = { version = "2.1.2", features = ["derive"] }
-rand = "0.8.5"
-
-# Runtimes
-acurast-runtime = { path = "../runtime", default-features = false }
-proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.36" }
-statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.36" }
-
-# Emulator
-# xcm-emulator = { git = "https://github.com/Acurast/xcm-emulator", default-features = false }
-xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", default-features = false, rev = "64d8822f6ebc1af50092677a80a9bdb74860e9a9" }
+# `emulations` is optional to be only compiled with feature `emulation`
+# (needed to exclude emulations completely when compiling workspace with feature `runtime-benchmarks`: trying to compile e.g. statemint-runtime over the dependency branch
+# rooted here results in failures since there is no runtime-benchmark flag propagated (rightly so), but common dependency between emulations and acurast runtime/node still receive the
+# runtime-benchmark flag.
+payments-emulation = { path = "payments-emulation", optional = true }
 
 [features]
-default = ["std", "emulation"]
-std = [
-    "proxy-parachain-runtime/std",
-    "acurast-runtime/std",
-    "polkadot-runtime/std",
-    "statemint-runtime/std",
-]
+default = ["emulation"]
 emulation = [
-    "proxy-parachain-runtime/emulation",
-    "acurast-runtime/emulation",
+    "payments-emulation/std",
 ]

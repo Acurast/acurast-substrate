@@ -342,8 +342,8 @@ fn register_match_report_job() {
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_bob_test_token_1,
-				price_per_execution
-					- FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+				price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
 			later(iter.next().unwrap() + 1000);
@@ -366,8 +366,8 @@ fn register_match_report_job() {
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_2,
-				balance_bob_test_token_1 + price_per_execution
-					- FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+				balance_bob_test_token_1 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 		}
 	});
@@ -494,8 +494,8 @@ fn register_match_report_job2() {
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_1,
-				price_per_execution
-					- FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+				price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
 			// DO NOT move time forward since we report again in same block
@@ -519,8 +519,8 @@ fn register_match_report_job2() {
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_2,
-				balance_test_token_1 + price_per_execution
-					- FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+				balance_test_token_1 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
 			// MISS OUT on 2 submissions
@@ -547,8 +547,8 @@ fn register_match_report_job2() {
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_3,
-				balance_test_token_2 + price_per_execution
-					- FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
+				balance_test_token_2 + price_per_execution -
+					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 		}
 	});

@@ -707,9 +707,13 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ReportTolerance = ReportTolerance;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastBalance;
-	type RewardManager =
-		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
-	type AssetValidator = AcurastAssets;
+	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<
+		AcurastAsset,
+		FeeManagement,
+		Balances,
+		AcurastAssets,
+	>;
+	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
@@ -747,12 +751,6 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 		let pallet_account: <Runtime as frame_system::Config>::AccountId =
 			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 		&pallet_account == origin
-	}
-}
-
-impl pallet_acurast_marketplace::AssetBarrier<AcurastAsset> for Barrier {
-	fn can_use_asset(asset: &AcurastAsset) -> bool {
-		<AcurastAsset as pallet_acurast_marketplace::Reward>::try_get_asset_id(&asset).is_ok()
 	}
 }
 
@@ -804,7 +802,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
-	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Runtime>;
+	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = ();
 }

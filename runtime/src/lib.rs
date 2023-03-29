@@ -700,7 +700,7 @@ impl pallet_acurast::Config for Runtime {
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxAllowedConsumers = frame_support::traits::ConstU32<100>;
+	type MaxAllowedConsumers = pallet_acurast::CU32<100>;
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type RegistrationExtra = Extra;
 	type PalletId = AcurastPalletId;
@@ -784,6 +784,16 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 	}
 }
 
+pub struct AdvertisementHandlerImpl;
+impl pallet_acurast_processor_manager::AdvertisementHandler<Runtime> for AdvertisementHandlerImpl {
+	fn advertise_for(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+		advertisement: &<Runtime as pallet_acurast_processor_manager::Config>::Advertisement,
+	) -> sp_runtime::DispatchResult {
+		AcurastMarketplace::do_advertise(processor, advertisement)
+	}
+}
+
 impl pallet_acurast_processor_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Proof = MultiSignature;
@@ -794,6 +804,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
+	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Runtime>;
+	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = ();
 }
 

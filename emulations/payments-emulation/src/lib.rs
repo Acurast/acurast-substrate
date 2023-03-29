@@ -452,7 +452,7 @@ mod tests {
 		max_memory: u32,
 		network_request_quota: u8,
 		scheduling_window: SchedulingWindow,
-	) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance> {
+	) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance, pallet_acurast::CU32<100>> {
 		let pricing: BoundedVec<
 			PricingVariant<AcurastAssetId, AcurastBalance>,
 			ConstU32<MAX_PRICING_VARIANTS>,
@@ -469,6 +469,7 @@ mod tests {
 			storage_capacity,
 			max_memory,
 			network_request_quota,
+			available_modules: vec![].try_into().unwrap(),
 		}
 	}
 }

@@ -434,7 +434,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -445,8 +445,9 @@ where
 
 		let fee_payer = match call {
 			RuntimeCall::AcurastProcessorManager(call) => match call {
-				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } =>
-					pairing.account.clone(),
+				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } => {
+					pairing.account.clone()
+				},
 				_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
 			},
 			_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
@@ -707,9 +708,13 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ReportTolerance = ReportTolerance;
 	type AssetId = AcurastAssetId;
 	type AssetAmount = AcurastBalance;
-	type RewardManager =
-		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, Barrier, FeeManagement>;
-	type AssetValidator = AcurastAssets;
+	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<
+		AcurastAsset,
+		FeeManagement,
+		Balances,
+		AcurastAssets,
+	>;
+	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
@@ -750,12 +755,6 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	}
 }
 
-impl pallet_acurast_marketplace::AssetBarrier<AcurastAsset> for Barrier {
-	fn can_use_asset(asset: &AcurastAsset) -> bool {
-		<AcurastAsset as pallet_acurast_marketplace::Reward>::try_get_asset_id(&asset).is_ok()
-	}
-}
-
 impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 	fn accept_attestation_for_origin(
 		_origin: &<Runtime as frame_system::Config>::AccountId,
@@ -777,7 +776,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
@@ -804,7 +803,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
-	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Runtime>;
+	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = ();
 }

@@ -185,6 +185,7 @@ fn fund_register_job() {
 		},
 		memory: 5_000u32,
 		network_requests: 5,
+		required_modules: vec![].try_into().unwrap(),
 		storage: 20_000u32,
 		extra: RegistrationExtra {
 			destination: MultiDestination::Acurast(MultiLocation {
@@ -257,6 +258,7 @@ fn register_match_report_job() {
 		},
 		memory: 5_000u32,
 		network_requests: 5,
+		required_modules: vec![].try_into().unwrap(),
 		storage: 20_000u32,
 		extra: RegistrationExtra {
 			destination: MultiDestination::Acurast(MultiLocation {
@@ -410,6 +412,7 @@ fn register_match_report_job2() {
 		schedule: schedule.clone(),
 		memory: 0u32,
 		network_requests: 0,
+		required_modules: vec![].try_into().unwrap(),
 		storage: 0u32,
 		extra: RegistrationExtra {
 			destination: MultiDestination::Acurast(MultiLocation {

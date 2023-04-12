@@ -6,7 +6,7 @@ stages:
   - checks
   - build
   - publish
-  - deploy
+  - benchmarking
 
 .prepare_rust:
   image: rust:latest
@@ -35,7 +35,52 @@ build:
 publish-dev:
   stage: publish
   extends: .publish-dev
+  needs:
+    - build
 
 publish-prod:
   stage: publish
   extends: .publish-prod
+  needs:
+    - build
+
+build-benchmark:
+  stage: build
+  when: manual
+  script:
+    - echo "how to build benchmarking binary for amd64"
+    - echo "put binary into /binary/acurast-benchmarking"
+  artifacts:
+    paths:
+      - /binary/acurast-benchmarking
+    expire_in: "14 days"
+
+run-benchmarks:
+  image: google/cloud-sdk
+  stage: benchmarking
+  needs:
+    - build-benchmark
+  when: manual
+  variables:
+    VM_ZONE: "us-central1-a"
+  before_script:
+    - !reference[.before_script_prod, before_script]
+    # create vm
+    - gcloud compute instances create acurast-benchmark --image=ubuntu-minimal-2210-kinetic-amd64-v20230328 --machine-type=c2d-highcpu-8 --preemptible --zone=$VM_ZONE --image-project=ubuntu-os-cloud
+
+  script:
+    #  copy over binary
+    - gcloud compute scp /binary/acurast-benchmarking  acurast-benchmark:/acurast-benchmarking
+    # run benchmarks
+    - gcloud  compute ssh --zone=$VM_ZONE --command="/acurast-benchmarking"
+    # copy over benchmarks
+    - gcloud compute scp acurast-benchmark:/reports /benchmarks
+
+  after_script:
+    # delete vm
+    - gcloud compute instances delete acurast-benchmark --zone=us-central1-a --quiet
+
+  artifacts:
+    paths:
+      - /benchmarks
+    expire_in: "30 days"

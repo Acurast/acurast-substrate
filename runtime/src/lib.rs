@@ -418,13 +418,24 @@ parameter_types! {
 type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
+pub struct LiquidityInfo {
+	pub imbalance: Option<NegativeImbalanceOf<Balances, Runtime>>,
+	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
+}
+
+impl Default for LiquidityInfo {
+	fn default() -> Self {
+		Self { imbalance: None, fee_payer: None }
+	}
+}
+
 pub struct TransactionCharger<OU>(PhantomData<OU>);
 impl<OU> pallet_transaction_payment::OnChargeTransaction<Runtime> for TransactionCharger<OU>
 where
 	OU: OnUnbalanced<NegativeImbalanceOf<Balances, Runtime>>,
 {
 	type Balance = AcurastBalance;
-	type LiquidityInfo = Option<NegativeImbalanceOf<Balances, Runtime>>;
+	type LiquidityInfo = Option<LiquidityInfo>;
 
 	fn withdraw_fee(
 		who: &<Runtime as frame_system::Config>::AccountId,
@@ -443,18 +454,32 @@ where
 			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
 		};
 
-		let fee_payer = match call {
-			RuntimeCall::AcurastProcessorManager(call) => match call {
-				pallet_acurast_processor_manager::Call::pair_with_manager { pairing } =>
-					pairing.account.clone(),
-				_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
-			},
-			_ => AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone()),
-		};
+		let mut manager = AcurastProcessorManager::manager_for_processor(who);
+
+		if manager.is_none() {
+			if let RuntimeCall::AcurastProcessorManager(
+				pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
+			) = call
+			{
+				if pairing.validate_timestamp::<Runtime>() {
+					let counter = AcurastProcessorManager::counter_for_manager(&pairing.account)
+						.unwrap_or(0)
+						.checked_add(1);
+					if let Some(counter) = counter {
+						if pairing.validate_signature::<Runtime>(&pairing.account, counter) {
+							manager = Some(pairing.account.clone());
+						}
+					}
+				}
+			}
+		}
+
+		let fee_payer = manager.unwrap_or(who.clone());
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) => Ok(Some(imbalance)),
+			Ok(imbalance) =>
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}
@@ -465,26 +490,29 @@ where
 		_post_info: &PostDispatchInfoOf<<Runtime as frame_system::Config>::RuntimeCall>,
 		corrected_fee: Self::Balance,
 		tip: Self::Balance,
-		already_withdrawn: Self::LiquidityInfo,
+		info: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(paid) = already_withdrawn {
-			let fee_payer =
-				AcurastProcessorManager::manager_for_processor(who).unwrap_or(who.clone());
-			// Calculate how much refund we should return
-			let refund_amount = paid.peek().saturating_sub(corrected_fee);
-			// refund to the the account that paid the fees. If this fails, the
-			// account might have dropped below the existential balance. In
-			// that case we don't refund anything.
-			let refund_imbalance = Balances::deposit_into_existing(&fee_payer, refund_amount)
-				.unwrap_or_else(|_| <Balances as Currency<AccountId>>::PositiveImbalance::zero());
-			// merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid = paid
-				.offset(refund_imbalance)
-				.same()
-				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-			// Call someone else to handle the imbalance (fee and tip separately)
-			let (tip, fee) = adjusted_paid.split(tip);
-			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+		if let Some(LiquidityInfo { imbalance, fee_payer }) = info {
+			if let Some(paid) = imbalance {
+				let fee_payer = fee_payer.as_ref().unwrap_or(who);
+				// Calculate how much refund we should return
+				let refund_amount = paid.peek().saturating_sub(corrected_fee);
+				// refund to the the account that paid the fees. If this fails, the
+				// account might have dropped below the existential balance. In
+				// that case we don't refund anything.
+				let refund_imbalance = Balances::deposit_into_existing(fee_payer, refund_amount)
+					.unwrap_or_else(|_| {
+						<Balances as Currency<AccountId>>::PositiveImbalance::zero()
+					});
+				// merge the imbalance caused by paying the fees and refunding parts of it again.
+				let adjusted_paid = paid
+					.offset(refund_imbalance)
+					.same()
+					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+				// Call someone else to handle the imbalance (fee and tip separately)
+				let (tip, fee) = adjusted_paid.split(tip);
+				OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+			}
 		}
 		Ok(())
 	}

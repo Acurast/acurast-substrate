@@ -12,7 +12,6 @@ pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod xcm_adapters;
 
 use core::marker::PhantomData;
 
@@ -75,13 +74,10 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::{
-	latest::prelude::BodyId,
-	v2::{AssetId, MultiAsset, MultiLocation},
-};
+use xcm::latest::{prelude::BodyId, AssetId, MultiAsset, MultiLocation};
 use xcm_executor::XcmExecutor;
 
-pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
+pub use parachains_common::Balance;
 
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
@@ -100,11 +96,10 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 	}
 }
 
-pub type AcurastAssetId = AssetId;
 #[derive(RuntimeDebug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
-type Extra = RegistrationExtra<AcurastAsset, AcurastBalance, AccountId>;
+type Extra = RegistrationExtra<AcurastAsset, Balance, AccountId>;
 
 use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
@@ -194,12 +189,12 @@ pub type Executive = frame_executive::Executive<
 ///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
 pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
-	type Balance = AcurastBalance;
+	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
 		// for acurast, we map to 1/10 of that, or 1/10 MILLIUNIT
 		let p = MILLIUNIT / 10;
-		let q = 100 * AcurastBalance::from(ExtrinsicBaseWeight::get().ref_time());
+		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
 		smallvec![WeightToFeeCoefficient {
 			degree: 1,
 			negative: false,
@@ -262,12 +257,12 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 // Unit = the base number of indivisible units for balances
-pub const UNIT: AcurastBalance = 1_000_000_000_000;
-pub const MILLIUNIT: AcurastBalance = 1_000_000_000;
-pub const MICROUNIT: AcurastBalance = 1_000_000;
+pub const UNIT: Balance = 1_000_000_000_000;
+pub const MILLIUNIT: Balance = 1_000_000_000;
+pub const MICROUNIT: Balance = 1_000_000;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
-pub const EXISTENTIAL_DEPOSIT: AcurastBalance = MILLIUNIT;
+pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.
@@ -280,7 +275,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
-	cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64,
+	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
 /// The version information used to identify this runtime when compiled natively.
@@ -349,7 +344,7 @@ impl frame_system::Config for Runtime {
 	/// Converts a module to an index of this module in the runtime.
 	type PalletInfo = PalletInfo;
 	/// The data to be stored in an account.
-	type AccountData = pallet_balances::AccountData<AcurastBalance>;
+	type AccountData = pallet_balances::AccountData<Balance>;
 	/// What to do if a new account is created.
 	type OnNewAccount = ();
 	/// What to do if an account is fully reaped from the system.
@@ -394,13 +389,11 @@ parameter_types! {
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type UncleGenerations = UncleGenerations;
-	type FilterUncle = ();
 	type EventHandler = (CollatorSelection,);
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: AcurastBalance = EXISTENTIAL_DEPOSIT;
+	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
 }
@@ -409,7 +402,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = MaxLocks;
 	/// The type for recording an account's balance.
-	type Balance = AcurastBalance;
+	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
@@ -422,7 +415,7 @@ impl pallet_balances::Config for Runtime {
 
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
-	pub const TransactionByteFee: AcurastBalance = 10 * MICROUNIT;
+	pub const TransactionByteFee: Balance = 10 * MICROUNIT;
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 
@@ -445,7 +438,7 @@ impl<OU> pallet_transaction_payment::OnChargeTransaction<Runtime> for Transactio
 where
 	OU: OnUnbalanced<NegativeImbalanceOf<Balances, Runtime>>,
 {
-	type Balance = AcurastBalance;
+	type Balance = Balance;
 	type LiquidityInfo = Option<LiquidityInfo>;
 
 	fn withdraw_fee(
@@ -456,7 +449,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -489,8 +482,9 @@ where
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) =>
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
+			Ok(imbalance) => {
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
+			},
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}
@@ -534,7 +528,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = TransactionCharger<()>;
 	type WeightToFee = WeightToFee;
-	type LengthToFee = ConstantMultiplier<AcurastBalance, TransactionByteFee>;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -572,6 +566,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type PriceForSiblingDelivery = ();
 	type WeightInfo = ();
 }
 
@@ -644,10 +639,12 @@ parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
 }
 
+pub type InternalAssetId = u32;
+
 /// Runtime configuration for pallet_assets.
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Balance = AcurastBalance;
+	type Balance = Balance;
 	type AssetId = InternalAssetId;
 	type AssetIdParameter = codec::Compact<InternalAssetId>;
 	type Currency = Balances;
@@ -664,7 +661,7 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
-
+	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -744,8 +741,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RegistrationExtra = Extra;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
-	type AssetId = AcurastAssetId;
-	type AssetAmount = AcurastBalance;
+	type AssetId = AssetId;
+	type AssetAmount = Balance;
 	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<
 		AcurastAsset,
 		FeeManagement,
@@ -759,7 +756,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 
 /// Implementation of the Reward trait on AcurastAsset.
 impl pallet_acurast_marketplace::Reward for AcurastAsset {
-	type AssetId = AcurastAssetId;
+	type AssetId = AssetId;
 	type AssetAmount = <Runtime as pallet_balances::Config>::Balance;
 	type Error = ();
 
@@ -800,7 +797,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 							p256_pub_key_to_address(k)
 								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
 						);
-						break
+						break;
 					}
 				}
 				let processor = s.ok_or(DispatchError::Other(
@@ -851,7 +848,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
@@ -1020,19 +1017,13 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Reward = AcurastAsset;
-	type Balance = AcurastBalance;
+	type Balance = Balance;
 	type RegistrationExtra = Extra;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser = TezosParser<
-		AcurastAsset,
-		AcurastBalance,
-		AcurastAccountId,
-		AccountId,
-		Extra,
-		TezosAssetParser,
-	>;
+	type MessageParser =
+		TezosParser<AcurastAsset, Balance, AcurastAccountId, AccountId, Extra, TezosAssetParser>;
 	type ActionExecutor = AcurastActionExecutor;
 	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
 }
@@ -1057,8 +1048,8 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
-	pub const PreimageBaseDeposit: AcurastBalance = 1 * UNIT;
-	pub const PreimageByteDeposit: AcurastBalance = 1 * MICROUNIT;
+	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
+	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
 }
 
 /// Runtime configuration for pallet_preimage.
@@ -1072,7 +1063,7 @@ impl pallet_preimage::Config for Runtime {
 }
 
 parameter_types! {
-	pub MaximumSchedulerWeight: Weight = Weight::from_ref_time(10_000_000);
+	pub MaximumSchedulerWeight: Weight = Weight::from_parts(10_000_000, 0);
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
 
@@ -1138,7 +1129,7 @@ construct_runtime!(
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Collator support. The order of these 4 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,
+		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
 		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
@@ -1270,35 +1261,47 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, AcurastBalance> for Runtime {
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
-		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<AcurastBalance> {
+		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
 		}
 		fn query_fee_details(
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
-		) -> pallet_transaction_payment::FeeDetails<AcurastBalance> {
+		) -> pallet_transaction_payment::FeeDetails<Balance> {
 			TransactionPayment::query_fee_details(uxt, len)
+		}
+		fn query_weight_to_fee(weight: Weight) -> Balance {
+			TransactionPayment::weight_to_fee(weight)
+		}
+		fn query_length_to_fee(length: u32) -> Balance {
+			TransactionPayment::length_to_fee(length)
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, AcurastBalance, RuntimeCall>
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
 		for Runtime
 	{
 		fn query_call_info(
 			call: RuntimeCall,
 			len: u32,
-		) -> pallet_transaction_payment::RuntimeDispatchInfo<AcurastBalance> {
+		) -> pallet_transaction_payment::RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_call_info(call, len)
 		}
 		fn query_call_fee_details(
 			call: RuntimeCall,
 			len: u32,
-		) -> pallet_transaction_payment::FeeDetails<AcurastBalance> {
+		) -> pallet_transaction_payment::FeeDetails<Balance> {
 			TransactionPayment::query_call_fee_details(call, len)
+		}
+		fn query_weight_to_fee(weight: Weight) -> Balance {
+			TransactionPayment::weight_to_fee(weight)
+		}
+		fn query_length_to_fee(length: u32) -> Balance {
+			TransactionPayment::length_to_fee(length)
 		}
 	}
 

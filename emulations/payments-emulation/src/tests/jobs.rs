@@ -313,6 +313,7 @@ fn register_match_report_job() {
 		assert_ok!(AcurastMarketplace::acknowledge_match(
 			acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 			job_id.clone(),
+			pallet_acurast_marketplace::PubKeys::default()
 		));
 
 		// reports
@@ -326,7 +327,6 @@ fn register_match_report_job() {
 			assert_ok!(AcurastMarketplace::report(
 				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 				job_id.clone(),
-				false,
 				ExecutionResult::Success(operation_hash())
 			));
 			// reputation still ~50%
@@ -350,8 +350,11 @@ fn register_match_report_job() {
 			assert_ok!(AcurastMarketplace::report(
 				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 				job_id.clone(),
-				true,
 				ExecutionResult::Success(operation_hash())
+			));
+			assert_ok!(AcurastMarketplace::finalize_job(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone()
 			));
 			// reputation increased
 			assert_eq!(
@@ -465,6 +468,7 @@ fn register_match_report_job2() {
 		assert_ok!(AcurastMarketplace::acknowledge_match(
 			acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 			job_id.clone(),
+			pallet_acurast_marketplace::PubKeys::default()
 		));
 
 		// reports
@@ -478,7 +482,6 @@ fn register_match_report_job2() {
 			assert_ok!(AcurastMarketplace::report(
 				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 				job_id.clone(),
-				false,
 				ExecutionResult::Success(operation_hash())
 			));
 			// reputation still ~50%
@@ -503,7 +506,6 @@ fn register_match_report_job2() {
 			assert_ok!(AcurastMarketplace::report(
 				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 				job_id.clone(),
-				false,
 				ExecutionResult::Success(operation_hash())
 			));
 			// reputation still ~50%
@@ -531,8 +533,11 @@ fn register_match_report_job2() {
 			assert_ok!(AcurastMarketplace::report(
 				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
 				job_id.clone(),
-				true,
 				ExecutionResult::Success(operation_hash())
+			));
+			assert_ok!(AcurastMarketplace::finalize_job(
+				acurast_runtime::RuntimeOrigin::signed(BOB).into(),
+				job_id.clone()
 			));
 			// reputation increased, but less than in previous test
 			assert_eq!(

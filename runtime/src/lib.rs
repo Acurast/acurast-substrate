@@ -74,7 +74,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::latest::{prelude::BodyId, AssetId, MultiAsset, MultiLocation};
+use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
 use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
@@ -116,7 +116,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 };
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
-use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
+use xcm::prelude::{Abstract, Fungible};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -970,10 +970,8 @@ pub struct AcurastActionExecutor;
 impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
 	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
 		match action {
-			ParsedAction::RegisterJob(job_id, registration) => {
-				Acurast::register_for(job_id, registration.into())?;
-				Ok(().into())
-			},
+			ParsedAction::RegisterJob(job_id, registration) =>
+				Acurast::register_for(job_id, registration.into()),
 		}
 	}
 }
@@ -986,20 +984,17 @@ impl RewardParser<AcurastAsset> for TezosAssetParser {
 		let mut combined = vec![0u8; 16];
 		combined[16 - encoded.len()..].copy_from_slice(&encoded.as_ref());
 		let amount: u128 = u128::from_be_bytes(combined.as_slice().try_into().map_err(|_| ())?);
-		Ok(AcurastAsset(MultiAsset {
-			id: Concrete(MultiLocation {
-				parents: 1, // does not matter
-				// TODO this needs brain juice: How do we ensure the token from Tezos exists? Only support Native Token? -> introduce wrapper type for MultiLocation
-				interior: X2(GeneralIndex(5000), GeneralIndex(TezosNativeAssetId::get())),
-			}),
-			fun: Fungible(amount),
-		}))
+		let tezos_asset_id: [u8; 32] = [
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 1,
+		];
+		Ok(AcurastAsset(MultiAsset { id: Abstract(tezos_asset_id), fun: Fungible(amount) }))
 	}
 }
 
 const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
-	5, 10, 0, 0, 0, 22, 1, 243, 195, 72, 42, 102, 242, 237, 176, 113, 210, 17, 161, 198, 140, 7,
-	50, 112, 95, 68, 111, 0,
+	5, 10, 0, 0, 0, 22, 1, 243, 102, 74, 48, 19, 167, 144, 92, 234, 61, 255, 164, 165, 233, 104,
+	130, 42, 7, 133, 23, 0,
 ];
 
 parameter_types! {

@@ -14,5 +14,7 @@ pub fn default_fee_per_second() -> u128 {
 	base_tx_per_second * base_tx_fee()
 }
 
+/// The tezos target chain instance.
+pub type TargetChainTezos = pallet_acurast_hyperdrive_outgoing::Instance1;
 pub const INDEXING_PREFIX: &'static [u8] = b"mmr-tez-";
 pub const TEMP_INDEXING_PREFIX: &'static [u8] = b"mmr-tez-temp-";

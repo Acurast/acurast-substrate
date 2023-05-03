@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
-use acurast_runtime::{opaque::Block, Hash, RuntimeApi};
+use acurast_runtime::{opaque::Block, Hash, RuntimeApi, constants::TargetChainTezos};
 
 // Cumulus Imports
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
@@ -225,7 +225,7 @@ async fn start_node_impl(
 				deny_unsafe,
 			};
 
-			crate::rpc::create_full(deps).map_err(Into::into)
+			crate::rpc::create_full::<TargetChainTezos, _, _>(deps).map_err(Into::into)
 		})
 	};
 

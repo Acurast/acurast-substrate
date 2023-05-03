@@ -55,7 +55,7 @@ use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId, RuntimeDebug,
+	PalletId, RuntimeDebug
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -121,6 +121,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
+use crate::constants::TargetChainTezos;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -1036,14 +1037,14 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
 }
 
-impl pallet_acurast_hyperdrive_outgoing::Config for Runtime {
+impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	const INDEXING_PREFIX: &'static [u8] = constants::INDEXING_PREFIX;
 	const TEMP_INDEXING_PREFIX: &'static [u8] = constants::TEMP_INDEXING_PREFIX;
 	type TargetChainConfig = DefaultTezosConfig;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
-	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 }
 
 /// Runtime configuration for pallet_sudo.
@@ -1155,7 +1156,8 @@ construct_runtime!(
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		// Hyperdrive (one instance for each connected chain)
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
-		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::{Pallet, Call, Storage, Event<T>} = 46,
+		// The instance here has to correspond to `crate::constants::TargetChainTezos` (we can't use a reference there...)
+		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 	}
 );
 
@@ -1178,13 +1180,7 @@ mod benches {
 	);
 }
 
-// /// The target chain.
-// #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
-// pub enum TargetChain {
-// 	Tezos,
-// }
-
-type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config>::TargetChainConfig as TargetChainConfig>::Hash;
+type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos>>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -1304,7 +1300,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>> for Runtime {
+	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>, TargetChainTezos> for Runtime {
 		fn number_of_leaves() -> LeafIndex {
 			AcurastHyperdriveOutgoingTezos::number_of_leaves()
 		}

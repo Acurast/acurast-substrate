@@ -449,7 +449,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None);
+			return Ok(None)
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -482,9 +482,8 @@ where
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) => {
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
-			},
+			Ok(imbalance) =>
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}
@@ -797,7 +796,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 							p256_pub_key_to_address(k)
 								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
 						);
-						break;
+						break
 					}
 				}
 				let processor = s.ok_or(DispatchError::Other(
@@ -848,7 +847,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name));
+			return package_names.iter().all(|package_name| allowed.contains(package_name))
 		}
 
 		false

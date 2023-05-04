@@ -5,8 +5,8 @@ panic = "unwind"
 members = [
 	"node",
 	"runtime",
-	"emulations",
-	"emulations/payments-emulation",
+	# "emulations",
+	# "emulations/payments-emulation",
 	"examples/proxy-parachain/runtime",
 	"examples/proxy-parachain/node",
 ]

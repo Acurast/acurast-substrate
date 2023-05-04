@@ -37,4 +37,4 @@ cumulus_based = true
   command = "acurast-node"
   ws_port = 8802
   rpc_port = 8082
-  args = [ "-lparachain=debug,runtime=debug" ]
+  args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]

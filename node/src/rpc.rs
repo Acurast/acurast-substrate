@@ -15,7 +15,7 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime::{opaque::Block, AccountId, AcurastBalance, Index as Nonce};
+use acurast_runtime::{opaque::Block, AccountId, Balance, Index as Nonce};
 use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
 
 /// A type representing all RPC extensions.
@@ -43,7 +43,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, AcurastBalance>,
+	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: HyperdriveApi<Block, H256, TargetChainTezos>,

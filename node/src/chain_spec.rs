@@ -289,7 +289,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::AcurastBalance::MAX),
+					(acurast_sudo_account(), acurast_runtime::Balance::MAX),
 				],
 				ROCOCO_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
@@ -312,7 +312,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 /// Returns the testnet [acurast_runtime::GenesisConfig].
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
-	endowed_accounts: Vec<(AccountId, acurast_runtime::AcurastBalance)>,
+	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
 	acurast: AcurastConfig,

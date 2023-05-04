@@ -70,6 +70,8 @@ cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus",
 cumulus-relay-chain-rpc-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.36" }
 cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.36" }
 
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+
 [dev-dependencies]
 hex = "0.4"
 

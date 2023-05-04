@@ -21,6 +21,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 // Substrate Imports
+use pallet_acurast_hyperdrive_outgoing::mmr_gadget::MmrGadget;
 use sc_consensus::ImportQueue;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkService;
@@ -120,6 +121,21 @@ pub fn new_partial(
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
 	)?;
+
+	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
+
+	if is_offchain_indexing_enabled {
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-gadget",
+			None,
+			MmrGadget::start(
+				client.clone(),
+				backend.clone(),
+				acurast_runtime::constants::INDEXING_PREFIX.to_vec(),
+				acurast_runtime::constants::INDEXING_PREFIX.to_vec(),
+			),
+		);
+	}
 
 	Ok(PartialComponents {
 		backend,

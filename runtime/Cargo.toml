@@ -31,6 +31,7 @@ acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", def
 pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.36" }
@@ -126,6 +127,8 @@ std = [
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
+	"pallet-acurast-hyperdrive/std",
+	"pallet-acurast-hyperdrive-outgoing/std",
 	"parachain-info/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
@@ -160,6 +163,8 @@ runtime-benchmarks = [
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
+	"pallet-acurast-hyperdrive/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-outgoing/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-mod constants;
+pub mod constants;
 mod weights;
 pub mod xcm_config;
 
@@ -21,7 +21,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -29,7 +29,7 @@ use sp_runtime::{
 		PostDispatchInfoOf, Verify, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, DispatchError,
 };
 
 use sp_std::prelude::*;
@@ -55,7 +55,7 @@ use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId,
+	PalletId, RuntimeDebug,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -83,6 +83,11 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::{AssetId as InternalAssetId, Balance as AcurastBalance};
 
+#[cfg(not(feature = "std"))]
+use sp_std::alloc::string;
+#[cfg(feature = "std")]
+use std::string;
+
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(From, Into)]
 pub struct AcurastAccountId(AccountId32);
@@ -96,7 +101,7 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 }
 
 pub type AcurastAssetId = AssetId;
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct AcurastAsset(pub MultiAsset);
 
 type Extra = RegistrationExtra<AcurastAsset, AcurastBalance, AccountId>;
@@ -107,9 +112,14 @@ pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
 
+use pallet_acurast::{JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
-use pallet_acurast_marketplace::RegistrationExtra;
-use sp_runtime::traits::AccountIdConversion;
+use pallet_acurast_hyperdrive_outgoing::{
+	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
+	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
+};
+use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
+use sp_runtime::traits::{AccountIdConversion, NumberFor};
 use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -123,7 +133,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type Index = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+pub type Hash = H256;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -741,6 +751,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		Balances,
 		AcurastAssets,
 	>;
+	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
@@ -764,6 +775,42 @@ impl pallet_acurast_marketplace::Reward for AcurastAsset {
 		match self.0.fun {
 			Fungible(amount) => Ok(amount),
 			_ => Err(()),
+		}
+	}
+}
+
+pub struct HyperdriveOutgoingMarketplaceHooks;
+
+impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
+	fn assign_job(job_id: &JobId<AccountId32>, pub_keys: &PubKeys) -> DispatchResultWithPostInfo {
+		// inspect which hyperdrive-outgoing instance to be used
+		let (origin, job_id_seq) = job_id;
+
+		// depending on the origin=target chain to send message to, we search for a supported
+		// processor public key supported on the target
+		match origin {
+			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
+			MultiOrigin::Tezos(_) => {
+				// currently only the first suported key is converted, if it fails, further search is aborted
+				let mut s: Option<string::String> = None;
+				for key in pub_keys.iter() {
+					if let PubKey::SECP256r1(k) = key {
+						s = Some(
+							p256_pub_key_to_address(k)
+								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
+						);
+						break
+					}
+				}
+				let processor = s.ok_or(DispatchError::Other(
+					"no supported processor public key for target Tezos found",
+				))?;
+				AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
+					job_id_seq.clone(),
+					processor,
+				))
+				.map_err(|_| DispatchError::Other("send_message failed").into())
+			},
 		}
 	}
 }
@@ -917,6 +964,8 @@ parameter_types! {
 	pub const TransmissionQuorum: u8 = 1;
 	pub const TransmissionRate: u64 = 1;
 
+	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
+
 	pub const TezosNativeAssetId: u128 = 5000;
 }
 
@@ -967,7 +1016,7 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
 	type TargetChainOwner = TezosContract;
-	type TargetChainHash = sp_core::H256;
+	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Reward = AcurastAsset;
 	type Balance = AcurastBalance;
@@ -985,6 +1034,16 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	>;
 	type ActionExecutor = AcurastActionExecutor;
 	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	const INDEXING_PREFIX: &'static [u8] = constants::INDEXING_PREFIX;
+	const TEMP_INDEXING_PREFIX: &'static [u8] = constants::TEMP_INDEXING_PREFIX;
+	type TargetChainConfig = DefaultTezosConfig;
+	type OnNewRoot = ();
+	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 }
 
 /// Runtime configuration for pallet_sudo.
@@ -1096,6 +1155,7 @@ construct_runtime!(
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		// Hyperdrive (one instance for each connected chain)
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
+		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::{Pallet, Call, Storage, Event<T>} = 46,
 	}
 );
 
@@ -1114,8 +1174,17 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast_marketplace, AcurastMarketplace]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
+		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveMMR]
 	);
 }
+
+// /// The target chain.
+// #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+// pub enum TargetChain {
+// 	Tezos,
+// }
+
+type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -1232,6 +1301,40 @@ impl_runtime_apis! {
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<AcurastBalance> {
 			TransactionPayment::query_call_fee_details(call, len)
+		}
+	}
+
+	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>> for Runtime {
+		fn number_of_leaves() -> LeafIndex {
+			AcurastHyperdriveOutgoingTezos::number_of_leaves()
+		}
+
+		fn first_mmr_block_number() -> Option<NumberFor<Block>> {
+			AcurastHyperdriveOutgoingTezos::first_mmr_block_number()
+		}
+
+		fn leaf_meta(leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, TezosHashOf<Runtime>)> {
+			AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index)
+		}
+
+		fn last_message_excl_by_block(block_number: NumberFor<Block>) -> Option<LeafIndex> {
+			AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number)
+		}
+
+		fn snapshot_roots(next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect()
+		}
+
+		fn snapshot_root(next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose()
+		}
+
+		fn generate_target_chain_proof(
+			next_message_number: LeafIndex,
+			maximum_messages: Option<u64>,
+			latest_known_snapshot_number: SnapshotNumber,
+		) -> Result<Option<TargetChainProof<TezosHashOf<Runtime>>>, MMRError> {
+			AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number)
 		}
 	}
 

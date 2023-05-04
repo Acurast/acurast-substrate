@@ -8,15 +8,15 @@
 use std::sync::Arc;
 
 use sc_client_api::AuxStore;
-pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime::{opaque::Block, AccountId, AcurastBalance, Index as Nonce, constants::TargetChainTezos};
-use pallet_acurast_hyperdrive_outgoing::HyperdriveApi;
+use acurast_runtime::{opaque::Block, AccountId, AcurastBalance, Index as Nonce};
+use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;

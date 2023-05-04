@@ -55,7 +55,7 @@ use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId, RuntimeDebug
+	PalletId, RuntimeDebug,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -115,13 +115,13 @@ pub use pallet_acurast_marketplace;
 use pallet_acurast::{JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
+	instances::tezos::TargetChainTezos,
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
 	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
 };
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 use xcm::prelude::{Concrete, Fungible, GeneralIndex, X2};
-use crate::constants::TargetChainTezos;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -1039,8 +1039,10 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 
 impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	const INDEXING_PREFIX: &'static [u8] = constants::INDEXING_PREFIX;
-	const TEMP_INDEXING_PREFIX: &'static [u8] = constants::TEMP_INDEXING_PREFIX;
+	const INDEXING_PREFIX: &'static [u8] =
+		pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX;
+	const TEMP_INDEXING_PREFIX: &'static [u8] =
+		pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX;
 	type TargetChainConfig = DefaultTezosConfig;
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
@@ -1156,7 +1158,7 @@ construct_runtime!(
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		// Hyperdrive (one instance for each connected chain)
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
-		// The instance here has to correspond to `crate::constants::TargetChainTezos` (we can't use a reference there...)
+		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 	}
 );

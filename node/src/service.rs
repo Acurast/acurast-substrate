@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
-use acurast_runtime::{opaque::Block, Hash, RuntimeApi, constants::TargetChainTezos};
+use acurast_runtime::{opaque::Block, Hash, RuntimeApi};
 
 // Cumulus Imports
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
@@ -21,7 +21,6 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 // Substrate Imports
-use pallet_acurast_hyperdrive_outgoing::mmr_gadget::MmrGadget;
 use sc_consensus::ImportQueue;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkService;
@@ -30,6 +29,10 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_keystore::SyncCryptoStorePtr;
 use substrate_prometheus_endpoint::Registry;
+
+use pallet_acurast_hyperdrive_outgoing::{
+	instances::tezos::TargetChainTezos, mmr_gadget::MmrGadget,
+};
 
 /// Native executor type.
 pub struct ParachainNativeExecutor;
@@ -131,8 +134,8 @@ pub fn new_partial(
 			MmrGadget::start(
 				client.clone(),
 				backend.clone(),
-				acurast_runtime::constants::INDEXING_PREFIX.to_vec(),
-				acurast_runtime::constants::INDEXING_PREFIX.to_vec(),
+				pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX.to_vec(),
+				pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
 	}

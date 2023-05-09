@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstU128, ConstU32, OpaqueMetadata, H256};
+use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -40,6 +40,7 @@ use derive_more::{From, Into};
 use frame_support::{
 	construct_runtime,
 	dispatch::{DispatchClass, DispatchResultWithPostInfo},
+	ord_parameter_types,
 	pallet_prelude::InvalidTransaction,
 	parameter_types,
 	traits::{
@@ -58,7 +59,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess,
+	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::AccountId32;
@@ -79,6 +80,7 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
 
+use frame_support::traits::EitherOfDiverse;
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
@@ -256,10 +258,22 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-// Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const MILLIUNIT: Balance = 1_000_000_000;
+// Provide a common factor between runtimes based on a supply of 1_000_000_000_000 tokens == 1 UNIT.
+pub const SUPPLY_FACTOR: Balance = 1;
+
+// the base number of indivisible units for balances
+pub const PICOUNIT: Balance = 1;
+pub const NANOUNIT: Balance = 1_000;
 pub const MICROUNIT: Balance = 1_000_000;
+pub const MILLIUNIT: Balance = 1_000_000_000;
+pub const UNIT: Balance = 1_000_000_000_000;
+pub const KILOUNIT: Balance = 1_000_000_000_000_000;
+
+pub const STORAGE_BYTE_FEE: Balance = 100 * MICROUNIT * SUPPLY_FACTOR;
+
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+	items as Balance * 1 * UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
+}
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
@@ -634,8 +648,10 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
+ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
+	pub const CouncilAccountId: AccountId = AccountId32::new([1u8; 32]);
+	pub const TechCommitteeAccountId: AccountId = AccountId32::new([2u8; 32]);
 }
 
 pub type InternalAssetId = u32;
@@ -1110,6 +1126,67 @@ impl pallet_uniques::Config for Runtime {
 	type WeightInfo = pallet_uniques::weights::SubstrateWeight<Self>;
 }
 
+// The purpose of this offset is to ensure that a democratic proposal will not apply in the same
+// block as a round change.
+const ENACTMENT_OFFSET: u32 = 900;
+
+impl pallet_democracy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type EnactmentPeriod = ConstU32<{ 2 * DAYS + ENACTMENT_OFFSET }>;
+	type LaunchPeriod = ConstU32<{ 7 * DAYS }>;
+	type VotingPeriod = ConstU32<{ 14 * DAYS }>;
+	type VoteLockingPeriod = ConstU32<{ 7 * DAYS }>;
+	type FastTrackVotingPeriod = ConstU32<{ 1 * DAYS }>;
+	type MinimumDeposit = ConstU128<{ 4 * UNIT * SUPPLY_FACTOR }>;
+
+	// keeping a similar separation in power as Moonbeam, only that we are using specific multisig accounts.
+	// see https://github.com/PureStake/moonbeam/blob/c3917d3eeab0bc6dd562e2c6424b68afe41edee7/runtime/moonbeam/src/lib.rs#LL555C2-L582C86
+	type ExternalOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
+	type ExternalMajorityOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
+	type ExternalDefaultOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
+	type SubmitOrigin = EnsureSigned<AccountId>;
+	type FastTrackOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
+	type InstantOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
+	type CancellationOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<CouncilAccountId, AccountId>>;
+	type BlacklistOrigin = EnsureRoot<AccountId>;
+	type CancelProposalOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<TechCommitteeAccountId, AccountId>>;
+	type VetoOrigin =
+		EnsureWithSuccess<EnsureSignedBy<RootAccountId, AccountId>, AccountId, RootAccountId>;
+
+	type CooloffPeriod = ConstU32<{ 7 * DAYS }>;
+	type Slash = ();
+	type InstantAllowed = ConstBool<true>;
+	type Scheduler = Scheduler;
+	type MaxVotes = ConstU32<100>;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
+	type MaxProposals = ConstU32<100>;
+	type Preimages = Preimage;
+	type MaxDeposits = ConstU32<100>;
+	type MaxBlacklisted = ConstU32<100>;
+}
+
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+20 bytes = 44 bytes.
+	pub const DepositBase: Balance = deposit(1, 76);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 20);
+	pub const MaxSignatories: u32 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -1127,6 +1204,7 @@ construct_runtime!(
 		Sudo: pallet_sudo = 4,
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
 
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
@@ -1134,6 +1212,9 @@ construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
 		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
+
+		// Governance stuff.
+		Democracy: pallet_democracy::{Pallet, Storage, Config<T>, Event<T>, Call} = 15,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,

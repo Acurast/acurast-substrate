@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use acurast_runtime::{
 	AccountId, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig, AssetsConfig,
-	AuraId, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
+	AuraId, DemocracyConfig, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
@@ -400,6 +400,7 @@ fn testnet_genesis(
 			}))
 			.collect(),
 		},
+		democracy: DemocracyConfig::default(),
 	}
 }
 

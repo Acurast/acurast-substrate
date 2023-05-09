@@ -15,3 +15,16 @@ members = [
 inherits = "release"
 lto = true
 codegen-units = 1
+
+[patch.'https://github.com/Acurast/acurast-core']
+pallet-acurast = { path = "../acurast-core/pallets/acurast" }
+pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
+acurast-reputation = { path = "../acurast-core/pallets/marketplace/reputation" }
+pallet-acurast-fee-manager = { path = "../acurast-core/pallets/fee-manager" }
+acurast-p256-crypto = { path = "../acurast-core/p256-crypto" }
+pallet-acurast-fulfillment-receiver = { path = "../acurast-core/pallets/fulfillment-receiver" }
+pallet-acurast-assets-manager = { path = "../acurast-core/pallets/assets-manager" }
+pallet-acurast-processor-manager = { path = "../acurast-core/pallets/processor-manager" }
+pallet-acurast-proxy = { path = "../acurast-core/pallets/proxy" }
+pallet-acurast-hyperdrive = { path = "../acurast-core/pallets/hyperdrive" }
+pallet-acurast-hyperdrive-outgoing = { path = "../acurast-core/pallets/hyperdrive-outgoing" }

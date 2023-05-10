@@ -6,8 +6,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod constants;
-mod weights;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -15,8 +13,8 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 
-use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use parity_scale_codec::{Compact, Decode, Encode};
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -24,8 +22,7 @@ use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata,
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, IdentifyAccount,
-		PostDispatchInfoOf, Verify, Zero,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError,
@@ -36,6 +33,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use acurast_common::AuraId;
 use derive_more::{From, Into};
 use frame_support::{
 	construct_runtime,
@@ -61,7 +59,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -86,6 +83,24 @@ use sp_std::alloc::string;
 #[cfg(feature = "std")]
 use std::string;
 
+use acurast_p256_crypto::MultiSignature;
+/// Acurast Imports
+pub use pallet_acurast;
+pub use pallet_acurast_assets_manager;
+pub use pallet_acurast_marketplace;
+
+use acurast_common::{weights, *};
+use pallet_acurast::{JobId, MultiOrigin};
+use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
+use pallet_acurast_hyperdrive_outgoing::{
+	instances::tezos::TargetChainTezos,
+	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
+	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
+};
+use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
+use sp_runtime::traits::{AccountIdConversion, NumberFor};
+use xcm::prelude::{Abstract, Fungible};
+
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(From, Into)]
 pub struct AcurastAccountId(AccountId32);
@@ -103,47 +118,8 @@ pub struct AcurastAsset(pub MultiAsset);
 
 type Extra = RegistrationExtra<AcurastAsset, Balance, AccountId>;
 
-use acurast_p256_crypto::MultiSignature;
-/// Acurast Imports
-pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
-pub use pallet_acurast_marketplace;
-
-use pallet_acurast::{JobId, MultiOrigin};
-use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
-use pallet_acurast_hyperdrive_outgoing::{
-	instances::tezos::TargetChainTezos,
-	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
-	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
-};
-use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
-use sp_runtime::traits::{AccountIdConversion, NumberFor};
-use xcm::prelude::{Abstract, Fungible};
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-/// Index of a transaction in the chain.
-pub type Index = u32;
-
-/// A hash of some data used by the chain.
-pub type Hash = H256;
-
-/// An index to a block.
-pub type BlockNumber = u32;
-
-/// The address format for describing accounts.
-pub type Address = MultiAddress<AccountId, ()>;
-
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-
 /// Block type as expected by this runtime.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+pub type Block = generic::Block<opaque::Header, UncheckedExtrinsic>;
 
 /// A Block signed with a Justification
 pub type SignedBlock = generic::SignedBlock<Block>;
@@ -193,7 +169,7 @@ pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
+		// in Kusama, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
 		// for acurast, we map to 1/10 of that, or 1/10 MILLIUNIT
 		let p = MILLIUNIT / 10;
 		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
@@ -204,23 +180,6 @@ impl WeightToFeePolynomial for WeightToFee {
 			coeff_integer: p / q,
 		}]
 	}
-}
-
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
-pub mod opaque {
-	use super::*;
-	use sp_runtime::{generic, traits::BlakeTwo256};
-
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-	/// Opaque block header type.
-	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// Opaque block type.
-	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-	/// Opaque block identifier type.
-	pub type BlockId = generic::BlockId<Block>;
 }
 
 impl_opaque_keys! {
@@ -260,14 +219,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 // Provide a common factor between runtimes based on a supply of 1_000_000_000_000 tokens == 1 UNIT.
 pub const SUPPLY_FACTOR: Balance = 1;
-
-// the base number of indivisible units for balances
-pub const PICOUNIT: Balance = 1;
-pub const NANOUNIT: Balance = 1_000;
-pub const MICROUNIT: Balance = 1_000_000;
-pub const MILLIUNIT: Balance = 1_000_000_000;
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const KILOUNIT: Balance = 1_000_000_000_000_000;
 
 pub const STORAGE_BYTE_FEE: Balance = 100 * MICROUNIT * SUPPLY_FACTOR;
 
@@ -650,8 +601,8 @@ impl pallet_collator_selection::Config for Runtime {
 
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
-	pub const CouncilAccountId: AccountId = AccountId32::new([1u8; 32]);
-	pub const TechCommitteeAccountId: AccountId = AccountId32::new([2u8; 32]);
+	pub const CouncilAccountId: AccountId = AccountId32::new([1u8; 32]); // update to multisig address
+	pub const TechCommitteeAccountId: AccountId = AccountId32::new([2u8; 32]); // update to multisig address
 }
 
 pub type InternalAssetId = u32;
@@ -661,7 +612,7 @@ impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = InternalAssetId;
-	type AssetIdParameter = codec::Compact<InternalAssetId>;
+	type AssetIdParameter = Compact<InternalAssetId>;
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;

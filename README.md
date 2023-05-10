@@ -28,10 +28,10 @@ make start
 First build the plain chain spec:
 
 ```
-./target/release/acurast-node build-spec --disable-default-bootnode > rococo-local-parachain-plain.json
+./target/release/acurast-node build-spec --disable-default-bootnode > acurast-local-parachain-plain.json
 ```
 
-In `rococo-local-parachain-plain.json` set the parachain id to 2000 by:
+In `acurast-local-parachain-plain.json` set the parachain id to 2000 by:
 
 - changing the value of `para_id` at the root level
 - changing the value at `genesis.runtime.parachainInfo.parachainId`
@@ -39,16 +39,16 @@ In `rococo-local-parachain-plain.json` set the parachain id to 2000 by:
 Then create the raw version of the chain spec:
 
 ```
-./target/release/acurast-node build-spec --chain rococo-local-parachain-plain.json --raw --disable-default-bootnode > rococo-local-parachain-2000-raw.json
+./target/release/acurast-node build-spec --chain acurast-local-parachain-plain.json --raw --disable-default-bootnode > acurast-local-parachain-2000-raw.json
 ```
 
 Now run the node with the following command:
 
 ```
-RUST_LOG=runtime=trace ./target/release/acurast-node --alice --collator --force-authoring --chain rococo-local-parachain-2000-raw.json --base-path /tmp/parachain/alice --rpc-port 8080 --port 40333 --ws-port 8844 --unsafe-rpc-external --unsafe-ws-external --rpc-cors all -- --execution wasm --chain ../polkadot/rococo-local-raw.json --port 30343 --ws-port 9977
+RUST_LOG=runtime=trace ./target/release/acurast-node --alice --collator --force-authoring --chain acurast-local-parachain-2000-raw.json --base-path /tmp/parachain/alice --rpc-port 8080 --port 40333 --ws-port 8844 --unsafe-rpc-external --unsafe-ws-external --rpc-cors all -- --execution wasm --chain ../polkadot/acurast-local-raw.json --port 30343 --ws-port 9977
 ```
 
-The above command assumes that there is a rococo relay chain with the raw spec at `../polkadot/rococo-local-raw.json`.
+The above command assumes that there is a rococo relay chain with the raw spec at `../polkadot/acurast-local-raw.json`.
 
 See substrate tutorials on how to setup the replay chain and connect a parachain to it:
 

@@ -1,19 +1,14 @@
 use std::str::FromStr;
 
-use acurast_runtime::{
-	AccountId, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig, AssetsConfig,
-	AuraId, DemocracyConfig, Signature, SudoConfig, EXISTENTIAL_DEPOSIT,
+use crate::chain_spec::{Extensions, ROCOCO_PARACHAIN_ID};
+use acurast_common::*;
+pub(crate) use acurast_rococo_runtime::{
+	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
+	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
 use cumulus_primitives_core::ParaId;
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
-use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
-use sp_runtime::{
-	app_crypto::Ss58Codec,
-	traits::{AccountIdConversion, IdentifyAccount, Verify},
-	AccountId32,
-};
+use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -21,34 +16,6 @@ pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// The extensions for the [`ChainSpec`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
-pub struct Extensions {
-	/// The relay chain of the Parachain.
-	pub relay_chain: String,
-	/// The id of the Parachain.
-	pub para_id: u32,
-}
-
-impl Extensions {
-	/// Try to get the extension from the given `ChainSpec`.
-	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-		sc_chain_spec::get_extension(chain_spec.extensions())
-	}
-}
-
-type AccountPublic = <Signature as Verify>::Signer;
-
-const DEFAULT_PARACHAIN_ID: u32 = 2001;
-const ROCOCO_PARACHAIN_ID: u32 = 4191;
 const NATIVE_IS_SUFFICIENT: bool = true;
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
 const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
@@ -57,202 +24,11 @@ const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
 
-const TEST_TOKEN_ID: u32 = 22;
-const TEST_TOKEN_NAME: &str = "acurast_test_asset";
-const TEST_TOKEN_SYMBOL: &str = "ACRST_TEST";
-const TEST_TOKEN_DECIMALS: u8 = 12;
-const TEST_TOKEN_IS_SUFFICIENT: bool = false;
-const TEST_TOKEN_MIN_BALANCE: u128 = 1_000;
-const TEST_TOKEN_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-
-fn get_test_token_holder() -> AccountId32 {
-	get_account_id_from_seed::<sr25519::Public>("Ferdie")
-}
-
-/// Generate collator keys from seed.
-///
-/// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_from_seed::<AuraId>(seed)
-}
-
-/// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
-}
-
-/// Returns the development [ChainSpec].
-pub fn acurast_development_config() -> ChainSpec {
-	// Give your base currency a unit name and decimal places
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ACRST".into());
-	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
-	properties.insert("ss58Format".into(), 42.into());
-
-	ChainSpec::from_genesis(
-		// Name
-		"Development",
-		// ID
-		"dev",
-		ChainType::Development,
-		move || {
-			testnet_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed("Bob"),
-					),
-				],
-				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
-					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
-					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-				],
-				DEFAULT_PARACHAIN_ID.into(),
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				AcurastConfig { attestations: vec![(get_test_token_holder(), None)] },
-				AssetsConfig {
-					assets: vec![(
-						TEST_TOKEN_ID,
-						acurast_pallet_account(),
-						TEST_TOKEN_IS_SUFFICIENT,
-						TEST_TOKEN_MIN_BALANCE,
-					)],
-					metadata: vec![(
-						TEST_TOKEN_ID,
-						TEST_TOKEN_NAME.as_bytes().to_vec(),
-						TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
-						TEST_TOKEN_DECIMALS,
-					)],
-					accounts: vec![(
-						TEST_TOKEN_ID,
-						get_test_token_holder(),
-						TEST_TOKEN_INITIAL_BALANCE,
-					)],
-				},
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
-		Extensions {
-			relay_chain: "atera-local".into(), // You MUST set this to the correct network!
-			para_id: DEFAULT_PARACHAIN_ID,
-		},
-	)
-}
-
-/// Returns the local testnet [ChainSpec].
-pub fn local_testnet_config(relay_chain: &str) -> ChainSpec {
-	// Give your base currency a unit name and decimal places
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ACRST".into());
-	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
-	properties.insert("ss58Format".into(), 42.into());
-
-	ChainSpec::from_genesis(
-		// Name
-		"Acurast Testnet",
-		// ID
-		"acurast_testnet",
-		ChainType::Local,
-		move || {
-			testnet_genesis(
-				// initial collators.
-				vec![
-					(
-						get_account_id_from_seed::<sr25519::Public>("Alice"),
-						get_collator_keys_from_seed("Alice"),
-					),
-					(
-						get_account_id_from_seed::<sr25519::Public>("Bob"),
-						get_collator_keys_from_seed("Bob"),
-					),
-				],
-				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
-					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
-					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-				],
-				DEFAULT_PARACHAIN_ID.into(),
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				AcurastConfig { attestations: vec![] },
-				AssetsConfig {
-					assets: vec![(
-						TEST_TOKEN_ID,
-						acurast_pallet_account(),
-						TEST_TOKEN_IS_SUFFICIENT,
-						TEST_TOKEN_MIN_BALANCE,
-					)],
-					metadata: vec![(
-						TEST_TOKEN_ID,
-						TEST_TOKEN_NAME.as_bytes().to_vec(),
-						TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
-						TEST_TOKEN_DECIMALS,
-					)],
-					accounts: vec![(
-						TEST_TOKEN_ID,
-						get_test_token_holder(),
-						TEST_TOKEN_INITIAL_BALANCE,
-					)],
-				},
-			)
-		},
-		// Bootnodes
-		Vec::new(),
-		// Telemetry
-		None,
-		// Protocol ID
-		Some("acurast-local"),
-		// Fork ID
-		None,
-		// Properties
-		Some(properties),
-		// Extensions
-		Extensions {
-			relay_chain: relay_chain.into(), // You MUST set this to the correct network!
-			para_id: DEFAULT_PARACHAIN_ID,
-		},
-	)
 }
 
 /// Returns the rococo [ChainSpec].

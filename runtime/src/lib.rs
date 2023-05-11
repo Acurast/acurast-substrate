@@ -732,6 +732,18 @@ impl pallet_acurast::Config for Runtime {
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
+pub struct ManagerProvider;
+impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerProvider {
+	fn manager_of(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) -> Result<<Runtime as frame_system::Config>::AccountId, DispatchError> {
+		match AcurastProcessorManager::manager_for_processor(processor) {
+			Some(manager) => Ok(manager),
+			None => Err(DispatchError::Other("Processor without manager.")),
+		}
+	}
+}
+
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -748,6 +760,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		Balances,
 		AcurastAssets,
 	>;
+	type ManagerProvider = ManagerProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;

@@ -1091,8 +1091,6 @@ impl pallet_democracy::Config for Runtime {
 	type FastTrackVotingPeriod = ConstU32<{ 1 * DAYS }>;
 	type MinimumDeposit = ConstU128<{ 4 * UNIT * SUPPLY_FACTOR }>;
 
-	// keeping a similar separation in power as Moonbeam, only that we are using specific multisig accounts.
-	// see https://github.com/PureStake/moonbeam/blob/c3917d3eeab0bc6dd562e2c6424b68afe41edee7/runtime/moonbeam/src/lib.rs#LL555C2-L582C86
 	type ExternalOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalMajorityOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalDefaultOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;

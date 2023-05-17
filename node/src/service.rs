@@ -537,7 +537,7 @@ where
 
 /// Start a parachain node.
 // Rustfmt wants to format the closure with space identation.
-// #[rustfmt::skip]
+#[rustfmt::skip]
 pub async fn start_parachain_node<RuntimeApi, Executor>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
@@ -561,16 +561,18 @@ where
 		para_id,
 		// rpc_config
 		hwbench,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 sync_oracle,
-		 keystore,
-		 force_authoring| {
+		|
+			client,
+		 	block_import,
+		 	prometheus_registry,
+		 	telemetry,
+			task_manager,
+			relay_chain_interface,
+			transaction_pool,
+			sync_oracle,
+			keystore,
+			force_authoring
+		| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(

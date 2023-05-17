@@ -38,19 +38,23 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 			// first check if any runtime got explicitly forced by command line argument
 			#[cfg(feature = "acurast-local")]
 			if run_cmd.use_local {
-				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?));
 			}
 			#[cfg(feature = "acurast-dev")]
 			if run_cmd.use_dev {
-				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?));
 			}
 			#[cfg(feature = "acurast-rococo")]
 			if run_cmd.use_rococo {
-				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?));
 			}
 			#[cfg(feature = "acurast-kusama")]
 			if run_cmd.use_kusama {
-				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
 			}
 
 			// fallback to guessing runtime from provided chain_spec's file name
@@ -62,22 +66,26 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 
 			if file_contains("local") {
 				#[cfg(feature = "acurast-local")]
-				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-local"))]
 				panic!("guessed runtime from file name as 'acurast-local' but feature 'acurast-local' was not included when building the node");
 			} else if file_contains("dev") {
 				#[cfg(feature = "acurast-dev")]
-				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-dev"))]
 				panic!("guessed runtime from file name as 'acurast-dev' but feature 'acurast-dev' was not included when building the node");
 			} else if file_contains("rococo") {
 				#[cfg(feature = "acurast-rococo")]
-				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-rococo"))]
 				panic!("guessed runtime from file name as 'acurast-rococo' but feature 'acurast-rococo' was not included when building the node");
 			} else if file_contains("kusama") {
 				#[cfg(feature = "acurast-kusama")]
-				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?))
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-kusama"))]
 				panic!("guessed runtime from file name as 'acurast-kusama' but feature 'acurast-kusama' was not included when building the node");
 			} else {

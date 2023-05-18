@@ -7,42 +7,42 @@ edition = "2021"
 
 [dependencies]
 # crates.io
-serde = { version = "1.0.137", optional = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+serde = { workspace = true }
+parity-scale-codec = { workspace = true }
 proc-macro2 = "1.0.40"
-scale-info = { version = "2.1.2", features = ["derive"] }
+scale-info = { workspace = true }
 rand = "0.8.5"
-hex-literal = "0.3.4"
+hex-literal = { workspace = true }
 
 # Acurast
-pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
-acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-fulfillment-receiver = { workspace = true }
+acurast-reputation = { workspace = true }
 
 # Substrate
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.41" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.41" }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41"}
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41"}
-polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41"}
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41"}
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41"}
+polkadot-primitives = { workspace = true }
+polkadot-parachain = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+polkadot-core-primitives = { workspace = true }
 
 # Cumulus
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.41" }
-cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.41" }
-parachain-info = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.41" }
-parachains-common = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.41", default-features = false }
+cumulus-primitives-core = { workspace = true }
+cumulus-pallet-dmp-queue = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 
 # Local
 emulations = { path = ".." }

@@ -14,126 +14,6 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
-dependencies = [
- "asn1",
- "ecdsa_vendored",
- "frame-support",
- "num-bigint",
- "p256 0.12.0-pre",
- "p384_vendored",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sha2 0.10.6",
- "sp-std",
-]
-
-[[package]]
-name = "acurast-merkle-mountain-range"
-version = "0.5.2"
-source = "git+https://github.com/Acurast/merkle-mountain-range#ddab28054ff10e323f198803cbc13e1aeb52c51a"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
-name = "acurast-node"
-version = "0.0.1"
-dependencies = [
- "acurast-runtime",
- "clap",
- "cumulus-client-cli",
- "cumulus-client-consensus-aura",
- "cumulus-client-consensus-common",
- "cumulus-client-network",
- "cumulus-client-service",
- "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
- "cumulus-relay-chain-inprocess-interface",
- "cumulus-relay-chain-interface",
- "cumulus-relay-chain-minimal-node",
- "cumulus-relay-chain-rpc-interface",
- "frame-benchmarking",
- "frame-benchmarking-cli",
- "hex",
- "jsonrpsee",
- "log",
- "pallet-acurast-hyperdrive-outgoing",
- "pallet-transaction-payment-rpc",
- "parity-scale-codec",
- "polkadot-cli",
- "polkadot-primitives",
- "polkadot-service",
- "sc-basic-authorship",
- "sc-chain-spec",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-executor",
- "sc-network",
- "sc-network-sync",
- "sc-rpc",
- "sc-service",
- "sc-sysinfo",
- "sc-telemetry",
- "sc-tracing",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus-aura",
- "sp-core",
- "sp-keystore",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-timestamp",
- "sp-transaction-pool",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
- "substrate-prometheus-endpoint",
- "try-runtime-cli",
- "xcm",
-]
-
-[[package]]
-name = "acurast-p256-crypto"
-version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
-dependencies = [
- "hex",
- "p256 0.12.0-pre",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-runtime-interface",
- "sp-std",
- "substrate-bip39",
- "tiny-bip39 0.8.2",
-]
-
-[[package]]
-name = "acurast-reputation"
-version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
-dependencies = [
- "num",
- "parity-scale-codec",
- "scale-info",
- "sp-arithmetic",
- "sp-core",
-]
-
-[[package]]
-name = "acurast-runtime"
 version = "0.0.1"
 dependencies = [
  "acurast-p256-crypto",
@@ -168,6 +48,282 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-democracy",
+ "pallet-multisig",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
+ "pallet-xcm",
+ "parachain-info",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime-common",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder",
+ "xcm",
+ "xcm-builder",
+ "xcm-executor",
+]
+
+[[package]]
+name = "acurast-common"
+version = "0.1.0"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
+dependencies = [
+ "asn1",
+ "ecdsa_vendored",
+ "frame-support",
+ "num-bigint",
+ "p256 0.12.0-pre",
+ "p384_vendored",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sha2 0.10.6",
+ "sp-std",
+]
+
+[[package]]
+name = "acurast-kusama-runtime"
+version = "0.0.1"
+dependencies = [
+ "acurast-common 0.0.1",
+ "acurast-p256-crypto",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
+ "cumulus-primitives-utility",
+ "derive_more",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-acurast",
+ "pallet-acurast-assets-manager",
+ "pallet-acurast-fee-manager",
+ "pallet-acurast-hyperdrive",
+ "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-marketplace",
+ "pallet-acurast-processor-manager",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-democracy",
+ "pallet-multisig",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
+ "pallet-xcm",
+ "parachain-info",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-runtime-common",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder",
+ "xcm",
+ "xcm-builder",
+ "xcm-executor",
+]
+
+[[package]]
+name = "acurast-merkle-mountain-range"
+version = "0.5.2"
+source = "git+https://github.com/Acurast/merkle-mountain-range#ddab28054ff10e323f198803cbc13e1aeb52c51a"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
+name = "acurast-node"
+version = "0.0.1"
+dependencies = [
+ "acurast-common 0.0.1",
+ "acurast-kusama-runtime",
+ "acurast-rococo-runtime",
+ "clap",
+ "cumulus-client-cli",
+ "cumulus-client-consensus-aura",
+ "cumulus-client-consensus-common",
+ "cumulus-client-network",
+ "cumulus-client-service",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-inprocess-interface",
+ "cumulus-relay-chain-interface",
+ "cumulus-relay-chain-minimal-node",
+ "cumulus-relay-chain-rpc-interface",
+ "frame-benchmarking",
+ "frame-benchmarking-cli",
+ "hex",
+ "jsonrpsee",
+ "log",
+ "pallet-acurast-hyperdrive-outgoing",
+ "pallet-transaction-payment-rpc",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "polkadot-cli",
+ "polkadot-primitives",
+ "polkadot-service",
+ "sc-basic-authorship",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-executor",
+ "sc-network",
+ "sc-network-sync",
+ "sc-rpc",
+ "sc-service",
+ "sc-sysinfo",
+ "sc-telemetry",
+ "sc-tracing",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-keystore",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-storage",
+ "sp-timestamp",
+ "sp-transaction-pool",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "substrate-prometheus-endpoint",
+ "try-runtime-cli",
+ "xcm",
+]
+
+[[package]]
+name = "acurast-p256-crypto"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
+dependencies = [
+ "hex",
+ "p256 0.12.0-pre",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
+ "substrate-bip39",
+ "tiny-bip39 0.8.2",
+]
+
+[[package]]
+name = "acurast-reputation"
+version = "0.0.1"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
+dependencies = [
+ "num",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+]
+
+[[package]]
+name = "acurast-rococo-runtime"
+version = "0.0.1"
+dependencies = [
+ "acurast-common 0.0.1",
+ "acurast-p256-crypto",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
+ "cumulus-primitives-utility",
+ "derive_more",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-acurast",
+ "pallet-acurast-assets-manager",
+ "pallet-acurast-fee-manager",
+ "pallet-acurast-hyperdrive",
+ "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-marketplace",
+ "pallet-acurast-processor-manager",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-democracy",
+ "pallet-multisig",
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-session",
@@ -2474,7 +2630,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2550,7 +2706,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5629,7 +5785,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5648,9 +5804,9 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
- "acurast-common",
+ "acurast-common 0.1.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5670,9 +5826,9 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
- "acurast-common",
+ "acurast-common 0.1.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5693,7 +5849,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5706,9 +5862,9 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fulfillment-receiver"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
- "acurast-common",
+ "acurast-common 0.1.0",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -5720,7 +5876,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "derive_more",
  "frame-benchmarking",
@@ -5745,9 +5901,9 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
- "acurast-common",
+ "acurast-common 0.1.0",
  "acurast-merkle-mountain-range",
  "derive_more",
  "frame-benchmarking",
@@ -5781,7 +5937,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -5810,9 +5966,9 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
- "acurast-common",
+ "acurast-common 0.1.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10875,7 +11031,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#635a2f38e90ea3800b3e409f3f2e4a5182ec2ffa"
+source = "git+https://github.com/Acurast/acurast-core.git#101105ef428b11cebf4cd561016a98c7e036acf1"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",

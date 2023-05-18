@@ -86,7 +86,7 @@ pub fn acurast_development_config() -> ChainSpec {
 		"dev",
 		ChainType::Development,
 		move || {
-			testnet_genesis(
+			genesis_config(
 				// initial collators.
 				vec![
 					(
@@ -151,7 +151,7 @@ pub fn acurast_development_config() -> ChainSpec {
 }
 
 /// Returns the testnet [acurast_runtime::GenesisConfig].
-fn testnet_genesis(
+fn genesis_config(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,

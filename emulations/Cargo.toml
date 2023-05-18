@@ -13,7 +13,7 @@ scale-info = { version = "2.1.2", features = ["derive"] }
 rand = "0.8.5"
 
 # Runtimes
-acurast-runtime = { path = "../runtime", default-features = false }
+acurast-rococo-runtime = { workspace = true }
 proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
 statemint-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "polkadot-v0.9.41" }
@@ -27,11 +27,11 @@ xcm-emulator = { git = "https://github.com/shaunxw/xcm-simulator", default-featu
 default = ["std", "emulation"]
 std = [
     "proxy-parachain-runtime/std",
-    "acurast-runtime/std",
+    "acurast-rococo-runtime/std",
     "polkadot-runtime/std",
     "statemint-runtime/std",
 ]
 emulation = [
     "proxy-parachain-runtime/emulation",
-    "acurast-runtime/emulation",
+    "acurast-rococo-runtime/emulation",
 ]

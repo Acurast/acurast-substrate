@@ -1,9 +1,3 @@
-use crate::chain_spec::{processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
-use acurast_common::*;
-pub(crate) use acurast_rococo_runtime::{
-	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
-	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
-};
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
 use sp_core::{sr25519, Pair, Public};
@@ -11,6 +5,14 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	AccountId32,
 };
+
+use acurast_common::*;
+pub(crate) use acurast_rococo_runtime::{
+	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
+	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
+};
+
+use crate::chain_spec::{processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;

@@ -13,12 +13,9 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
-use crate::service::{self, ParachainBackend, ParachainClient};
-use acurast_common::{
-	opaque::{Block, Header},
-	AuraId,
-};
-pub use acurast_common::{AccountId, Balance, BlockNumber, Hash, Index};
+
+use std::sync::Arc;
+
 use pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, PairsIter};
 use sp_api::{CallApiAt, NumberFor, ProvideRuntimeApi};
@@ -31,7 +28,14 @@ use sp_runtime::{
 	Justifications,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
-use std::sync::Arc;
+
+use acurast_common::{
+	opaque::{Block, Header},
+	AuraId,
+};
+pub use acurast_common::{AccountId, Balance, BlockNumber, Hash, Index};
+
+use crate::service::{self, ParachainBackend, ParachainClient};
 
 /// A set of APIs that polkadot-like runtimes must implement.
 ///

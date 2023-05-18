@@ -4,17 +4,6 @@
 use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
-// Local Runtime Types
-use acurast_common::opaque::Block;
-#[cfg(feature = "acurast-kusama")]
-pub use acurast_kusama_runtime;
-#[cfg(feature = "acurast-local")]
-pub use acurast_rococo_runtime as acurast_local_runtime;
-#[cfg(feature = "acurast-dev")]
-pub use acurast_rococo_runtime as acurast_dev_runtime;
-#[cfg(feature = "acurast-rococo")]
-pub use acurast_rococo_runtime;
-
 // Cumulus Imports
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
 use cumulus_client_consensus_common::{
@@ -26,24 +15,34 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use sp_api::ConstructRuntimeApi;
-
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
+use pallet_acurast_hyperdrive_outgoing::{
+	instances::tezos::TargetChainTezos, mmr_gadget::MmrGadget,
+};
+use sc_chain_spec::ChainSpec;
 use sc_consensus::ImportQueue;
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
+use sp_api::ConstructRuntimeApi;
 use sp_keystore::SyncCryptoStorePtr;
 use substrate_prometheus_endpoint::Registry;
 
+// Local Runtime Types
+use acurast_common::opaque::Block;
+#[cfg(feature = "acurast-kusama")]
+pub use acurast_kusama_runtime;
+#[cfg(feature = "acurast-local")]
+pub use acurast_rococo_runtime as acurast_local_runtime;
+#[cfg(feature = "acurast-dev")]
+pub use acurast_rococo_runtime as acurast_dev_runtime;
+#[cfg(feature = "acurast-rococo")]
+pub use acurast_rococo_runtime;
+
 use crate::client::{ClientVariant, RuntimeApiCollection};
-use pallet_acurast_hyperdrive_outgoing::{
-	instances::tezos::TargetChainTezos, mmr_gadget::MmrGadget,
-};
-use sc_chain_spec::ChainSpec;
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]

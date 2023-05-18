@@ -1,14 +1,16 @@
 use std::str::FromStr;
 
-use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, ROCOCO_PARACHAIN_ID};
+use cumulus_primitives_core::ParaId;
+use sc_service::ChainType;
+use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
+
 use acurast_common::*;
 pub(crate) use acurast_rococo_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
 	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
-use cumulus_primitives_core::ParaId;
-use sc_service::ChainType;
-use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
+
+use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, ROCOCO_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;

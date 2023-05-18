@@ -1,4 +1,4 @@
-use codec::Encode;
+use parity_scale_codec::Encode;
 use frame_support::{assert_ok, traits::Currency};
 use xcm_emulator::TestExt;
 

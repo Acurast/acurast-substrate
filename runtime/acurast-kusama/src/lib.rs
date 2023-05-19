@@ -614,7 +614,10 @@ impl pallet_collator_selection::Config for Runtime {
 /// * Hex: `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
 ///
 ///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
-const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([76, 186, 219, 31, 50, 44, 22, 122, 58, 225, 87, 47, 230, 253, 210, 24, 87, 107, 74, 205, 252, 254, 26, 126, 233, 17, 58, 248, 144, 212, 35, 54]);
+const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
+	76, 186, 219, 31, 50, 44, 22, 122, 58, 225, 87, 47, 230, 253, 210, 24, 87, 107, 74, 205, 252,
+	254, 26, 126, 233, 17, 58, 248, 144, 212, 35, 54,
+]);
 
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);

@@ -29,7 +29,7 @@ chain = "rococo-local"
 
 [[parachains]]
 id = 2001
-chain = "acurast-local"
+chain = "acurast-kusama"
 cumulus_based = true
 
   [parachains.collator]

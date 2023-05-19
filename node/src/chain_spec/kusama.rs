@@ -68,6 +68,21 @@ pub fn acurast_kusama_config() -> ChainSpec {
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 					(acurast_sudo_account(), acurast_runtime::Balance::MAX),
+					(
+						AccountId32::from_str("5Ea3PESLfJ8uKbbbFNRyyitkfXBnPq8YAhRA4c7xg4o7cDaN")
+							.unwrap(),
+						1 << 60,
+					),
+					(
+						AccountId32::from_str("5FQsWe1avwD29FFTJ3DtiDsJX6JGmjtW7vkaLes1QUUVdcPV")
+							.unwrap(),
+						1 << 60,
+					),
+					(
+						AccountId32::from_str("5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ")
+							.unwrap(),
+						1 << 60,
+					),
 				],
 				KUSAMA_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
@@ -81,7 +96,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 		None,
 		Some(properties),
 		Extensions {
-			relay_chain: "kusama".into(), // You MUST set this to the correct network!
+			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: KUSAMA_PARACHAIN_ID,
 		},
 	)

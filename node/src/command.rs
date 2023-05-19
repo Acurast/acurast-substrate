@@ -58,31 +58,31 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 			}
 
 			// fallback to guessing runtime from provided chain_spec's file name
-			let file_contains = |element: &str| {
+			let starts_with = |element: &str| {
 				path.file_name()
-					.and_then(|f| f.to_str().map(|s| s.contains(&element)))
+					.and_then(|f| f.to_str().map(|s| s.starts_with(&element)))
 					.unwrap_or(false)
 			};
 
-			if file_contains("local") {
+			if starts_with("acurast-local") {
 				#[cfg(feature = "acurast-local")]
 				#[rustfmt::skip]
 				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-local"))]
 				panic!("guessed runtime from file name as 'acurast-local' but feature 'acurast-local' was not included when building the node");
-			} else if file_contains("dev") {
+			} else if starts_with("acurast-dev") {
 				#[cfg(feature = "acurast-dev")]
 				#[rustfmt::skip]
 				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-dev"))]
 				panic!("guessed runtime from file name as 'acurast-dev' but feature 'acurast-dev' was not included when building the node");
-			} else if file_contains("rococo") {
+			} else if starts_with("acurast-rococo") {
 				#[cfg(feature = "acurast-rococo")]
 				#[rustfmt::skip]
 				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-rococo"))]
 				panic!("guessed runtime from file name as 'acurast-rococo' but feature 'acurast-rococo' was not included when building the node");
-			} else if file_contains("kusama") {
+			} else if starts_with("acurast-kusama") {
 				#[cfg(feature = "acurast-kusama")]
 				#[rustfmt::skip]
 				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));

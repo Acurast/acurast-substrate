@@ -7,10 +7,10 @@ use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32
 use acurast_common::*;
 pub(crate) use acurast_kusama_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
-	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
+	AssetsConfig, DemocracyConfig, EXISTENTIAL_DEPOSIT,
 };
 
-use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, KUSAMA_PARACHAIN_ID};
+use crate::chain_spec::{processor_manager, Extensions, KUSAMA_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -67,10 +67,8 @@ pub fn acurast_kusama_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::Balance::MAX),
 				],
 				KUSAMA_PARACHAIN_ID.into(),
-				acurast_sudo_account(),
 				AcurastConfig { attestations: vec![] },
 				AssetsConfig { assets: vec![], metadata: vec![], accounts: vec![] },
 			)
@@ -92,7 +90,6 @@ fn genesis_config(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
-	sudo_account: AccountId,
 	acurast: AcurastConfig,
 	assets: AssetsConfig,
 ) -> acurast_runtime::GenesisConfig {
@@ -129,7 +126,6 @@ fn genesis_config(
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		sudo: SudoConfig { key: Some(sudo_account) },
 		acurast,
 		acurast_processor_manager: acurast_processor_manager_config(),
 		assets: AssetsConfig {
@@ -190,11 +186,6 @@ pub fn acurast_pallet_account() -> AccountId {
 /// Returns the pallet_fee_manager account id.
 pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
-}
-
-/// returns the root account id.
-pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

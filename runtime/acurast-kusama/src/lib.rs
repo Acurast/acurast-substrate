@@ -1014,12 +1014,6 @@ impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
 }
 
-/// Runtime configuration for pallet_sudo.
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-}
-
 parameter_types! {
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
 	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
@@ -1150,7 +1144,6 @@ construct_runtime!(
 		} = 1,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
 		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 3,
-		Sudo: pallet_sudo = 4,
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,

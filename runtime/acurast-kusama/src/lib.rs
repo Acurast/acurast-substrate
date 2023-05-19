@@ -527,8 +527,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type ControllerOrigin = EnsureRoot<AccountId>;
+	type ExecuteOverweightOrigin = EnsureAdminOrRoot;
+	type ControllerOrigin = EnsureAdminOrRoot;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = ();
 	type WeightInfo = ();
@@ -538,7 +538,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 impl cumulus_pallet_dmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type ExecuteOverweightOrigin = EnsureAdminOrRoot;
 }
 
 parameter_types! {
@@ -580,7 +580,7 @@ parameter_types! {
 }
 
 // We allow root only to execute privileged collator selection operations.
-pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
+pub type CollatorSelectionUpdateOrigin = EnsureAdminOrRoot;
 
 /// Runtime configuration for pallet_collator_selection.
 impl pallet_collator_selection::Config for Runtime {
@@ -599,11 +599,34 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+/// The permissioned multisig account `5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je`.
+///
+/// It consists of pre-generated 1-out-of-3 multisig account built from (in this order):
+///
+/// * Hex: `0x6ed85136cf2f86fafd38ca4655ce6188fb73fc0ca3e4eecd0eac38a4c87c0b41`
+///
+///   SS58: `5Ea3PESLfJ8uKbbbFNRyyitkfXBnPq8YAhRA4c7xg4o7cDaN`
+///
+/// * Hex: `0x94161be257be99009a7ee8d454c843f28f3ed9c720a07d284c07709fbcaffe06`
+///
+///   SS58: `5FQsWe1avwD29FFTJ3DtiDsJX6JGmjtW7vkaLes1QUUVdcPV`
+///
+/// * Hex: `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
+///
+///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
+const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([76, 186, 219, 31, 50, 44, 22, 122, 58, 225, 87, 47, 230, 253, 210, 24, 87, 107, 74, 205, 252, 254, 26, 126, 233, 17, 58, 248, 144, 212, 35, 54]);
+
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
-	pub const CouncilAccountId: AccountId = AccountId32::new([1u8; 32]); // update to multisig address
-	pub const TechCommitteeAccountId: AccountId = AccountId32::new([2u8; 32]); // update to multisig address
+
+	pub const Admin: AccountId = ADMIN_ACCOUNT_ID;
+
+	pub const CouncilAccountId: AccountId = ADMIN_ACCOUNT_ID;
+	pub const TechCommitteeAccountId: AccountId = ADMIN_ACCOUNT_ID;
 }
+
+pub type EnsureAdminOrRoot =
+	EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Admin, AccountId>>;
 
 pub type InternalAssetId = u32;
 
@@ -634,7 +657,7 @@ impl pallet_assets::Config for Runtime {
 
 impl pallet_acurast_assets_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureAdminOrRoot;
 	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -654,14 +677,14 @@ parameter_types! {
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
-	type UpdateOrigin = EnsureRoot<AccountId>;
+	type UpdateOrigin = EnsureAdminOrRoot;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
-	type UpdateOrigin = EnsureRoot<AccountId>;
+	type UpdateOrigin = EnsureAdminOrRoot;
 }
 
 /// Reward fee management implementation.
@@ -1031,7 +1054,7 @@ impl pallet_preimage::Config for Runtime {
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type ManagerOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureAdminOrRoot;
 	type BaseDeposit = PreimageBaseDeposit;
 	type ByteDeposit = PreimageByteDeposit;
 }
@@ -1048,7 +1071,7 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
-	type ScheduleOrigin = frame_system::EnsureRoot<AccountId>;
+	type ScheduleOrigin = EnsureAdminOrRoot;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
@@ -1060,7 +1083,7 @@ impl pallet_uniques::Config for Runtime {
 	type CollectionId = u128;
 	type ItemId = u128;
 	type Currency = Balances;
-	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type ForceOrigin = EnsureAdminOrRoot;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
 	type Locker = ();
@@ -1099,7 +1122,7 @@ impl pallet_democracy::Config for Runtime {
 	type InstantOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
 	type CancellationOrigin =
 		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<CouncilAccountId, AccountId>>;
-	type BlacklistOrigin = EnsureRoot<AccountId>;
+	type BlacklistOrigin = EnsureAdminOrRoot;
 	type CancelProposalOrigin =
 		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<TechCommitteeAccountId, AccountId>>;
 	type VetoOrigin =
@@ -1481,4 +1504,35 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ByteArray;
+	use std::str::FromStr;
+
+	#[test]
+	fn create() {
+		/// Public key bytes corresponding to account `0x6ed85136cf2f86fafd38ca4655ce6188fb73fc0ca3e4eecd0eac38a4c87c0b41`
+		let multisig_member1: AccountId =
+			AccountId32::from_str("5Ea3PESLfJ8uKbbbFNRyyitkfXBnPq8YAhRA4c7xg4o7cDaN").unwrap();
+		/// Public key bytes corresponding to account `0x94161be257be99009a7ee8d454c843f28f3ed9c720a07d284c07709fbcaffe06`
+		let multisig_member2: AccountId =
+			AccountId32::from_str("5FQsWe1avwD29FFTJ3DtiDsJX6JGmjtW7vkaLes1QUUVdcPV").unwrap();
+		/// Public key bytes corresponding to account `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
+		let multisig_member3: AccountId =
+			AccountId32::from_str("5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ").unwrap();
+		let multisig_account =
+			Multisig::multi_account_id(&[multisig_member1, multisig_member2, multisig_member3], 2);
+
+		// println!("{:?}", multisig_account.to_string());
+		// println!("{:?}", multisig_account.as_slice());
+
+		assert_eq!(ADMIN_ACCOUNT_ID.as_slice(), multisig_account.as_slice());
+		assert_eq!(
+			"5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je",
+			multisig_account.to_string()
+		);
+	}
 }

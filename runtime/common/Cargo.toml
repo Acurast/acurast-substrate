@@ -34,6 +34,10 @@ pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-parachain-staking = { workspace = true }
+
+# Nimbus Dependencies
+nimbus-primitives = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }

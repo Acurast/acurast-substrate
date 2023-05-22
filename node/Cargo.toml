@@ -9,16 +9,21 @@ build = "build.rs"
 
 [dependencies]
 clap = { version = "4.0.29", features = ["derive"] }
-log = "0.4.17"
+log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.151", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
+async-trait = { workspace = true }
 
 # Local
 acurast-common = { workspace = true }
 acurast-rococo-runtime = { workspace = true }
 acurast-kusama-runtime = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+
+# Nimbus
+nimbus-consensus = { workspace = true }
+nimbus-primitives = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }
@@ -55,6 +60,7 @@ sp-session = { workspace = true }
 sp-timestamp = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-consensus = { workspace = true }
+sp-inherents = { workspace = true }
 sp-storage = { workspace = true, features = [ "std" ] }
 substrate-frame-rpc-system = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }

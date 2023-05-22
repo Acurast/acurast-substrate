@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use acurast_p256_crypto::MultiSignature;
+pub use nimbus_primitives::NimbusId;
 pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
 pub use parachains_common::Balance;
@@ -16,7 +17,9 @@ pub use sp_runtime::{MultiAddress, Perbill, Permill};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 
+pub mod consensus;
 pub mod constants;
+pub mod migrations;
 pub mod weights;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -61,4 +64,31 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+}
+
+/// Stake information
+pub mod staking_info {
+	use crate::{Balance, UNIT};
+	use pallet_parachain_staking::{inflation::Range, InflationInfoWithoutRound};
+	use sp_runtime::Perbill;
+
+	/// Minimum collators selected per round, default at genesis and minimum forever after
+	pub const MINIMUM_SELECTED_CANDIDATES: u32 = 2; // TBD
+	/// Minimum stake required to be reserved to be a candidate
+	pub const MINIMUM_COLLATOR_STAKE: Balance = 20_000 * UNIT; // TBD
+	/// Maximum top delegations per candidate
+	pub const MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE: u32 = 300; // TBD
+	/// Maximum bottom delegations per candidate
+	pub const MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE: u32 = 50; // TBD
+	/// Maximum delegations per delegator
+	pub const MAXIMUM_DELEGATIONS_PER_DELEGATOR: u32 = 100; // TBD
+	/// Minimum stake required to be reserved to be a delegator
+	pub const MAXIMUM_DELEGATION: Balance = 500 * UNIT; // TBD
+	pub const MAXIMUM_DELEGATOR_STAKE: Balance = 500 * UNIT; // TBD
+
+	pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
+		ideal_staked: Perbill::from_percent(75),
+		decay_rate: Perbill::from_percent(5),
+		annual: Range { min: Perbill::from_percent(2), ideal: Perbill::from_percent(10) },
+	};
 }

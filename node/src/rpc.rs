@@ -15,7 +15,7 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_common::{opaque::Block, AccountId, Balance, Index as Nonce};
+use acurast_runtime_common::{opaque::Block, AccountId, Balance, Index as Nonce};
 use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
 
 /// A type representing all RPC extensions.

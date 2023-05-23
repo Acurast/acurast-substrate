@@ -7,11 +7,11 @@ use sp_runtime::{
 	AccountId32, Percent,
 };
 
-use acurast_common::*;
 pub(crate) use acurast_rococo_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
 	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
+use acurast_runtime_common::*;
 
 use crate::chain_spec::{processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
 

@@ -16,7 +16,7 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = { workspace = true }
 
 # Local
-acurast-common = { workspace = true }
+acurast-runtime-common = { workspace = true }
 acurast-rococo-runtime = { workspace = true }
 acurast-kusama-runtime = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }

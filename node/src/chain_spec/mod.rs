@@ -3,7 +3,7 @@ use std::str::FromStr;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 
-use acurast_common::AccountId;
+use acurast_runtime_common::AccountId;
 
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
 const ROCOCO_PARACHAIN_ID: u32 = 4191;

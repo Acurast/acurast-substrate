@@ -37,7 +37,7 @@ pallet-acurast-hyperdrive-outgoing = { workspace = true }
 pallet-parachain-staking = { workspace = true }
 pallet-collator-selection = { workspace = true }
 
-acurast-common = { workspace = true }
+acurast-runtime-common = { workspace = true }
 
 # Nimbus Dependencies
 nimbus-primitives = { workspace = true }
@@ -141,7 +141,7 @@ std = [
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-outgoing/std",
-	"acurast-common/std",
+	"acurast-runtime-common/std",
 	"parachain-info/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",

@@ -47,7 +47,7 @@ nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features
 nimbus-primitives = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.41" }
 pallet-author-inherent = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.41" }
 
-acurast-common = { path = "runtime/common", default-features = false }
+acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }
 acurast-kusama-runtime = { path = "runtime/acurast-kusama", default-features = false }
 

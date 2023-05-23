@@ -33,7 +33,6 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use acurast_common::AuraId;
 use derive_more::{From, Into};
 use frame_support::{
 	construct_runtime,
@@ -90,7 +89,7 @@ pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
 
-use acurast_common::{weights, *};
+use acurast_runtime_common::{weights, *};
 use pallet_acurast::{JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{

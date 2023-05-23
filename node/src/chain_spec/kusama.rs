@@ -4,11 +4,11 @@ use sc_service::ChainType;
 use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32, Percent};
 use std::str::FromStr;
 
-use acurast_common::*;
 pub(crate) use acurast_kusama_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
 	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
+use acurast_runtime_common::*;
 
 use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, KUSAMA_PARACHAIN_ID};
 

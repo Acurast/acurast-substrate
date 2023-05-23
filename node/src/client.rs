@@ -1,4 +1,5 @@
 // Copyright 2019-2022 PureStake Inc.
+// Copyright 2023 Papers AG.
 // This file is adapted from Moonbeam.
 
 // Moonbeam is free software: you can redistribute it and/or modify
@@ -29,10 +30,7 @@ use sp_runtime::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 
-use acurast_common::{
-	opaque::{Block, Header},
-	AuraId,
-};
+use acurast_common::opaque::{Block, Header};
 pub use acurast_common::{AccountId, Balance, BlockNumber, Hash, Index};
 
 use crate::service::{self, ParachainBackend, ParachainClient};
@@ -51,7 +49,7 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-	+ sp_consensus_aura::AuraApi<Block, AuraId>
+	+ nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 where
 	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -69,7 +67,7 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
 		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-		+ sp_consensus_aura::AuraApi<Block, AuraId>
+		+ nimbus_primitives::NimbusApi<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>,
 	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {

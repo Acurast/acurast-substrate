@@ -34,8 +34,14 @@ pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-parachain-staking = { workspace = true }
+pallet-collator-selection = { workspace = true }
 
 acurast-common = { workspace = true }
+
+# Nimbus Dependencies
+nimbus-primitives = { workspace = true }
+pallet-author-inherent = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -91,7 +97,6 @@ cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
-pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
@@ -155,7 +160,11 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"acurast-p256-crypto/std"
+	"acurast-p256-crypto/std",
+	"nimbus-primitives/std",
+	"pallet-author-inherent/std",
+	"pallet-parachain-staking/std",
+	"pallet-collator-selection/std"
 ]
 
 runtime-benchmarks = [

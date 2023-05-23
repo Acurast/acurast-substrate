@@ -29,7 +29,6 @@ use sp_keystore::SyncCryptoStorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 // Local Runtime Types
-use acurast_common::opaque::Block;
 #[cfg(feature = "acurast-kusama")]
 pub use acurast_kusama_runtime;
 #[cfg(feature = "acurast-local")]
@@ -38,6 +37,7 @@ pub use acurast_rococo_runtime as acurast_local_runtime;
 pub use acurast_rococo_runtime as acurast_dev_runtime;
 #[cfg(feature = "acurast-rococo")]
 pub use acurast_rococo_runtime;
+use acurast_runtime_common::opaque::Block;
 
 // Aura
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;

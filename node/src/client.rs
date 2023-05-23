@@ -30,8 +30,8 @@ use sp_runtime::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 
-use acurast_common::opaque::{Block, Header};
-pub use acurast_common::{AccountId, Balance, BlockNumber, Hash, Index};
+use acurast_runtime_common::opaque::{Block, Header};
+pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Index};
 
 use crate::service::{self, ParachainBackend, ParachainClient};
 

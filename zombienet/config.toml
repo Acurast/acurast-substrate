@@ -32,9 +32,16 @@ id = 2001
 chain = "acurast-local"
 cumulus_based = true
 
-  [parachains.collator]
-  name = "acurast-collator"
-  command = "acurast-node"
-  ws_port = 8802
-  rpc_port = 8082
-  args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]
+	[[parachains.collators]]
+	name = "Alice"
+	command = "acurast-node"
+	ws_port = 8802
+	rpc_port = 8082
+	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]
+
+	[[parachains.collators]]
+	name = "Bob"
+	command = "acurast-node"
+	ws_port = 8803
+	rpc_port = 8083
+	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]

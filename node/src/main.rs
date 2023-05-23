@@ -1,10 +1,11 @@
-//! Substrate Parachain Node Template CLI
+//! Acurast Node CLI
 
 #![warn(missing_docs)]
 
 mod chain_spec;
 #[macro_use]
 mod service;
+mod block_verifier;
 mod cli;
 mod client;
 mod command;

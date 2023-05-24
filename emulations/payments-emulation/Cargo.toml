@@ -32,7 +32,6 @@ pallet-assets = { workspace = true }
 # Polkadot
 polkadot-primitives = { workspace = true }
 polkadot-parachain = { workspace = true }
-polkadot-runtime-parachains = { workspace = true }
 pallet-xcm = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
@@ -52,5 +51,5 @@ emulations = { path = ".." }
 default = ["std"]
 std = [
     "emulations/std",
-	"acurast-reputation/std"
+	"acurast-reputation/std",
 ]

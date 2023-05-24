@@ -88,6 +88,7 @@ use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
+pub use pallet_acurast_processor_manager;
 
 use acurast_runtime_common::{weights, *};
 use pallet_acurast::{JobId, MultiOrigin};
@@ -1650,13 +1651,13 @@ mod tests {
 
 	#[test]
 	fn create() {
-		/// Public key bytes corresponding to account `0x0458ad576b404c1aa5404f2f8da1932a22ee3c0cd42e7cf567706d24201fbd1c`
+		// Public key bytes corresponding to account `0x0458ad576b404c1aa5404f2f8da1932a22ee3c0cd42e7cf567706d24201fbd1c`
 		let multisig_member1: AccountId =
 			AccountId32::from_str("5CAQPebv8ZzDk8pYR5mzWsUzamcsYxMgWuv5rMAtzrWTcgh1").unwrap();
-		/// Public key bytes corresponding to account `0x0c3638b65541bcb16d29a38a7ff5fc7983978b5fa315aa7da528f05210e96f61`
+		// Public key bytes corresponding to account `0x0c3638b65541bcb16d29a38a7ff5fc7983978b5fa315aa7da528f05210e96f61`
 		let multisig_member2: AccountId =
 			AccountId32::from_str("5CLiYDEbpsdH8o6bYW6tDMfHi4NdsMWTmQ2WnsdU4H9CzcaL").unwrap();
-		/// Public key bytes corresponding to account `0x10de214612b271e2cfee25f121222d6423fa722487ff2fe1cb9a42ff28407578`
+		// Public key bytes corresponding to account `0x10de214612b271e2cfee25f121222d6423fa722487ff2fe1cb9a42ff28407578`
 		let multisig_member3: AccountId =
 			AccountId32::from_str("5CSpcKHjBhPLBEcwh9a2jBagT2PVoAqnjMZ3xBY9n44G5Voo").unwrap();
 		let multisig_account =

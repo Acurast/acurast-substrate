@@ -72,7 +72,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
+pub use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
 use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
@@ -88,8 +88,10 @@ use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
 pub use pallet_acurast_marketplace;
+pub use pallet_acurast_processor_manager;
 
-use acurast_runtime_common::{weights, *};
+use acurast_runtime_common::weights;
+pub use acurast_runtime_common::*;
 use pallet_acurast::{JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{

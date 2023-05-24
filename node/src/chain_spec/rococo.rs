@@ -52,15 +52,15 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				// initial collators.
 				vec![
 					(
-						AccountId32::from_str("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+						AccountId32::from_str("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f")
 							.unwrap(),
-						AuraId::from_string("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+						AuraId::from_string("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f")
 							.unwrap(),
 					),
 					(
-						AccountId32::from_str("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+						AccountId32::from_str("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58")
 							.unwrap(),
-						AuraId::from_string("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+						AuraId::from_string("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58")
 							.unwrap(),
 					),
 				],
@@ -194,7 +194,7 @@ pub fn fee_manager_pallet_account() -> AccountId {
 
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
+	accountid_from_str("5HR6EucTtxg4oFg8ZpCRXnPrwMAVVyBi2ByAYJ5ke1A8QXai")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

@@ -5,19 +5,16 @@ mod tests {
 	use cumulus_primitives_core::ParaId;
 	use frame_support::{
 		assert_ok,
-		dispatch::RawOrigin,
 		traits::{GenesisBuild, Hooks},
-		weights::Weight,
 	};
 	use hex_literal::hex;
-	use polkadot_parachain::primitives::Sibling;
 	use sp_runtime::{
 		bounded_vec,
-		traits::{AccountIdConversion, ConstU32, StaticLookup},
+		traits::{AccountIdConversion, ConstU32},
 		AccountId32, BoundedVec,
 	};
 	use xcm::latest::prelude::*;
-	use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+	use xcm_simulator::{decl_test_parachain, TestExt};
 
 	use acurast_runtime::{
 		pallet_acurast::Schedule,
@@ -25,25 +22,26 @@ mod tests {
 			types::MAX_PRICING_VARIANTS, Advertisement, FeeManager, JobRequirements,
 			PricingVariant, SchedulingWindow,
 		},
-		AccountId, AcurastAsset, AcurastAssetId, AcurastBalance, FeeManagement,
-		Runtime as AcurastRuntime,
+		AccountId, AcurastAsset, AssetId, Balance, FeeManagement,
 	};
 	// parent re-exports
+	use super::polkadot_ext;
 	use emulations::{
-		emulators::xcm_emulator,
+		emulators::{
+			xcm_simulator,
+			xcm_simulator::{decl_test_network, decl_test_relay_chain},
+		},
 		runtimes::{
 			acurast_runtime,
 			acurast_runtime::{
 				pallet_acurast, pallet_acurast_marketplace,
 				pallet_acurast_marketplace::ExecutionOperationHash,
 			},
-			polkadot_runtime, proxy_parachain_runtime, statemint_runtime,
+			polkadot_runtime,
 		},
 	};
 
 	mod jobs;
-	mod network_tests;
-	mod statemint_backed_native_assets;
 
 	decl_test_relay_chain! {
 		pub struct PolkadotRelay {
@@ -56,30 +54,9 @@ mod tests {
 	decl_test_parachain! {
 		pub struct AcurastParachain {
 			Runtime = acurast_runtime::Runtime,
-			RuntimeOrigin = acurast_runtime::RuntimeOrigin,
 			XcmpMessageHandler = acurast_runtime::XcmpQueue,
 			DmpMessageHandler = acurast_runtime::DmpQueue,
 			new_ext = acurast_ext(ACURAST_CHAIN_ID),
-		}
-	}
-
-	decl_test_parachain! {
-		pub struct ProxyParachain {
-			Runtime = proxy_parachain_runtime::Runtime,
-			RuntimeOrigin = proxy_parachain_runtime::RuntimeOrigin,
-			XcmpMessageHandler = proxy_parachain_runtime::XcmpQueue,
-			DmpMessageHandler = proxy_parachain_runtime::DmpQueue,
-			new_ext = proxy_ext(PROXY_CHAIN_ID),
-		}
-	}
-
-	decl_test_parachain! {
-		pub struct StatemintParachain {
-			Runtime = statemint_runtime::Runtime,
-			RuntimeOrigin = statemint_runtime::RuntimeOrigin,
-			XcmpMessageHandler = statemint_runtime::XcmpQueue,
-			DmpMessageHandler = statemint_runtime::DmpQueue,
-			new_ext = statemint_ext(STATEMINT_CHAIN_ID),
 		}
 	}
 
@@ -87,14 +64,11 @@ mod tests {
 		pub struct Network {
 			relay_chain = PolkadotRelay,
 			parachains = vec![
-				(2000, ProxyParachain),
 				(2001, AcurastParachain),
-				(1000, StatemintParachain),
 			],
 		}
 	}
 
-	pub const PROXY_CHAIN_ID: u32 = 2000;
 	// make this match parachains in decl_test_network!
 	pub const ACURAST_CHAIN_ID: u32 = 2001;
 	// make this match parachains in decl_test_network!
@@ -197,6 +171,7 @@ mod tests {
 			accounts: vec![
 				(STATEMINT_NATIVE_ID, BURN_ACCOUNT, STATEMINT_NATIVE_INITIAL_BALANCE),
 				(TEST_TOKEN_ID, FERDIE, TEST_TOKEN_INITIAL_BALANCE),
+				(TEST_TOKEN_ID, ALICE, TEST_TOKEN_INITIAL_BALANCE),
 			],
 		}
 		.assimilate_storage(&mut t)
@@ -227,182 +202,20 @@ mod tests {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
-	}
-
-	pub fn proxy_ext(para_id: u32) -> sp_io::TestExternalities {
-		use proxy_parachain_runtime::{Runtime, System};
-
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
-
-		let parachain_info_config =
-			parachain_info::GenesisConfig { parachain_id: ParaId::from(para_id) };
-
-		<parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&parachain_info_config,
-			&mut t,
-		)
-		.unwrap();
-
-		pallet_balances::GenesisConfig::<Runtime> { balances: vec![(ALICE, INITIAL_BALANCE)] }
-			.assimilate_storage(&mut t)
-			.unwrap();
-
-		let pallet_xcm_config = pallet_xcm::GenesisConfig::default();
-		<pallet_xcm::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&pallet_xcm_config,
-			&mut t,
-		)
-		.unwrap();
-
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
-	}
-
-	pub fn statemint_ext(para_id: u32) -> sp_io::TestExternalities {
-		use statemint_runtime::{Runtime, System};
-
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
-
-		let parachain_info_config =
-			parachain_info::GenesisConfig { parachain_id: ParaId::from(para_id) };
-
-		<parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&parachain_info_config,
-			&mut t,
-		)
-		.unwrap();
-
-		pallet_balances::GenesisConfig::<Runtime> {
-			balances: vec![
-				(BURN_ACCOUNT, INITIAL_BALANCE),
-				(ALICE, INITIAL_BALANCE),
-				(sibling_para_account_id(ACURAST_CHAIN_ID), INITIAL_BALANCE),
-				(sibling_para_account_id(PROXY_CHAIN_ID), INITIAL_BALANCE),
-			],
+		acurast_runtime::pallet_acurast_processor_manager::GenesisConfig::<Runtime> {
+			managers: vec![(ALICE, vec![BOB])],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let pallet_xcm_config = pallet_xcm::GenesisConfig::default();
-		<pallet_xcm::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&pallet_xcm_config,
-			&mut t,
-		)
-		.unwrap();
-
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
 
-	fn default_parachains_host_configuration(
-	) -> polkadot_runtime_parachains::configuration::HostConfiguration<
-		polkadot_primitives::v2::BlockNumber,
-	> {
-		use polkadot_primitives::v2::{MAX_CODE_SIZE, MAX_POV_SIZE};
-
-		polkadot_runtime_parachains::configuration::HostConfiguration {
-			minimum_validation_upgrade_delay: 5,
-			validation_upgrade_cooldown: 10u32,
-			validation_upgrade_delay: 10,
-			code_retention_period: 1200,
-			max_code_size: MAX_CODE_SIZE,
-			max_pov_size: MAX_POV_SIZE,
-			max_head_data_size: 32 * 1024,
-			group_rotation_frequency: 20,
-			chain_availability_period: 4,
-			thread_availability_period: 4,
-			max_upward_queue_count: 8,
-			max_upward_queue_size: 1024 * 1024,
-			max_downward_message_size: 1024,
-			ump_service_total_weight: Weight::from_ref_time(4 * 1_000_000_000),
-			max_upward_message_size: 50 * 1024,
-			max_upward_message_num_per_candidate: 5,
-			hrmp_sender_deposit: 0,
-			hrmp_recipient_deposit: 0,
-			hrmp_channel_max_capacity: 8,
-			hrmp_channel_max_total_size: 8 * 1024,
-			hrmp_max_parachain_inbound_channels: 4,
-			hrmp_max_parathread_inbound_channels: 4,
-			hrmp_channel_max_message_size: 1024 * 1024,
-			hrmp_max_parachain_outbound_channels: 4,
-			hrmp_max_parathread_outbound_channels: 4,
-			hrmp_max_message_num_per_candidate: 5,
-			dispute_period: 6,
-			no_show_slots: 2,
-			n_delay_tranches: 25,
-			needed_approvals: 2,
-			relay_vrf_modulo_samples: 2,
-			zeroth_delay_tranche_width: 0,
-			..Default::default()
-		}
-	}
-
-	pub fn polkadot_ext() -> sp_io::TestExternalities {
-		use polkadot_runtime::{Runtime, System};
-
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
-
-		pallet_balances::GenesisConfig::<Runtime> {
-			// IMPORTANT: to do reserve transfers, the sovereign account of the parachains needs to hold
-			// a minimum amount of DOT called "existential deposit". Otherwise transfers will fail at
-			// the point of internal_transfer_asset method of the AssetTransactor in xcm_executor::Config
-			balances: vec![
-				(ALICE, INITIAL_BALANCE),
-				(child_para_account_id(ACURAST_CHAIN_ID), INITIAL_BALANCE),
-				(child_para_account_id(PROXY_CHAIN_ID), INITIAL_BALANCE),
-			],
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-		polkadot_runtime_parachains::configuration::GenesisConfig::<Runtime> {
-			config: default_parachains_host_configuration(),
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-		let pallet_xcm_config = pallet_xcm::GenesisConfig::default();
-		<pallet_xcm::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&pallet_xcm_config,
-			&mut t,
-		)
-		.unwrap();
-
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
-	}
-
-	pub fn sibling_para_account_id(id: u32) -> polkadot_core_primitives::AccountId {
-		// ParaId::from(id).into_account_truncating()
-		Sibling::from(id).into_account_truncating()
-	}
-
-	pub fn child_para_account_id(id: u32) -> polkadot_core_primitives::AccountId {
-		// ParaId::from(id).into_account_truncating()
-		ParaId::from(id).into_account_truncating()
-	}
-
-	// Helper function for forming buy execution message
-	fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
-		BuyExecution { fees: fees.into(), weight_limit: Unlimited }
-	}
-
-	type AcurastXcmPallet = pallet_xcm::Pallet<acurast_runtime::Runtime>;
-	type PolkadotXcmPallet = pallet_xcm::Pallet<polkadot_runtime::Runtime>;
-	type StatemintXcmPallet = pallet_xcm::Pallet<statemint_runtime::Runtime>;
-
-	type StatemintAssets = pallet_assets::Pallet<statemint_runtime::Runtime>;
 	type Acurast = pallet_acurast::Pallet<acurast_runtime::Runtime>;
 	type AcurastMarketplace = pallet_acurast_marketplace::Pallet<acurast_runtime::Runtime>;
 	type AcurastAssetsInternal = pallet_assets::Pallet<acurast_runtime::Runtime>;
-	type AcurastAssets =
-		acurast_runtime::pallet_acurast_assets_manager::Pallet<acurast_runtime::Runtime>;
 
 	/// Type representing the utf8 bytes of a string containing the value of an ipfs url.
 	/// The ipfs url is expected to point to a script.
@@ -452,17 +265,15 @@ mod tests {
 		max_memory: u32,
 		network_request_quota: u8,
 		scheduling_window: SchedulingWindow,
-	) -> Advertisement<AccountId, AcurastAssetId, AcurastBalance, pallet_acurast::CU32<100>> {
-		let pricing: BoundedVec<
-			PricingVariant<AcurastAssetId, AcurastBalance>,
-			ConstU32<MAX_PRICING_VARIANTS>,
-		> = bounded_vec![PricingVariant {
-			reward_asset: test_token_asset_id(),
-			fee_per_millisecond,
-			fee_per_storage_byte,
-			base_fee_per_execution: 0,
-			scheduling_window,
-		}];
+	) -> Advertisement<AccountId, AssetId, Balance, pallet_acurast::CU32<100>> {
+		let pricing: BoundedVec<PricingVariant<AssetId, Balance>, ConstU32<MAX_PRICING_VARIANTS>> =
+			bounded_vec![PricingVariant {
+				reward_asset: test_token_asset_id(),
+				fee_per_millisecond,
+				fee_per_storage_byte,
+				base_fee_per_execution: 0,
+				scheduling_window,
+			}];
 		Advertisement {
 			pricing,
 			allowed_consumers: None,
@@ -472,4 +283,17 @@ mod tests {
 			available_modules: vec![].try_into().unwrap(),
 		}
 	}
+}
+
+// add arg paras: Vec<u32>
+pub fn polkadot_ext() -> sp_io::TestExternalities {
+	use emulations::runtimes::polkadot_runtime::{Runtime, System};
+
+	let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+	});
+	ext
 }

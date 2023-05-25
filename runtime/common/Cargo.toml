@@ -24,6 +24,7 @@ log = { workspace = true }
 scale-info = { workspace = true }
 smallvec = { workspace = true }
 derive_more = { workspace = true }
+serde = { version = "1.0.136", optional = true, features = ["derive"] }
 
 # Acurast
 pallet-acurast = { workspace = true }
@@ -156,7 +157,8 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"acurast-p256-crypto/std"
+	"acurast-p256-crypto/std",
+	"serde",
 ]
 
 runtime-benchmarks = [

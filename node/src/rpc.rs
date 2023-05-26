@@ -15,8 +15,9 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime_common::{opaque::Block, AccountId, Balance, Index as Nonce};
+use acurast_runtime_common::{opaque::Block, AccountId, AcurastAsset, Balance, Index as Nonce};
 use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
+use pallet_acurast_marketplace::MarketplaceRuntimeApi;
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
@@ -47,9 +48,11 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: HyperdriveApi<Block, H256, TargetChainTezos>,
+	C::Api: MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use pallet_acurast_hyperdrive_outgoing::rpc::{Mmr, MmrApiServer};
+	use pallet_acurast_marketplace::rpc::{Marketplace, MarketplaceApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
@@ -58,6 +61,7 @@ where
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<TargetChainTezos, _, _>::new(client).into_rpc())?;
+	module.merge(Mmr::<TargetChainTezos, _, _>::new(client.clone()).into_rpc())?;
+	module.merge(Marketplace::<_, _>::new(client).into_rpc())?;
 	Ok(module)
 }

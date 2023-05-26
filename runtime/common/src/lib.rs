@@ -1,10 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use acurast_p256_crypto::MultiSignature;
+use frame_support::RuntimeDebug;
 pub use nimbus_primitives::NimbusId;
-pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
 pub use parachains_common::Balance;
+use parity_scale_codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use serde;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 #[cfg(any(feature = "std", test))]
@@ -16,6 +19,15 @@ use sp_runtime::{
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
+pub use xcm::{
+	latest::{AssetId, MultiAsset},
+	prelude::Fungible,
+};
+
+use acurast_p256_crypto::MultiSignature;
+pub use pallet_acurast;
+pub use pallet_acurast_assets_manager;
+use scale_info::TypeInfo;
 
 pub mod consensus;
 pub mod constants;
@@ -40,6 +52,34 @@ pub type BlockNumber = u32;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(RuntimeDebug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct AcurastAsset(pub MultiAsset);
+
+/// Implementation of the Reward trait on AcurastAsset.
+impl pallet_acurast_marketplace::Reward for AcurastAsset {
+	type AssetId = AssetId;
+	type AssetAmount = Balance;
+	type Error = ();
+
+	fn with_amount(&mut self, amount: Self::AssetAmount) -> Result<&Self, Self::Error> {
+		self.0 = MultiAsset { id: self.0.id.clone(), fun: Fungible(amount) };
+		Ok(self)
+	}
+
+	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
+		Ok(self.0.id.clone())
+	}
+
+	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
+		match self.0.fun {
+			Fungible(amount) => Ok(amount),
+			_ => Err(()),
+		}
+	}
+}
 
 // the base number of indivisible units for balances
 pub const PICOUNIT: Balance = 1;
@@ -68,9 +108,10 @@ pub mod opaque {
 
 /// Stake information
 pub mod staking_info {
-	use crate::{Balance, UNIT};
 	use pallet_parachain_staking::{inflation::Range, InflationInfoWithoutRound};
 	use sp_runtime::Perbill;
+
+	use crate::{Balance, UNIT};
 
 	/// Minimum collators selected per round, default at genesis and minimum forever after
 	pub const MINIMUM_SELECTED_CANDIDATES: u32 = 2; // TBD

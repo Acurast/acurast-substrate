@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -143,6 +143,7 @@ dependencies = [
  "nimbus-consensus",
  "nimbus-primitives",
  "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-marketplace",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
@@ -190,7 +191,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "hex",
  "p256 0.12.0-pre",
@@ -210,7 +211,7 @@ dependencies = [
 [[package]]
 name = "acurast-reputation"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "num",
  "parity-scale-codec",
@@ -352,6 +353,7 @@ dependencies = [
  "polkadot-parachain",
  "polkadot-runtime-common",
  "scale-info",
+ "serde",
  "smallvec",
  "sp-api",
  "sp-block-builder",
@@ -2642,7 +2644,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "der",
  "elliptic-curve-vendored",
@@ -2718,7 +2720,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -5865,7 +5867,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -5884,7 +5886,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5906,7 +5908,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -5929,7 +5931,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5942,7 +5944,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fulfillment-receiver"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-common",
  "frame-support",
@@ -5956,7 +5958,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "derive_more",
  "frame-benchmarking",
@@ -5981,7 +5983,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-common",
  "acurast-merkle-mountain-range",
@@ -6017,7 +6019,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.0.1"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -6025,6 +6027,8 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "itertools",
+ "jsonrpsee",
+ "log",
  "pallet-acurast",
  "pallet-acurast-assets-manager",
  "pallet-assets",
@@ -6034,10 +6038,14 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "thiserror",
  "xcm",
  "xcm-builder",
  "xcm-executor",
@@ -6046,7 +6054,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6323,7 +6331,7 @@ dependencies = [
 [[package]]
 name = "pallet-collator-selection"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6698,7 +6706,7 @@ dependencies = [
 [[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11237,7 +11245,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git#c8d840b12cd23ccbc31d6dedc9de23a0ea8e9a9b"
+source = "git+https://github.com/Acurast/acurast-core.git#d21845237d2adabb9809d99cc2fb7190fc0c644d"
 dependencies = [
  "digest 0.10.6",
  "rand_core 0.6.4",

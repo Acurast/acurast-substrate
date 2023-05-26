@@ -17,6 +17,7 @@
 
 use std::sync::Arc;
 
+use acurast_rococo_runtime::pallet_acurast_marketplace;
 use pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, PairsIter};
 use sp_api::{CallApiAt, NumberFor, ProvideRuntimeApi};
@@ -31,7 +32,7 @@ use sp_runtime::{
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 
 use acurast_runtime_common::opaque::{Block, Header};
-pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Index};
+pub use acurast_runtime_common::{AccountId, AcurastAsset, Balance, BlockNumber, Hash, Index};
 
 use crate::service::{self, ParachainBackend, ParachainClient};
 
@@ -49,6 +50,7 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
 	+ nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 where
@@ -67,6 +69,7 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
 		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
 		+ nimbus_primitives::NimbusApi<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>,
 	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,

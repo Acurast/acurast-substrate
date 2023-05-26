@@ -14,8 +14,7 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use parity_scale_codec::{Compact, Decode, Encode};
-use scale_info::TypeInfo;
+use parity_scale_codec::Compact;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
@@ -52,7 +51,7 @@ use frame_support::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
 	},
-	PalletId, RuntimeDebug,
+	PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -99,7 +98,9 @@ use pallet_acurast_hyperdrive_outgoing::{
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
 	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
 };
-use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys, RegistrationExtra};
+use pallet_acurast_marketplace::{
+	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
+};
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 use xcm::prelude::{Abstract, Fungible};
 
@@ -114,9 +115,6 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 		Ok(AcurastAccountId(AccountId32::new(a)))
 	}
 }
-
-#[derive(RuntimeDebug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub struct AcurastAsset(pub MultiAsset);
 
 type Extra = RegistrationExtra<AcurastAsset, Balance, AccountId>;
 
@@ -746,6 +744,15 @@ impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerPro
 	}
 }
 
+pub struct ProcessorLastSeenProvider;
+impl pallet_acurast_marketplace::traits::ProcessorLastSeenProvider<Runtime>
+	for ProcessorLastSeenProvider
+{
+	fn last_seen(processor: &<Runtime as frame_system::Config>::AccountId) -> Option<u128> {
+		AcurastProcessorManager::processor_last_seen(processor)
+	}
+}
+
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -763,32 +770,10 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		AcurastAssets,
 	>;
 	type ManagerProvider = ManagerProvider;
+	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
-}
-
-/// Implementation of the Reward trait on AcurastAsset.
-impl pallet_acurast_marketplace::Reward for AcurastAsset {
-	type AssetId = AssetId;
-	type AssetAmount = <Runtime as pallet_balances::Config>::Balance;
-	type Error = ();
-
-	fn with_amount(&mut self, amount: Self::AssetAmount) -> Result<&Self, Self::Error> {
-		self.0 = MultiAsset { id: self.0.id.clone(), fun: Fungible(amount) };
-		Ok(self)
-	}
-
-	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
-		Ok(self.0.id.clone())
-	}
-
-	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
-		match self.0.fun {
-			Fungible(amount) => Ok(amount),
-			_ => Err(()),
-		}
-	}
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -1465,6 +1450,17 @@ impl_runtime_apis! {
 			latest_known_snapshot_number: SnapshotNumber,
 		) -> Result<Option<TargetChainProof<TezosHashOf<Runtime>>>, MMRError> {
 			AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number)
+		}
+	}
+
+	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId> for Runtime {
+		fn filter_matching_sources(
+			registration: PartialJobRegistration<AcurastAsset, AccountId>,
+			sources: Vec<AccountId>,
+			consumer: Option<MultiOrigin<AccountId>>,
+			latest_seen_after: Option<u128>,
+		) -> Result<Vec<AccountId>, RuntimeApiError> {
+			AcurastMarketplace::filter_matching_sources(registration, sources, consumer, latest_seen_after)
 		}
 	}
 

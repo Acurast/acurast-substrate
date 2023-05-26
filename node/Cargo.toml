@@ -15,6 +15,9 @@ serde = { version = "1.0.151", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = { workspace = true }
 
+# RPC
+pallet-acurast-marketplace = { workspace = true }
+
 # Local
 acurast-runtime-common = { workspace = true }
 acurast-rococo-runtime = { workspace = true }

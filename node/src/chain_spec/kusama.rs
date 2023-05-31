@@ -122,10 +122,6 @@ fn genesis_config(
 				})
 				.collect(),
 		},
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		aura: Default::default(),
-		aura_ext: Default::default(),
 		parachain_system: Default::default(),
 		parachain_staking: acurast_runtime::ParachainStakingConfig {
 			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)

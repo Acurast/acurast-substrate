@@ -28,3 +28,10 @@ start: all
 
 build-release:
 	@cargo build --release
+
+check-release:
+	@cargo check --release
+
+export TAG := eu.gcr.io/papers-dev-kubernetes/papers/acurast/acurast-substrate:latest
+docker-build:
+	@docker build -t $(TAG) .

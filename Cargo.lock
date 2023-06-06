@@ -12209,8 +12209,8 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
 name = "tezos-core"
-version = "0.1.4"
-source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#c2204b07c887e65e244ca5aa8a6c1131d085ac0d"
+version = "0.2.0"
+source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#5732f4dea5220c53e833f314fe5560fc41f4cb31"
 dependencies = [
  "blake2",
  "bs58",
@@ -12224,8 +12224,8 @@ dependencies = [
 
 [[package]]
 name = "tezos-michelson"
-version = "0.1.4"
-source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#c2204b07c887e65e244ca5aa8a6c1131d085ac0d"
+version = "0.2.0"
+source = "git+https://github.com/airgap-it/tezos-rust-sdk?branch=feat/nostd#5732f4dea5220c53e833f314fe5560fc41f4cb31"
 dependencies = [
  "chrono",
  "derive_more",

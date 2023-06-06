@@ -71,7 +71,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
+use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
@@ -91,7 +91,7 @@ pub use pallet_acurast_processor_manager;
 
 use acurast_runtime_common::{weights, *};
 use pallet_acurast::{JobId, MultiOrigin};
-use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, RewardParser, StateOwner};
+use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
 	instances::tezos::TargetChainTezos,
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
@@ -101,7 +101,6 @@ use pallet_acurast_marketplace::{
 	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
 };
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
-use xcm::prelude::{Abstract, Fungible};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(From, Into)]
@@ -115,7 +114,7 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 	}
 }
 
-type Extra = RegistrationExtra<AcurastAsset, Balance, AccountId>;
+type Extra = RegistrationExtra<AcurastAsset, AccountId>;
 
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<opaque::Header, UncheckedExtrinsic>;
@@ -786,18 +785,12 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RegistrationExtra = Extra;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
-	type AssetId = AssetId;
-	type AssetAmount = Balance;
-	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<
-		AcurastAsset,
-		FeeManagement,
-		Balances,
-		AcurastAssets,
-	>;
+	type Balance = AcurastAsset;
+	type RewardManager =
+		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, FeeManagement, Balances>;
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
-	type AssetValidator = Self::RewardManager;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
@@ -1001,22 +994,6 @@ impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActi
 	}
 }
 
-pub struct TezosAssetParser;
-impl RewardParser<AcurastAsset> for TezosAssetParser {
-	type Error = ();
-
-	fn parse(encoded: Vec<u8>) -> Result<AcurastAsset, Self::Error> {
-		let mut combined = vec![0u8; 16];
-		combined[16 - encoded.len()..].copy_from_slice(&encoded.as_ref());
-		let amount: u128 = u128::from_be_bytes(combined.as_slice().try_into().map_err(|_| ())?);
-		let tezos_asset_id: [u8; 32] = [
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 1,
-		];
-		Ok(AcurastAsset(MultiAsset { id: Abstract(tezos_asset_id), fun: Fungible(amount) }))
-	}
-}
-
 const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
 	5, 10, 0, 0, 0, 22, 1, 243, 102, 74, 48, 19, 167, 144, 92, 234, 61, 255, 164, 165, 233, 104,
 	130, 42, 7, 133, 23, 0,
@@ -1035,14 +1012,12 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type TargetChainOwner = TezosContract;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
-	type Reward = AcurastAsset;
-	type Balance = Balance;
+	type Balance = AcurastAsset;
 	type RegistrationExtra = Extra;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser =
-		TezosParser<AcurastAsset, Balance, AcurastAccountId, AccountId, Extra, TezosAssetParser>;
+	type MessageParser = TezosParser<AcurastAsset, AcurastAccountId, AccountId, Extra>;
 	type ActionExecutor = AcurastActionExecutor;
 	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
 }
@@ -1256,7 +1231,9 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		// TODO(SW): remove once AcurastAssets migrated (clearing storge)
 		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
+		// TODO(SW): remove once migrated to V3 (clearing storge)
 		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 

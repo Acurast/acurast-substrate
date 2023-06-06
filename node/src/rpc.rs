@@ -62,6 +62,6 @@ where
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<TargetChainTezos, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Marketplace::<_, _>::new(client).into_rpc())?;
+	module.merge(Marketplace::<_, (Block, AcurastAsset, AccountId)>::new(client).into_rpc())?;
 	Ok(module)
 }

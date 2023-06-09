@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use clap::Parser;
-
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
@@ -57,7 +55,7 @@ pub struct Cli {
 	pub subcommand: Option<Subcommand>,
 
 	#[command(flatten)]
-	pub run: RunCmd,
+	pub run: cumulus_client_cli::RunCmd,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -72,41 +70,6 @@ pub struct Cli {
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
-}
-
-#[derive(Debug, Parser)]
-#[group(skip)]
-pub struct RunCmd {
-	#[clap(flatten)]
-	pub base: cumulus_client_cli::RunCmd,
-
-	/// Use Acurast Local runtime.
-	#[clap(long = "local-runtime")]
-	pub use_local: bool,
-
-	/// Use Acurast Dev runtime.
-	#[clap(long = "local-runtime")]
-	pub use_dev: bool,
-
-	/// Use Acurast Rococo runtime.
-	#[clap(long = "rococo-runtime")]
-	pub use_rococo: bool,
-
-	/// Use Acurast Kusama runtime.
-	#[clap(long = "kusama-runtime")]
-	pub use_kusama: bool,
-
-	/// Id of the parachain this collator collates for.
-	#[clap(long)]
-	pub parachain_id: Option<u32>,
-}
-
-impl std::ops::Deref for RunCmd {
-	type Target = cumulus_client_cli::RunCmd;
-
-	fn deref(&self) -> &Self::Target {
-		&self.base
-	}
 }
 
 #[derive(Debug)]

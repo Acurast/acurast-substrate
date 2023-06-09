@@ -1,0 +1,55 @@
+[package]
+name = "payments-emulation"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["Juan Ignacio Rios <juani.rios.99@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+# crates.io
+serde = { workspace = true }
+parity-scale-codec = { workspace = true }
+proc-macro2 = "1.0.40"
+scale-info = { workspace = true }
+rand = "0.8.5"
+hex-literal = { workspace = true }
+
+# Acurast
+pallet-acurast-fulfillment-receiver = { workspace = true }
+acurast-reputation = { workspace = true }
+
+# Substrate
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+
+# Polkadot
+polkadot-primitives = { workspace = true }
+polkadot-parachain = { workspace = true }
+pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+polkadot-core-primitives = { workspace = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true }
+cumulus-pallet-dmp-queue = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+
+# Local
+emulations = { path = ".." }
+
+
+[features]
+default = ["std"]
+std = [
+    "emulations/std",
+	"acurast-reputation/std",
+]

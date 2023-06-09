@@ -22,7 +22,7 @@ scale-info= { workspace = true }
 smallvec = { workspace = true }
 
 # Acurast
-pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false }
+pallet-acurast-fulfillment-receiver = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }

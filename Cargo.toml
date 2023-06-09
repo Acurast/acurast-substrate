@@ -33,18 +33,18 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = "0.1.9"
 
 # Acurast
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
-pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.0.1" }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 
 # Nimbus
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.41" }

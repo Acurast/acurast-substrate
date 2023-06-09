@@ -1,0 +1,41 @@
+include:
+  - project: 'papers/papers-internal/internal'
+    file: '/.base-gitlab-ci.yml'
+
+stages:
+  - checks
+  - build
+  - publish
+  - deploy
+
+.prepare_rust:
+  image: rust:latest
+  before_script:
+    - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+    - rustup update nightly-2023-03-14 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-14
+    - rustup component add rustfmt --toolchain nightly-2023-03-14
+    - rustup override set nightly-2023-03-14
+
+format-check:
+  stage: checks
+  extends: .prepare_rust
+  script:
+    - cargo fmt --check
+
+test:
+  stage: checks
+  extends: .prepare_rust
+  script:
+    - cargo test
+
+build:
+  stage: build
+  extends: .build
+
+publish-dev:
+  stage: publish
+  extends: .publish-dev
+
+publish-prod:
+  stage: publish
+  extends: .publish-prod

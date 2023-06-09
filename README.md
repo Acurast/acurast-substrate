@@ -1,22 +1,56 @@
-# Substrate Cumulus Parachain Template
+# Acurast Substrate
 
-A new [Cumulus](https://github.com/paritytech/cumulus/)-based Substrate node, ready for hacking ☁️..
+Acurast Substrate is a [Cumulus](https://github.com/paritytech/cumulus/)-based parachain. The [Cumulus Parachain Template](https://github.com/paritytech/cumulus/tree/master/parachain-template) was used as the base for the node and runtime implementation.
 
-This project is originally a fork of the
-[Substrate Node Template](https://github.com/substrate-developer-hub/substrate-node-template)
-modified to include dependencies required for registering this node as a **parathread** or
-**parachain** to a **relay chain**.
+To learn more about Acurast please visit the [website](https://acurast.com/) and [documentation](https://docs.acurast.com/).
 
-The stand-alone version of this template is hosted on the
-[Substrate Devhub Parachain Template](https://github.com/substrate-developer-hub/substrate-parachain-template/)
-for each release of Polkadot. It is generated directly to the upstream
-[Parachain Template in Cumulus](https://github.com/paritytech/cumulus/tree/master/parachain-template)
-at each release branch using the
-[Substrate Template Generator](https://github.com/paritytech/substrate-template-generator/).
+## Build
 
-👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains), and
-parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
+```sh
+cargo build --release
 
+# or
 
-🧙 Learn about how to use this template and run your own parachain testnet for it in the
-[Devhub Cumulus Tutorial](https://docs.substrate.io/tutorials/v3/cumulus/start-relay/).
+make build-release
+```
+
+## Run
+
+### Using Zombienet
+
+```sh
+export PATH="$PATH:<absolute_path>/polkadot/target/release"
+make start
+```
+
+### Manual steps
+
+First build the plain chain spec:
+
+```
+./target/release/acurast-node build-spec --disable-default-bootnode > acurast-local-parachain-plain.json
+```
+
+In `acurast-local-parachain-plain.json` set the parachain id to 2000 by:
+
+- changing the value of `para_id` at the root level
+- changing the value at `genesis.runtime.parachainInfo.parachainId`
+
+Then create the raw version of the chain spec:
+
+```
+./target/release/acurast-node build-spec --chain acurast-local-parachain-plain.json --raw --disable-default-bootnode > acurast-local-parachain-2000-raw.json
+```
+
+Now run the node with the following command:
+
+```
+RUST_LOG=runtime=trace ./target/release/acurast-node --alice --collator --force-authoring --chain acurast-local-parachain-2000-raw.json --base-path /tmp/parachain/alice --rpc-port 8080 --port 40333 --ws-port 8844 --unsafe-rpc-external --unsafe-ws-external --rpc-cors all -- --execution wasm --chain ../polkadot/acurast-local-raw.json --port 30343 --ws-port 9977
+```
+
+The above command assumes that there is a rococo relay chain with the raw spec at `../polkadot/acurast-local-raw.json`.
+
+See substrate tutorials on how to setup the replay chain and connect a parachain to it:
+
+- [Start a local relay chain](https://docs.substrate.io/tutorials/connect-other-chains/local-relay/)
+- [Connect a local parachain](https://docs.substrate.io/tutorials/connect-other-chains/local-parachain/)

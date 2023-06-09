@@ -1,0 +1,31 @@
+[package]
+name = "emulations"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# crates.io
+serde = { version = "1.0.132" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+scale-info = { version = "2.1.2", features = ["derive"] }
+rand = "0.8.5"
+
+# Runtimes
+acurast-rococo-runtime = { workspace = true }
+proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
+
+# Emulator
+xcm-simulator = { workspace = true }
+
+[features]
+default = ["std", "emulation"]
+std = [
+    "acurast-rococo-runtime/std",
+    "polkadot-runtime/std",
+]
+emulation = [
+    "acurast-rococo-runtime/emulation",
+]

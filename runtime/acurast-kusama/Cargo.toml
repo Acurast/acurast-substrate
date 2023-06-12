@@ -2,7 +2,7 @@
 name = "acurast-kusama-runtime"
 authors = ["Papers AG"]
 description = "Acurast Kusama Runtime"
-version = "0.0.1"
+version = "0.1.1"
 license = "Unlicense"
 keywords = ["no_std", "no-std"]
 categories = ["no-std"]

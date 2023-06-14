@@ -1,13 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::RuntimeDebug;
 pub use nimbus_primitives::NimbusId;
 pub use parachains_common::Balance;
-use parity_scale_codec::{Decode, Encode};
-#[cfg(feature = "std")]
-use serde;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 #[cfg(any(feature = "std", test))]
@@ -27,7 +21,6 @@ pub use xcm::{
 use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
 pub use pallet_acurast_assets_manager;
-use scale_info::TypeInfo;
 
 pub mod consensus;
 pub mod constants;
@@ -53,33 +46,7 @@ pub type BlockNumber = u32;
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-#[derive(RuntimeDebug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub struct AcurastAsset(pub MultiAsset);
-
-/// Implementation of the Reward trait on AcurastAsset.
-impl pallet_acurast_marketplace::Reward for AcurastAsset {
-	type AssetId = AssetId;
-	type AssetAmount = Balance;
-	type Error = ();
-
-	fn with_amount(&mut self, amount: Self::AssetAmount) -> Result<&Self, Self::Error> {
-		self.0 = MultiAsset { id: self.0.id.clone(), fun: Fungible(amount) };
-		Ok(self)
-	}
-
-	fn try_get_asset_id(&self) -> Result<Self::AssetId, Self::Error> {
-		Ok(self.0.id.clone())
-	}
-
-	fn try_get_amount(&self) -> Result<Self::AssetAmount, Self::Error> {
-		match self.0.fun {
-			Fungible(amount) => Ok(amount),
-			_ => Err(()),
-		}
-	}
-}
+pub type AcurastAsset = u128;
 
 // the base number of indivisible units for balances
 pub const PICOUNIT: Balance = 1;

@@ -42,7 +42,6 @@ fn fund_register_job() {
 				min_reputation: Some(500_000),
 				instant_match: None,
 			},
-			expected_fulfillment_fee: 10000,
 		},
 	};
 
@@ -109,7 +108,6 @@ fn register_match_report_job() {
 				min_reputation: Some(500_000),
 				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
-			expected_fulfillment_fee: 10000,
 		},
 	};
 	// base_fee_per_execution + duration * fee_per_millisecond + storage * fee_per_storage_byte
@@ -259,7 +257,6 @@ fn register_match_report_job2() {
 				min_reputation: Some(500_000),
 				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
-			expected_fulfillment_fee: 0,
 		},
 	};
 

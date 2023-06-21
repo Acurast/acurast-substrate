@@ -90,7 +90,7 @@ pub use pallet_acurast_marketplace;
 pub use pallet_acurast_processor_manager;
 
 use acurast_runtime_common::{weights, *};
-use pallet_acurast::{JobId, MultiOrigin};
+use pallet_acurast::{JobHooks, JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
 	instances::tezos::TargetChainTezos,
@@ -787,7 +787,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ReportTolerance = ReportTolerance;
 	type Balance = AcurastAsset;
 	type RewardManager =
-		pallet_acurast_marketplace::AssetRewardManager<AcurastAsset, FeeManagement, Balances>;
+		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
@@ -826,6 +826,22 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				))
 				.map_err(|_| DispatchError::Other("send_message failed").into())
 			},
+		}
+	}
+
+	fn finalize_job(
+		job_id: &JobId<AccountId>,
+		refund: <Runtime as pallet_acurast_marketplace::Config>::Balance,
+	) -> DispatchResultWithPostInfo {
+		// inspect which hyperdrive-outgoing instance to be used
+		let (origin, job_id_seq) = job_id;
+
+		match origin {
+			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
+			MultiOrigin::Tezos(_) => AcurastHyperdriveOutgoingTezos::send_message(
+				Action::FinalizeJob(job_id_seq.clone(), refund),
+			)
+			.map_err(|_| DispatchError::Other("send_message failed").into()),
 		}
 	}
 }
@@ -990,6 +1006,10 @@ impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActi
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
+			ParsedAction::DeregisterJob(job_id) =>
+				AcurastMarketplace::deregister_hook(&job_id).into(),
+			ParsedAction::FinalizeJob(job_ids) =>
+				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 		}
 	}
 }

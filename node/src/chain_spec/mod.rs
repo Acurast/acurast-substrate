@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use acurast_runtime_common::AccountId;
 
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
-const ROCOCO_PARACHAIN_ID: u32 = 4191;
-const KUSAMA_PARACHAIN_ID: u32 = 4191;
+const ROCOCO_PARACHAIN_ID: u32 = 2239;
+const KUSAMA_PARACHAIN_ID: u32 = 2239;
 
 #[cfg(feature = "acurast-dev")]
 pub mod dev;

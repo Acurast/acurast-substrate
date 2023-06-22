@@ -10,6 +10,7 @@ use crate::tests::{
 	acurast_runtime::{pallet_acurast, pallet_acurast::JobRegistration},
 	*,
 };
+use frame_support::traits::fungible::Inspect;
 
 #[test]
 fn fund_register_job() {
@@ -37,27 +38,26 @@ fn fund_register_job() {
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
 				slots: 1,
-				reward: test_asset(reward_per_execution),
+				reward: reward_per_execution,
 				min_reputation: Some(500_000),
 				instant_match: None,
 			},
-			expected_fulfillment_fee: 10000,
 		},
 	};
 
 	AcurastParachain::execute_with(|| {
 		// register job
 		{
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE);
+			let balance_test_token = AcurastBalances::balance(&ALICE);
+			assert_eq!(balance_test_token, INITIAL_BALANCE);
 
 			assert_ok!(Acurast::register(
 				acurast_runtime::RuntimeOrigin::signed(ALICE), // ALICE's account should now be funded
 				registration,
 			));
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution);
+			let balance_test_token = AcurastBalances::balance(&ALICE);
+			assert_eq!(balance_test_token, INITIAL_BALANCE - 2 * reward_per_execution);
 			// reward worth 2 executions
 		}
 		// check job event and balances
@@ -66,13 +66,11 @@ fn fund_register_job() {
 				.iter()
 				.map(|e| format!("{:?}", e.event))
 				.collect();
-			let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			let _ferdie_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			let _ferdie_balance_false =
-				AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
-			let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
-			let _pallet_balance_test_token =
-				AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+			let _bob_balance_test_token = AcurastBalances::balance(&ALICE);
+			let _ferdie_balance_test_token = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_false = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_native = AcurastBalances::free_balance(&FERDIE);
+			let _pallet_balance_test_token = AcurastBalances::balance(&pallet_account);
 		}
 	});
 }
@@ -106,11 +104,10 @@ fn register_match_report_job() {
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
 				slots: 1,
-				reward: test_asset(reward_per_execution),
+				reward: reward_per_execution,
 				min_reputation: Some(500_000),
 				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
-			expected_fulfillment_fee: 10000,
 		},
 	};
 	// base_fee_per_execution + duration * fee_per_millisecond + storage * fee_per_storage_byte
@@ -129,17 +126,17 @@ fn register_match_report_job() {
 
 		// register job
 		let job_id = {
-			let balance_ferdie_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			assert_eq!(balance_ferdie_test_token, TEST_TOKEN_INITIAL_BALANCE);
+			let balance_ferdie_test_token = AcurastBalances::balance(&FERDIE);
+			assert_eq!(balance_ferdie_test_token, INITIAL_BALANCE);
 
 			assert_ok!(Acurast::register(
 				acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
 				registration.clone(),
 			));
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			let balance_test_token = AcurastBalances::balance(&FERDIE);
 			// check we now have lower balance corresponding reward worth 2 executions
-			assert_eq!(balance_test_token, TEST_TOKEN_INITIAL_BALANCE - 2 * reward_per_execution);
+			assert_eq!(balance_test_token, INITIAL_BALANCE - 2 * reward_per_execution);
 
 			(MultiOrigin::Acurast(FERDIE), Acurast::job_id_sequence())
 		};
@@ -150,13 +147,11 @@ fn register_match_report_job() {
 				.iter()
 				.map(|e| format!("{:?}", e.event))
 				.collect();
-			let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			let _ferdie_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			let _ferdie_balance_false =
-				AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
-			let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
-			let _pallet_balance_test_token =
-				AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+			let _bob_balance_test_token = AcurastBalances::balance(&ALICE);
+			let _ferdie_balance_test_token = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_false = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_native = AcurastBalances::free_balance(&FERDIE);
+			let _pallet_balance_test_token = AcurastBalances::balance(&pallet_account);
 		}
 
 		// acknowledge
@@ -168,8 +163,8 @@ fn register_match_report_job() {
 
 		// reports
 		{
-			let balance_test_token_0 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token_0, TEST_TOKEN_INITIAL_BALANCE);
+			let balance_test_token_0 = AcurastBalances::balance(&ALICE);
+			assert_eq!(balance_test_token_0, INITIAL_BALANCE);
 
 			let mut iter = registration.schedule.iter(0).unwrap();
 
@@ -182,17 +177,17 @@ fn register_match_report_job() {
 			// reputation still ~50%
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+					AcurastMarketplace::stored_reputation(BOB).unwrap()
 				)
 				.unwrap(),
 				Permill::from_parts(509_803)
 			);
 
-			let balance_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+			let balance_test_token_1 = AcurastBalances::balance(&ALICE);
 			// check BOB's manager now has higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_1,
-				TEST_TOKEN_INITIAL_BALANCE + price_per_execution -
+				INITIAL_BALANCE + price_per_execution -
 					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
@@ -209,13 +204,13 @@ fn register_match_report_job() {
 			// reputation increased
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+					AcurastMarketplace::stored_reputation(BOB).unwrap()
 				)
 				.unwrap(),
 				Permill::from_parts(763_424)
 			);
 
-			let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+			let balance_test_token_2 = AcurastBalances::balance(&ALICE);
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_2,
@@ -258,11 +253,10 @@ fn register_match_report_job2() {
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
 				slots: 1,
-				reward: test_asset(reward_per_execution),
+				reward: reward_per_execution,
 				min_reputation: Some(500_000),
 				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
-			expected_fulfillment_fee: 0,
 		},
 	};
 
@@ -281,20 +275,17 @@ fn register_match_report_job2() {
 
 		// register job
 		let job_id = {
-			let balance_ferdie_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			assert_eq!(balance_ferdie_test_token, TEST_TOKEN_INITIAL_BALANCE);
+			let balance_ferdie_test_token = AcurastBalances::balance(&FERDIE);
+			assert_eq!(balance_ferdie_test_token, INITIAL_BALANCE);
 
 			assert_ok!(Acurast::register(
 				acurast_runtime::RuntimeOrigin::signed(FERDIE), // FERDIE is a pre-funded via Genesis
 				registration.clone(),
 			));
 
-			let balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
+			let balance_test_token = AcurastBalances::balance(&FERDIE);
 			// check we now have lower balance corresponding reward worth 2 executions
-			assert_eq!(
-				balance_test_token,
-				TEST_TOKEN_INITIAL_BALANCE - count * reward_per_execution
-			);
+			assert_eq!(balance_test_token, INITIAL_BALANCE - count * reward_per_execution);
 
 			(MultiOrigin::Acurast(FERDIE), Acurast::job_id_sequence())
 		};
@@ -305,13 +296,11 @@ fn register_match_report_job2() {
 				.iter()
 				.map(|e| format!("{:?}", e.event))
 				.collect();
-			let _bob_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			let _ferdie_balance_test_token = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &FERDIE);
-			let _ferdie_balance_false =
-				AcurastAssetsInternal::balance(STATEMINT_NATIVE_ID, &FERDIE);
-			let _ferdie_balance_native = acurast_runtime::Balances::free_balance(&FERDIE);
-			let _pallet_balance_test_token =
-				AcurastAssetsInternal::balance(TEST_TOKEN_ID, pallet_account.clone());
+			let _bob_balance_test_token = AcurastBalances::balance(&ALICE);
+			let _ferdie_balance_test_token = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_false = AcurastBalances::balance(&FERDIE);
+			let _ferdie_balance_native = AcurastBalances::free_balance(&FERDIE);
+			let _pallet_balance_test_token = AcurastBalances::balance(&pallet_account);
 		}
 
 		// acknowledge
@@ -323,8 +312,8 @@ fn register_match_report_job2() {
 
 		// reports
 		{
-			let balance_test_token_0 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
-			assert_eq!(balance_test_token_0, TEST_TOKEN_INITIAL_BALANCE);
+			let balance_test_token_0 = AcurastBalances::balance(&ALICE);
+			assert_eq!(balance_test_token_0, INITIAL_BALANCE);
 
 			let mut iter = registration.schedule.iter(0).unwrap();
 
@@ -337,17 +326,17 @@ fn register_match_report_job2() {
 			// reputation still ~50%
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+					AcurastMarketplace::stored_reputation(BOB).unwrap()
 				)
 				.unwrap(),
 				Permill::from_parts(509_803)
 			);
 
-			let balance_test_token_1 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+			let balance_test_token_1 = AcurastBalances::balance(&ALICE);
 			// check BOB's manager now has higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_1,
-				TEST_TOKEN_INITIAL_BALANCE + price_per_execution -
+				INITIAL_BALANCE + price_per_execution -
 					FeeManagement::get_fee_percentage().mul_floor(price_per_execution)
 			);
 
@@ -361,13 +350,13 @@ fn register_match_report_job2() {
 			// reputation still ~50%
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+					AcurastMarketplace::stored_reputation(BOB).unwrap()
 				)
 				.unwrap(),
 				Permill::from_parts(509_803)
 			);
 
-			let balance_test_token_2 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+			let balance_test_token_2 = AcurastBalances::balance(&ALICE);
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_2,
@@ -392,13 +381,13 @@ fn register_match_report_job2() {
 			// reputation increased, but less than in previous test
 			assert_eq!(
 				BetaReputation::<u128>::normalize(
-					AcurastMarketplace::stored_reputation(BOB, test_token_asset_id()).unwrap()
+					AcurastMarketplace::stored_reputation(BOB).unwrap()
 				)
 				.unwrap(),
 				Permill::from_parts(573_039)
 			);
 
-			let balance_test_token_3 = AcurastAssetsInternal::balance(TEST_TOKEN_ID, &ALICE);
+			let balance_test_token_3 = AcurastBalances::balance(&ALICE);
 			// check we now have higher balance corresponding reward gained
 			assert_eq!(
 				balance_test_token_3,

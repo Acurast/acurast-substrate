@@ -2,7 +2,7 @@
 name = "acurast-rococo-runtime"
 authors = ["Papers AG"]
 description = "Acurast Rococo Runtime"
-version = "0.0.1"
+version = "0.2.0"
 license = "Unlicense"
 keywords = ["no_std", "no-std"]
 categories = ["no-std"]

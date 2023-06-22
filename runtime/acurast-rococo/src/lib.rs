@@ -152,7 +152,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	UpgradeConsensusToNimbus,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -179,40 +178,6 @@ impl WeightToFeePolynomial for WeightToFee {
 			coeff_frac: Perbill::from_rational(p % q, q),
 			coeff_integer: p / q,
 		}]
-	}
-}
-
-// TODO: Remove after PoA -> PoS migration
-pub struct DeprecatedAura;
-impl sp_runtime::BoundToRuntimeAppPublic for DeprecatedAura {
-	type Public = AuraId;
-}
-
-// TODO: Remove after PoA -> PoS migration
-impl_opaque_keys! {
-	pub struct OldSessionKeys {
-		pub aura: DeprecatedAura,
-	}
-}
-
-pub fn transform_session_keys(_v: AccountId, old: OldSessionKeys) -> SessionKeys {
-	fn nimbus_key_from(aura_id: AuraId) -> NimbusId {
-		use sp_core::crypto::UncheckedFrom;
-		let aura_as_sr25519: sp_core::sr25519::Public = aura_id.into();
-		let sr25519_as_bytes: [u8; 32] = aura_as_sr25519.into();
-		sp_core::sr25519::Public::unchecked_from(sr25519_as_bytes).into()
-	}
-	SessionKeys { nimbus: nimbus_key_from(old.aura.clone()) }
-}
-
-pub struct UpgradeConsensusToNimbus;
-impl frame_support::traits::OnRuntimeUpgrade for UpgradeConsensusToNimbus {
-	fn on_runtime_upgrade() -> Weight {
-		Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
-
-		let weight = migrations::parachain_staking::StakingPalletBootstrapping::<Runtime>::on_runtime_upgrade();
-
-		weight + (Perbill::from_percent(10) * BlockWeights::default().max_block)
 	}
 }
 

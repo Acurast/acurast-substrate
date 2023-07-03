@@ -24,7 +24,9 @@ const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
-const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
+const BURN_ACCOUNT: sp_runtime::AccountId32 = AccountId32::new([0u8; 32]);
+
+const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 
 /// Generate the session keys from individual elements.
 ///
@@ -67,7 +69,8 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::Balance::MAX),
+					(acurast_sudo_account(), NATIVE_INITIAL_BALANCE),
+					(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
 				],
 				ROCOCO_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
@@ -204,6 +207,11 @@ pub fn fee_manager_pallet_account() -> AccountId {
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5CkcmNYgbntGPLi866ouBh1xKNindayyZW3gZcrtUkg7ZqTx")
+}
+
+/// returns the faucet account id.
+pub fn acurast_faucet_account() -> AccountId {
+	accountid_from_str("5EAFqBNRWhe93pXvvkXB1oBHe15btTyw6vy21eGtwRqXjFLz")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

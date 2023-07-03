@@ -6,6 +6,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	AccountId32, Percent,
 };
+use std::str::FromStr;
 
 pub(crate) use acurast_rococo_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
@@ -13,7 +14,7 @@ pub(crate) use acurast_rococo_runtime::{
 };
 use acurast_runtime_common::*;
 
-use crate::chain_spec::{processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
+use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
@@ -37,6 +38,8 @@ const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
+
+const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 
 const TEST_TOKEN_ID: u32 = 22;
 const TEST_TOKEN_NAME: &str = "acurast_test_asset";
@@ -114,6 +117,7 @@ pub fn acurast_development_config() -> ChainSpec {
 					(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+					(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -263,6 +267,11 @@ pub fn acurast_pallet_account() -> AccountId {
 /// Returns the pallet_fee_manager account id.
 pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
+}
+
+/// returns the faucet account id.
+pub fn acurast_faucet_account() -> AccountId {
+	accountid_from_str("5EyaQQEQzzXdfsvFfscDaQUFiGBk5hX4B38j1x3rH7Zko2QJ")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

@@ -67,7 +67,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), acurast_runtime::Balance::MAX),
+					(acurast_sudo_account(), NATIVE_INITIAL_BALANCE),
 				],
 				KUSAMA_PARACHAIN_ID.into(),
 				acurast_sudo_account(),

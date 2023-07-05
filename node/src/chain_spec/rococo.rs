@@ -211,7 +211,7 @@ pub fn acurast_sudo_account() -> AccountId {
 
 /// returns the faucet account id.
 pub fn acurast_faucet_account() -> AccountId {
-	accountid_from_str("5EAFqBNRWhe93pXvvkXB1oBHe15btTyw6vy21eGtwRqXjFLz")
+	accountid_from_str("5EyaQQEQzzXdfsvFfscDaQUFiGBk5hX4B38j1x3rH7Zko2QJ")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

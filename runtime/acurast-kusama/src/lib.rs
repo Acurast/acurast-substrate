@@ -164,6 +164,15 @@ pub type Executive = frame_executive::Executive<
 /// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
 ///   - Setting it to `0` will essentially disable the weight fee.
 ///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
+
+/// <HB SBP Milestone Review II
+///
+/// Please take into account that this `WeightToFee` is not considering the proof_size.
+/// Here is an example:
+///
+/// https://github.com/paritytech/cumulus/blob/master/parachains/runtimes/assets/asset-hub-kusama/src/constants.rs#L57
+///
+/// >
 pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
@@ -204,6 +213,11 @@ pub fn transform_session_keys(_v: AccountId, old: OldSessionKeys) -> SessionKeys
 	SessionKeys { nimbus: nimbus_key_from(old.aura.clone()) }
 }
 
+/// <HB SBP Milestone Review II
+///
+/// Please do not forget to remove this once the migration was run :)
+///
+/// >
 pub struct UpgradeConsensusToNimbus;
 impl frame_support::traits::OnRuntimeUpgrade for UpgradeConsensusToNimbus {
 	fn on_runtime_upgrade() -> Weight {
@@ -444,7 +458,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -477,8 +491,9 @@ where
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) =>
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
+			Ok(imbalance) => {
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
+			},
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}
@@ -645,12 +660,20 @@ impl pallet_collator_selection::Config for Runtime {
 /// * Hex: `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
 ///
 ///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
+///
+/// <HB SBP Milestone Review II
+///
+/// I wonder if this can be replaced by a pallet that can be called only with root origin and it
+///  alllows to set the admin account in the pallet storage (so in case it needs to be replaced you don't need to do a runtime upgrade)
+///
+/// >
 const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
 	225, 96, 141, 169, 196, 68, 108, 63, 177, 69, 193, 246, 118, 195, 160, 124, 207, 95, 169, 146,
 	34, 7, 154, 77, 28, 19, 179, 190, 41, 22, 66, 26,
 ]);
 
 ord_parameter_types! {
+
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
 
 	pub const Admin: AccountId = ADMIN_ACCOUNT_ID;
@@ -671,6 +694,11 @@ impl pallet_assets::Config for Runtime {
 	type AssetId = InternalAssetId;
 	type AssetIdParameter = Compact<InternalAssetId>;
 	type Currency = Balances;
+	/// <HB SBP Milestone Review II
+	///
+	/// I'm interesed in having more details about this decission of returning `0x000000...`  in case of root origin is successfully validated.
+	///
+	/// >
 	type CreateOrigin =
 		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -791,9 +819,21 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
+	/// <HB SBP Milestone Review II
+	///
+	/// I would recommend to run the bechmarks and create the corresponding weight files in this folder and provide the results in the WeightInfo type.
+	///    
+	/// type WeightInfo = weights::pallet_acurast_marketplace::WeightInfo<Runtime>;
+	///
+	/// /// >
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
 }
 
+/// <HB SBP Milestone Review II
+///
+/// For code readability, I would recommend to move the HyperdriveOutgoingMarketplaceHooks to a separate file like impls.rs
+///
+/// /// >
 pub struct HyperdriveOutgoingMarketplaceHooks;
 
 impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
@@ -814,7 +854,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 							p256_pub_key_to_address(k)
 								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
 						);
-						break
+						break;
 					}
 				}
 				let processor = s.ok_or(DispatchError::Other(
@@ -847,6 +887,13 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 }
 
 /// Struct use for various barrier implementations.
+/// <HB SBP Milestone Review II
+///
+/// I would recommend to run the bechmarks and create the corresponding weight files in this folder and provide the results in the WeightInfo type.
+///    
+/// type WeightInfo = weights::pallet_acurast_marketplace::WeightInfo<Runtime>;
+///
+/// /// >
 pub struct Barrier;
 
 impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
@@ -881,7 +928,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
@@ -1004,12 +1051,15 @@ pub struct AcurastActionExecutor;
 impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
 	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
 		match action {
-			ParsedAction::RegisterJob(job_id, registration) =>
-				Acurast::register_for(job_id, registration.into()),
-			ParsedAction::DeregisterJob(job_id) =>
-				AcurastMarketplace::deregister_hook(&job_id).into(),
-			ParsedAction::FinalizeJob(job_ids) =>
-				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::RegisterJob(job_id, registration) => {
+				Acurast::register_for(job_id, registration.into())
+			},
+			ParsedAction::DeregisterJob(job_id) => {
+				AcurastMarketplace::deregister_hook(&job_id).into()
+			},
+			ParsedAction::FinalizeJob(job_ids) => {
+				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter())
+			},
 		}
 	}
 }

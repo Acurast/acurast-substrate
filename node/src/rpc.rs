@@ -47,6 +47,16 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
+	/// <HB SBP Milestone Review II
+	/// 
+	/// Just pointing out that there is an ongoing discussion where it says that custom RPCs should be discouraged when possible.
+	/// The point is that runtime api might be accessed from state_call and avoid having to release a new version of the node when the RPCs are modified.
+	/// Here more context:
+	/// 
+	/// https://github.com/paritytech/substrate/pull/12358
+	/// 
+	/// No action needed here, but just wanted to point it out.
+	/// >
 	C::Api: HyperdriveApi<Block, H256, TargetChainTezos>,
 	C::Api: MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>,
 	P: TransactionPool + Sync + Send + 'static,

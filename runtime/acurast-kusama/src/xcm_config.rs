@@ -102,6 +102,13 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
+/// <HB SBP Milestone Review II
+/// 
+/// There is a security issue here: The problem with this configuration is that the `_pid` should be validated when extracting the ID from the multi-location.
+/// Otherwise this can lead to a situation where a malicious parachain can send a message to a different parachain by using the same `_pid` as the target parachain.
+/// 
+///  You might considering replacing this setup by the new remote account converter https://github.com/paritytech/polkadot/pull/6662
+/// >
 pub struct SignedAccountId32FromXcm<Origin>(PhantomData<Origin>);
 impl<Origin: OriginTrait> ConvertOrigin<Origin> for SignedAccountId32FromXcm<Origin>
 where
@@ -202,6 +209,14 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 	}
 }
 
+
+/// <HB SBP Milestone Review II
+/// 
+/// Please keep in mind that the following setup on the barrier is denying the reserve based transfers from this parachain to the relay chain.
+/// This change forces the parachain to use AssetHub as the reserve for KSM, which is not bad but it worths considering it.
+/// If you want to keep this setup the parachain should implement a mechanism to disallow incoming reserve transfers from the relay chain.
+/// 
+/// >
 pub type Barrier = DenyThenTry<
 	DenyReserveTransferToRelayChain,
 	(
@@ -229,6 +244,11 @@ fn matches_prefix(prefix: &MultiLocation, loc: &MultiLocation) -> bool {
 			.all(|(prefix_junction, junction)| prefix_junction == junction)
 }
 
+/// <HB SBP Milestone Review II
+/// 
+/// Please remove this as it is not used and is a very dangerous setup.
+/// 
+/// >
 pub type OpenBarrier = AllowUnpaidExecutionFrom<Everything>;
 pub struct ReserveAssetsFrom<T>(PhantomData<T>);
 impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for ReserveAssetsFrom<T> {
@@ -247,9 +267,16 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for ReserveA
 pub type Reserves = (
 	NativeAsset,
 	ReserveAssetsFrom<StatemintLocation>,
+	/// <HB SBP Milestone Review II
+	/// 
+	/// This configuration is redundant since the only fungible asset that is supported by the parachain is their native asset which is covered by the NativeAsset.
+	/// 
+	/// >
 	ReserveAssetsFrom<RelayLocation>,
 	Case<StatemintDot>,
 );
+
+
 
 /// Means for transacting assets from Statemine.
 /// We assume Statemine acts as reserve for all assets defined in its Assets pallet,
@@ -257,6 +284,12 @@ pub type Reserves = (
 /// (this is rather simplistic, a more refined implementation could implement
 /// something like an "asset manager" where only assets that have been specifically
 /// registered are considered for reserve-based asset transfers).
+/// 
+/// <HB SBP Milestone Review II
+/// 
+/// you can remove the comment above since you are implementing your asset manager already.
+/// 
+/// >
 pub type StatemintFungiblesTransactor = FungiblesMutateAdapter<
 	// Use this fungibles implementation:
 	Assets,
@@ -296,6 +329,11 @@ pub type StatemintNativeAssetTransactor =
 
 // Means for transacting assets on this chain. StatemintNativeAssetTransactor should come before
 // StatemintFungiblesTransactor so it gets executed first and we mint a native asset from an xcm
+/// <HB SBP Milestone Review II
+/// 
+/// Minor: If this runtime will be used for Kusama, this should be renamed to Statemine at least ( Statemint is the name of the asset hub on Polkadot).
+/// However, the new name defined is AssetHub, so i would rename it to this name.
+/// >
 pub type AssetTransactors =
 	(LocalAssetTransactor, StatemintNativeAssetTransactor, StatemintFungiblesTransactor);
 

@@ -102,13 +102,6 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
-/// <HB SBP Milestone Review II
-/// 
-/// There is a security issue here: The problem with this configuration is that the `_pid` should be validated when extracting the ID from the multi-location.
-/// Otherwise this can lead to a situation where a malicious parachain can send a message to a different parachain by using the same `_pid` as the target parachain.
-/// 
-///  You might considering replacing this setup by the new remote account converter https://github.com/paritytech/polkadot/pull/6662
-/// >
 pub struct SignedAccountId32FromXcm<Origin>(PhantomData<Origin>);
 impl<Origin: OriginTrait> ConvertOrigin<Origin> for SignedAccountId32FromXcm<Origin>
 where

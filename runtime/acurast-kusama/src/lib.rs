@@ -661,12 +661,6 @@ impl pallet_collator_selection::Config for Runtime {
 ///
 ///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
 ///
-/// <HB SBP Milestone Review II
-///
-/// I wonder if this can be replaced by a pallet that can be called only with root origin and it
-///  alllows to set the admin account in the pallet storage (so in case it needs to be replaced you don't need to do a runtime upgrade)
-///
-/// >
 const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
 	225, 96, 141, 169, 196, 68, 108, 63, 177, 69, 193, 246, 118, 195, 160, 124, 207, 95, 169, 146,
 	34, 7, 154, 77, 28, 19, 179, 190, 41, 22, 66, 26,
@@ -694,11 +688,6 @@ impl pallet_assets::Config for Runtime {
 	type AssetId = InternalAssetId;
 	type AssetIdParameter = Compact<InternalAssetId>;
 	type Currency = Balances;
-	/// <HB SBP Milestone Review II
-	///
-	/// I'm interesed in having more details about this decission of returning `0x000000...`  in case of root origin is successfully validated.
-	///
-	/// >
 	type CreateOrigin =
 		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -889,9 +878,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 /// Struct use for various barrier implementations.
 /// <HB SBP Milestone Review II
 ///
-/// I would recommend to run the bechmarks and create the corresponding weight files in this folder and provide the results in the WeightInfo type.
-///    
-/// type WeightInfo = weights::pallet_acurast_marketplace::WeightInfo<Runtime>;
+/// It's a litte confusing that this stuct is called exactly the same as the XCM Barrier type.
 ///
 /// /// >
 pub struct Barrier;

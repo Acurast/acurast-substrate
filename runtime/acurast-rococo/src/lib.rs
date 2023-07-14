@@ -13,6 +13,7 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 
+use benchmarking::AcurastBenchmarkHelper;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use parity_scale_codec::Compact;
 use smallvec::smallvec;
@@ -410,7 +411,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -443,8 +444,9 @@ where
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) =>
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
+			Ok(imbalance) => {
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
+			},
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}
@@ -626,7 +628,7 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 impl pallet_acurast_assets_manager::Config for Runtime {
@@ -635,7 +637,7 @@ impl pallet_acurast_assets_manager::Config for Runtime {
 	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -732,6 +734,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -754,7 +758,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 							p256_pub_key_to_address(k)
 								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
 						);
-						break
+						break;
 					}
 				}
 				let processor = s.ok_or(DispatchError::Other(
@@ -821,7 +825,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 				.map(|package_info| package_info.package_name.as_slice())
 				.collect::<Vec<_>>();
 			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
+			return package_names.iter().all(|package_name| allowed.contains(package_name));
 		}
 
 		false
@@ -851,6 +855,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -944,11 +950,13 @@ pub struct AcurastActionExecutor;
 impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
 	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
 		match action {
-			ParsedAction::RegisterJob(job_id, registration) =>
-				Acurast::register_for(job_id, registration.into()),
+			ParsedAction::RegisterJob(job_id, registration) => {
+				Acurast::register_for(job_id, registration.into())
+			},
 			ParsedAction::DeregisterJob(job_id) => AcurastMarketplace::deregister_hook(&job_id),
-			ParsedAction::FinalizeJob(job_ids) =>
-				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::FinalizeJob(job_ids) => {
+				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter())
+			},
 		}
 	}
 }
@@ -1235,14 +1243,30 @@ extern crate frame_benchmarking;
 mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
-		[pallet_balances, Balances]
-		[pallet_session, SessionBench::<Runtime>]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]
+		[parachain_info, ParachainInfo]
+		[pallet_sudo, Sudo]
+		[pallet_scheduler, Scheduler]
+		[pallet_preimage, Preimage]
+		[pallet_multisig, Multisig]
+		[pallet_balances, Balances]
+		[pallet_transaction_payment, TransactionPayment]
+		[pallet_uniques, Uniques]
+		[pallet_democracy, Democracy]
+		[pallet_parachain_staking, ParachainStaking]
+		[pallet_author_inherent, AuthorInherent]
+		[pallet_authorship, Authorship]
 		[pallet_collator_selection, CollatorSelection]
+		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_acurast_marketplace, AcurastMarketplace]
+		[cumulus_pallet_dmp_queue, DmpQueue]
+		[pallet_acurast, Acurast]
+		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveMMR]
+		[pallet_acurast_marketplace, AcurastMarketplace]
+		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 	);
 }
 

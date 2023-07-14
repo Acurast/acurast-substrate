@@ -153,6 +153,20 @@ cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus",
 cumulus-relay-chain-rpc-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.41" }
 cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.41" }
 
+[patch."https://github.com/Acurast/acurast-core.git"]
+pallet-acurast = { path = "../acurast-core/pallets/acurast" }
+pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
+pallet-acurast-fee-manager = { path = "../acurast-core/pallets/fee-manager" }
+acurast-p256-crypto = { path = "../acurast-core/p256-crypto" }
+pallet-acurast-assets-manager = { path = "../acurast-core/pallets/assets-manager" }
+pallet-acurast-processor-manager = { path = "../acurast-core/pallets/processor-manager" }
+pallet-acurast-hyperdrive = { path = "../acurast-core/pallets/hyperdrive" }
+pallet-acurast-hyperdrive-outgoing = { path = "../acurast-core/pallets/hyperdrive-outgoing" }
+pallet-acurast-fulfillment-receiver = { path = "../acurast-core/pallets/fulfillment-receiver" }
+acurast-reputation = { path = "../acurast-core/pallets/marketplace/reputation" }
+pallet-parachain-staking = { path = "../acurast-core/pallets/parachain-staking" }
+pallet-collator-selection = { path = "../acurast-core/pallets/collator-selection" }
+
 
 [profile.production]
 inherits = "release"

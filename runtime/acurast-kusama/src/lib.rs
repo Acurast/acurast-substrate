@@ -57,7 +57,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
-use pallet_parachain_staking::InflationInfoWithoutRound;
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -151,7 +150,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	UpgradeConsensusToNimbus,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -181,43 +179,9 @@ impl WeightToFeePolynomial for WeightToFee {
 	}
 }
 
-// TODO: Remove after PoA -> PoS migration
-pub struct DeprecatedAura;
-impl sp_runtime::BoundToRuntimeAppPublic for DeprecatedAura {
-	type Public = AuraId;
-}
-
-// TODO: Remove after PoA -> PoS migration
-impl_opaque_keys! {
-	pub struct OldSessionKeys {
-		pub aura: DeprecatedAura,
-	}
-}
-
-pub fn transform_session_keys(_v: AccountId, old: OldSessionKeys) -> SessionKeys {
-	fn nimbus_key_from(aura_id: AuraId) -> NimbusId {
-		use sp_core::crypto::UncheckedFrom;
-		let aura_as_sr25519: sp_core::sr25519::Public = aura_id.into();
-		let sr25519_as_bytes: [u8; 32] = aura_as_sr25519.into();
-		sp_core::sr25519::Public::unchecked_from(sr25519_as_bytes).into()
-	}
-	SessionKeys { nimbus: nimbus_key_from(old.aura.clone()) }
-}
-
-pub struct UpgradeConsensusToNimbus;
-impl frame_support::traits::OnRuntimeUpgrade for UpgradeConsensusToNimbus {
-	fn on_runtime_upgrade() -> Weight {
-		Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
-
-		let weight = migrations::parachain_staking::StakingPalletBootstrapping::<Runtime>::on_runtime_upgrade();
-
-		weight + (Perbill::from_percent(10) * BlockWeights::default().max_block)
-	}
-}
-
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub nimbus: AuthorInherent,
+		pub aura: Aura,
 	}
 }
 
@@ -383,7 +347,7 @@ parameter_types! {
 
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = AuthorInherent;
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -1176,59 +1140,6 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_author_inherent::Config for Runtime {
-	// A new slot starts on every new relay block.
-	type SlotBeacon = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
-	type AccountLookup = CollatorSelection;
-	type CanAuthor = consensus::aura_filter::AuraCanAuthor<Self, ParachainStaking>;
-	type WeightInfo = (); // TODO
-}
-
-parameter_types! {
-	pub const DefaultInflationConfig: InflationInfoWithoutRound = staking_info::DEFAULT_INFLATION_CONFIG;
-}
-
-impl pallet_parachain_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type MonetaryGovernanceOrigin = EnsureRoot<AccountId>;
-	/// Minimum round length is 2 minutes (10 * 12 second block times)
-	type MinBlocksPerRound = ConstU32<10>;
-	/// Rounds before the collator leaving the candidates request can be executed
-	type LeaveCandidatesDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the candidate bond increase/decrease can be executed
-	type CandidateBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator exit can be executed
-	type LeaveDelegatorsDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator revocation can be executed
-	type RevokeDelegationDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator bond increase/decrease can be executed
-	type DelegationBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the reward is paid
-	type RewardPaymentDelay = ConstU32<2>;
-	/// Minimum collators selected per round, default at genesis and minimum forever after
-	type MinSelectedCandidates = ConstU32<{ staking_info::MINIMUM_SELECTED_CANDIDATES }>;
-	/// Maximum top delegations per candidate
-	type MaxTopDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum bottom delegations per candidate
-	type MaxBottomDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum delegations per delegator
-	type MaxDelegationsPerDelegator = ConstU32<{ staking_info::MAXIMUM_DELEGATIONS_PER_DELEGATOR }>;
-	/// Minimum stake required to be reserved to be a candidate
-	type MinCandidateStk = ConstU128<{ staking_info::MINIMUM_COLLATOR_STAKE }>;
-	/// Minimum stake required to be reserved to be a delegator
-	type MinDelegation = ConstU128<{ staking_info::MAXIMUM_DELEGATION }>;
-	type MinDelegatorStk = ConstU128<{ staking_info::MAXIMUM_DELEGATOR_STAKE }>;
-	type DefaultInflationConfig = DefaultInflationConfig;
-	type BlockAuthor = AuthorInherent;
-	type OnCollatorPayout = (); // TBD
-	type PayoutCollatorReward = (); // TBD
-	type OnNewRound = (); // TBD
-	type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -1261,13 +1172,11 @@ construct_runtime!(
 		Democracy: pallet_democracy::{Pallet, Storage, Config<T>, Event<T>, Call} = 15,
 
 		// Consensus. The order of these are important and shall not change.
-		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
-		AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		//Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		//AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
+		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
+		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
@@ -1310,15 +1219,13 @@ mod benches {
 type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos>>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
-	/// TODO: This could maybe be removed
-	/// Disabled, the node client currently requires this for backward compatibility with aura blocks
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(0u64)
+			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			vec![]
+			Aura::authorities().into_inner()
 		}
 	}
 
@@ -1562,46 +1469,6 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
-
-	impl nimbus_primitives::NimbusApi<Block> for Runtime {
-		fn can_author(
-			author: nimbus_primitives::NimbusId,
-			slot: u32,
-			parent_header: &<Block as BlockT>::Header
-		) -> bool {
-			let block_number = parent_header.number + 1;
-
-			// This runtime uses an entropy source that is updated during block initialization
-			// Therefore we need to initialize it to match the state it will be in when the
-			// next block is being executed.
-			System::initialize(
-				&block_number,
-				&parent_header.hash(),
-				&parent_header.digest,
-			);
-
-			// Because the staking solution calculates the next staking set at the beginning
-			// of the first block in the new round, the only way to accurately predict the
-			// authors is to compute the selection during prediction.
-			if pallet_parachain_staking::Pallet::<Self>::round().should_update(block_number) {
-				// get author account id
-				use nimbus_primitives::AccountLookup;
-				match CollatorSelection::lookup_account(&author) {
-					Some(account) => {
-						let candidates = pallet_parachain_staking::Pallet::<Self>::compute_top_candidates();
-						consensus::aura_filter::can_author::<Self>(&account, &slot, &candidates)
-					},
-					None => {
-						// Not eligible
-						return false;
-					}
-				}
-			} else {
-				// No updates
-				<AuthorInherent as nimbus_primitives::CanAuthor<_>>::can_author(&author, &slot)
-			}
-		}
-	}
 }
 
 struct CheckInherents;
@@ -1629,7 +1496,7 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
 }
 

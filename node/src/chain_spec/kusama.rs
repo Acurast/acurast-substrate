@@ -1,7 +1,6 @@
 use cumulus_primitives_core::ParaId;
-use nimbus_primitives::NimbusId;
 use sc_service::ChainType;
-use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32, Percent};
+use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 use std::str::FromStr;
 
 pub(crate) use acurast_kusama_runtime::{
@@ -29,8 +28,8 @@ const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8;
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn acurast_session_keys(keys: NimbusId) -> acurast_runtime::SessionKeys {
-	acurast_runtime::SessionKeys { nimbus: keys }
+pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
+	acurast_runtime::SessionKeys { aura: keys }
 }
 
 /// Returns the kusama [ChainSpec].
@@ -54,13 +53,13 @@ pub fn acurast_kusama_config() -> ChainSpec {
 					(
 						AccountId32::from_str("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
 							.unwrap(),
-						NimbusId::from_string("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+						AuraId::from_string("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
 							.unwrap(),
 					),
 					(
 						AccountId32::from_str("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
 							.unwrap(),
-						NimbusId::from_string("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+						AuraId::from_string("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
 							.unwrap(),
 					),
 				],
@@ -89,7 +88,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 
 /// Returns the testnet [acurast_runtime::GenesisConfig].
 fn genesis_config(
-	invulnerables: Vec<(AccountId, NimbusId)>,
+	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
@@ -122,19 +121,11 @@ fn genesis_config(
 				})
 				.collect(),
 		},
+		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
+		// of this.
+		aura: Default::default(),
+		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		parachain_staking: acurast_runtime::ParachainStakingConfig {
-			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)
-			collator_commission: Perbill::from_percent(20), // TBD
-			num_selected_candidates: 128u32.into(),
-			parachain_bond_reserve_percent: Percent::from_percent(30), // TBD
-			candidates: invulnerables
-				.into_iter()
-				.map(|(acc, _)| (acc, staking_info::MINIMUM_COLLATOR_STAKE))
-				.collect(),
-			delegations: vec![],
-			inflation_config: staking_info::DEFAULT_INFLATION_CONFIG,
-		},
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},

@@ -5,7 +5,11 @@ RUN rustup update nightly-2023-03-14 && rustup target add wasm32-unknown-unknown
 WORKDIR /code
 COPY . .
 
-RUN cargo build --release
+RUN \
+if [ "${chain}" = "kusama" ] ; \
+then cargo +nightly-2023-03-14 build --no-default-features --features 'proof-of-authority,std' --release ; \
+else cargo +nightly-2023-03-14 build --release ; \
+fi
 
 # adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
 FROM docker.io/library/ubuntu:20.04

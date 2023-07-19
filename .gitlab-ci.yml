@@ -2,6 +2,12 @@ include:
   - project: 'papers/papers-internal/internal'
     file: '/.base-gitlab-ci.yml'
 
+variables:
+  KUSAMA_TAG: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
+  KUSAMA_TAG_LATEST: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
+  KUSAMA_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
+  KUSAMA_TAG_LATEST_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
+
 stages:
   - checks
   - build
@@ -30,12 +36,30 @@ test:
 
 build:
   stage: build
-  extends: .build
+  script:
+    - docker build -t $GOOGLE_TAG .
+    - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
 
-publish-dev:
-  stage: publish
-  extends: .publish-dev
+.publish-dev:
+  extends: .run_dev
+  script:
+    - docker tag $GOOGLE_TAG $GOOGLE_TAG_DEV
+    - docker tag $GOOGLE_TAG $GOOGLE_TAG_LATEST_DEV
+    - docker push $GOOGLE_TAG_DEV
+    - docker push $GOOGLE_TAG_LATEST_DEV
 
-publish-prod:
-  stage: publish
-  extends: .publish-prod
+    - docker tag $KUSAMA_TAG $KUSAMA_TAG_DEV
+    - docker tag $KUSAMA_TAG $KUSAMA_TAG_LATEST_DEV
+    - docker push $KUSAMA_TAG_DEV
+    - docker push $KUSAMA_TAG_LATEST_DEV
+
+.publish-prod:
+  extends: .run_prod
+  script:
+    - docker tag $GOOGLE_TAG $GOOGLE_TAG_LATEST
+    - docker push $GOOGLE_TAG
+    - docker push $GOOGLE_TAG_LATEST
+
+    - docker tag $KUSAMA_TAG $KUSAMA_TAG_LATEST
+    - docker push $KUSAMA_TAG
+    - docker push $KUSAMA_TAG_LATEST

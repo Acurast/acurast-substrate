@@ -5,8 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use acurast_runtime_common::AccountId;
 
+#[cfg(any(feature = "acurast-local", feature = "acurast-dev"))]
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
+#[cfg(feature = "acurast-rococo")]
 const ROCOCO_PARACHAIN_ID: u32 = 2239;
+#[cfg(feature = "acurast-kusama")]
 const KUSAMA_PARACHAIN_ID: u32 = 2239;
 
 #[cfg(feature = "acurast-dev")]

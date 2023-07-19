@@ -4,7 +4,7 @@ Acurast Substrate is a [Cumulus](https://github.com/paritytech/cumulus/)-based p
 
 To learn more about Acurast please visit the [website](https://acurast.com/) and [documentation](https://docs.acurast.com/).
 
-## Build
+## Build for rococo
 
 ```sh
 cargo build --release
@@ -12,6 +12,16 @@ cargo build --release
 # or
 
 make build-release
+```
+
+### Build for Kusama
+
+```sh
+cargo build --no-default-features --features "proof-of-authority std" --release
+
+# or
+
+make build-kusama-release
 ```
 
 ## Run

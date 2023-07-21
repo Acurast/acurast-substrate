@@ -1134,7 +1134,8 @@ impl pallet_democracy::Config for Runtime {
 	type ExternalOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalMajorityOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalDefaultOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
-	type SubmitOrigin = EnsureSigned<AccountId>;
+	type SubmitOrigin =
+		EnsureWithSuccess<EnsureSignedBy<RootAccountId, AccountId>, AccountId, RootAccountId>;
 	type FastTrackOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
 	type InstantOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
 	type CancellationOrigin =

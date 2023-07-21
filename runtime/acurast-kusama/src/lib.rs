@@ -314,6 +314,18 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+/// Extrinsic Call Filter
+pub struct KusamaCallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for KusamaCallFilter {
+	fn contains(c: &RuntimeCall) -> bool {
+		match c {
+			/// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
+			RuntimeCall::Balances(..) => false,
+			_ => true,
+		}
+	}
+}
+
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -350,7 +362,7 @@ impl frame_system::Config for Runtime {
 	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
+	type BaseCallFilter = KusamaCallFilter;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
 	/// Block & extrinsics weights: base values and limits.

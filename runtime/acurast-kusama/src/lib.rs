@@ -13,7 +13,6 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 
-use benchmarking::AcurastBenchmarkHelper;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use parity_scale_codec::Compact;
 use smallvec::smallvec;
@@ -44,7 +43,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate},
 		fungibles::{InspectEnumerable, Transfer},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
+		AsEnsureOriginWithArg, Currency, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
@@ -56,7 +55,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess,
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -95,7 +94,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
+	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
 pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
@@ -280,7 +279,7 @@ pub struct KusamaCallFilter;
 impl frame_support::traits::Contains<RuntimeCall> for KusamaCallFilter {
 	fn contains(c: &RuntimeCall) -> bool {
 		match c {
-			/// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
+			// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
 			RuntimeCall::Balances(..) => false,
 			_ => true,
 		}
@@ -767,7 +766,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type WeightInfo = pallet_acurast_marketplace::weights::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -888,7 +887,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = pallet_acurast_processor_manager::weights::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {

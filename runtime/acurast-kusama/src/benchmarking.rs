@@ -1,20 +1,11 @@
-use crate::{
-	AcurastMarketplace, Balance, Balances, ExtraFor, MultiSignature, RegistrationExtra, Runtime,
-};
+use crate::{AcurastMarketplace, Balance, Balances, ExtraFor, MultiSignature, Runtime};
 use frame_benchmarking::account;
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;
-use pallet_acurast_hyperdrive::{StateProof, StateProofNode};
 use pallet_acurast_marketplace::{
-	Advertisement, AdvertisementFor, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
+	Advertisement, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::AccountId32 as AccountId;
-use xcm::{
-	latest::prelude::{X2, X3},
-	prelude::{Concrete, Fungible, GeneralIndex, PalletInstance, Parachain},
-	v2::{MultiAsset, MultiLocation},
-};
 
 fn create_funded_user(
 	string: &'static str,
@@ -24,7 +15,7 @@ fn create_funded_user(
 	const SEED: u32 = 0;
 	let user = account(string, n, SEED);
 	Balances::make_free_balance_be(&user, amount);
-	Balances::issue(amount);
+	let _ = Balances::issue(amount);
 	return user
 }
 

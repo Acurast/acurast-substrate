@@ -123,6 +123,7 @@ dependencies = [
  "acurast-rococo-runtime",
  "acurast-runtime-common",
  "async-trait",
+ "cfg-if",
  "clap",
  "cumulus-client-cli",
  "cumulus-client-consensus-aura",

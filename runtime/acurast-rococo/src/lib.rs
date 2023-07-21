@@ -13,7 +13,6 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 
-use benchmarking::AcurastBenchmarkHelper;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use parity_scale_codec::Compact;
 use smallvec::smallvec;
@@ -94,7 +93,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
+	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
 pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
@@ -728,7 +727,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type WeightInfo = pallet_acurast_marketplace::weights::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -849,7 +848,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type WeightInfo = pallet_acurast_processor_manager::weights::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AcurastBenchmarkHelper;
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {

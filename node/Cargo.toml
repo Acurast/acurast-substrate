@@ -14,6 +14,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.151", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = { workspace = true }
+cfg-if = { workspace = true }
 
 # RPC
 pallet-acurast-marketplace = { workspace = true }

@@ -6,7 +6,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	AccountId32, Percent,
 };
-use std::str::FromStr;
 
 pub(crate) use acurast_rococo_runtime::{
 	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,

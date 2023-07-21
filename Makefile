@@ -29,8 +29,14 @@ start: all
 build-release:
 	@cargo build --release
 
+build-kusama-release:
+	@cargo build --no-default-features --features "proof-of-authority std" --release
+
 check-release:
 	@cargo check --release
+
+check-kusama-release:
+	@cargo check --no-default-features --features "proof-of-authority std" --release
 
 export TAG := eu.gcr.io/papers-dev-kubernetes/papers/acurast/acurast-substrate:latest
 docker-build:

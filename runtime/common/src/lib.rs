@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use nimbus_primitives::NimbusId;
+use pallet_acurast_marketplace::RegistrationExtra;
 pub use parachains_common::Balance;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
@@ -46,7 +47,11 @@ pub type BlockNumber = u32;
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 
-pub type AcurastAsset = u128;
+pub type MaxAllowedSources = pallet_acurast::CU32<1000>;
+pub type MaxAllowedSourcesFor<T> = <T as pallet_acurast::Config>::MaxAllowedSources;
+pub type MaxSlots = pallet_acurast::CU32<64>;
+pub type MaxSlotsFor<T> = <T as pallet_acurast_marketplace::Config>::MaxSlots;
+pub type ExtraFor<T> = RegistrationExtra<Balance, AccountId, MaxSlotsFor<T>>;
 
 // the base number of indivisible units for balances
 pub const PICOUNIT: Balance = 1;

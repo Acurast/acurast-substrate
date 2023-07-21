@@ -117,10 +117,6 @@ pub fn acurast_development_config() -> ChainSpec {
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 					(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
-					#[cfg(feature = "runtime-benchmarks")]
-					([1; 32].into(), 1 << 60),
-					#[cfg(feature = "runtime-benchmarks")]
-					([2; 32].into(), 1 << 60),
 				],
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),

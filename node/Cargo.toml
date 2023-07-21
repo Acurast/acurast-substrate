@@ -95,7 +95,10 @@ hex = "0.4"
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.41" }
 
 [features]
-default = ["acurast-local", "acurast-dev", "acurast-rococo", "acurast-kusama"]
+default = ["proof-of-stake"]
+
+proof-of-stake = ["acurast-local", "acurast-dev", "acurast-rococo"]
+proof-of-authority = ["acurast-kusama"]
 
 acurast-local = []
 acurast-dev = []

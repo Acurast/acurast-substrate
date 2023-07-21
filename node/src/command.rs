@@ -430,13 +430,41 @@ pub fn run() -> Result<()> {
 					You can enable it with `--features runtime-benchmarks`."
 							.into())
 					},
-				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let partials = new_partial::<
-						chain_spec::kusama::acurast_runtime::RuntimeApi,
-						service::AcurastKusamaNativeExecutor,
-					>(&config)?;
-					cmd.run(partials.client)
-				}),
+				BenchmarkCmd::Block(cmd) =>
+					runner.sync_run(|config| match config.chain_spec.variant() {
+						#[cfg(feature = "acurast-local")]
+						NetworkVariant::Local => {
+							let partials = new_partial::<
+								chain_spec::local::acurast_runtime::RuntimeApi,
+								service::AcurastLocalNativeExecutor,
+							>(&config)?;
+							cmd.run(partials.client)
+						},
+						#[cfg(feature = "acurast-dev")]
+						NetworkVariant::Dev => {
+							let partials = new_partial::<
+								chain_spec::dev::acurast_runtime::RuntimeApi,
+								service::AcurastDevNativeExecutor,
+							>(&config)?;
+							cmd.run(partials.client)
+						},
+						#[cfg(feature = "acurast-rococo")]
+						NetworkVariant::Rococo => {
+							let partials = new_partial::<
+								chain_spec::rococo::acurast_runtime::RuntimeApi,
+								service::AcurastRococoNativeExecutor,
+							>(&config)?;
+							cmd.run(partials.client)
+						},
+						#[cfg(feature = "acurast-kusama")]
+						NetworkVariant::Kusama => {
+							let partials = new_partial::<
+								chain_spec::kusama::acurast_runtime::RuntimeApi,
+								service::AcurastKusamaNativeExecutor,
+							>(&config)?;
+							cmd.run(partials.client)
+						},
+					}),
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				BenchmarkCmd::Storage(_) =>
 					return Err(sc_cli::Error::Input(

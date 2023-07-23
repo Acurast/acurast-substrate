@@ -475,10 +475,29 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let partials = new_partial::<
-						chain_spec::kusama::acurast_runtime::RuntimeApi,
-						service::AcurastKusamaNativeExecutor,
-					>(&config)?;
+					cfg_if::cfg_if! {
+						if #[cfg(feature = "acurast-local")] {
+							let partials = new_partial::<
+								chain_spec::local::acurast_runtime::RuntimeApi,
+								service::AcurastLocalNativeExecutor,
+							>(&config)?;
+						} else if #[cfg(feature = "acurast-dev")] {
+							let partials = new_partial::<
+								chain_spec::dev::acurast_runtime::RuntimeApi,
+								service::AcurastDevNativeExecutor,
+							>(&config)?;
+						} else if #[cfg(feature = "acurast-rococo")] {
+							let partials = new_partial::<
+								chain_spec::rococo::acurast_runtime::RuntimeApi,
+								service::AcurastRococoNativeExecutor,
+							>(&config)?;
+						} else if #[cfg(feature = "acurast-kusama")] {
+							let partials = new_partial::<
+								chain_spec::kusama::acurast_runtime::RuntimeApi,
+								service::AcurastKusamaNativeExecutor,
+							>(&config)?;
+						}
+					}
 					let db = partials.backend.expose_db();
 					let storage = partials.backend.expose_storage();
 					cmd.run(config, partials.client.clone(), db, storage)

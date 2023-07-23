@@ -28,6 +28,7 @@ derive_more = "0.99.17"
 serde = { version = "1.0.151", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = "0.1.9"
+cfg-if = "1.0.0"
 
 # Acurast
 pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }

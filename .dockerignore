@@ -4,6 +4,8 @@
 **/*.md
 /docker/
 !/target/release/polkadot-collator
+/zombienet/
+/chain-specs/
 
 # dotfiles in the repo root
 /.*

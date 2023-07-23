@@ -34,8 +34,11 @@ use sp_storage::{ChildInfo, StorageData, StorageKey};
 #[cfg(feature = "proof-of-authority")]
 use acurast_runtime_common::AuraId;
 
-use acurast_runtime_common::opaque::{Block, Header};
-pub use acurast_runtime_common::{AccountId, AcurastAsset, Balance, BlockNumber, Hash, Index};
+use acurast_runtime_common::{
+	opaque::{Block, Header},
+	MaxAllowedSources,
+};
+pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Index};
 
 use crate::service::{self, ParachainBackend, ParachainClient};
 
@@ -54,7 +57,7 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
+	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 where
@@ -74,8 +77,12 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
 		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
-		+ sp_consensus_aura::AuraApi<Block, AuraId>
+		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
+			Block,
+			Balance,
+			AccountId,
+			MaxAllowedSources,
+		> + sp_consensus_aura::AuraApi<Block, AuraId>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>,
 	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -92,7 +99,7 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
+	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 where
@@ -112,8 +119,12 @@ where
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
 		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
-		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>
-		+ nimbus_primitives::NimbusApi<Block>
+		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
+			Block,
+			Balance,
+			AccountId,
+			MaxAllowedSources,
+		> + nimbus_primitives::NimbusApi<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>,
 	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {

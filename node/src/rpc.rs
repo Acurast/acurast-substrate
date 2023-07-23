@@ -15,7 +15,9 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime_common::{opaque::Block, AccountId, AcurastAsset, Balance, Index as Nonce};
+use acurast_runtime_common::{
+	opaque::Block, AccountId, Balance, Index as Nonce, MaxAllowedSources,
+};
 use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
 use pallet_acurast_marketplace::MarketplaceRuntimeApi;
 
@@ -48,7 +50,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: HyperdriveApi<Block, H256, TargetChainTezos>,
-	C::Api: MarketplaceRuntimeApi<Block, AcurastAsset, AccountId>,
+	C::Api: MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use pallet_acurast_hyperdrive_outgoing::rpc::{Mmr, MmrApiServer};
@@ -62,6 +64,6 @@ where
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<TargetChainTezos, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Marketplace::<_, (Block, AcurastAsset, AccountId)>::new(client).into_rpc())?;
+	module.merge(Marketplace::<_, (Block, Balance, AccountId)>::new(client).into_rpc())?;
 	Ok(module)
 }

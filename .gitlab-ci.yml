@@ -39,6 +39,7 @@ build:
   script:
     - docker build -t $GOOGLE_TAG .
     - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
+    - docker build -t $GOOGLE_TAG-benchmarks --build-arg benchmarks="kusama" .
 
 .publish-dev:
   extends: .run_dev

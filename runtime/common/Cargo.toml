@@ -188,6 +188,7 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"frame-executive/try-runtime",
+	"nimbus-primitives/try-runtime",
 	"frame-try-runtime",
 ]
 

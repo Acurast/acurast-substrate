@@ -1,8 +1,10 @@
+use frame_support::bounded_vec;
 use sp_runtime::Permill;
 
 use emulations::runtimes::acurast_runtime::{
 	pallet_acurast::MultiOrigin,
 	pallet_acurast_marketplace::{ExecutionResult, PlannedExecution, RegistrationExtra},
+	MaxAllowedSources,
 };
 use reputation::{BetaReputation, ReputationEngine};
 
@@ -20,7 +22,7 @@ fn fund_register_job() {
 		<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 
 	let reward_per_execution = 20_000;
-	let registration = JobRegistration::<AccountId32, _> {
+	let registration = JobRegistration::<AccountId32, MaxAllowedSources, _> {
 		script: script(),
 		allowed_sources: None,
 		allow_only_verified_sources: true,
@@ -106,7 +108,7 @@ fn register_match_report_job() {
 				slots: 1,
 				reward: reward_per_execution,
 				min_reputation: Some(500_000),
-				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
+				instant_match: Some(bounded_vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
 		},
 	};
@@ -255,7 +257,7 @@ fn register_match_report_job2() {
 				slots: 1,
 				reward: reward_per_execution,
 				min_reputation: Some(500_000),
-				instant_match: Some(vec![PlannedExecution { source: BOB, start_delay: 0 }]),
+				instant_match: Some(bounded_vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
 		},
 	};

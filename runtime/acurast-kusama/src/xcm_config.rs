@@ -1,8 +1,7 @@
 use super::{
-	AccountId, AcurastAssets, Assets, Balance, Balances, ParachainInfo, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, Balances, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
-use crate::InternalAssetId;
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	log, match_types, parameter_types,
@@ -19,14 +18,14 @@ use xcm::{
 };
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, Case, ConvertedConcreteId, CurrencyAdapter, EnsureXcmOrigin,
-	FixedRateOfFungible, FixedWeightBounds, FungiblesMutateAdapter, IsConcrete, NativeAsset,
-	NoChecking, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, UsingComponents, WithComputedOrigin,
+	AllowUnpaidExecutionFrom, Case, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible,
+	FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
+	WithComputedOrigin,
 };
 use xcm_executor::{
-	traits::{ConvertOrigin, JustTry, ShouldExecute},
+	traits::{ConvertOrigin, ShouldExecute},
 	XcmExecutor,
 };
 
@@ -251,32 +250,6 @@ pub type Reserves = (
 	Case<StatemintDot>,
 );
 
-/// Means for transacting assets from Statemine.
-/// We assume Statemine acts as reserve for all assets defined in its Assets pallet,
-/// and the same asset ID is used locally.
-/// (this is rather simplistic, a more refined implementation could implement
-/// something like an "asset manager" where only assets that have been specifically
-/// registered are considered for reserve-based asset transfers).
-pub type StatemintFungiblesTransactor = FungiblesMutateAdapter<
-	// Use this fungibles implementation:
-	Assets,
-	// Use this currency when it is a fungible asset matching the given location or name:
-	ConvertedConcreteId<
-		InternalAssetId,
-		Balance,
-		AcurastAssets, // use our asset mapper as converter
-		JustTry,
-	>,
-	// Convert an XCM MultiLocation into a local account id:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We don't track any teleports of `Assets`.
-	NoChecking,
-	// We don't track any teleports of `Assets`.
-	CheckingAccount,
->;
-
 /// Means for transacting assets on this chain.
 pub type LocalAssetTransactor = CurrencyAdapter<
 	// Use this currency:
@@ -296,8 +269,7 @@ pub type StatemintNativeAssetTransactor =
 
 // Means for transacting assets on this chain. StatemintNativeAssetTransactor should come before
 // StatemintFungiblesTransactor so it gets executed first and we mint a native asset from an xcm
-pub type AssetTransactors =
-	(LocalAssetTransactor, StatemintNativeAssetTransactor, StatemintFungiblesTransactor);
+pub type AssetTransactors = (LocalAssetTransactor, StatemintNativeAssetTransactor);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

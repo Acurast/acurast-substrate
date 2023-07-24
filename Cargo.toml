@@ -39,6 +39,7 @@ pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }

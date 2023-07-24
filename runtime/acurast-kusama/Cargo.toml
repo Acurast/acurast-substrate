@@ -34,6 +34,7 @@ pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-acurast-rewards-treasury = { workspace = true }
 pallet-parachain-staking = { workspace = true }
 pallet-collator-selection = { workspace = true }
 

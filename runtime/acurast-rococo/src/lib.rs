@@ -1008,6 +1008,17 @@ impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
 }
 
+parameter_types! {
+	pub const Epoch: BlockNumber = 131072;
+	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
+}
+
+impl pallet_acurast_rewards_treasury::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Epoch = Epoch;
+	type Treasury = Treasury;
+}
+
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1239,6 +1250,7 @@ construct_runtime!(
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
+		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 	}
 );
 

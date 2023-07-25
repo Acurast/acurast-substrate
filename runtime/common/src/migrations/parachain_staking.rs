@@ -14,7 +14,7 @@ pub struct StakingPalletBootstrapping<T>(PhantomData<T>);
 impl<T> OnRuntimeUpgrade for StakingPalletBootstrapping<T>
 where
 	T: frame_system::Config + pallet_parachain_staking::Config + pallet_collator_selection::Config,
-	T::AccountId: From<[u8; 32]>,
+	<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 	pallet_parachain_staking::BalanceOf<T>: Into<Balance> + From<Balance>,
 {
 	fn on_runtime_upgrade() -> Weight {

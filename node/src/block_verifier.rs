@@ -13,7 +13,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_aura::AuraApi;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{
-	app_crypto::AppKey,
+	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT},
 };
 use std::sync::Arc;
@@ -36,7 +36,7 @@ fn get_consensus_kind<Block: BlockT>(block_header: &Block::Header) -> ConsensusK
 	if NimbusDigestItem::as_nimbus_seal(&seal).is_some() {
 		log::debug!(target: LOG, "Block sealed with Nimbus consensus");
 		return ConsensusKind::Nimbus
-	} else if AuraDigestItem::<<AuraId as AppKey>::Signature>::as_aura_seal(&seal).is_some() {
+	} else if AuraDigestItem::<<AuraId as AppCrypto>::Signature>::as_aura_seal(&seal).is_some() {
 		log::debug!(target: LOG, "Block sealed with Aura consensus");
 		return ConsensusKind::Aura
 	}
@@ -48,7 +48,7 @@ fn get_consensus_kind<Block: BlockT>(block_header: &Block::Header) -> ConsensusK
 struct AgnosticBlockVerifier<Client, Block: BlockT, AuraCIDP, NimbusCIDP> {
 	aura_verifier: cumulus_client_consensus_aura::AuraVerifier<
 		Client,
-		<AuraId as AppKey>::Pair,
+		<AuraId as AppCrypto>::Pair,
 		AuraCIDP,
 		<<Block as BlockT>::Header as HeaderT>::Number,
 	>,

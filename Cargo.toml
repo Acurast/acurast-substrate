@@ -6,7 +6,6 @@ members = [
 	"node",
 	"emulations",
 	"emulations/payments-emulation",
-	"examples/proxy-parachain/runtime",
 	"examples/proxy-parachain/node",
 ]
 
@@ -160,3 +159,8 @@ cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulu
 inherits = "release"
 lto = true
 codegen-units = 1
+
+
+# TODO: remove once tokenomics are ready
+[patch."https://github.com/paritytech/substrate"]
+frame-support-procedural = { path = "./frame/support/procedural", default-features = false }

@@ -25,7 +25,7 @@ use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::ConstructRuntimeApi;
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeyStorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 #[cfg(feature = "proof-of-authority")]
@@ -435,7 +435,7 @@ where
 		// 	sync_oracle
 		Arc<SyncingService<Block>>,
 		// 	keystore
-		SyncCryptoStorePtr,
+		KeyStorePtr,
 		// 	force_authoring
 		bool,
 	) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,
@@ -642,7 +642,7 @@ where
 		// 	sync_oracle
 		Arc<SyncingService<Block>>,
 		// 	keystore
-		SyncCryptoStorePtr,
+		KeyStorePtr,
 		// 	force_authoring
 		bool,
 	) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>,

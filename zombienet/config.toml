@@ -37,11 +37,11 @@ cumulus_based = true
 	command = "acurast-node"
 	ws_port = 8802
 	rpc_port = 8082
-	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]
+	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true", "--local-runtime" ]
 
 	[[parachains.collators]]
 	name = "Bob"
 	command = "acurast-node"
 	ws_port = 8803
 	rpc_port = 8083
-	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true" ]
+	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--enable-offchain-indexing=true", "--local-runtime" ]

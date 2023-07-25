@@ -15,7 +15,7 @@ rand = "0.8.5"
 # Runtimes
 acurast-rococo-runtime = { workspace = true }
 proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.43" }
 
 # Emulator
 xcm-simulator = { workspace = true }

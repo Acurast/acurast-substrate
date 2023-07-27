@@ -18,11 +18,8 @@ pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
-const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 const NATIVE_TOKEN_SYMBOL: &str = "ACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
-
-const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 
 /// Generate the session keys from individual elements.
 ///

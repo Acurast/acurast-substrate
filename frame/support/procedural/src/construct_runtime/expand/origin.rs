@@ -158,18 +158,9 @@ pub fn expand_outer_origin(
 			}
 
 			fn filter_call(&self, call: &Self::Call) -> bool {
-				match self.caller.clone() {
+				match self.caller {
 					// Root bypasses all filters
 					OriginCaller::system(#system_path::Origin::<#runtime>::Root) => true,
-					// Faucet account is allowed to bypass filters for pallet balances
-					OriginCaller::system(#system_path::Origin::<#runtime>::Signed(sender)) => {
-						if (sender == sp_runtime::AccountId32::new([92,180,84,63,233,219,100,44,77,212,233,149,244,162,106,135,158,244,32,63,113,185,250,101,226,175,213,25,169,11,45,83])) {
-							if let RuntimeCall::Balances(..) = *call {
-								return true;
-							}
-						}
-						return (self.filter)(call);
-					},
 					_ => (self.filter)(call),
 				}
 			}

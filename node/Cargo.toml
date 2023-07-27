@@ -1,7 +1,8 @@
 [package]
 name = "acurast-node"
+authors = { workspace = true }
 description = "Acurast Node"
-version = "0.2.0"
+version = { workspace = true }
 license = "Unlicense"
 homepage = "https://docs.acurast.com/"
 edition = "2021"

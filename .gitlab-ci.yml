@@ -3,16 +3,18 @@ include:
     file: '/.base-gitlab-ci.yml'
 
 variables:
+  KUSAMA: kusama
+  ROCOCO: rococo
   KUSAMA_TAG: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
   KUSAMA_TAG_LATEST: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
   KUSAMA_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
   KUSAMA_TAG_LATEST_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
 
 stages:
+  - benchmarking
   - checks
   - build
   - publish
-  - deploy
 
 .prepare_rust:
   image: rust:latest
@@ -39,7 +41,6 @@ build:
   script:
     - docker build -t $GOOGLE_TAG .
     - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
-    - docker build -t $GOOGLE_TAG-benchmarks --build-arg benchmarks="kusama" .
 
 .publish-dev:
   extends: .run_dev
@@ -64,3 +65,40 @@ build:
     - docker tag $KUSAMA_TAG $KUSAMA_TAG_LATEST
     - docker push $KUSAMA_TAG
     - docker push $KUSAMA_TAG_LATEST
+
+.prepare-benchmarking:
+  script:
+    - mkdir -p $KUSAMA/ $ROCOCO/
+    - docker build -t $CI_COMMIT_SHA-$KUSAMA-benchmarks --build-arg benchmarks="$KUSAMA" .
+    #- docker build -t $CI_COMMIT_SHA-$ROCOCO-benchmarks --build-arg benchmarks="$ROCOCO" .
+    - docker create --name $KUSAMA $CI_COMMIT_SHA-$KUSAMA-benchmarks
+    #- docker create --name $ROCOCO $CI_COMMIT_SHA-$ROCOCO-benchmarks
+    - docker cp "$KUSAMA:/usr/local/bin/acurast-node" $KUSAMA/
+    #- docker cp "$ROCOCO:/usr/local/bin/acurast-node" $ROCOCO/
+    - docker rm $KUSAMA #$ROCOCO
+
+run-kusama-benchmarks:
+  extends: .before_script_dev
+  stage: benchmarking
+  when: manual
+  variables:
+    VM_ZONE: "us-central1-a"
+  script:
+    - !reference [.prepare-benchmarking, script]
+    # create vm
+    - gcloud compute instances create acurast-benchmark --image=ubuntu-minimal-2210-kinetic-amd64-v20230328 --machine-type=c2d-highcpu-8 --preemptible --zone=$VM_ZONE --image-project=ubuntu-os-cloud
+    #  copy over binary
+    - gcloud compute scp --zone=$VM_ZONE $KUSAMA/acurast-node acurast-benchmark:/acurast-node
+    # run benchmarks
+    - gcloud compute ssh acurast-benchmark --zone=$VM_ZONE --command="mkdir -p /benchmarks; /acurast-node benchmark pallet --chain=acurast-kusama --execution=wasm --wasm-execution=compiled --pallet "*" --extrinsic "*" --steps=50 --repeat=20 --output=/benchmarks/"
+    # copy over benchmarks
+    - gcloud compute scp --zone=$VM_ZONE --recurse acurast-benchmark:/benchmarks $KUSAMA/
+
+  after_script:
+    # delete vm
+    - gcloud compute instances delete acurast-benchmark --zone=$VM_ZONE --quiet
+
+  artifacts:
+    paths:
+      - $KUSAMA
+    expire_in: "30 days"

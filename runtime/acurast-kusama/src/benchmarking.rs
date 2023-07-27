@@ -41,7 +41,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
 				slots: 1,
-				reward: 20100,
+				reward: 2_000_000_000,
 				min_reputation: None,
 				instant_match: if instant_match {
 					Some(

@@ -1,0 +1,12 @@
+pub mod cumulus_pallet_xcmp_queue;
+pub mod frame_system;
+pub mod pallet_acurast_fee_manager;
+pub mod pallet_acurast_hyperdrive;
+pub mod pallet_acurast_processor_manager;
+pub mod pallet_balances;
+pub mod pallet_session;
+//pub mod pallet_acurast_hyperdrive_outgoing;
+pub mod pallet_acurast;
+pub mod pallet_acurast_marketplace;
+pub mod pallet_collator_selection;
+pub mod pallet_timestamp;

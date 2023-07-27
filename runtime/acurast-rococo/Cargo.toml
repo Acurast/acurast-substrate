@@ -1,8 +1,8 @@
 [package]
 name = "acurast-rococo-runtime"
-authors = ["Papers AG"]
+authors = { workspace = true }
 description = "Acurast Rococo Runtime"
-version = "0.2.0"
+version = { workspace = true }
 license = "Unlicense"
 keywords = ["no_std", "no-std"]
 categories = ["no-std"]
@@ -34,6 +34,7 @@ pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-acurast-rewards-treasury = { workspace = true }
 pallet-parachain-staking = { workspace = true }
 pallet-collator-selection = { workspace = true }
 
@@ -135,6 +136,7 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-uniques/std",
+	"pallet-multisig/std",
 	"pallet-acurast/std",
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
@@ -186,6 +188,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

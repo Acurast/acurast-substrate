@@ -74,23 +74,16 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 pub use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
 use xcm_executor::XcmExecutor;
 
-pub use parachains_common::Balance;
-
 use frame_support::traits::EitherOfDiverse;
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
 use std::string;
 
-use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
-pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
-pub use pallet_acurast_marketplace;
-pub use pallet_acurast_processor_manager;
-
-use acurast_runtime_common::weights;
+use acurast_p256_crypto::MultiSignature;
 pub use acurast_runtime_common::*;
+pub use pallet_acurast;
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
@@ -98,9 +91,11 @@ use pallet_acurast_hyperdrive_outgoing::{
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
 	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
 };
+pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
+	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
+pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
@@ -114,8 +109,6 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 		Ok(AcurastAccountId(AccountId32::new(a)))
 	}
 }
-
-type Extra = RegistrationExtra<AcurastAsset, AccountId>;
 
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<opaque::Header, UncheckedExtrinsic>;
@@ -626,7 +619,7 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 impl pallet_acurast_assets_manager::Config for Runtime {
@@ -635,7 +628,7 @@ impl pallet_acurast_assets_manager::Config for Runtime {
 	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -652,6 +645,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
 	type UpdateOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
@@ -659,6 +653,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 	type UpdateOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
 }
 
 /// Reward fee management implementation.
@@ -680,18 +675,15 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 /// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type RegistrationExtra = Extra;
-	type MaxAllowedSources = frame_support::traits::ConstU32<1000>;
+	type RegistrationExtra = ExtraFor<Self>;
+	type MaxAllowedSources = MaxAllowedSources;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
-		Runtime,
-		pallet_acurast::weights::WeightInfo<Runtime>,
-	>;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -722,16 +714,20 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = pallet_acurast::CU32<100>;
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
-	type RegistrationExtra = Extra;
+	type MaxSlots = MaxSlots;
+	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
-	type Balance = AcurastAsset;
+	type Balance = Balance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
-	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
+	type WeightInfo = pallet_acurast_marketplace::weights::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -850,7 +846,9 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
-	type WeightInfo = ();
+	type WeightInfo = pallet_acurast_processor_manager::weights::WeightInfo<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -941,8 +939,16 @@ parameter_types! {
 }
 
 pub struct AcurastActionExecutor;
-impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
-	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
+impl
+	pallet_acurast_hyperdrive::ActionExecutor<
+		AccountId,
+		MaxAllowedSourcesFor<Runtime>,
+		ExtraFor<Runtime>,
+	> for AcurastActionExecutor
+{
+	fn execute(
+		action: ParsedAction<AccountId, MaxAllowedSourcesFor<Runtime>, ExtraFor<Runtime>>,
+	) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
@@ -971,14 +977,23 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type TargetChainOwner = TezosContract;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
-	type Balance = AcurastAsset;
-	type RegistrationExtra = Extra;
+	type Balance = Balance;
+	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
+	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxSlots = MaxSlotsFor<Self>;
+	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser = TezosParser<AcurastAsset, AcurastAccountId, AccountId, Extra>;
+	type MessageParser = TezosParser<
+		Balance,
+		AcurastAccountId,
+		AccountId,
+		MaxSlotsFor<Self>,
+		Self::RegistrationExtra,
+	>;
 	type ActionExecutor = AcurastActionExecutor;
-	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
+	type WeightInfo = pallet_acurast_hyperdrive::weights::WeightInfo<Runtime>;
 }
 
 impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
@@ -991,6 +1006,17 @@ impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+parameter_types! {
+	pub const Epoch: BlockNumber = 131072;
+	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
+}
+
+impl pallet_acurast_rewards_treasury::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Epoch = Epoch;
+	type Treasury = Treasury;
 }
 
 /// Runtime configuration for pallet_sudo.
@@ -1224,6 +1250,7 @@ construct_runtime!(
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
+		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 	}
 );
 
@@ -1235,14 +1262,19 @@ extern crate frame_benchmarking;
 mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
-		[pallet_balances, Balances]
-		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
+		[pallet_multisig, Multisig]
+		[pallet_balances, Balances]
+		[pallet_democracy, Democracy]
 		[pallet_collator_selection, CollatorSelection]
+		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_acurast_marketplace, AcurastMarketplace]
+		[pallet_acurast, Acurast]
+		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveMMR]
+		[pallet_acurast_marketplace, AcurastMarketplace]
+		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 	);
 }
 
@@ -1414,9 +1446,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId> for Runtime {
+	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources> for Runtime {
 		fn filter_matching_sources(
-			registration: PartialJobRegistration<AcurastAsset, AccountId>,
+			registration: PartialJobRegistration<Balance, AccountId, MaxAllowedSources>,
 			sources: Vec<AccountId>,
 			consumer: Option<MultiOrigin<AccountId>>,
 			latest_seen_after: Option<u128>,

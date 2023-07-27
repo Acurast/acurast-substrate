@@ -5,7 +5,19 @@ RUN rustup update nightly-2023-03-14 && rustup target add wasm32-unknown-unknown
 WORKDIR /code
 COPY . .
 
-RUN cargo build --release
+ARG chain=""
+ARG benchmarks=""
+
+RUN \
+if [ "${benchmarks}" = "kusama" ] ; then \
+    cargo build --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
+elif [[ -n "${benchmarks}" ]] ; then \
+    cargo build --no-default-features --features 'runtime-benchmarks' --release ; \
+elif [ "${chain}" = "kusama" ] ; then \
+	cargo build --no-default-features --features 'acurast-kusama,std' --release ; \
+else \
+    cargo build --release ; \
+fi
 
 # adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
 FROM docker.io/library/ubuntu:20.04

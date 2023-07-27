@@ -158,6 +158,18 @@ where
 	}
 }
 
+pub struct DenyAllXCM;
+impl ShouldExecute for DenyAllXCM {
+	fn should_execute<RuntimeCall>(
+		_origin: &MultiLocation,
+		_message: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_weight_credit: &mut Weight,
+	) -> Result<(), ()> {
+		Err(()) // Deny
+	}
+}
+
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
 impl ShouldExecute for DenyReserveTransferToRelayChain {
@@ -203,7 +215,9 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 }
 
 pub type Barrier = DenyThenTry<
-	DenyReserveTransferToRelayChain,
+	// TODO remove when we migrated to XCM setup in polkadot v0.9.43
+	DenyAllXCM,
+	// DenyReserveTransferToRelayChain,
 	(
 		TakeWeightCredit,
 		WithComputedOrigin<

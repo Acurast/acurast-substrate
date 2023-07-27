@@ -1,7 +1,8 @@
 [package]
 name = "acurast-node"
+authors = { workspace = true }
 description = "Acurast Node"
-version = "0.2.0"
+version = { workspace = true }
 license = "Unlicense"
 homepage = "https://docs.acurast.com/"
 edition = "2021"
@@ -14,6 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.151", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = { workspace = true }
+cfg-if = { workspace = true }
 
 # RPC
 pallet-acurast-marketplace = { workspace = true }
@@ -95,16 +97,20 @@ hex = "0.4"
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.41" }
 
 [features]
-default = ["acurast-local", "acurast-dev", "acurast-rococo", "acurast-kusama"]
+default = ["acurast-local", "acurast-dev", "acurast-rococo"]
 
-acurast-local = []
-acurast-dev = []
-acurast-rococo = []
-acurast-kusama = []
+proof-of-stake = []
+proof-of-authority = []
+
+acurast-local = ["proof-of-stake"]
+acurast-dev = ["proof-of-stake"]
+acurast-rococo = ["proof-of-stake"]
+acurast-kusama = ["proof-of-authority"]
 
 runtime-benchmarks = [
 	"try-runtime-cli/try-runtime",
 	"acurast-rococo-runtime/runtime-benchmarks",
+	"acurast-kusama-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
 try-runtime = [

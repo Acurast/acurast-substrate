@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod weight;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -14,7 +15,6 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use parity_scale_codec::Compact;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
@@ -41,9 +41,8 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
-		fungibles::{InspectEnumerable, Transfer},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
+		AsEnsureOriginWithArg, Currency, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
@@ -55,9 +54,8 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess,
 };
-use pallet_parachain_staking::InflationInfoWithoutRound;
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -82,14 +80,10 @@ use sp_std::alloc::string;
 #[cfg(feature = "std")]
 use std::string;
 
-use acurast_p256_crypto::MultiSignature;
 /// Acurast Imports
-pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
-pub use pallet_acurast_marketplace;
-pub use pallet_acurast_processor_manager;
+use acurast_p256_crypto::MultiSignature;
+use acurast_runtime_common::*;
 
-use acurast_runtime_common::{weights, *};
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
@@ -97,9 +91,11 @@ use pallet_acurast_hyperdrive_outgoing::{
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
 	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
 };
+pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RegistrationExtra, RuntimeApiError,
+	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
+pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
@@ -113,8 +109,6 @@ impl TryFrom<Vec<u8>> for AcurastAccountId {
 		Ok(AcurastAccountId(AccountId32::new(a)))
 	}
 }
-
-type Extra = RegistrationExtra<AcurastAsset, AccountId>;
 
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<opaque::Header, UncheckedExtrinsic>;
@@ -151,7 +145,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	UpgradeConsensusToNimbus,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -181,43 +174,9 @@ impl WeightToFeePolynomial for WeightToFee {
 	}
 }
 
-// TODO: Remove after PoA -> PoS migration
-pub struct DeprecatedAura;
-impl sp_runtime::BoundToRuntimeAppPublic for DeprecatedAura {
-	type Public = AuraId;
-}
-
-// TODO: Remove after PoA -> PoS migration
-impl_opaque_keys! {
-	pub struct OldSessionKeys {
-		pub aura: DeprecatedAura,
-	}
-}
-
-pub fn transform_session_keys(_v: AccountId, old: OldSessionKeys) -> SessionKeys {
-	fn nimbus_key_from(aura_id: AuraId) -> NimbusId {
-		use sp_core::crypto::UncheckedFrom;
-		let aura_as_sr25519: sp_core::sr25519::Public = aura_id.into();
-		let sr25519_as_bytes: [u8; 32] = aura_as_sr25519.into();
-		sp_core::sr25519::Public::unchecked_from(sr25519_as_bytes).into()
-	}
-	SessionKeys { nimbus: nimbus_key_from(old.aura.clone()) }
-}
-
-pub struct UpgradeConsensusToNimbus;
-impl frame_support::traits::OnRuntimeUpgrade for UpgradeConsensusToNimbus {
-	fn on_runtime_upgrade() -> Weight {
-		Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
-
-		let weight = migrations::parachain_staking::StakingPalletBootstrapping::<Runtime>::on_runtime_upgrade();
-
-		weight + (Perbill::from_percent(10) * BlockWeights::default().max_block)
-	}
-}
-
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub nimbus: AuthorInherent,
+		pub aura: Aura,
 	}
 }
 
@@ -314,6 +273,18 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+/// Extrinsic Call Filter
+pub struct KusamaCallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for KusamaCallFilter {
+	fn contains(c: &RuntimeCall) -> bool {
+		match c {
+			// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
+			RuntimeCall::Balances(..) => false,
+			_ => true,
+		}
+	}
+}
+
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -350,7 +321,7 @@ impl frame_system::Config for Runtime {
 	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
+	type BaseCallFilter = KusamaCallFilter;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
 	/// Block & extrinsics weights: base values and limits.
@@ -374,7 +345,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -383,7 +354,7 @@ parameter_types! {
 
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = AuthorInherent;
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -403,7 +374,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 }
@@ -561,7 +532,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureAdminOrRoot;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = ();
-	type WeightInfo = ();
+	type WeightInfo = weight::cumulus_pallet_xcmp_queue::WeightInfo<Self>;
 }
 
 /// Runtime configuration for cumulus_pallet_dmp_queue.
@@ -589,14 +560,14 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_session::WeightInfo<Runtime>;
 }
 
 /// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
-	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
+	type DisabledValidators = ();
 }
 
 parameter_types! {
@@ -627,7 +598,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type AccountIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
 /// The permissioned multisig account `5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je`.
@@ -664,40 +635,6 @@ pub type EnsureAdminOrRoot =
 
 pub type InternalAssetId = u32;
 
-/// Runtime configuration for pallet_assets.
-impl pallet_assets::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = InternalAssetId;
-	type AssetIdParameter = Compact<InternalAssetId>;
-	type Currency = Balances;
-	type CreateOrigin =
-		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
-	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type AssetDeposit = frame_support::traits::ConstU128<0>;
-	type MetadataDepositBase = frame_support::traits::ConstU128<{ UNIT }>;
-	type MetadataDepositPerByte = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type ApprovalDeposit = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type StringLimit = frame_support::traits::ConstU32<50>;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
-	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
-	type CallbackHandle = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
-}
-
-impl pallet_acurast_assets_manager::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EnsureAdminOrRoot;
-	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
-}
-
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
@@ -712,6 +649,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
 	type UpdateOrigin = EnsureAdminOrRoot;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
@@ -719,6 +657,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 	type UpdateOrigin = EnsureAdminOrRoot;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Reward fee management implementation.
@@ -740,18 +679,15 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 /// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type RegistrationExtra = Extra;
-	type MaxAllowedSources = frame_support::traits::ConstU32<1000>;
+	type RegistrationExtra = ExtraFor<Self>;
+	type MaxAllowedSources = MaxAllowedSources;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type PalletId = AcurastPalletId;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast_marketplace::weights_with_hooks::Weights<
-		Runtime,
-		pallet_acurast::weights::WeightInfo<Runtime>,
-	>;
+	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -782,16 +718,20 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = pallet_acurast::CU32<100>;
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
-	type RegistrationExtra = Extra;
+	type MaxSlots = MaxSlots;
+	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type ReportTolerance = ReportTolerance;
-	type Balance = AcurastAsset;
+	type Balance = Balance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
-	type WeightInfo = pallet_acurast_marketplace::weights::Weights<Runtime>;
+	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -910,7 +850,9 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
 parameter_types! {
@@ -974,19 +916,6 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 			Balances::mint_into(destination_account, burned)?;
 		}
 
-		let ids = Assets::asset_ids();
-		for id in ids {
-			let balance = Assets::balance(id, processor);
-			if balance > 0 {
-				<Assets as Transfer<<Runtime as frame_system::Config>::AccountId>>::transfer(
-					id,
-					&processor,
-					&destination_account,
-					balance,
-					false,
-				)?;
-			}
-		}
 		Ok(())
 	}
 }
@@ -1001,8 +930,16 @@ parameter_types! {
 }
 
 pub struct AcurastActionExecutor;
-impl pallet_acurast_hyperdrive::ActionExecutor<AccountId, Extra> for AcurastActionExecutor {
-	fn execute(action: ParsedAction<AccountId, Extra>) -> DispatchResultWithPostInfo {
+impl
+	pallet_acurast_hyperdrive::ActionExecutor<
+		AccountId,
+		MaxAllowedSourcesFor<Runtime>,
+		ExtraFor<Runtime>,
+	> for AcurastActionExecutor
+{
+	fn execute(
+		action: ParsedAction<AccountId, MaxAllowedSourcesFor<Runtime>, ExtraFor<Runtime>>,
+	) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
@@ -1032,14 +969,23 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type TargetChainOwner = TezosContract;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
-	type Balance = AcurastAsset;
-	type RegistrationExtra = Extra;
+	type Balance = Balance;
+	type RegistrationExtra = ExtraFor<Self>;
+	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
+	type MaxSlots = MaxSlotsFor<Self>;
+	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser = TezosParser<AcurastAsset, AcurastAccountId, AccountId, Extra>;
+	type MessageParser = TezosParser<
+		Balance,
+		AcurastAccountId,
+		AccountId,
+		MaxSlotsFor<Self>,
+		Self::RegistrationExtra,
+	>;
 	type ActionExecutor = AcurastActionExecutor;
-	type WeightInfo = pallet_acurast_hyperdrive::weights::Weights<Runtime>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
 impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
@@ -1052,6 +998,17 @@ impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+parameter_types! {
+	pub const Epoch: BlockNumber = 131072;
+	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
+}
+
+impl pallet_acurast_rewards_treasury::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Epoch = Epoch;
+	type Treasury = Treasury;
 }
 
 /// Runtime configuration for pallet_sudo.
@@ -1068,8 +1025,8 @@ parameter_types! {
 
 /// Runtime configuration for pallet_preimage.
 impl pallet_preimage::Config for Runtime {
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureAdminOrRoot;
 	type BaseDeposit = PreimageBaseDeposit;
@@ -1090,7 +1047,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureAdminOrRoot;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = ();
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
@@ -1134,7 +1091,8 @@ impl pallet_democracy::Config for Runtime {
 	type ExternalOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalMajorityOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
 	type ExternalDefaultOrigin = EnsureSignedBy<CouncilAccountId, AccountId>;
-	type SubmitOrigin = EnsureSigned<AccountId>;
+	type SubmitOrigin =
+		EnsureWithSuccess<EnsureSignedBy<RootAccountId, AccountId>, AccountId, RootAccountId>;
 	type FastTrackOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
 	type InstantOrigin = EnsureSignedBy<TechCommitteeAccountId, AccountId>;
 	type CancellationOrigin =
@@ -1176,59 +1134,6 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_author_inherent::Config for Runtime {
-	// A new slot starts on every new relay block.
-	type SlotBeacon = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
-	type AccountLookup = CollatorSelection;
-	type CanAuthor = consensus::aura_filter::AuraCanAuthor<Self, ParachainStaking>;
-	type WeightInfo = (); // TODO
-}
-
-parameter_types! {
-	pub const DefaultInflationConfig: InflationInfoWithoutRound = staking_info::DEFAULT_INFLATION_CONFIG;
-}
-
-impl pallet_parachain_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type MonetaryGovernanceOrigin = EnsureRoot<AccountId>;
-	/// Minimum round length is 2 minutes (10 * 12 second block times)
-	type MinBlocksPerRound = ConstU32<10>;
-	/// Rounds before the collator leaving the candidates request can be executed
-	type LeaveCandidatesDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the candidate bond increase/decrease can be executed
-	type CandidateBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator exit can be executed
-	type LeaveDelegatorsDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator revocation can be executed
-	type RevokeDelegationDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator bond increase/decrease can be executed
-	type DelegationBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the reward is paid
-	type RewardPaymentDelay = ConstU32<2>;
-	/// Minimum collators selected per round, default at genesis and minimum forever after
-	type MinSelectedCandidates = ConstU32<{ staking_info::MINIMUM_SELECTED_CANDIDATES }>;
-	/// Maximum top delegations per candidate
-	type MaxTopDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum bottom delegations per candidate
-	type MaxBottomDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum delegations per delegator
-	type MaxDelegationsPerDelegator = ConstU32<{ staking_info::MAXIMUM_DELEGATIONS_PER_DELEGATOR }>;
-	/// Minimum stake required to be reserved to be a candidate
-	type MinCandidateStk = ConstU128<{ staking_info::MINIMUM_COLLATOR_STAKE }>;
-	/// Minimum stake required to be reserved to be a delegator
-	type MinDelegation = ConstU128<{ staking_info::MAXIMUM_DELEGATION }>;
-	type MinDelegatorStk = ConstU128<{ staking_info::MAXIMUM_DELEGATOR_STAKE }>;
-	type DefaultInflationConfig = DefaultInflationConfig;
-	type BlockAuthor = AuthorInherent;
-	type OnCollatorPayout = (); // TBD
-	type PayoutCollatorReward = (); // TBD
-	type OnNewRound = (); // TBD
-	type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -1251,23 +1156,19 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		// TODO(SW): remove once AcurastAssets migrated (clearing storge)
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
-		// TODO(SW): remove once migrated to V3 (clearing storge)
-		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		// (keep comment, just so we know that pallet assets used to be on this pallet index)
+		// Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Governance stuff.
 		Democracy: pallet_democracy::{Pallet, Storage, Config<T>, Event<T>, Call} = 15,
 
 		// Consensus. The order of these are important and shall not change.
-		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
-		AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		//Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		//AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
+		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
+		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
@@ -1285,6 +1186,7 @@ construct_runtime!(
 		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
+		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 	}
 );
 
@@ -1301,24 +1203,25 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_acurast_marketplace, AcurastMarketplace]
+		[pallet_acurast, Acurast]
+		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveMMR]
+		[pallet_acurast_marketplace, AcurastMarketplace]
+		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 	);
 }
 
 type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos>>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
-	/// TODO: This could maybe be removed
-	/// Disabled, the node client currently requires this for backward compatibility with aura blocks
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(0u64)
+			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			vec![]
+			Aura::authorities().into_inner()
 		}
 	}
 
@@ -1475,9 +1378,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, AcurastAsset, AccountId> for Runtime {
+	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources> for Runtime {
 		fn filter_matching_sources(
-			registration: PartialJobRegistration<AcurastAsset, AccountId>,
+			registration: PartialJobRegistration<Balance, AccountId, MaxAllowedSources>,
 			sources: Vec<AccountId>,
 			consumer: Option<MultiOrigin<AccountId>>,
 			latest_seen_after: Option<u128>,
@@ -1562,46 +1465,6 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
-
-	impl nimbus_primitives::NimbusApi<Block> for Runtime {
-		fn can_author(
-			author: nimbus_primitives::NimbusId,
-			slot: u32,
-			parent_header: &<Block as BlockT>::Header
-		) -> bool {
-			let block_number = parent_header.number + 1;
-
-			// This runtime uses an entropy source that is updated during block initialization
-			// Therefore we need to initialize it to match the state it will be in when the
-			// next block is being executed.
-			System::initialize(
-				&block_number,
-				&parent_header.hash(),
-				&parent_header.digest,
-			);
-
-			// Because the staking solution calculates the next staking set at the beginning
-			// of the first block in the new round, the only way to accurately predict the
-			// authors is to compute the selection during prediction.
-			if pallet_parachain_staking::Pallet::<Self>::round().should_update(block_number) {
-				// get author account id
-				use nimbus_primitives::AccountLookup;
-				match CollatorSelection::lookup_account(&author) {
-					Some(account) => {
-						let candidates = pallet_parachain_staking::Pallet::<Self>::compute_top_candidates();
-						consensus::aura_filter::can_author::<Self>(&account, &slot, &candidates)
-					},
-					None => {
-						// Not eligible
-						return false;
-					}
-				}
-			} else {
-				// No updates
-				<AuthorInherent as nimbus_primitives::CanAuthor<_>>::can_author(&author, &slot)
-			}
-		}
-	}
 }
 
 struct CheckInherents;
@@ -1629,7 +1492,7 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
 }
 

@@ -1,8 +1,8 @@
 [package]
 name = "acurast-runtime-common"
-authors = ["Papers AG"]
+authors = { workspace = true }
 description = "Acurast Common Configuration for runtime and node (#nostd)"
-version = "0.2.0"
+version = { workspace = true }
 license = "Unlicense"
 keywords = ["no_std", "no-std"]
 categories = ["no-std"]
@@ -188,6 +188,7 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"frame-executive/try-runtime",
+	"nimbus-primitives/try-runtime",
 	"frame-try-runtime",
 ]
 

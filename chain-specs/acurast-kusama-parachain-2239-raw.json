@@ -2,7 +2,10 @@
   "name": "Acurast Kusama",
   "id": "acurast-kusama",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/ip4/148.251.47.152/tcp/30333/p2p/12D3KooWQ7TqrXKyBz8TaE5EoAnHGReCPXub5ZPRqPEDFH8aePjB",
+    "/ip4/95.217.150.142/tcp/30333/p2p/12D3KooWJQkqkBAmWX6Ep46MWqwjkMUz2aC1sgmbYZPApoeWNMCS"
+  ],
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {

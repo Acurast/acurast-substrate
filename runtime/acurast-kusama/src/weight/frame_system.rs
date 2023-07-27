@@ -112,4 +112,15 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
+	/// TODO: Dummy, replaced by runtime-benchmark run
+	fn set_code() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1485`
+		// Minimum execution time: 82_193_241_000 picoseconds.
+		Weight::from_parts(83_864_245_000, 0)
+			.saturating_add(Weight::from_parts(0, 1485))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

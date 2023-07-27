@@ -5,7 +5,6 @@ panic = "unwind"
 members = [
 	"node",
 	"emulations",
-	"emulations/payments-emulation",
 	"examples/proxy-parachain/node",
 ]
 
@@ -90,6 +89,7 @@ sp-consensus = { git = "https://github.com/paritytech/substrate", default-featur
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 pallet-preimage = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+pallet-message-queue = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
@@ -125,6 +125,7 @@ xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features
 xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.43" }
 xcm-simulator = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.43" }
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.43" }
+polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.43" }
 
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.43" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.43" }

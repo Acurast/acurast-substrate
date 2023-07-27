@@ -42,8 +42,10 @@ build:
     - docker build -t $GOOGLE_TAG .
     - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
 
-.publish-dev:
-  extends: .run_dev
+publish-dev:
+  stage: publish
+  extends: .before_script_dev
+  when: manual
   script:
     - docker tag $GOOGLE_TAG $GOOGLE_TAG_DEV
     - docker tag $GOOGLE_TAG $GOOGLE_TAG_LATEST_DEV
@@ -55,8 +57,10 @@ build:
     - docker push $KUSAMA_TAG_DEV
     - docker push $KUSAMA_TAG_LATEST_DEV
 
-.publish-prod:
-  extends: .run_prod
+publish-prod:
+  stage: publish
+  extends: .before_script_prod
+  when: manual
   script:
     - docker tag $GOOGLE_TAG $GOOGLE_TAG_LATEST
     - docker push $GOOGLE_TAG

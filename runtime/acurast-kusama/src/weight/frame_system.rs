@@ -112,4 +112,8 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
+	/// TODO: Dummy, replaced by runtime-benchmark run
+	fn set_code() -> Weight {
+		Weight::from_parts(7_690_000, 0)
+	}
 }

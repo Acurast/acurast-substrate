@@ -74,7 +74,10 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
 
-use frame_support::traits::EitherOfDiverse;
+use frame_support::traits::{
+	tokens::{Fortitude, Precision, Preservation},
+	EitherOfDiverse,
+};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
@@ -374,7 +377,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type HoldIdentifier = [u8; 8];
@@ -914,9 +917,18 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 		processor: &<Runtime as frame_system::Config>::AccountId,
 		destination_account: &<Runtime as frame_system::Config>::AccountId,
 	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = Balances::reducible_balance(processor, true);
+		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
+			processor,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		if usable_balance > 0 {
-			let burned = Balances::burn_from(processor, usable_balance)?;
+			let burned = <Balances as Mutate<_>>::burn_from(
+				processor,
+				usable_balance,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)?;
 			Balances::mint_into(destination_account, burned)?;
 		}
 
@@ -1019,6 +1031,7 @@ impl pallet_acurast_rewards_treasury::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1246,6 +1259,14 @@ impl_runtime_apis! {
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
+		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
 		}
 	}
 

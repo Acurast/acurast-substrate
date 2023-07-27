@@ -2849,13 +2849,36 @@ dependencies = [
 name = "emulations"
 version = "0.1.0"
 dependencies = [
+ "acurast-reputation",
  "acurast-rococo-runtime",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.3.4",
+ "pallet-acurast-fulfillment-receiver",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-uniques",
+ "pallet-xcm",
+ "parachain-info",
+ "parachains-common",
  "parity-scale-codec",
- "polkadot-runtime",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "proc-macro2",
  "proxy-parachain-runtime",
  "rand 0.8.5",
  "scale-info",
  "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "xcm",
+ "xcm-builder",
+ "xcm-executor",
  "xcm-simulator",
 ]
 
@@ -7532,40 +7555,6 @@ name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
-
-[[package]]
-name = "payments-emulation"
-version = "0.1.0"
-dependencies = [
- "acurast-reputation",
- "cumulus-pallet-dmp-queue",
- "cumulus-primitives-core",
- "emulations",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.3.4",
- "pallet-acurast-fulfillment-receiver",
- "pallet-assets",
- "pallet-balances",
- "pallet-xcm",
- "parachain-info",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain",
- "polkadot-primitives",
- "proc-macro2",
- "rand 0.8.5",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "xcm",
- "xcm-executor",
-]
 
 [[package]]
 name = "pbkdf2"

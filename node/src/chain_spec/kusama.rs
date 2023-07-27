@@ -19,7 +19,7 @@ const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
 const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
+const NATIVE_TOKEN_SYMBOL: &str = "ACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 
 const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
@@ -41,7 +41,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 
 	ChainSpec::from_genesis(
 		// Name
-		"Acurast Kusama Testnet",
+		"Acurast Kusama",
 		// ID
 		"acurast-kusama",
 		ChainType::Live,
@@ -50,23 +50,34 @@ pub fn acurast_kusama_config() -> ChainSpec {
 				// initial collators.
 				vec![
 					(
-						AccountId32::from_str("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+						AccountId32::from_str("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
 							.unwrap(),
-						AuraId::from_string("5G3ofXWgdH2fZZuYKgzTJMfDZLb9yNbiSuGCRQGKVBNgZXJi")
+						AuraId::from_string("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
 							.unwrap(),
 					),
 					(
-						AccountId32::from_str("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+						AccountId32::from_str("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
 							.unwrap(),
-						AuraId::from_string("5DAi7w3otvntMWvRLCWgorKMv4dpPvvU7jkZcrKxHpjWg6X7")
+						AuraId::from_string("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
+							.unwrap(),
+						AuraId::from_string("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
+							.unwrap(),
+					),
+					(
+						AccountId32::from_str("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
+							.unwrap(),
+						AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
 							.unwrap(),
 					),
 				],
 				vec![
 					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), NATIVE_INITIAL_BALANCE),
-					(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
+					(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000_000_000),
 				],
 				KUSAMA_PARACHAIN_ID.into(),
 				acurast_sudo_account(),
@@ -147,11 +158,6 @@ pub fn fee_manager_pallet_account() -> AccountId {
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5CLiYDEbpsdH8o6bYW6tDMfHi4NdsMWTmQ2WnsdU4H9CzcaL")
-}
-
-/// returns the faucet account id.
-pub fn acurast_faucet_account() -> AccountId {
-	accountid_from_str("5EAFqBNRWhe93pXvvkXB1oBHe15btTyw6vy21eGtwRqXjFLz")
 }
 
 fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {

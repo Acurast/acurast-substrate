@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod weight;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -82,7 +83,7 @@ use std::string;
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::*;
-// pub use pallet_acurast;
+
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
 use pallet_acurast_hyperdrive_outgoing::{
@@ -344,7 +345,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -373,7 +374,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 }
@@ -531,7 +532,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureAdminOrRoot;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = ();
-	type WeightInfo = ();
+	type WeightInfo = weight::cumulus_pallet_xcmp_queue::WeightInfo<Self>;
 }
 
 /// Runtime configuration for cumulus_pallet_dmp_queue.
@@ -559,14 +560,14 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_session::WeightInfo<Runtime>;
 }
 
 /// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
-	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
+	type DisabledValidators = ();
 }
 
 parameter_types! {
@@ -597,7 +598,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type AccountIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
 /// The permissioned multisig account `5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je`.
@@ -648,7 +649,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
 	type UpdateOrigin = EnsureAdminOrRoot;
-	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
@@ -656,7 +657,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 	type UpdateOrigin = EnsureAdminOrRoot;
-	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Reward fee management implementation.
@@ -686,7 +687,7 @@ impl pallet_acurast::Config for Runtime {
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -728,7 +729,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
-	type WeightInfo = pallet_acurast_marketplace::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -849,7 +850,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
-	type WeightInfo = pallet_acurast_processor_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -984,7 +985,7 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 		Self::RegistrationExtra,
 	>;
 	type ActionExecutor = AcurastActionExecutor;
-	type WeightInfo = pallet_acurast_hyperdrive::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
 impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
@@ -1024,8 +1025,8 @@ parameter_types! {
 
 /// Runtime configuration for pallet_preimage.
 impl pallet_preimage::Config for Runtime {
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureAdminOrRoot;
 	type BaseDeposit = PreimageBaseDeposit;
@@ -1046,7 +1047,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureAdminOrRoot;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = ();
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }

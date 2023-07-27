@@ -41,7 +41,8 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
-		fungibles::{InspectEnumerable, Transfer},
+		fungibles,
+		fungibles::InspectEnumerable,
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
@@ -74,7 +75,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 pub use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
 use xcm_executor::XcmExecutor;
 
-use frame_support::traits::EitherOfDiverse;
+use frame_support::traits::{tokens::Preservation, EitherOfDiverse};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
@@ -920,12 +921,12 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 		for id in ids {
 			let balance = Assets::balance(id, processor);
 			if balance > 0 {
-				<Assets as Transfer<<Runtime as frame_system::Config>::AccountId>>::transfer(
+				<Assets as fungibles::Mutate<<Runtime as frame_system::Config>::AccountId>>::transfer(
 					id,
 					&processor,
 					&destination_account,
 					balance,
-					false,
+					Preservation::Expendable,
 				)?;
 			}
 		}

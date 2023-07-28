@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-rococo-runtime",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",

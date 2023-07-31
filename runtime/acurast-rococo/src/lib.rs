@@ -101,6 +101,7 @@ use pallet_acurast_marketplace::{
 };
 pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
+use pallet_acurast_vesting::VestingBalance;
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(From, Into)]
@@ -371,7 +372,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type HoldIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<{ u32::MAX }>;
+	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -1036,6 +1037,58 @@ impl pallet_acurast_rewards_treasury::Config for Runtime {
 	type Treasury = Treasury;
 }
 
+pub struct VestingBalances;
+
+impl VestingBalance<AccountId, Balance> for VestingBalances
+{
+	fn lock_stake(
+		target: &AccountId,
+		stake: Balance,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	fn pay_accrued(
+		target: &AccountId,
+		accrued: Balance,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	fn pay_kicker(
+		target: &AccountId,
+		accrued: Balance,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	fn unlock_stake(
+		target: &AccountId,
+		stake: Balance,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+}
+
+parameter_types! {
+	pub const DivestTolerance: BlockNumber = 10;
+	pub const MaximumLockingPeriod: BlockNumber = 100;
+	pub const BalanceUnit: Balance = UNIT;
+}
+
+pub const VestingHoldIdentifier: [u8; 8] = *b"PotStake";
+
+impl pallet_acurast_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type DivestTolerance = DivestTolerance;
+	type MaximumLockingPeriod = MaximumLockingPeriod;
+	type Balance = Balance;
+	type BalanceUnit = BalanceUnit;
+	type BlockNumber = BlockNumber;
+	type VestingBalance = VestingBalances;
+	type WeightInfo = ();
+}
+
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1269,6 +1322,7 @@ construct_runtime!(
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
+		AcurastVesting: pallet_acurast_vesting::{Pallet, Call, Storage, Event<T>} = 48,
 	}
 );
 

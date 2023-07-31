@@ -253,6 +253,7 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-vesting",
  "pallet-assets",
  "pallet-aura",
  "pallet-author-inherent",
@@ -6283,6 +6284,20 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-acurast-vesting"
+version = "0.2.0"
+dependencies = [
+ "acurast-common",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",

@@ -97,8 +97,8 @@ pub mod staking_info {
 	/// Maximum delegations per delegator
 	pub const MAXIMUM_DELEGATIONS_PER_DELEGATOR: u32 = 100; // TBD
 	/// Minimum stake required to be reserved to be a delegator
-	pub const MAXIMUM_DELEGATION: Balance = 500 * UNIT; // TBD
-	pub const MAXIMUM_DELEGATOR_STAKE: Balance = 500 * UNIT; // TBD
+	pub const MINIMUM_DELEGATION: Balance = 10 * UNIT; // TBD
+	pub const MINIMUM_DELEGATOR_STAKE: Balance = 10 * UNIT; // TBD
 
 	pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
 		ideal_staked: Perbill::from_percent(75),

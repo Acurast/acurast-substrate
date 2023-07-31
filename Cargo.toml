@@ -51,6 +51,7 @@ pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 
 # Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }

@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod implementations;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -14,6 +15,7 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use implementations::*;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
@@ -94,6 +96,8 @@ use pallet_acurast_marketplace::{
 	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
 pub use pallet_acurast_processor_manager;
+use pallet_acurast_vesting::VestingBalance;
+pub use pallet_acurast_vesting::VestingFor;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
@@ -1036,6 +1040,23 @@ impl pallet_acurast_rewards_treasury::Config for Runtime {
 	type Treasury = Treasury;
 }
 
+parameter_types! {
+	pub const DivestTolerance: BlockNumber = 128;
+	pub const MaximumLockingPeriod: BlockNumber = 16777216; // ~8 years
+	pub const BalanceUnit: Balance = UNIT;
+}
+
+impl pallet_acurast_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type DivestTolerance = DivestTolerance;
+	type MaximumLockingPeriod = MaximumLockingPeriod;
+	type Balance = Balance;
+	type BalanceUnit = BalanceUnit;
+	type BlockNumber = BlockNumber;
+	type VestingBalance = StakingOverVesting;
+	type WeightInfo = weights::pallet_acurast_vesting::WeightInfo<Runtime>;
+}
+
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1202,14 +1223,16 @@ impl pallet_parachain_staking::Config for Runtime {
 	/// Minimum stake required to be reserved to be a candidate
 	type MinCandidateStk = ConstU128<{ staking_info::MINIMUM_COLLATOR_STAKE }>;
 	/// Minimum stake required to be reserved to be a delegator
-	type MinDelegation = ConstU128<{ staking_info::MAXIMUM_DELEGATION }>;
-	type MinDelegatorStk = ConstU128<{ staking_info::MAXIMUM_DELEGATOR_STAKE }>;
+	type MinDelegation = ConstU128<{ staking_info::MINIMUM_DELEGATION }>;
+	type MinDelegatorStk = ConstU128<{ staking_info::MINIMUM_DELEGATOR_STAKE }>;
 	type DefaultInflationConfig = DefaultInflationConfig;
 	type BlockAuthor = AuthorInherent;
-	type OnCollatorPayout = (); // TBD
-	type PayoutCollatorReward = (); // TBD
 	type OnNewRound = (); // TBD
-	type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type StakingHooks = StakingOverVesting;
+	#[cfg(feature = "runtime-benchmarks")]
+	type StakingHooks = ();
+	type WeightInfo = weights::pallet_parachain_staking::WeightInfo<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1244,6 +1267,7 @@ construct_runtime!(
 		Democracy: pallet_democracy::{Pallet, Storage, Config<T>, Event<T>, Call} = 15,
 
 		// Consensus. The order of these are important and shall not change.
+		AcurastVesting: pallet_acurast_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 17,
 		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
 		AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
@@ -1296,6 +1320,8 @@ mod benches {
 		[pallet_acurast_marketplace, AcurastMarketplace]
 		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
 		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		[pallet_acurast_vesting, AcurastVesting]
+		[pallet_parachain_staking, ParachainStaking]
 	);
 }
 

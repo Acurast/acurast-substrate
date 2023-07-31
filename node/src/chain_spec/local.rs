@@ -8,8 +8,8 @@ use sp_runtime::{
 };
 
 pub(crate) use acurast_rococo_runtime::{
-	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, DemocracyConfig,
-	SudoConfig, EXISTENTIAL_DEPOSIT,
+	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, AcurastVestingConfig,
+	DemocracyConfig, Runtime, SudoConfig, VestingFor, EXISTENTIAL_DEPOSIT,
 };
 use acurast_runtime_common::*;
 
@@ -161,16 +161,32 @@ fn genesis_config(
 		},
 		parachain_system: Default::default(),
 		parachain_staking: acurast_runtime::ParachainStakingConfig {
-			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)
+			blocks_per_round: 10u32.into(), // 3600 * ~12s = ~12h (TBD)
 			collator_commission: Perbill::from_percent(20), // TBD
 			num_selected_candidates: 128u32.into(),
 			parachain_bond_reserve_percent: Percent::from_percent(30), // TBD
 			candidates: invulnerables
-				.into_iter()
+				.iter()
+				.cloned()
 				.map(|(acc, _)| (acc, staking_info::MINIMUM_COLLATOR_STAKE))
 				.collect(),
 			delegations: vec![],
 			inflation_config: staking_info::DEFAULT_INFLATION_CONFIG,
+		},
+		acurast_vesting: AcurastVestingConfig {
+			vesters: invulnerables
+				.into_iter()
+				.map(|(acc, _)| {
+					(
+						acc,
+						VestingFor::<Runtime, _> {
+							stake: staking_info::MINIMUM_COLLATOR_STAKE,
+							// ~ 1 month
+							locking_period: 262144,
+						},
+					)
+				})
+				.collect(),
 		},
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),

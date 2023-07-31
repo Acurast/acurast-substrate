@@ -34,6 +34,7 @@ acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-acurast-vesting = { workspace = true }
 pallet-parachain-staking = { workspace = true }
 
 # Nimbus Dependencies
@@ -136,6 +137,7 @@ std = [
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-outgoing/std",
+	"pallet-acurast-vesting/std",
 	"parachain-info/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
@@ -174,6 +176,7 @@ runtime-benchmarks = [
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-outgoing/runtime-benchmarks",
+	"pallet-acurast-vesting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

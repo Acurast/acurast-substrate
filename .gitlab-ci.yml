@@ -87,6 +87,7 @@ run-kusama-benchmarks:
   when: manual
   variables:
     VM_ZONE: "us-central1-a"
+  timeout: 3h
   script:
     - !reference [.prepare-benchmarking, script]
     # create vm

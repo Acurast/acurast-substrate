@@ -112,7 +112,7 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
-	/// TODO: Dummy, replaced by runtime-benchmark run
+	// TODO: Dummy, Will be run with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
 	fn set_code() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

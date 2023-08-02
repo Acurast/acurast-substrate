@@ -6,7 +6,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod weight;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]

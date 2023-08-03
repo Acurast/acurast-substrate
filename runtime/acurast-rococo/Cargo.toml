@@ -49,7 +49,7 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { workspace = true }
+frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
 pallet-assets = { workspace = true }
@@ -171,6 +171,7 @@ std = [
 
 runtime-benchmarks = [
 	"hex-literal",
+	"frame-system-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
@@ -199,5 +200,3 @@ try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-try-runtime",
 ]
-
-emulation = []

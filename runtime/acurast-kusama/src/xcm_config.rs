@@ -5,24 +5,22 @@ use super::{
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	log, match_types, parameter_types,
-	traits::{ContainsPair, Everything, Get, Nothing, OriginTrait},
+	traits::{ContainsPair, Everything, Get, Nothing, OriginTrait, ProcessMessageError},
 	weights::Weight,
 };
+use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use sp_core::ConstU32;
-use xcm::{
-	latest::{prelude::*, Weight as XCMWeight},
-	CreateMatcher, MatchXcm,
-};
+use xcm::latest::{prelude::*, Weight as XCMWeight};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, Case, CurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
-	WithComputedOrigin,
+	AllowUnpaidExecutionFrom, Case, CreateMatcher, CurrencyAdapter, EnsureXcmOrigin,
+	FixedRateOfFungible, FixedWeightBounds, IsConcrete, MatchXcm, NativeAsset, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	UsingComponents, WithComputedOrigin,
 };
 use xcm_executor::{
 	traits::{ConvertOrigin, ShouldExecute},
@@ -151,7 +149,7 @@ where
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: XCMWeight,
 		weight_credit: &mut XCMWeight,
-	) -> Result<(), ()> {
+	) -> Result<(), ProcessMessageError> {
 		Deny::should_execute(origin, message, max_weight, weight_credit)?;
 		Allow::should_execute(origin, message, max_weight, weight_credit)
 	}
@@ -165,7 +163,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_weight_credit: &mut Weight,
-	) -> Result<(), ()> {
+	) -> Result<(), ProcessMessageError> {
 		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
@@ -179,7 +177,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				TransferReserveAsset {
 					dest: MultiLocation { parents: 1, interior: Here }, ..
 				} => {
-					Err(()) // Deny
+					Err(ProcessMessageError::Unsupported) // Deny
 				},
 				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
 				// `IsReserve` should not allow this, but we just log it here.
@@ -341,6 +339,9 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type MaxRemoteLockConsumers = ConstU32<0>;
+	type RemoteLockConsumerIdentifier = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
 }

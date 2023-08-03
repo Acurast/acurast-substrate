@@ -8,24 +8,56 @@ edition = "2021"
 [dependencies]
 # crates.io
 serde = { version = "1.0.132" }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+parity-scale-codec = { workspace = true }
+proc-macro2 = "1.0.40"
 scale-info = { version = "2.1.2", features = ["derive"] }
 rand = "0.8.5"
+hex-literal = { workspace = true }
+
+# Acurast
+pallet-acurast-fulfillment-receiver = { workspace = true }
+acurast-reputation = { workspace = true }
 
 # Runtimes
 acurast-rococo-runtime = { workspace = true }
 proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
-polkadot-runtime = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.41" }
+
+# Substrate
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-uniques = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 
 # Emulator
+polkadot-primitives = { workspace = true }
+polkadot-parachain = { workspace = true }
+polkadot-core-primitives = { workspace = true }
+polkadot-runtime-parachains  = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-builder = { workspace = true }
 xcm-simulator = { workspace = true }
+pallet-xcm = { workspace = true }
 
 [features]
-default = ["std", "emulation"]
+default = ["std"]
 std = [
-    "acurast-rococo-runtime/std",
-    "polkadot-runtime/std",
-]
-emulation = [
-    "acurast-rococo-runtime/emulation",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-message-queue/std",
+	"pallet-uniques/std",
+	"pallet-xcm/std",
+	"acurast-reputation/std",
 ]

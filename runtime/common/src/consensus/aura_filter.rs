@@ -6,13 +6,13 @@ use frame_support::{
 pub struct AuraCanAuthor<T, PotentialAuthors>(PhantomData<(T, PotentialAuthors)>);
 
 pub fn can_author<T>(
-	author: &T::AccountId,
+	author: &<T as frame_system::Config>::AccountId,
 	slot: &u32,
-	selected_authors: &Vec<T::AccountId>,
+	selected_authors: &Vec<<T as frame_system::Config>::AccountId>,
 ) -> bool
 where
 	T: frame_system::Config + pallet_collator_selection::Config,
-	T::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+	<T as frame_system::Config>::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
 {
 	// Relay chain block time: 6s (slot <=> new relay chain block)
 	// Acurast block time: 12s (2 * 6s)
@@ -36,16 +36,16 @@ where
 	author == active_author
 }
 
-impl<T, PotentialAuthors> nimbus_primitives::CanAuthor<T::AccountId>
+impl<T, PotentialAuthors> nimbus_primitives::CanAuthor<<T as frame_system::Config>::AccountId>
 	for AuraCanAuthor<T, PotentialAuthors>
 where
 	T: frame_system::Config + pallet_collator_selection::Config,
-	T::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
-	PotentialAuthors: Get<Vec<T::AccountId>>,
+	<T as frame_system::Config>::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+	PotentialAuthors: Get<Vec<<T as frame_system::Config>::AccountId>>,
 {
 	/// Determine whether this account is eligible to author in this slot.
 	#[cfg(not(feature = "try-runtime"))]
-	fn can_author(account: &T::AccountId, slot: &u32) -> bool {
+	fn can_author(account: &<T as frame_system::Config>::AccountId, slot: &u32) -> bool {
 		let selected_authors: Vec<T::AccountId> = PotentialAuthors::get();
 
 		can_author::<T>(account, slot, &selected_authors)

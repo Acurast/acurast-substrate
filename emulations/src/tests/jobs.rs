@@ -1,16 +1,20 @@
-use frame_support::bounded_vec;
+use frame_support::{assert_ok, bounded_vec};
 use sp_runtime::Permill;
 
-use emulations::runtimes::acurast_runtime::{
-	pallet_acurast::MultiOrigin,
+use crate::acurast_runtime;
+use acurast_runtime::{
+	pallet_acurast,
+	pallet_acurast::{JobRegistration, MultiOrigin},
+	pallet_acurast_marketplace,
 	pallet_acurast_marketplace::{ExecutionResult, PlannedExecution, RegistrationExtra},
 	MaxAllowedSources,
 };
+use frame_support::traits::Hooks;
 use reputation::{BetaReputation, ReputationEngine};
 
-use crate::tests::{
-	acurast_runtime::{pallet_acurast, pallet_acurast::JobRegistration},
-	*,
+use crate::tests::*;
+use acurast_rococo_runtime::{
+	pallet_acurast::Schedule, pallet_acurast_marketplace::JobRequirements,
 };
 use frame_support::traits::fungible::Inspect;
 
@@ -22,7 +26,7 @@ fn fund_register_job() {
 		<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 
 	let reward_per_execution = 20_000;
-	let registration = JobRegistration::<AccountId32, MaxAllowedSources, _> {
+	let registration = JobRegistration::<sp_runtime::AccountId32, MaxAllowedSources, _> {
 		script: script(),
 		allowed_sources: None,
 		allow_only_verified_sources: true,

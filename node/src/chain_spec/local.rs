@@ -4,12 +4,12 @@ use sc_service::ChainType;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
 	traits::{AccountIdConversion, IdentifyAccount, Verify},
-	AccountId32, Percent,
+	Percent,
 };
 
 pub(crate) use acurast_rococo_runtime::{
-	self as acurast_runtime, AcurastAssetsConfig, AcurastConfig, AcurastProcessorManagerConfig,
-	AssetsConfig, DemocracyConfig, SudoConfig, EXISTENTIAL_DEPOSIT,
+	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, DemocracyConfig,
+	SudoConfig, EXISTENTIAL_DEPOSIT,
 };
 use acurast_runtime_common::*;
 
@@ -30,27 +30,11 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const NATIVE_IS_SUFFICIENT: bool = true;
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
-const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-const NATIVE_TOKEN_NAME: &str = "reserved_native_asset";
 const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
-const BURN_ACCOUNT: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
 
 const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-
-const TEST_TOKEN_ID: u32 = 22;
-const TEST_TOKEN_NAME: &str = "acurast_test_asset";
-const TEST_TOKEN_SYMBOL: &str = "ACRST_TEST";
-const TEST_TOKEN_DECIMALS: u8 = 12;
-const TEST_TOKEN_IS_SUFFICIENT: bool = false;
-const TEST_TOKEN_MIN_BALANCE: u128 = 1_000;
-const TEST_TOKEN_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-
-fn get_test_token_holder() -> AccountId32 {
-	get_account_id_from_seed::<sr25519::Public>("Ferdie")
-}
 
 /// Generate collator keys from seed.
 ///
@@ -78,7 +62,7 @@ pub fn acurast_session_keys(keys: NimbusId) -> acurast_runtime::SessionKeys {
 pub fn acurast_local_config(relay_chain: &str) -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "ACRST".into());
+	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
 	properties.insert("ss58Format".into(), 42.into());
 
@@ -121,25 +105,6 @@ pub fn acurast_local_config(relay_chain: &str) -> ChainSpec {
 				DEFAULT_PARACHAIN_ID.into(),
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				AcurastConfig { attestations: vec![] },
-				AssetsConfig {
-					assets: vec![(
-						TEST_TOKEN_ID,
-						acurast_pallet_account(),
-						TEST_TOKEN_IS_SUFFICIENT,
-						TEST_TOKEN_MIN_BALANCE,
-					)],
-					metadata: vec![(
-						TEST_TOKEN_ID,
-						TEST_TOKEN_NAME.as_bytes().to_vec(),
-						TEST_TOKEN_SYMBOL.as_bytes().to_vec(),
-						TEST_TOKEN_DECIMALS,
-					)],
-					accounts: vec![(
-						TEST_TOKEN_ID,
-						get_test_token_holder(),
-						TEST_TOKEN_INITIAL_BALANCE,
-					)],
-				},
 			)
 		},
 		// Bootnodes
@@ -167,7 +132,6 @@ fn genesis_config(
 	id: ParaId,
 	sudo_account: AccountId,
 	acurast: AcurastConfig,
-	assets: AssetsConfig,
 ) -> acurast_runtime::GenesisConfig {
 	acurast_runtime::GenesisConfig {
 		system: acurast_runtime::SystemConfig {
@@ -214,52 +178,6 @@ fn genesis_config(
 		sudo: SudoConfig { key: Some(sudo_account) },
 		acurast,
 		acurast_processor_manager: acurast_processor_manager_config(),
-		assets: AssetsConfig {
-			assets: vec![(
-				acurast_runtime::xcm_config::NativeAssetId::get(),
-				acurast_pallet_account(),
-				NATIVE_IS_SUFFICIENT,
-				NATIVE_MIN_BALANCE,
-			)]
-			.into_iter()
-			.chain(assets.assets.clone())
-			.collect(),
-			metadata: vec![(
-				acurast_runtime::xcm_config::NativeAssetId::get(),
-				NATIVE_TOKEN_NAME.as_bytes().to_vec(),
-				NATIVE_TOKEN_SYMBOL.as_bytes().to_vec(),
-				NATIVE_TOKEN_DECIMALS,
-			)]
-			.into_iter()
-			.chain(assets.metadata)
-			.collect(),
-			accounts: vec![(
-				acurast_runtime::xcm_config::NativeAssetId::get(),
-				BURN_ACCOUNT,
-				NATIVE_INITIAL_BALANCE,
-			)]
-			.into_iter()
-			.chain(assets.accounts)
-			.collect(),
-		},
-		acurast_assets: AcurastAssetsConfig {
-			assets: vec![(
-				100u32,
-				acurast_runtime::xcm_config::StatemintChainId::get(),
-				acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
-				acurast_runtime::xcm_config::NativeAssetId::get() as u128,
-			)]
-			.into_iter()
-			.chain(assets.assets.iter().map(|asset| {
-				(
-					asset.0,
-					acurast_runtime::xcm_config::StatemintChainId::get(),
-					acurast_runtime::xcm_config::StatemintAssetsPalletIndex::get(),
-					asset.0 as u128,
-				)
-			}))
-			.collect(),
-		},
 		democracy: DemocracyConfig::default(),
 	}
 }

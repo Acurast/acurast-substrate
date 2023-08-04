@@ -21,7 +21,6 @@ pub use xcm::{
 
 use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
 
 pub mod consensus;
 pub mod constants;

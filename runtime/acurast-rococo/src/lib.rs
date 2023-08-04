@@ -14,7 +14,6 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use parity_scale_codec::Compact;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
@@ -41,8 +40,6 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
-		fungibles,
-		fungibles::InspectEnumerable,
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
@@ -605,40 +602,6 @@ ord_parameter_types! {
 
 pub type InternalAssetId = u32;
 
-/// Runtime configuration for pallet_assets.
-impl pallet_assets::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = InternalAssetId;
-	type AssetIdParameter = Compact<InternalAssetId>;
-	type Currency = Balances;
-	type CreateOrigin =
-		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
-	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type AssetDeposit = frame_support::traits::ConstU128<0>;
-	type MetadataDepositBase = frame_support::traits::ConstU128<{ UNIT }>;
-	type MetadataDepositPerByte = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type ApprovalDeposit = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type StringLimit = frame_support::traits::ConstU32<50>;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
-	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
-	type CallbackHandle = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
-impl pallet_acurast_assets_manager::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
@@ -929,19 +892,6 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 			Balances::mint_into(destination_account, burned)?;
 		}
 
-		let ids = Assets::asset_ids();
-		for id in ids {
-			let balance = Assets::balance(id, processor);
-			if balance > 0 {
-				<Assets as fungibles::Mutate<<Runtime as frame_system::Config>::AccountId>>::transfer(
-					id,
-					&processor,
-					&destination_account,
-					balance,
-					Preservation::Expendable,
-				)?;
-			}
-		}
 		Ok(())
 	}
 }
@@ -1234,10 +1184,10 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		// TODO(SW): remove once AcurastAssets migrated (clearing storge)
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
-		// TODO(SW): remove once migrated to V3 (clearing storge)
-		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		// (keep comment, just so we know that pallet assets used to be on this pallet index)
+		// Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
+		// (keep comment, just so we know that pallet assets used to be on this pallet index)
+		// AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Governance stuff.

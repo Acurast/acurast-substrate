@@ -30,7 +30,6 @@ pallet-acurast = { workspace = true }
 pallet-acurast-marketplace = { workspace = true }
 pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
-pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
@@ -52,7 +51,6 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
-pallet-assets = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
@@ -132,7 +130,6 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
-	"pallet-assets/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-uniques/std",
@@ -176,7 +173,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",

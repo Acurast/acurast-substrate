@@ -15,7 +15,6 @@ rand = "0.8.5"
 hex-literal = { workspace = true }
 
 # Acurast
-pallet-acurast-fulfillment-receiver = { workspace = true }
 acurast-reputation = { workspace = true }
 
 # Runtimes

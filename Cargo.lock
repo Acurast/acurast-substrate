@@ -57,14 +57,12 @@ dependencies = [
  "log",
  "nimbus-primitives",
  "pallet-acurast",
- "pallet-acurast-assets-manager",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-outgoing",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
- "pallet-assets",
  "pallet-aura",
  "pallet-author-inherent",
  "pallet-authorship",
@@ -249,14 +247,12 @@ dependencies = [
  "log",
  "nimbus-primitives",
  "pallet-acurast",
- "pallet-acurast-assets-manager",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-outgoing",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
- "pallet-assets",
  "pallet-aura",
  "pallet-author-inherent",
  "pallet-authorship",
@@ -326,7 +322,6 @@ dependencies = [
  "log",
  "nimbus-primitives",
  "pallet-acurast",
- "pallet-acurast-assets-manager",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-outgoing",
@@ -2859,7 +2854,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
- "pallet-acurast-fulfillment-receiver",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
@@ -6158,20 +6152,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-acurast-fulfillment-receiver"
-version = "0.2.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#739400dc2a6a02e98d073a94519d1a53b8b66c99"
-dependencies = [
- "acurast-common",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-acurast-hyperdrive"
 version = "0.2.0"
 source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#739400dc2a6a02e98d073a94519d1a53b8b66c99"
@@ -9302,7 +9282,6 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal 0.3.4",
  "log",
- "pallet-acurast-fulfillment-receiver",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",

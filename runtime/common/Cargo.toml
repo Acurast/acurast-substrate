@@ -31,7 +31,6 @@ pallet-acurast = { workspace = true }
 pallet-acurast-marketplace = { workspace = true }
 pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
-pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }

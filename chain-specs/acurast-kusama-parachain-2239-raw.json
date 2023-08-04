@@ -11,7 +11,7 @@
   "properties": {
     "ss58Format": 42,
     "tokenDecimals": 12,
-    "tokenSymbol": "ACRST"
+    "tokenSymbol": "ACU"
   },
   "relay_chain": "kusama",
   "para_id": 2239,

@@ -21,11 +21,12 @@ pub use xcm::{
 
 use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
-pub use pallet_acurast_assets_manager;
 
 pub mod consensus;
 pub mod constants;
-pub mod migrations;
+// TODO: enable this again once we migrate Kusama to PoA -> PoS
+// pub mod migrations;
+pub mod weight;
 pub mod weights;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.

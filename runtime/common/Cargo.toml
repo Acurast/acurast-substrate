@@ -31,7 +31,6 @@ pallet-acurast = { workspace = true }
 pallet-acurast-marketplace = { workspace = true }
 pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
-pallet-acurast-assets-manager = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
@@ -45,7 +44,7 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { workspace = true }
+frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
 pallet-assets = { workspace = true }
@@ -163,6 +162,7 @@ std = [
 
 runtime-benchmarks = [
 	"hex-literal",
+	"frame-system-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",

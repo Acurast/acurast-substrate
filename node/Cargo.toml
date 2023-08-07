@@ -94,7 +94,7 @@ cumulus-relay-chain-minimal-node = { workspace = true }
 hex = "0.4"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.41" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
 
 [features]
 default = ["acurast-local", "acurast-dev", "acurast-rococo"]

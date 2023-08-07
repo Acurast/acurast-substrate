@@ -14,7 +14,6 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use parity_scale_codec::Compact;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
@@ -41,7 +40,6 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
-		fungibles::{InspectEnumerable, Transfer},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
@@ -74,7 +72,10 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 pub use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
 use xcm_executor::XcmExecutor;
 
-use frame_support::traits::EitherOfDiverse;
+use frame_support::traits::{
+	tokens::{Fortitude, Precision, Preservation},
+	EitherOfDiverse,
+};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
@@ -333,7 +334,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -362,9 +363,13 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<{ u32::MAX }>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -520,7 +525,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = ();
-	type WeightInfo = ();
+	type WeightInfo = weight::cumulus_pallet_xcmp_queue::WeightInfo<Self>;
 }
 
 /// Runtime configuration for cumulus_pallet_dmp_queue.
@@ -548,7 +553,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_session::WeightInfo<Runtime>;
 }
 
 /// Runtime configuration for pallet_aura.
@@ -586,7 +591,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type AccountIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = ();
+	type WeightInfo = weight::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
 ord_parameter_types! {
@@ -596,40 +601,6 @@ ord_parameter_types! {
 }
 
 pub type InternalAssetId = u32;
-
-/// Runtime configuration for pallet_assets.
-impl pallet_assets::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = InternalAssetId;
-	type AssetIdParameter = Compact<InternalAssetId>;
-	type Currency = Balances;
-	type CreateOrigin =
-		AsEnsureOriginWithArg<frame_system::EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
-	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type AssetDeposit = frame_support::traits::ConstU128<0>;
-	type MetadataDepositBase = frame_support::traits::ConstU128<{ UNIT }>;
-	type MetadataDepositPerByte = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type ApprovalDeposit = frame_support::traits::ConstU128<{ 10 * MICROUNIT }>;
-	type StringLimit = frame_support::traits::ConstU32<50>;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-	type AssetAccountDeposit = frame_support::traits::ConstU128<0>;
-	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
-	type CallbackHandle = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
-impl pallet_acurast_assets_manager::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = pallet_acurast_assets_manager::weights::SubstrateWeight<Runtime>;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
@@ -645,7 +616,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultFeePercentage;
 	type UpdateOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 2.
@@ -653,7 +624,7 @@ impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance2> f
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeePercentage = DefaultMatcherFeePercentage;
 	type UpdateOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = pallet_acurast_fee_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_fee_manager::WeightInfo<Self>;
 }
 
 /// Reward fee management implementation.
@@ -683,7 +654,7 @@ impl pallet_acurast::Config for Runtime {
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
-	type WeightInfo = pallet_acurast::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -725,7 +696,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ManagerProvider = ManagerProvider;
 	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
-	type WeightInfo = pallet_acurast_marketplace::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -846,7 +817,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
-	type WeightInfo = pallet_acurast_processor_manager::weights::WeightInfo<Self>;
+	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
@@ -906,25 +877,21 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 		processor: &<Runtime as frame_system::Config>::AccountId,
 		destination_account: &<Runtime as frame_system::Config>::AccountId,
 	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = Balances::reducible_balance(processor, true);
+		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
+			processor,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		if usable_balance > 0 {
-			let burned = Balances::burn_from(processor, usable_balance)?;
+			let burned = <Balances as Mutate<_>>::burn_from(
+				processor,
+				usable_balance,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)?;
 			Balances::mint_into(destination_account, burned)?;
 		}
 
-		let ids = Assets::asset_ids();
-		for id in ids {
-			let balance = Assets::balance(id, processor);
-			if balance > 0 {
-				<Assets as Transfer<<Runtime as frame_system::Config>::AccountId>>::transfer(
-					id,
-					&processor,
-					&destination_account,
-					balance,
-					false,
-				)?;
-			}
-		}
 		Ok(())
 	}
 }
@@ -993,7 +960,7 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 		Self::RegistrationExtra,
 	>;
 	type ActionExecutor = AcurastActionExecutor;
-	type WeightInfo = pallet_acurast_hyperdrive::weights::WeightInfo<Runtime>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
 impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
@@ -1023,6 +990,7 @@ impl pallet_acurast_rewards_treasury::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1033,8 +1001,8 @@ parameter_types! {
 
 /// Runtime configuration for pallet_preimage.
 impl pallet_preimage::Config for Runtime {
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
 	type BaseDeposit = PreimageBaseDeposit;
@@ -1055,7 +1023,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = frame_system::EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = ();
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
@@ -1216,10 +1184,10 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		// TODO(SW): remove once AcurastAssets migrated (clearing storge)
-		Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12, // hide calls since they get proxied by `pallet_acurast_assets_manager`
-		// TODO(SW): remove once migrated to V3 (clearing storge)
-		AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
+		// (keep comment, just so we know that pallet assets used to be on this pallet index)
+		// Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
+		// (keep comment, just so we know that pallet assets used to be on this pallet index)
+		// AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
 
 		// Governance stuff.
@@ -1261,7 +1229,8 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	define_benchmarks!(
-		[frame_system, SystemBench::<Runtime>]
+		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
+		// [frame_system, SystemBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_multisig, Multisig]
 		[pallet_balances, Balances]
@@ -1310,6 +1279,14 @@ impl_runtime_apis! {
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
+		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
 		}
 	}
 
@@ -1507,7 +1484,17 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
 			use frame_system_benchmarking::Pallet as SystemBench;
-			impl frame_system_benchmarking::Config for Runtime {}
+			impl frame_system_benchmarking::Config for Runtime {
+				// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
+				// fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+				// 	ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
+				// 	 Ok(())
+				// }
+				//
+				// fn verify_set_code() {
+				// 	System::assert_last_event(cumulus_pallet_parachain_system::Event::<Runtime>::ValidationFunctionStored.into());
+				// }
+			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}

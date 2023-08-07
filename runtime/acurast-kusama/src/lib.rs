@@ -6,7 +6,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod weight;
 pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -74,7 +73,10 @@ use xcm_executor::XcmExecutor;
 
 pub use parachains_common::Balance;
 
-use frame_support::traits::EitherOfDiverse;
+use frame_support::traits::{
+	tokens::{Fortitude, Precision, Preservation},
+	EitherOfDiverse,
+};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string;
 #[cfg(feature = "std")]
@@ -377,6 +379,10 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<{ u32::MAX }>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -910,9 +916,18 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 		processor: &<Runtime as frame_system::Config>::AccountId,
 		destination_account: &<Runtime as frame_system::Config>::AccountId,
 	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = Balances::reducible_balance(processor, true);
+		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
+			processor,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		if usable_balance > 0 {
-			let burned = Balances::burn_from(processor, usable_balance)?;
+			let burned = <Balances as Mutate<_>>::burn_from(
+				processor,
+				usable_balance,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)?;
 			Balances::mint_into(destination_account, burned)?;
 		}
 
@@ -1015,6 +1030,7 @@ impl pallet_acurast_rewards_treasury::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1197,7 +1213,8 @@ extern crate frame_benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	define_benchmarks!(
-		[frame_system, SystemBench::<Runtime>]
+		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
+		// [frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
@@ -1242,6 +1259,14 @@ impl_runtime_apis! {
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
+		}
+
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			Runtime::metadata_at_version(version)
+		}
+
+		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+			Runtime::metadata_versions()
 		}
 	}
 
@@ -1439,7 +1464,17 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
 			use frame_system_benchmarking::Pallet as SystemBench;
-			impl frame_system_benchmarking::Config for Runtime {}
+			impl frame_system_benchmarking::Config for Runtime {
+				// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
+				// fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+				// 	ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
+				// 	 Ok(())
+				// }
+				//
+				// fn verify_set_code() {
+				// 	System::assert_last_event(cumulus_pallet_parachain_system::Event::<Runtime>::ValidationFunctionStored.into());
+				// }
+			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}

@@ -87,7 +87,10 @@ use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::*;
 
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
-use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
+use pallet_acurast_hyperdrive::{
+	instances::{EthereumInstance, TezosInstance},
+	ParsedAction, StateOwner,
+};
 use pallet_acurast_hyperdrive_outgoing::{
 	instances::tezos::TargetChainTezos,
 	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
@@ -101,7 +104,7 @@ pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
-#[derive(From, Into)]
+#[derive(Debug, From, Into, Clone, Eq, PartialEq)]
 pub struct AcurastAccountId(AccountId32);
 impl TryFrom<Vec<u8>> for AcurastAccountId {
 	type Error = ();
@@ -772,6 +775,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				))
 				.map_err(|_| DispatchError::Other("send_message failed").into())
 			},
+			MultiOrigin::Ethereum(_) => todo!(),
 		}
 	}
 
@@ -788,6 +792,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				Action::FinalizeJob(job_id_seq.clone(), refund),
 			)
 			.map_err(|_| DispatchError::Other("send_message failed").into()),
+			MultiOrigin::Ethereum(_) => todo!(),
 		}
 	}
 }
@@ -978,28 +983,42 @@ parameter_types! {
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
 }
 
-impl pallet_acurast_hyperdrive::Config for Runtime {
+impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
 	type TargetChainOwner = TezosContract;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
-	type RegistrationExtra = ExtraFor<Self>;
 	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
-	type MaxSlots = MaxSlotsFor<Self>;
 	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxSlots = MaxSlotsFor<Self>;
+	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser = TezosParser<
-		Balance,
-		AcurastAccountId,
-		AccountId,
-		MaxSlotsFor<Self>,
-		Self::RegistrationExtra,
-	>;
 	type ActionExecutor = AcurastActionExecutor;
+	type Proof =
+	pallet_acurast_hyperdrive::chain::tezos::TezosProof<AcurastAccountId, <Self as frame_system::Config>::AccountId>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
+}
+
+impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParsableAccountId = AcurastAccountId;
+	type TargetChainOwner = TezosContract;
+	type TargetChainHash = H256;
+	type TargetChainBlockNumber = u64;
+	type Balance = Balance;
+	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
+	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxSlots = MaxSlotsFor<Self>;
+	type RegistrationExtra = ExtraFor<Self>;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = TransmissionRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type ActionExecutor = AcurastActionExecutor;
+	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<AcurastAccountId, <Self as frame_system::Config>::AccountId>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
@@ -1199,10 +1218,11 @@ construct_runtime!(
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		// Hyperdrive (one instance for each connected chain)
-		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
+		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::<Instance1>::{Pallet, Call, Storage, Event<T>} = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
+		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
 	}
 );
 

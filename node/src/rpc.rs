@@ -18,8 +18,10 @@ use sp_core::H256;
 use acurast_runtime_common::{
 	opaque::Block, AccountId, Balance, Index as Nonce, MaxAllowedSources,
 };
-use pallet_acurast_hyperdrive_outgoing::{HyperdriveApi};
-use pallet_acurast_hyperdrive_outgoing::instances::{EthereumInstance, TezosInstance};
+use pallet_acurast_hyperdrive_outgoing::{
+	instances::{EthereumInstance, TezosInstance},
+	HyperdriveApi,
+};
 use pallet_acurast_marketplace::MarketplaceRuntimeApi;
 
 /// A type representing all RPC extensions.

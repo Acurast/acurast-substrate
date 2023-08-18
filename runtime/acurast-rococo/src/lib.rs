@@ -83,7 +83,7 @@ pub use acurast_runtime_common::*;
 pub use pallet_acurast;
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
 use pallet_acurast_hyperdrive::{
-	instances::{EthereumInstance, TezosInstance},
+	instances::{EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
 };
 use pallet_acurast_hyperdrive_outgoing::{
@@ -711,30 +711,34 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		match origin {
 			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
 			MultiOrigin::Tezos(_) => {
-				let key = pub_keys.iter().find(|key|
-					match key {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
 						PubKey::SECP256r1(_) => true,
-						_ => false
-					}
-				).ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
 
 				AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
 					job_id_seq.clone(),
 					key.clone(),
-				)).map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
+				))
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
 			},
 			MultiOrigin::Ethereum(_) => {
-				let key = pub_keys.iter().find(|key|
-					match key {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
 						PubKey::SECP256k1(_) => true,
-						_ => false
-					}
-				).ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
 
 				HyperdriveOutgoingEthereum::send_message(Action::AssignJob(
 					job_id_seq.clone(),
 					key.clone(),
-				)).map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+				))
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
 			},
 		}
 	}
@@ -754,7 +758,8 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into()),
 			MultiOrigin::Ethereum(_) => HyperdriveOutgoingEthereum::send_message(
 				Action::FinalizeJob(job_id_seq.clone(), refund),
-			).map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
+			)
+			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
 		}
 	}
 }
@@ -959,8 +964,10 @@ impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
 	type ActionExecutor = AcurastActionExecutor;
-	type Proof =
-		pallet_acurast_hyperdrive::chain::tezos::TezosProof<AcurastAccountId, <Self as frame_system::Config>::AccountId>;
+	type Proof = pallet_acurast_hyperdrive::chain::tezos::TezosProof<
+		AcurastAccountId,
+		<Self as frame_system::Config>::AccountId,
+	>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
@@ -979,7 +986,10 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
 	type ActionExecutor = AcurastActionExecutor;
-	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<AcurastAccountId, <Self as frame_system::Config>::AccountId>;
+	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<
+		AcurastAccountId,
+		<Self as frame_system::Config>::AccountId,
+	>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
@@ -1275,8 +1285,6 @@ mod benches {
 	);
 }
 
-type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<pallet_acurast_hyperdrive_outgoing::instances::TezosInstance>>::TargetChainConfig as TargetChainConfig>::Hash;
-
 impl_runtime_apis! {
 	/// TODO: This could maybe be removed
 	/// Disabled, the node client currently requires this for backward compatibility with aura blocks
@@ -1417,37 +1425,59 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>> for Runtime {
-		fn number_of_leaves() -> LeafIndex {
-			AcurastHyperdriveOutgoingTezos::number_of_leaves()
+	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256> for Runtime {
+		fn number_of_leaves(instance: HyperdriveInstance) -> LeafIndex {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::number_of_leaves(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::number_of_leaves(),
+			}
 		}
 
-		fn first_mmr_block_number() -> Option<NumberFor<Block>> {
-			AcurastHyperdriveOutgoingTezos::first_mmr_block_number()
+		fn first_mmr_block_number(instance: HyperdriveInstance) -> Option<NumberFor<Block>> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::first_mmr_block_number(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::first_mmr_block_number(),
+			}
 		}
 
-		fn leaf_meta(leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, TezosHashOf<Runtime>)> {
-			AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index)
+		fn leaf_meta(instance: HyperdriveInstance, leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, H256)> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::leaf_meta(leaf_index),
+			}
 		}
 
-		fn last_message_excl_by_block(block_number: NumberFor<Block>) -> Option<LeafIndex> {
-			AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number)
+		fn last_message_excl_by_block(instance: HyperdriveInstance, block_number: NumberFor<Block>) -> Option<LeafIndex> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::block_leaf_index(block_number),
+			}
 		}
 
-		fn snapshot_roots(next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect()
+		fn snapshot_roots(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).collect(),
+			}
 		}
 
-		fn snapshot_root(next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose()
+		fn snapshot_root(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+			}
 		}
 
 		fn generate_target_chain_proof(
+			instance: HyperdriveInstance,
 			next_message_number: LeafIndex,
 			maximum_messages: Option<u64>,
 			latest_known_snapshot_number: SnapshotNumber,
-		) -> Result<Option<TargetChainProof<TezosHashOf<Runtime>>>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number)
+		) -> Result<Option<TargetChainProof<H256>>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+			}
 		}
 	}
 

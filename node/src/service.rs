@@ -17,9 +17,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
-use pallet_acurast_hyperdrive_outgoing::{
-	traits::MMRInstance, mmr_gadget::MmrGadget,
-};
+use pallet_acurast_hyperdrive_outgoing::{mmr_gadget::MmrGadget, traits::MMRInstance};
 use sc_chain_spec::ChainSpec;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor};
@@ -276,13 +274,23 @@ where
 
 	if is_offchain_indexing_enabled {
 		task_manager.spawn_handle().spawn_blocking(
-			"mmr-gadget",
-			None,
-			MmrGadget::start(
+			"mmr-tez-gadget",
+			Some("mmr-gadget"),
+			MmrGadget::<TezosInstance, _, _, _, _>::start(
 				client.clone(),
 				backend.clone(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX.to_vec(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX.to_vec(),
+				TezosInstance::INDEXING_PREFIX.to_vec(),
+				TezosInstance::TEMP_INDEXING_PREFIX.to_vec(),
+			),
+		);
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-eth-gadget",
+			Some("mmr-gadget"),
+			MmrGadget::<EthereumInstance, _, _, _, _>::start(
+				client.clone(),
+				backend.clone(),
+				EthereumInstance::INDEXING_PREFIX.to_vec(),
+				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
 	}
@@ -383,7 +391,7 @@ where
 	if is_offchain_indexing_enabled {
 		task_manager.spawn_handle().spawn_blocking(
 			"mmr-gadget-tez",
-			None,
+			Some("mmr-gadget"),
 			MmrGadget::<TezosInstance, _, _, _, _>::start(
 				client.clone(),
 				backend.clone(),
@@ -393,7 +401,7 @@ where
 		);
 		task_manager.spawn_handle().spawn_blocking(
 			"mmr-gadget-eth",
-			None,
+			Some("mmr-gadget"),
 			MmrGadget::<EthereumInstance, _, _, _, _>::start(
 				client.clone(),
 				backend.clone(),

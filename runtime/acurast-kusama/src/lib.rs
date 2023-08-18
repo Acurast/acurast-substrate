@@ -77,10 +77,6 @@ use frame_support::traits::{
 	tokens::{Fortitude, Precision, Preservation},
 	EitherOfDiverse,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string;
-#[cfg(feature = "std")]
-use std::string;
 
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
@@ -92,8 +88,7 @@ use pallet_acurast_hyperdrive::{
 	ParsedAction, StateOwner,
 };
 use pallet_acurast_hyperdrive_outgoing::{
-	instances::tezos::TargetChainTezos,
-	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
+	chain::tezos::DefaultTezosConfig,
 	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
 };
 pub use pallet_acurast_marketplace;
@@ -755,27 +750,31 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		match origin {
 			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
 			MultiOrigin::Tezos(_) => {
-				// currently only the first suported key is converted, if it fails, further search is aborted
-				let mut s: Option<string::String> = None;
-				for key in pub_keys.iter() {
-					if let PubKey::SECP256r1(k) = key {
-						s = Some(
-							p256_pub_key_to_address(k)
-								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
-						);
-						break
+				let key = pub_keys.iter().find(|key|
+					match key {
+						PubKey::SECP256r1(_) => true,
+						_ => false
 					}
-				}
-				let processor = s.ok_or(DispatchError::Other(
-					"no supported processor public key for target Tezos found",
-				))?;
+				).ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
+
 				AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
 					job_id_seq.clone(),
-					processor,
-				))
-				.map_err(|_| DispatchError::Other("send_message failed").into())
+					key.clone(),
+				)).map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
 			},
-			MultiOrigin::Ethereum(_) => todo!(),
+			MultiOrigin::Ethereum(_) => {
+				let key = pub_keys.iter().find(|key|
+					match key {
+						PubKey::SECP256k1(_) => true,
+						_ => false
+					}
+				).ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+
+				HyperdriveOutgoingEthereum::send_message(Action::AssignJob(
+					job_id_seq.clone(),
+					key.clone(),
+				)).map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+			},
 		}
 	}
 
@@ -791,8 +790,10 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::Tezos(_) => AcurastHyperdriveOutgoingTezos::send_message(
 				Action::FinalizeJob(job_id_seq.clone(), refund),
 			)
-			.map_err(|_| DispatchError::Other("send_message failed").into()),
-			MultiOrigin::Ethereum(_) => todo!(),
+				.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into()),
+			MultiOrigin::Ethereum(_) => HyperdriveOutgoingEthereum::send_message(
+				Action::FinalizeJob(job_id_seq.clone(), refund),
+			).map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
 		}
 	}
 }
@@ -1022,13 +1023,19 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
-impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
+impl pallet_acurast_hyperdrive_outgoing::Config<TezosInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	const INDEXING_PREFIX: &'static [u8] =
-		pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX;
-	const TEMP_INDEXING_PREFIX: &'static [u8] =
-		pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX;
+	type MMRInfo = TezosInstance;
 	type TargetChainConfig = DefaultTezosConfig;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
+	type OnNewRoot = ();
+	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config<EthereumInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MMRInfo = EthereumInstance;
+	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::ethereum::EthereumConfig;
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
@@ -1223,6 +1230,7 @@ construct_runtime!(
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
+		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2>::{Pallet, Call, Storage, Event<T>} = 49,
 	}
 );
 
@@ -1249,7 +1257,7 @@ mod benches {
 	);
 }
 
-type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos>>::TargetChainConfig as TargetChainConfig>::Hash;
+type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<pallet_acurast_hyperdrive_outgoing::instances::TezosInstance>>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -1389,7 +1397,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>, TargetChainTezos> for Runtime {
+	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>> for Runtime {
 		fn number_of_leaves() -> LeafIndex {
 			AcurastHyperdriveOutgoingTezos::number_of_leaves()
 		}

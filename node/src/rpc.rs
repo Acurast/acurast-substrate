@@ -18,7 +18,8 @@ use sp_core::H256;
 use acurast_runtime_common::{
 	opaque::Block, AccountId, Balance, Index as Nonce, MaxAllowedSources,
 };
-use pallet_acurast_hyperdrive_outgoing::{instances::tezos::TargetChainTezos, HyperdriveApi};
+use pallet_acurast_hyperdrive_outgoing::{HyperdriveApi};
+use pallet_acurast_hyperdrive_outgoing::instances::{EthereumInstance, TezosInstance};
 use pallet_acurast_marketplace::MarketplaceRuntimeApi;
 
 /// A type representing all RPC extensions.
@@ -35,7 +36,7 @@ pub struct FullDeps<C, P> {
 }
 
 /// Instantiate all RPC extensions.
-pub fn create_full<I, C, P>(
+pub fn create_full<C, P>(
 	deps: FullDeps<C, P>,
 ) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
@@ -49,7 +50,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: HyperdriveApi<Block, H256, TargetChainTezos>,
+	C::Api: HyperdriveApi<Block, H256>,
 	C::Api: MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>,
 	P: TransactionPool + Sync + Send + 'static,
 {
@@ -63,7 +64,8 @@ where
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<TargetChainTezos, _, _>::new(client.clone()).into_rpc())?;
+	module.merge(Mmr::<TezosInstance, _, _>::new(client.clone()).into_rpc())?;
+	module.merge(Mmr::<EthereumInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Marketplace::<_, (Block, Balance, AccountId)>::new(client).into_rpc())?;
 	Ok(module)
 }

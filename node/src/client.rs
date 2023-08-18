@@ -18,7 +18,6 @@
 use std::sync::Arc;
 
 use acurast_rococo_runtime::pallet_acurast_marketplace;
-use pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, PairsIter};
 use sp_api::{CallApiAt, NumberFor, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -56,7 +55,7 @@ pub trait RuntimeApiCollection:
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
-	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
@@ -76,7 +75,7 @@ where
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
-		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
 			Block,
 			Balance,
@@ -98,7 +97,7 @@ pub trait RuntimeApiCollection:
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
-	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
@@ -118,7 +117,7 @@ where
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
-		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256, TargetChainTezos>
+		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
 			Block,
 			Balance,

@@ -89,7 +89,7 @@ use pallet_acurast_hyperdrive::{
 };
 use pallet_acurast_hyperdrive_outgoing::{
 	chain::tezos::DefaultTezosConfig, Action, LeafIndex, MMRError, SnapshotNumber,
-	TargetChainConfig, TargetChainProof,
+	TargetChainProof,
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
@@ -950,6 +950,8 @@ parameter_types! {
 	pub const TransmissionQuorum: u8 = 1;
 	pub const TransmissionRate: u64 = 1;
 
+	pub const EthereumSnapshotRate: u64 = 10;
+
 	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
 
 	pub const TezosNativeAssetId: u128 = 5000;
@@ -973,6 +975,12 @@ impl
 				AcurastMarketplace::deregister_hook(&job_id).into(),
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::Noop => {
+				// Intentionally, just logging it
+				log::debug!("Received NOOP operation from hyperdrive");
+
+				Ok(().into())
+			}
 		}
 	}
 }
@@ -987,6 +995,8 @@ parameter_types! {
 	///
 	/// Corresponds to `KT1D8kmxQgZiMJjFLp5L1mkYQaysHyat7v7h`, packed: `0x050a000000160131ed27946321bdfe16dd8358a163d7d29597c79e00`
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
+	/// The acurast gateway on the ethereum network
+	pub EthereumAcurastGateway: StateOwner = hex_literal::hex!("6a34E1f07B57eD968e72895690f3df41b11487eb").to_vec().try_into().unwrap();
 }
 
 impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
@@ -1014,7 +1024,7 @@ impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TezosContract;
+	type TargetChainOwner = EthereumAcurastGateway;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
@@ -1023,7 +1033,7 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type MaxSlots = MaxSlotsFor<Self>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
-	type TransmissionRate = TransmissionRate;
+	type TransmissionRate = EthereumSnapshotRate;
 	type TransmissionQuorum = TransmissionQuorum;
 	type ActionExecutor = AcurastActionExecutor;
 	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<

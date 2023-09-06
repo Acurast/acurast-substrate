@@ -29,22 +29,30 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = "0.1.57"
 cfg-if = "1.0.0"
 
-# Acurast
+# Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
 pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
 pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
-pallet-acurast-assets-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
 pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
 pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
-pallet-acurast-fulfillment-receiver = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Reputation pallet handles the reputation of processors.
 acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Parachain Staking pallet is the main component for the Proof of Stake consensus
+# mechanism, it is responsible for selecting candidates, distribute rewards, etc...
 pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Collator Selection pallet is used to select collators for the parachain. (PoA)
 pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+# The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "develop" }
 
-# Nimbus
+# Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }
 nimbus-primitives = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }
 pallet-author-inherent = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }
@@ -61,17 +69,32 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Aura pallet extends Aura consensus by managing offline reporting.
+# Currently used in Kusama runtime, which currently uses a Proof of Authority consensus.
 pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Authorship pallet tracks the current author of the block and its recent uncles.
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Balances pallet provides functionality for handling accounts and balances.
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Session pallet allows collators to manage their session keys, provides a function for changing the session length, and handles session rotation.
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Sudo pallet allows for a single account (called the "sudo key") to execute dispatchable functions that require a Root call.
+# Only one account can be the sudo key at a time.
 pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Democracy pallet handles the administration of general stakeholder voting
 pallet-democracy = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# The Timestamp pallet is the recommended way to query the on-chain time instead of using an approach based on block numbers.
+# It uses inherents for timestamp data, which is provided by the block author and validated/verified by other validators.
+# The timestamp can be set only once per block and must be set each block.
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# This 2 pallets provide the basic logic needed to pay the absolute minimum amount needed for a transaction to be included in a block.
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# A pallet simple used to assigning unique identifiers.
 pallet-uniques = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+# This pallet is used to support multisig accounts, allowing multiple signed origins (accounts)
+# to coordinate and dispatch calls from a well-known origin, derivable deterministically from a
+# set of account IDs that must approve it
 pallet-multisig = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }

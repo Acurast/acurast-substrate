@@ -1,6 +1,6 @@
-FROM rust:latest AS builder
-RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
-RUN rustup update nightly-2023-03-14 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-14
+FROM rust:1.72 AS builder
+RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
+RUN rustup update nightly-2023-08-31 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-08-31
 
 WORKDIR /code
 COPY . .
@@ -20,13 +20,16 @@ else \
 fi
 
 # adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu:22.04
 
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /app app && \
-	mkdir /data && \
+	mkdir -p /data /app/.local/share && \
 	chown -R app:app /data && \
+	ln -s /data /app/.local/share/app && \
+# unclutter and minimize the attack surface
+	rm -rf /usr/bin /usr/sbin && \
 # check if executable works in this container
 	/usr/local/bin/acurast-node --version
 

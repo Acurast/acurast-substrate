@@ -85,7 +85,7 @@ mod tests {
 		)
 		.unwrap();
 
-		let pallet_assets_account: <Runtime as frame_system::Config>::AccountId =
+		let pallet_acurast_account: <Runtime as frame_system::Config>::AccountId =
 			<Runtime as acurast_runtime::pallet_acurast::Config>::PalletId::get()
 				.into_account_truncating();
 
@@ -97,7 +97,7 @@ mod tests {
 				(ALICE, INITIAL_BALANCE),
 				(BOB, INITIAL_BALANCE),
 				(FERDIE, INITIAL_BALANCE),
-				(pallet_assets_account, INITIAL_BALANCE),
+				(pallet_acurast_account, INITIAL_BALANCE),
 				(fee_manager_account, INITIAL_BALANCE),
 			],
 		}

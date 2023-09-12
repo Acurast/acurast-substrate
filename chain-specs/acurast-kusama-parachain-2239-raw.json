@@ -1,5 +1,5 @@
 {
-  "name": "Acurast Kusama",
+  "name": "Acurast Canary",
   "id": "acurast-kusama",
   "chainType": "Live",
   "bootNodes": [
@@ -11,7 +11,7 @@
   "properties": {
     "ss58Format": 42,
     "tokenDecimals": 12,
-    "tokenSymbol": "ACU"
+    "tokenSymbol": "cACU"
   },
   "relay_chain": "kusama",
   "para_id": 2239,

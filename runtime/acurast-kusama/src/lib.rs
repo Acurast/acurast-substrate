@@ -187,7 +187,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 6,
+	spec_version: 5,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -646,7 +646,7 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.canary"];
 	pub const ReportTolerance: u64 = 12_000;
 }
 
@@ -967,14 +967,14 @@ impl
 }
 
 const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
-	5, 10, 0, 0, 0, 22, 1, 243, 102, 74, 48, 19, 167, 144, 92, 234, 61, 255, 164, 165, 233, 104,
-	130, 42, 7, 133, 23, 0,
+	5, 10, 0, 0, 0, 22, 1, 49, 237, 39, 148, 99, 33, 189, 254, 22, 221, 131, 88, 161, 99, 215, 210,
+	149, 151, 199, 158, 0,
 ];
 
 parameter_types! {
 	/// The initial Tezos Hyperdrive address:
 	///
-	/// Corresponds to `KT1Wofhobpo6jmHcyMQSNAAaxKqs7Du4kHTh`, packed: `0x050a0000001601f3c3482a66f2edb071d211a1c68c0732705f446f00`
+	/// Corresponds to `KT1D8kmxQgZiMJjFLp5L1mkYQaysHyat7v7h`, packed: `0x050a000000160131ed27946321bdfe16dd8358a163d7d29597c79e00`
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
 }
 

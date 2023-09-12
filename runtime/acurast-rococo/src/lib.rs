@@ -186,7 +186,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 2,
-	spec_version: 13,
+	spec_version: 14,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -607,7 +607,7 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.testnet"];
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
 	pub const ReportTolerance: u64 = 12_000;
 }
 

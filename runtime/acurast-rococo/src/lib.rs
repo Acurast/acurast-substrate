@@ -87,8 +87,7 @@ use pallet_acurast_hyperdrive::{
 	ParsedAction, StateOwner,
 };
 use pallet_acurast_hyperdrive_outgoing::{
-	chain::tezos::DefaultTezosConfig,
-	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainProof,
+	chain::tezos::DefaultTezosConfig, Action, LeafIndex, MMRError, SnapshotNumber, TargetChainProof,
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
@@ -940,7 +939,7 @@ impl
 				log::debug!("Received NOOP operation from hyperdrive");
 
 				Ok(().into())
-			}
+			},
 		}
 	}
 }

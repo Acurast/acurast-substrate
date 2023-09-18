@@ -532,7 +532,7 @@ where
 				deny_unsafe,
 			};
 
-			crate::rpc::create_full::<TargetChainTezos, _, _>(deps).map_err(Into::into)
+			crate::rpc::create_full::<_, _>(deps).map_err(Into::into)
 		})
 	};
 

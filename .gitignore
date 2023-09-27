@@ -18,4 +18,6 @@
 .vscode
 
 zombienet/bin
+zombienet
+!zombienet/config.toml
 !zombienet/bin/acurast-node

@@ -17,9 +17,7 @@ use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
-use pallet_acurast_hyperdrive_outgoing::{
-	instances::tezos::TargetChainTezos, mmr_gadget::MmrGadget,
-};
+use pallet_acurast_hyperdrive_outgoing::{mmr_gadget::MmrGadget, traits::MMRInstance};
 use sc_chain_spec::ChainSpec;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor};
@@ -57,6 +55,7 @@ use nimbus_consensus::{BuildNimbusConsensusParams, NimbusConsensus};
 use sc_network::config::FullNetworkConfiguration;
 
 use crate::client::{ClientVariant, RuntimeApiCollection};
+use pallet_acurast_hyperdrive_outgoing::instances::{EthereumInstance, TezosInstance};
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]
@@ -275,13 +274,23 @@ where
 
 	if is_offchain_indexing_enabled {
 		task_manager.spawn_handle().spawn_blocking(
-			"mmr-gadget",
-			None,
-			MmrGadget::start(
+			"mmr-tez-gadget",
+			Some("mmr-gadget"),
+			MmrGadget::<TezosInstance, _, _, _, _>::start(
 				client.clone(),
 				backend.clone(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX.to_vec(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX.to_vec(),
+				TezosInstance::INDEXING_PREFIX.to_vec(),
+				TezosInstance::TEMP_INDEXING_PREFIX.to_vec(),
+			),
+		);
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-eth-gadget",
+			Some("mmr-gadget"),
+			MmrGadget::<EthereumInstance, _, _, _, _>::start(
+				client.clone(),
+				backend.clone(),
+				EthereumInstance::INDEXING_PREFIX.to_vec(),
+				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
 	}
@@ -381,13 +390,23 @@ where
 
 	if is_offchain_indexing_enabled {
 		task_manager.spawn_handle().spawn_blocking(
-			"mmr-gadget",
-			None,
-			MmrGadget::start(
+			"mmr-gadget-tez",
+			Some("mmr-gadget"),
+			MmrGadget::<TezosInstance, _, _, _, _>::start(
 				client.clone(),
 				backend.clone(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX.to_vec(),
-				pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX.to_vec(),
+				TezosInstance::INDEXING_PREFIX.to_vec(),
+				TezosInstance::TEMP_INDEXING_PREFIX.to_vec(),
+			),
+		);
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-gadget-eth",
+			Some("mmr-gadget"),
+			MmrGadget::<EthereumInstance, _, _, _, _>::start(
+				client.clone(),
+				backend.clone(),
+				EthereumInstance::INDEXING_PREFIX.to_vec(),
+				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
 	}
@@ -513,7 +532,7 @@ where
 				deny_unsafe,
 			};
 
-			crate::rpc::create_full::<TargetChainTezos, _, _>(deps).map_err(Into::into)
+			crate::rpc::create_full::<_, _>(deps).map_err(Into::into)
 		})
 	};
 
@@ -725,7 +744,7 @@ where
 				deny_unsafe,
 			};
 
-			crate::rpc::create_full::<TargetChainTezos, _, _>(deps).map_err(Into::into)
+			crate::rpc::create_full::<_, _>(deps).map_err(Into::into)
 		})
 	};
 

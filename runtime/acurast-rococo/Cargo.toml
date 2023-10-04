@@ -19,7 +19,7 @@ substrate-wasm-builder = { workspace = true }
 
 [dependencies]
 parity-scale-codec = { workspace = true }
-hex-literal = { workspace = true, optional = true }
+hex-literal = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
 smallvec = { workspace = true }
@@ -167,7 +167,6 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"hex-literal",
 	"frame-system-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

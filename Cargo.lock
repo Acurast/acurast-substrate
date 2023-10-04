@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "asn1",
  "ecdsa_vendored",
@@ -191,7 +191,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "hex",
  "p256 0.12.0-pre",
@@ -211,7 +211,7 @@ dependencies = [
 [[package]]
 name = "acurast-reputation"
 version = "0.2.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "num",
  "parity-scale-codec",
@@ -535,6 +535,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c378d78423fdad8089616f827526ee33c19f2fddbd5de1629152c9593ba4783"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "alloy-primitives"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e416903084d3392ebd32d94735c395d6709415b76c7728e594d3f996f2b03e65"
+dependencies = [
+ "alloy-rlp",
+ "bytes",
+ "cfg-if",
+ "const-hex",
+ "derive_more",
+ "hex-literal 0.4.1",
+ "itoa",
+ "proptest",
+ "ruint",
+ "serde",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-rlp"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f938f00332d63a5b0ac687bd6f46d03884638948921d9f8b50c59563d421ae25"
+dependencies = [
+ "arrayvec 0.7.4",
+ "bytes",
+ "smol_str",
+]
+
+[[package]]
+name = "alloy-sol-macro"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7720130c58db647103587b0c39aad4e669eea261e256040301d6c7983fdbb461"
+dependencies = [
+ "dunce",
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.31",
+ "syn-solidity",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-sol-types"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaa7c9a4354b1ff9f1c85adf22802af046e20e4bb55e19b9dc6ca8cbc6f7f4e5"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-macro",
+ "const-hex",
+ "serde",
 ]
 
 [[package]]
@@ -956,6 +1013,21 @@ dependencies = [
  "shlex",
  "syn 2.0.31",
 ]
+
+[[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
@@ -1460,6 +1532,18 @@ dependencies = [
  "libc",
  "unicode-width",
  "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "const-hex"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08849ed393c907c90016652a01465a12d86361cd38ad2a7de026c56a520cc259"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "hex",
+ "serde",
 ]
 
 [[package]]
@@ -2698,6 +2782,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcbb2bf8e87535c23f7a8a321e364ce21462d0ff10cb6407820e8e96dfff6653"
 
 [[package]]
+name = "dunce"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
+
+[[package]]
 name = "dyn-clonable"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2753,7 +2843,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "der 0.6.1",
  "elliptic-curve-vendored",
@@ -2870,7 +2960,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "base16ct 0.1.1",
  "crypto-bigint 0.4.9",
@@ -5991,6 +6081,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -6149,7 +6240,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -6158,7 +6249,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6180,7 +6271,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets-manager"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6203,7 +6294,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6217,17 +6308,21 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
+ "alloy-sol-types",
  "derive_more",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
  "hex-literal 0.3.4",
+ "log",
  "once_cell",
  "pallet-acurast",
  "pallet-acurast-marketplace",
  "parity-scale-codec",
+ "rlp",
  "scale-info",
  "sp-arithmetic",
  "sp-core",
@@ -6242,10 +6337,12 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-common",
  "acurast-merkle-mountain-range",
+ "alloy-primitives",
+ "alloy-sol-types",
  "derive_more",
  "frame-benchmarking",
  "frame-support",
@@ -6255,8 +6352,10 @@ dependencies = [
  "log",
  "once_cell",
  "pallet-acurast",
+ "pallet-acurast-hyperdrive",
  "pallet-acurast-marketplace",
  "parity-scale-codec",
+ "rlp",
  "sc-client-api",
  "sc-offchain",
  "scale-info",
@@ -6278,7 +6377,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -6314,7 +6413,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6335,7 +6434,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-rewards-treasury"
 version = "0.2.1"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "acurast-common",
  "frame-support",
@@ -6588,7 +6687,7 @@ dependencies = [
 [[package]]
 name = "pallet-collator-selection"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7001,7 +7100,7 @@ dependencies = [
 [[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9208,6 +9307,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "proptest"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e35c06b98bf36aba164cc17cb25f7e232f5c4aeea73baa14b8a9f0d92dbfa65"
+dependencies = [
+ "bit-set",
+ "bitflags 1.3.2",
+ "byteorder",
+ "lazy_static",
+ "num-traits",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_xorshift",
+ "regex-syntax 0.6.29",
+ "rusty-fork",
+ "tempfile",
+ "unarray",
+]
+
+[[package]]
 name = "prost"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9540,6 +9659,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "rawpointer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9757,6 +9885,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rlp"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb919243f34364b6bd2fc10ef797edbfa75f33c252e7998527479c6d6b47e1ec"
+dependencies = [
+ "bytes",
+ "rustc-hex",
+]
+
+[[package]]
 name = "rocksdb"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9929,6 +10067,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruint"
+version = "1.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95294d6e3a6192f3aabf91c38f56505a625aa495533442744185a36d75a790c4"
+dependencies = [
+ "proptest",
+ "rand 0.8.5",
+ "ruint-macro",
+ "serde",
+ "valuable",
+ "zeroize",
+]
+
+[[package]]
+name = "ruint-macro"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e666a5496a0b2186dbcd0ff6106e29e093c15591bde62c20d3842007c6978a09"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10088,6 +10246,18 @@ name = "rustversion"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
+
+[[package]]
+name = "rusty-fork"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb3dcc6e454c328bb824492db107ab7c0ae8fcffe4ad210136ef014458c1bc4f"
+dependencies = [
+ "fnv",
+ "quick-error",
+ "tempfile",
+ "wait-timeout",
+]
 
 [[package]]
 name = "rw-stream-sink"
@@ -11658,7 +11828,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#b24c712c975ed15a0ea7e6e2ec5e9b907bbc341e"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=develop#e2a48d23a56f0e684ac5c9282bcedf24d5f90083"
 dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",
@@ -11724,6 +11894,15 @@ name = "smallvec"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
+
+[[package]]
+name = "smol_str"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74212e6bbe9a4352329b2f68ba3130c15a3f26fe88ff22dbdc6cdd58fa85e99c"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "snap"
@@ -12794,6 +12973,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn-solidity"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "397f229dc34c7b8231b6ef85502f9ca4e3425b8625e6d403bb74779e6b1917b5"
+dependencies = [
+ "paste",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.31",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13048,6 +13239,15 @@ dependencies = [
  "unicode-normalization",
  "wasm-bindgen",
  "zeroize",
+]
+
+[[package]]
+name = "tiny-keccak"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+dependencies = [
+ "crunchy",
 ]
 
 [[package]]
@@ -13541,6 +13741,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
+
+[[package]]
 name = "unicode-bidi"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13660,6 +13866,15 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "wait-timeout"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "waitgroup"

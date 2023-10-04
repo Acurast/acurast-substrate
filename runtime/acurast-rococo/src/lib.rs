@@ -76,21 +76,18 @@ use frame_support::traits::{
 	tokens::{Fortitude, Precision, Preservation},
 	EitherOfDiverse,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string;
-#[cfg(feature = "std")]
-use std::string;
 
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
 use pallet_acurast::{JobHooks, JobId, MultiOrigin};
-use pallet_acurast_hyperdrive::{tezos::TezosParser, ParsedAction, StateOwner};
+use pallet_acurast_hyperdrive::{
+	instances::{EthereumInstance, HyperdriveInstance, TezosInstance},
+	ParsedAction, StateOwner,
+};
 use pallet_acurast_hyperdrive_outgoing::{
-	instances::tezos::TargetChainTezos,
-	tezos::{p256_pub_key_to_address, DefaultTezosConfig},
-	Action, LeafIndex, MMRError, SnapshotNumber, TargetChainConfig, TargetChainProof,
+	chain::tezos::DefaultTezosConfig, Action, LeafIndex, MMRError, SnapshotNumber, TargetChainProof,
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
@@ -100,7 +97,7 @@ pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
-#[derive(From, Into)]
+#[derive(Debug, From, Into, Clone, Eq, PartialEq)]
 pub struct AcurastAccountId(AccountId32);
 impl TryFrom<Vec<u8>> for AcurastAccountId {
 	type Error = ();
@@ -713,25 +710,34 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		match origin {
 			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
 			MultiOrigin::Tezos(_) => {
-				// currently only the first supported key is converted, if it fails, further search is aborted
-				let mut s: Option<string::String> = None;
-				for key in pub_keys.iter() {
-					if let PubKey::SECP256r1(k) = key {
-						s = Some(
-							p256_pub_key_to_address(k)
-								.map_err(|_| DispatchError::Other("p256_pub_key_to_address"))?,
-						);
-						break
-					}
-				}
-				let processor = s.ok_or(DispatchError::Other(
-					"no supported processor public key for target Tezos found",
-				))?;
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
+						PubKey::SECP256r1(_) => true,
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
+
 				AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
 					job_id_seq.clone(),
-					processor,
+					key.clone(),
 				))
-				.map_err(|_| DispatchError::Other("send_message failed").into())
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
+			},
+			MultiOrigin::Ethereum(_) => {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
+						PubKey::SECP256k1(_) => true,
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+
+				HyperdriveOutgoingEthereum::send_message(Action::AssignJob(
+					job_id_seq.clone(),
+					key.clone(),
+				))
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
 			},
 		}
 	}
@@ -748,7 +754,11 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::Tezos(_) => AcurastHyperdriveOutgoingTezos::send_message(
 				Action::FinalizeJob(job_id_seq.clone(), refund),
 			)
-			.map_err(|_| DispatchError::Other("send_message failed").into()),
+			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into()),
+			MultiOrigin::Ethereum(_) => HyperdriveOutgoingEthereum::send_message(
+				Action::FinalizeJob(job_id_seq.clone(), refund),
+			)
+			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
 		}
 	}
 }
@@ -900,6 +910,8 @@ parameter_types! {
 	pub const TransmissionQuorum: u8 = 1;
 	pub const TransmissionRate: u64 = 1;
 
+	pub const EthereumSnapshotRate: u64 = 10;
+
 	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
 
 	pub const TezosNativeAssetId: u128 = 5000;
@@ -922,6 +934,12 @@ impl
 			ParsedAction::DeregisterJob(job_id) => AcurastMarketplace::deregister_hook(&job_id),
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::Noop => {
+				// Intentionally, just logging it
+				log::debug!("Received NOOP operation from hyperdrive");
+
+				Ok(().into())
+			},
 		}
 	}
 }
@@ -936,9 +954,11 @@ parameter_types! {
 	///
 	/// Corresponds to `KT1Wofhobpo6jmHcyMQSNAAaxKqs7Du4kHTh`, packed: `0x050a0000001601f3c3482a66f2edb071d211a1c68c0732705f446f00`
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
+	/// The acurast gateway on the ethereum network
+	pub EthereumAcurastGateway: StateOwner = hex_literal::hex!("6a34E1f07B57eD968e72895690f3df41b11487eb").to_vec().try_into().unwrap();
 }
 
-impl pallet_acurast_hyperdrive::Config for Runtime {
+impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
 	type TargetChainOwner = TezosContract;
@@ -952,24 +972,49 @@ impl pallet_acurast_hyperdrive::Config for Runtime {
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type MessageParser = TezosParser<
-		Balance,
-		AcurastAccountId,
-		AccountId,
-		MaxSlotsFor<Self>,
-		Self::RegistrationExtra,
-	>;
 	type ActionExecutor = AcurastActionExecutor;
+	type Proof = pallet_acurast_hyperdrive::chain::tezos::TezosProof<
+		AcurastAccountId,
+		<Self as frame_system::Config>::AccountId,
+	>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
-impl pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos> for Runtime {
+impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	const INDEXING_PREFIX: &'static [u8] =
-		pallet_acurast_hyperdrive_outgoing::instances::tezos::INDEXING_PREFIX;
-	const TEMP_INDEXING_PREFIX: &'static [u8] =
-		pallet_acurast_hyperdrive_outgoing::instances::tezos::TEMP_INDEXING_PREFIX;
+	type ParsableAccountId = AcurastAccountId;
+	type TargetChainOwner = EthereumAcurastGateway;
+	type TargetChainHash = H256;
+	type TargetChainBlockNumber = u64;
+	type Balance = Balance;
+	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
+	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxSlots = MaxSlotsFor<Self>;
+	type RegistrationExtra = ExtraFor<Self>;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = EthereumSnapshotRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type ActionExecutor = AcurastActionExecutor;
+	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<
+		AcurastAccountId,
+		<Self as frame_system::Config>::AccountId,
+	>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config<TezosInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MMRInfo = TezosInstance;
 	type TargetChainConfig = DefaultTezosConfig;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
+	type OnNewRoot = ();
+	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config<EthereumInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MMRInfo = EthereumInstance;
+	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::ethereum::EthereumConfig;
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
@@ -1215,10 +1260,12 @@ construct_runtime!(
 		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		// Hyperdrive (one instance for each connected chain)
-		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::{Pallet, Call, Storage, Event<T>} = 45,
+		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::<Instance1>::{Pallet, Call, Storage, Event<T>} = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
 		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
+		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
+		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2>::{Pallet, Call, Storage, Event<T>} = 49,
 	}
 );
 
@@ -1246,8 +1293,6 @@ mod benches {
 		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 	);
 }
-
-type TezosHashOf<T> = <<T as pallet_acurast_hyperdrive_outgoing::Config<TargetChainTezos>>::TargetChainConfig as TargetChainConfig>::Hash;
 
 impl_runtime_apis! {
 	/// TODO: This could maybe be removed
@@ -1389,37 +1434,59 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, TezosHashOf<Runtime>, TargetChainTezos> for Runtime {
-		fn number_of_leaves() -> LeafIndex {
-			AcurastHyperdriveOutgoingTezos::number_of_leaves()
+	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256> for Runtime {
+		fn number_of_leaves(instance: HyperdriveInstance) -> LeafIndex {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::number_of_leaves(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::number_of_leaves(),
+			}
 		}
 
-		fn first_mmr_block_number() -> Option<NumberFor<Block>> {
-			AcurastHyperdriveOutgoingTezos::first_mmr_block_number()
+		fn first_mmr_block_number(instance: HyperdriveInstance) -> Option<NumberFor<Block>> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::first_mmr_block_number(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::first_mmr_block_number(),
+			}
 		}
 
-		fn leaf_meta(leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, TezosHashOf<Runtime>)> {
-			AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index)
+		fn leaf_meta(instance: HyperdriveInstance, leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, H256)> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::leaf_meta(leaf_index),
+			}
 		}
 
-		fn last_message_excl_by_block(block_number: NumberFor<Block>) -> Option<LeafIndex> {
-			AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number)
+		fn last_message_excl_by_block(instance: HyperdriveInstance, block_number: NumberFor<Block>) -> Option<LeafIndex> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::block_leaf_index(block_number),
+			}
 		}
 
-		fn snapshot_roots(next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect()
+		fn snapshot_roots(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).collect(),
+			}
 		}
 
-		fn snapshot_root(next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose()
+		fn snapshot_root(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+			}
 		}
 
 		fn generate_target_chain_proof(
+			instance: HyperdriveInstance,
 			next_message_number: LeafIndex,
 			maximum_messages: Option<u64>,
 			latest_known_snapshot_number: SnapshotNumber,
-		) -> Result<Option<TargetChainProof<TezosHashOf<Runtime>>>, MMRError> {
-			AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number)
+		) -> Result<Option<TargetChainProof<H256>>, MMRError> {
+			match instance {
+				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+			}
 		}
 	}
 
@@ -1468,7 +1535,6 @@ impl_runtime_apis! {
 		) {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
-			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
@@ -1483,7 +1549,6 @@ impl_runtime_apis! {
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
 
-			use frame_system_benchmarking::Pallet as SystemBench;
 			impl frame_system_benchmarking::Config for Runtime {
 				// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
 				// fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {

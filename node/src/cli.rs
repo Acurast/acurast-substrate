@@ -85,7 +85,7 @@ pub struct RunCmd {
 	pub use_local: bool,
 
 	/// Use Acurast Dev runtime.
-	#[clap(long = "local-runtime")]
+	#[clap(long = "dev-runtime")]
 	pub use_dev: bool,
 
 	/// Use Acurast Rococo runtime.

@@ -82,7 +82,7 @@ use frame_support::traits::{
 use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::*;
 
-use pallet_acurast::{JobHooks, JobId, MultiOrigin};
+use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
@@ -640,6 +640,7 @@ pub type InternalAssetId = u32;
 
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
@@ -685,7 +686,11 @@ impl pallet_acurast::Config for Runtime {
 	type RegistrationExtra = ExtraFor<Self>;
 	type MaxAllowedSources = MaxAllowedSources;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
+	type MaxSlots = MaxSlots;
 	type PalletId = AcurastPalletId;
+	type MaxEnvVars = CU32<10>;
+	type EnvKeyMaxSize = CU32<32>;
+	type EnvValueMaxSize = CU32<1024>;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -719,12 +724,12 @@ impl pallet_acurast_marketplace::traits::ProcessorLastSeenProvider<Runtime>
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxAllowedConsumers = pallet_acurast::CU32<100>;
+	type MaxAllowedConsumers = CU32<100>;
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
-	type MaxSlots = MaxSlots;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
+	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
 	type RewardManager =
@@ -970,8 +975,7 @@ impl
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
-			ParsedAction::DeregisterJob(job_id) =>
-				AcurastMarketplace::deregister_hook(&job_id).into(),
+			ParsedAction::DeregisterJob(job_id) => Acurast::deregister_for(job_id).into(),
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 			ParsedAction::Noop => {
@@ -1006,7 +1010,7 @@ impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
 	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
-	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxTransmittersPerSnapshot = CU32<64>;
 	type MaxSlots = MaxSlotsFor<Self>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
@@ -1028,7 +1032,7 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
 	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
-	type MaxTransmittersPerSnapshot = pallet_acurast::CU32<64>;
+	type MaxTransmittersPerSnapshot = CU32<64>;
 	type MaxSlots = MaxSlotsFor<Self>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;

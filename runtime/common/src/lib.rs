@@ -51,7 +51,7 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub type MaxAllowedSources = pallet_acurast::CU32<1000>;
 pub type MaxAllowedSourcesFor<T> = <T as pallet_acurast::Config>::MaxAllowedSources;
 pub type MaxSlots = pallet_acurast::CU32<64>;
-pub type MaxSlotsFor<T> = <T as pallet_acurast_marketplace::Config>::MaxSlots;
+pub type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;
 pub type ExtraFor<T> = RegistrationExtra<Balance, AccountId, MaxSlotsFor<T>>;
 
 // the base number of indivisible units for balances

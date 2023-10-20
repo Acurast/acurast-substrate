@@ -34,6 +34,7 @@ pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
+pallet-acurast-vesting = { workspace = true }
 pallet-parachain-staking = { workspace = true }
 pallet-collator-selection = { workspace = true }
 
@@ -138,6 +139,7 @@ std = [
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
+	"pallet-acurast-vesting/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-outgoing/std",
 	"acurast-runtime-common/std",
@@ -179,12 +181,14 @@ runtime-benchmarks = [
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
+	"pallet-acurast-vesting/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-outgoing/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-parachain-staking/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

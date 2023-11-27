@@ -51,7 +51,7 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub type MaxAllowedSources = pallet_acurast::CU32<1000>;
 pub type MaxAllowedSourcesFor<T> = <T as pallet_acurast::Config>::MaxAllowedSources;
 pub type MaxSlots = pallet_acurast::CU32<64>;
-pub type MaxSlotsFor<T> = <T as pallet_acurast_marketplace::Config>::MaxSlots;
+pub type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;
 pub type ExtraFor<T> = RegistrationExtra<Balance, AccountId, MaxSlotsFor<T>>;
 
 // the base number of indivisible units for balances
@@ -97,8 +97,8 @@ pub mod staking_info {
 	/// Maximum delegations per delegator
 	pub const MAXIMUM_DELEGATIONS_PER_DELEGATOR: u32 = 100; // TBD
 	/// Minimum stake required to be reserved to be a delegator
-	pub const MAXIMUM_DELEGATION: Balance = 500 * UNIT; // TBD
-	pub const MAXIMUM_DELEGATOR_STAKE: Balance = 500 * UNIT; // TBD
+	pub const MINIMUM_DELEGATION: Balance = 10 * UNIT; // TBD
+	pub const MINIMUM_DELEGATOR_STAKE: Balance = 10 * UNIT; // TBD
 
 	pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
 		ideal_staked: Perbill::from_percent(75),

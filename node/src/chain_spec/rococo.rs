@@ -5,8 +5,8 @@ use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32
 use std::str::FromStr;
 
 pub(crate) use acurast_rococo_runtime::{
-	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, DemocracyConfig,
-	SudoConfig, EXISTENTIAL_DEPOSIT,
+	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, AcurastVestingConfig,
+	DemocracyConfig, Runtime, SudoConfig, VestingFor, EXISTENTIAL_DEPOSIT,
 };
 use acurast_runtime_common::*;
 
@@ -127,11 +127,27 @@ fn genesis_config(
 			num_selected_candidates: 128u32.into(),
 			parachain_bond_reserve_percent: Percent::from_percent(30), // TBD
 			candidates: invulnerables
-				.into_iter()
+				.iter()
+				.cloned()
 				.map(|(acc, _)| (acc, staking_info::MINIMUM_COLLATOR_STAKE))
 				.collect(),
 			delegations: vec![],
 			inflation_config: staking_info::DEFAULT_INFLATION_CONFIG,
+		},
+		acurast_vesting: AcurastVestingConfig {
+			vesters: invulnerables
+				.into_iter()
+				.map(|(acc, _)| {
+					(
+						acc,
+						VestingFor::<Runtime, _> {
+							stake: staking_info::MINIMUM_COLLATOR_STAKE,
+							// ~ 1 month
+							locking_period: 262144,
+						},
+					)
+				})
+				.collect(),
 		},
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),

@@ -831,6 +831,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
+	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -1180,6 +1181,13 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_author_inherent::Config for Runtime {
 	// A new slot starts on every new relay block.
 	type SlotBeacon = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
@@ -1253,6 +1261,7 @@ construct_runtime!(
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
+		Utility: pallet_utility = 8,
 
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,

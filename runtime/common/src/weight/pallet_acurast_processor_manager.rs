@@ -146,4 +146,34 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+
+	fn heartbeat_with_version() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `684`
+		//  Estimated: `4990`
+		// Minimum execution time: 18_000_000 picoseconds.
+		Weight::from_parts(18_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4990))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	fn update_binary_hash() -> Weight {
+		Weight::from_parts(18_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4990))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	fn set_processor_update_info(x: u32, ) -> Weight {
+		Weight::from_parts(55_087_973, 0)
+			.saturating_add(Weight::from_parts(0, 21817))
+			// Standard Error: 10_940
+			.saturating_add(Weight::from_parts(9_526_349, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 2507).saturating_mul(x.into()))
+	}
 }

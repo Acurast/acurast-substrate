@@ -866,6 +866,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
+	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;

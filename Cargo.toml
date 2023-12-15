@@ -2,6 +2,7 @@
 panic = "unwind"
 
 [workspace]
+resolver = "1"
 members = [
 	"node",
 	"emulations",
@@ -11,7 +12,7 @@ members = [
 [workspace.package]
 authors = [ "Papers AG" ]
 repository = "https://github.com/acurast"
-version = "0.4.1"
+version = "0.4.2"
 
 [workspace.dependencies]
 # build dependencies
@@ -30,28 +31,28 @@ async-trait = "0.1.57"
 cfg-if = "1.0.0"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
-pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Reputation pallet handles the reputation of processors.
-acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus
 # mechanism, it is responsible for selecting candidates, distribute rewards, etc...
-pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Collator Selection pallet is used to select collators for the parachain. (PoA)
-pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
-pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
-pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.2" }
+pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
+pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.3" }
 
 # Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }
@@ -97,6 +98,7 @@ pallet-uniques = { git = "https://github.com/paritytech/substrate", default-feat
 # to coordinate and dispatch calls from a well-known origin, derivable deterministically from a
 # set of account IDs that must approve it
 pallet-multisig = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
+pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.43" }
@@ -179,7 +181,6 @@ cumulus-relay-chain-inprocess-interface = { git = "https://github.com/paritytech
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.43" }
 cumulus-relay-chain-rpc-interface = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.43" }
 cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.43" }
-
 
 [profile.production]
 inherits = "release"

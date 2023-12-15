@@ -184,7 +184,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 8,
+	spec_version: 9,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -866,6 +866,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
+	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -1199,6 +1200,13 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -1217,6 +1225,7 @@ construct_runtime!(
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
+		Utility: pallet_utility = 8,
 
 		// Monetary stuff.
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,

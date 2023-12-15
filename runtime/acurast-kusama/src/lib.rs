@@ -1278,15 +1278,15 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
-		// [pallet_collator_selection, CollatorSelection]
-		// [cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast, Acurast]
 		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 		[pallet_acurast_marketplace, AcurastMarketplace]
 		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
-		// [pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
-		// [pallet_acurast_hyperdrive_outgoing, HyperdriveOutgoingEthereum]
+		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		[pallet_acurast_hyperdrive_outgoing, HyperdriveOutgoingEthereum]
 	);
 }
 

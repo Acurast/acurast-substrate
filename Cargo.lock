@@ -80,6 +80,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-uniques",
+ "pallet-utility",
  "pallet-xcm",
  "parachain-info",
  "parachains-common",

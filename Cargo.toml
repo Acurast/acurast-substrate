@@ -31,28 +31,28 @@ cfg-if = "1.0.0"
 futures = "0.3.21"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
-pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Reputation pallet handles the reputation of processors.
-acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus
 # mechanism, it is responsible for selecting candidates, distribute rewards, etc...
-pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Collator Selection pallet is used to select collators for the parachain. (PoA)
-pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
-pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
-pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", branch = "staging/polkadot-v1.1.0", default-features = false }
+pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
+pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", tag = "acurast-v0.3.1", default-features = false }
 
 # Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v1.1.0" }

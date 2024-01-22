@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	pallet::{parse::call::CallWeightDef, Def},
+	pallet::{
+		parse::call::{CallVariantDef, CallWeightDef},
+		Def,
+	},
 	COUNTER,
 };
 use proc_macro2::TokenStream as TokenStream2;
@@ -113,7 +116,22 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
-	let fn_doc = methods.iter().map(|method| &method.docs).collect::<Vec<_>>();
+	let map_fn_docs = if !def.dev_mode {
+		// Emit the [`Pallet::method`] documentation only for non-dev modes.
+		|method: &CallVariantDef| {
+			let reference = format!("See [`Pallet::{}`].", method.name);
+			quote!(#reference)
+		}
+	} else {
+		// For the dev-mode do not provide a documenation link as it will break the
+		// `cargo doc` if the pallet is private inside a test.
+		|method: &CallVariantDef| {
+			let reference = format!("See `Pallet::{}`.", method.name);
+			quote!(#reference)
+		}
+	};
+
+	let fn_doc = methods.iter().map(map_fn_docs).collect::<Vec<_>>();
 
 	let args_name = methods
 		.iter()
@@ -175,9 +193,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			.collect::<Vec<_>>()
 	});
 
-	let default_docs = [syn::parse_quote!(
-		r"Contains one variant per dispatchable that can be called by an extrinsic."
-	)];
+	let default_docs =
+		[syn::parse_quote!(r"Contains a variant per dispatchable extrinsic that this pallet has.")];
 	let docs = if docs.is_empty() { &default_docs[..] } else { &docs[..] };
 
 	let maybe_compile_error = if def.call.is_none() {
@@ -258,9 +275,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
-			#frame_support::codec::Encode,
-			#frame_support::codec::Decode,
-			#frame_support::scale_info::TypeInfo,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
@@ -270,11 +287,11 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc(hidden)]
 			#[codec(skip)]
 			__Ignore(
-				#frame_support::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
 			#(
-				#( #[doc = #fn_doc] )*
+				#[doc = #fn_doc]
 				#[codec(index = #call_index)]
 				#fn_name {
 					#(
@@ -334,11 +351,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		// Deprecated, but will warn when used
-		#[allow(deprecated)]
-		impl<#type_impl_gen> #frame_support::weights::GetDispatchInfo for #call_ident<#type_use_gen> #where_clause {}
-
-		impl<#type_impl_gen> #frame_support::dispatch::GetCallName for #call_ident<#type_use_gen>
+		impl<#type_impl_gen> #frame_support::traits::GetCallName for #call_ident<#type_use_gen>
 			#where_clause
 		{
 			fn get_call_name(&self) -> &'static str {
@@ -353,7 +366,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		impl<#type_impl_gen> #frame_support::dispatch::GetCallIndex for #call_ident<#type_use_gen>
+		impl<#type_impl_gen> #frame_support::traits::GetCallIndex for #call_ident<#type_use_gen>
 			#where_clause
 		{
 			fn get_call_index(&self) -> u8 {
@@ -381,8 +394,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					match self {
 						#(
 							Self::#fn_name { #( #args_name_pattern, )* } => {
-								#frame_support::sp_tracing::enter_span!(
-									#frame_support::sp_tracing::trace_span!(stringify!(#fn_name))
+								#frame_support::__private::sp_tracing::enter_span!(
+									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
 								);
 								#maybe_allow_attrs
 								<#pallet_ident<#type_use_gen>>::#fn_name(origin, #( #args_name, )* )
@@ -406,8 +419,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
 			#[doc(hidden)]
-			pub fn call_functions() -> #frame_support::metadata_ir::PalletCallMetadataIR {
-				#frame_support::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
+				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
 			}
 		}
 	)

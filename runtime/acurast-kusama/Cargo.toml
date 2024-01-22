@@ -143,7 +143,6 @@ std = [
 	"pallet-acurast-hyperdrive-outgoing/std",
 	"acurast-runtime-common/std",
 	"parachain-info/std",
-	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",

@@ -15,6 +15,7 @@ dependencies = [
 [[package]]
 name = "acurast-common"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "asn1",
  "chrono",
@@ -67,7 +68,7 @@ dependencies = [
  "pallet-author-inherent",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -192,6 +193,7 @@ dependencies = [
 [[package]]
 name = "acurast-p256-crypto"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "hex",
  "p256 0.12.0-pre",
@@ -211,6 +213,7 @@ dependencies = [
 [[package]]
 name = "acurast-reputation"
 version = "0.2.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "num",
  "parity-scale-codec",
@@ -257,7 +260,7 @@ dependencies = [
  "pallet-author-inherent",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -332,7 +335,7 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -2844,6 +2847,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "der 0.6.1",
  "elliptic-curve-vendored",
@@ -2960,6 +2964,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "base16ct 0.1.1",
  "crypto-bigint 0.4.9",
@@ -6239,6 +6244,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -6247,6 +6253,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6269,6 +6276,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-assets-manager"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6291,6 +6299,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-fee-manager"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6304,6 +6313,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "alloy-sol-types",
  "derive_more",
@@ -6332,6 +6342,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "acurast-merkle-mountain-range",
@@ -6371,6 +6382,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-marketplace"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -6406,6 +6418,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-processor-manager"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6426,6 +6439,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-rewards-treasury"
 version = "0.2.3"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "frame-support",
@@ -6441,6 +6455,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-vesting"
 version = "0.2.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6701,6 +6716,7 @@ dependencies = [
 [[package]]
 name = "pallet-collator-selection"
 version = "3.0.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7113,6 +7129,7 @@ dependencies = [
 [[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "derive_more",
  "frame-benchmarking",
@@ -9482,7 +9499,7 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support)",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -11844,6 +11861,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
+source = "git+https://github.com/Acurast/acurast-core.git?branch=feat/ios-processor-support#e1eb52b0dacf0932fdcbd261f5a0d73b8d18f25b"
 dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",

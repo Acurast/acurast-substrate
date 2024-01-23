@@ -31,28 +31,28 @@ async-trait = "0.1.57"
 cfg-if = "1.0.0"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
-pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
-pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-marketplace = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-fee-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
-pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-processor-manager = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-hyperdrive = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-hyperdrive-outgoing = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Reputation pallet handles the reputation of processors.
-acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+acurast-reputation = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus
 # mechanism, it is responsible for selecting candidates, distribute rewards, etc...
-pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-parachain-staking = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Collator Selection pallet is used to select collators for the parachain. (PoA)
-pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-collator-selection = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
-pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
-acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
-pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, tag = "acurast-v0.2.4" }
+pallet-acurast-rewards-treasury = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
+acurast-p256-crypto = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
+pallet-acurast-vesting = { git = "https://github.com/Acurast/acurast-core.git", default-features = false, branch = "feat/ios-processor-support" }
 
 # Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
 nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v0.9.43" }
@@ -194,28 +194,3 @@ frame-support-procedural = { path = "./frame/support/procedural" }
 # TODO: Temporary workaround (https://substrate.stackexchange.com/questions/9870)
 [patch.crates-io]
 parity-scale-codec = { git = "https://github.com/paritytech/parity-scale-codec.git", tag = "v3.6.5" }
-
-[patch."https://github.com/Acurast/acurast-core.git"]
-# Base pallet of the acurast protocol, it is used for registering jobs.
-pallet-acurast = { path = "../acurast-core/pallets/acurast" }
-# The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
-pallet-acurast-marketplace = { path = "../acurast-core/pallets/marketplace" }
-# This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { path = "../acurast-core/pallets/fee-manager" }
-# The Processor Manager pallet holds and manages information about each manager and its processors.
-pallet-acurast-processor-manager = { path = "../acurast-core/pallets/processor-manager" }
-# The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive = { path = "../acurast-core/pallets/hyperdrive" }
-# The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive-outgoing = { path = "../acurast-core/pallets/hyperdrive-outgoing" }
-# The Reputation pallet handles the reputation of processors.
-acurast-reputation = { path = "../acurast-core/pallets/marketplace/reputation" }
-# The Parachain Staking pallet is the main component for the Proof of Stake consensus
-# mechanism, it is responsible for selecting candidates, distribute rewards, etc...
-pallet-parachain-staking = { path = "../acurast-core/pallets/parachain-staking" }
-# The Collator Selection pallet is used to select collators for the parachain. (PoA)
-pallet-collator-selection = { path = "../acurast-core/pallets/collator-selection" }
-# The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
-pallet-acurast-rewards-treasury = { path = "../acurast-core/pallets/rewards-treasury" }
-acurast-p256-crypto = { path = "../acurast-core/p256-crypto" }
-pallet-acurast-vesting = { path = "../acurast-core/pallets/vesting" }

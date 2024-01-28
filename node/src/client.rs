@@ -37,7 +37,7 @@ use acurast_runtime_common::{
 	opaque::{Block, Header},
 	MaxAllowedSources,
 };
-pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Index};
+pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Nonce};
 
 use crate::service::{self, ParachainBackend, ParachainClient};
 
@@ -50,7 +50,7 @@ pub trait RuntimeApiCollection:
 	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 	+ sp_api::ApiExt<Block>
 	+ sp_block_builder::BlockBuilder<Block>
-	+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
+	+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
@@ -59,18 +59,15 @@ pub trait RuntimeApiCollection:
 	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
-where
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
 
 #[cfg(feature = "proof-of-authority")]
-impl<Api> RuntimeApiCollection for Api
-where
+impl<Api> RuntimeApiCollection for Api where
 	Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::ApiExt<Block>
 		+ sp_block_builder::BlockBuilder<Block>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
@@ -82,8 +79,7 @@ where
 			AccountId,
 			MaxAllowedSources,
 		> + sp_consensus_aura::AuraApi<Block, AuraId>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>,
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
 }
 
@@ -92,7 +88,7 @@ pub trait RuntimeApiCollection:
 	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 	+ sp_api::ApiExt<Block>
 	+ sp_block_builder::BlockBuilder<Block>
-	+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
+	+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
@@ -101,18 +97,15 @@ pub trait RuntimeApiCollection:
 	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
 	+ nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
-where
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
 
 #[cfg(feature = "proof-of-stake")]
-impl<Api> RuntimeApiCollection for Api
-where
+impl<Api> RuntimeApiCollection for Api where
 	Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::ApiExt<Block>
 		+ sp_block_builder::BlockBuilder<Block>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
@@ -124,8 +117,7 @@ where
 			AccountId,
 			MaxAllowedSources,
 		> + nimbus_primitives::NimbusApi<Block>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>,
-	<Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
 }
 
@@ -144,7 +136,6 @@ where
 	Block: BlockT,
 	Backend: BackendT<Block>,
 	Backend::State: sp_api::StateBackend<BlakeTwo256>,
-	Self::Api: RuntimeApiCollection<StateBackend = Backend::State>,
 {
 }
 
@@ -160,7 +151,6 @@ where
 		+ Send
 		+ Sync
 		+ CallApiAt<Block, StateBackend = Backend::State>,
-	Client::Api: RuntimeApiCollection<StateBackend = Backend::State>,
 {
 }
 
@@ -184,10 +174,8 @@ pub trait ExecuteWithClient {
 	/// Execute whatever should be executed with the given client instance.
 	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
 	where
-		<Api as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 		Backend: sc_client_api::Backend<Block>,
 		Backend::State: sp_api::StateBackend<BlakeTwo256>,
-		Api: RuntimeApiCollection<StateBackend = Backend::State>,
 		Client: AbstractClient<Block, Backend, Api = Api> + 'static;
 }
 

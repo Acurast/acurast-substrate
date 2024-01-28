@@ -1,18 +1,14 @@
 use std::net::SocketAddr;
 
-use acurast_rococo_runtime::Block;
-use codec::Encode;
-use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use log::{info, warn};
+use log::info;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
+	NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
-use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
+use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
 	chain_spec,
@@ -129,19 +125,6 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		load_spec(id, &self.run)
 	}
-
-	fn native_runtime_version(spec: &Box<dyn sc_service::ChainSpec>) -> &'static RuntimeVersion {
-		match spec.variant() {
-			#[cfg(feature = "acurast-local")]
-			NetworkVariant::Local => return &chain_spec::local::acurast_runtime::VERSION,
-			#[cfg(feature = "acurast-dev")]
-			NetworkVariant::Dev => return &chain_spec::dev::acurast_runtime::VERSION,
-			#[cfg(feature = "acurast-rococo")]
-			NetworkVariant::Rococo => return &chain_spec::rococo::acurast_runtime::VERSION,
-			#[cfg(feature = "acurast-kusama")]
-			NetworkVariant::Kusama => return &chain_spec::kusama::acurast_runtime::VERSION,
-		}
-	}
 }
 
 impl SubstrateCli for RelayChainCli {
@@ -177,10 +160,6 @@ impl SubstrateCli for RelayChainCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
-	}
-
-	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		polkadot_cli::Cli::native_runtime_version(chain_spec)
 	}
 }
 
@@ -375,10 +354,42 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|_config| {
-				let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-				let state_version = Cli::native_runtime_version(&spec).state_version();
-				cmd.run::<Block>(&*spec, state_version)
+			runner.sync_run(|config| {
+				let chain_spec = &config.chain_spec;
+				match chain_spec.variant() {
+					#[cfg(feature = "acurast-local")]
+					NetworkVariant::Local => {
+						let partials = new_partial::<
+							chain_spec::local::acurast_runtime::RuntimeApi,
+							service::AcurastLocalNativeExecutor,
+						>(&config)?;
+						cmd.run(&*config.chain_spec, &*partials.client)
+					},
+					#[cfg(feature = "acurast-dev")]
+					NetworkVariant::Dev => {
+						let partials = new_partial::<
+							chain_spec::dev::acurast_runtime::RuntimeApi,
+							service::AcurastDevNativeExecutor,
+						>(&config)?;
+						cmd.run(&*config.chain_spec, &*partials.client)
+					},
+					#[cfg(feature = "acurast-rococo")]
+					NetworkVariant::Rococo => {
+						let partials = new_partial::<
+							chain_spec::rococo::acurast_runtime::RuntimeApi,
+							service::AcurastRococoNativeExecutor,
+						>(&config)?;
+						cmd.run(&*config.chain_spec, &*partials.client)
+					},
+					#[cfg(feature = "acurast-kusama")]
+					NetworkVariant::Kusama => {
+						let partials = new_partial::<
+							chain_spec::kusama::acurast_runtime::RuntimeApi,
+							service::AcurastKusamaNativeExecutor,
+						>(&config)?;
+						cmd.run(&*config.chain_spec, &*partials.client)
+					},
+				}
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -399,30 +410,22 @@ pub fn run() -> Result<()> {
 							#[cfg(feature = "acurast-local")]
 							NetworkVariant::Local =>
 								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_local_runtime::Block, service::AcurastLocalNativeExecutor>(
-										config,
-									)
+									cmd.run::<service::acurast_local_runtime::Block, ()>(config)
 								}),
 							#[cfg(feature = "acurast-dev")]
 							NetworkVariant::Dev =>
 								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_dev_runtime::Block, service::AcurastDevNativeExecutor>(
-										config,
-									)
+									cmd.run::<service::acurast_dev_runtime::Block, ()>(config)
 								}),
 							#[cfg(feature = "acurast-rococo")]
 							NetworkVariant::Rococo =>
 								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_rococo_runtime::Block, service::AcurastRococoNativeExecutor>(
-										config,
-									)
+									cmd.run::<service::acurast_rococo_runtime::Block, ()>(config)
 								}),
 							#[cfg(feature = "acurast-kusama")]
 							NetworkVariant::Kusama =>
 								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_kusama_runtime::Block, service::AcurastKusamaNativeExecutor>(
-										config,
-									)
+									cmd.run::<service::acurast_kusama_runtime::Block, ()>(config)
 								}),
 						}
 					} else {
@@ -572,7 +575,6 @@ pub fn run() -> Result<()> {
 					None
 				};
 
-
 				let polkadot_cli = RelayChainCli::new(
 					&config,
 					[RelayChainCli::executable_name()].iter().chain(cli.relay_chain_args.iter()),
@@ -581,20 +583,15 @@ pub fn run() -> Result<()> {
 				// allow command line argument to overwrite para_id from chain_spec
 				let id = ParaId::from(match cli.run.parachain_id {
 					Some(id) => id.clone(),
-					None => {
-						chain_spec::Extensions::try_get(&*config.chain_spec)
-							.map(|e| e.para_id)
-							.ok_or_else(|| "Could not find parachain ID in chain-spec.")?
-					}
+					None => chain_spec::Extensions::try_get(&*config.chain_spec)
+						.map(|e| e.para_id)
+						.ok_or_else(|| "Could not find parachain ID in chain-spec.")?,
 				});
 
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(&id);
-
-				let state_version = Cli::native_runtime_version(&config.chain_spec).state_version();
-				let block: Block = generate_genesis_block(&*config.chain_spec, state_version)
-					.map_err(|e| format!("{:?}", e))?;
-				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&id,
+					);
 
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
@@ -603,58 +600,41 @@ pub fn run() -> Result<()> {
 
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
-				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
-
-				if !collator_options.relay_chain_rpc_urls.is_empty() && cli.relay_chain_args.len() > 0 {
-					warn!("Detected relay chain node arguments together with --relay-chain-rpc-url. This command starts a minimal Polkadot node that only uses a network-related subset of all relay chain CLI options.");
-				}
 
 				match &config.chain_spec.variant() {
 					#[cfg(feature = "acurast-local")]
-					NetworkVariant::Local => crate::service::start_parachain_node::<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into) ,
+					NetworkVariant::Local => crate::service::start_parachain_node::<
+						chain_spec::local::acurast_runtime::RuntimeApi,
+						service::AcurastLocalNativeExecutor,
+					>(config, polkadot_config, collator_options, id, hwbench)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-dev")]
-					NetworkVariant::Dev => crate::service::start_parachain_node::<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into) ,
+					NetworkVariant::Dev => crate::service::start_parachain_node::<
+						chain_spec::dev::acurast_runtime::RuntimeApi,
+						service::AcurastDevNativeExecutor,
+					>(config, polkadot_config, collator_options, id, hwbench)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-rococo")]
-					NetworkVariant::Rococo => crate::service::start_parachain_node::<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into) ,
+					NetworkVariant::Rococo => crate::service::start_parachain_node::<
+						chain_spec::rococo::acurast_runtime::RuntimeApi,
+						service::AcurastRococoNativeExecutor,
+					>(config, polkadot_config, collator_options, id, hwbench)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-kusama")]
-					NetworkVariant::Kusama => crate::service::start_parachain_node::<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-								.map_err(Into::into),
+					NetworkVariant::Kusama => crate::service::start_parachain_node::<
+						chain_spec::kusama::acurast_runtime::RuntimeApi,
+						service::AcurastKusamaNativeExecutor,
+					>(config, polkadot_config, collator_options, id, hwbench)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 				}
 			})
 		},

@@ -15,9 +15,7 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime_common::{
-	opaque::Block, AccountId, Balance, Index as Nonce, MaxAllowedSources,
-};
+use acurast_runtime_common::{opaque::Block, AccountId, Balance, MaxAllowedSources, Nonce};
 use pallet_acurast_hyperdrive_outgoing::{
 	instances::{EthereumInstance, TezosInstance},
 	HyperdriveApi,

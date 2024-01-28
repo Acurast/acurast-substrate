@@ -11,11 +11,10 @@ extern crate core;
 mod tests {
 
 	use super::*;
-	use frame_support::traits::GenesisBuild;
 	use hex_literal::hex;
 	use sp_runtime::{
 		traits::{AccountIdConversion, ConstU32},
-		AccountId32, BoundedVec,
+		AccountId32, BoundedVec, BuildStorage,
 	};
 	use xcm_simulator::{decl_test_parachain, ParaId, TestExt};
 
@@ -74,15 +73,13 @@ mod tests {
 	pub fn acurast_ext(para_id: u32) -> sp_io::TestExternalities {
 		use crate::acurast_runtime::{Runtime, System};
 
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-		let parachain_info_config =
-			parachain_info::GenesisConfig { parachain_id: ParaId::from(para_id) };
-
-		<parachain_info::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&parachain_info_config,
-			&mut t,
-		)
+		parachain_info::GenesisConfig::<Runtime> {
+			parachain_id: ParaId::from(para_id),
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
 		.unwrap();
 
 		let pallet_acurast_account: <Runtime as frame_system::Config>::AccountId =
@@ -104,12 +101,7 @@ mod tests {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let pallet_xcm_config = pallet_xcm::GenesisConfig::default();
-		<pallet_xcm::GenesisConfig as GenesisBuild<Runtime, _>>::assimilate_storage(
-			&pallet_xcm_config,
-			&mut t,
-		)
-		.unwrap();
+		pallet_xcm::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		acurast_runtime::pallet_acurast::GenesisConfig::<Runtime> {
 			attestations: vec![(BOB, None)],
@@ -175,7 +167,7 @@ mod tests {
 	pub fn polkadot_ext() -> sp_io::TestExternalities {
 		use crate::relay_chain::{Runtime, System};
 
-		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {

@@ -4,7 +4,7 @@ use super::{
 };
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
-	log, match_types, parameter_types,
+	match_types, parameter_types,
 	traits::{ContainsPair, Everything, Get, Nothing, OriginTrait, ProcessMessageError},
 	weights::Weight,
 };
@@ -23,7 +23,7 @@ use xcm_builder::{
 	UsingComponents, WithComputedOrigin,
 };
 use xcm_executor::{
-	traits::{ConvertOrigin, ShouldExecute},
+	traits::{ConvertOrigin, Properties, ShouldExecute},
 	XcmExecutor,
 };
 
@@ -148,10 +148,10 @@ where
 		origin: &MultiLocation,
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: XCMWeight,
-		weight_credit: &mut XCMWeight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, message, max_weight, weight_credit)?;
-		Allow::should_execute(origin, message, max_weight, weight_credit)
+		Deny::should_execute(origin, message, max_weight, properties)?;
+		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }
 
@@ -161,7 +161,7 @@ impl ShouldExecute for DenyAllXCM {
 		_origin: &MultiLocation,
 		_message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
-		_weight_credit: &mut Weight,
+		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		Err(ProcessMessageError::Unsupported) // Deny
 	}
@@ -174,7 +174,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 		origin: &MultiLocation,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
-		_weight_credit: &mut Weight,
+		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		message.matcher().match_next_inst_while(
 			|_| true,
@@ -313,6 +313,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.

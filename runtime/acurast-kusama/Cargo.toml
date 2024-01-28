@@ -163,7 +163,7 @@ std = [
 	"nimbus-primitives/std",
 	"pallet-author-inherent/std",
 	"pallet-parachain-staking/std",
-	"pallet-collator-selection/std"
+	"pallet-collator-selection/std",
 ]
 
 runtime-benchmarks = [

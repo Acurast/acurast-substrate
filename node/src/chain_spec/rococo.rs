@@ -13,7 +13,8 @@ use acurast_runtime_common::*;
 use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, ROCOCO_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec =
+	sc_service::GenericChainSpec<acurast_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -86,22 +87,26 @@ pub fn acurast_rococo_config() -> ChainSpec {
 	)
 }
 
-/// Returns the testnet [acurast_runtime::GenesisConfig].
+/// Returns the testnet [acurast_runtime::RuntimeGenesisConfig].
 fn genesis_config(
 	invulnerables: Vec<(AccountId, NimbusId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
 	acurast: AcurastConfig,
-) -> acurast_runtime::GenesisConfig {
-	acurast_runtime::GenesisConfig {
+) -> acurast_runtime::RuntimeGenesisConfig {
+	acurast_runtime::RuntimeGenesisConfig {
 		system: acurast_runtime::SystemConfig {
 			code: acurast_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: acurast_runtime::BalancesConfig { balances: endowed_accounts },
-		parachain_info: acurast_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: acurast_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		collator_selection: acurast_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
@@ -151,6 +156,7 @@ fn genesis_config(
 		},
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 		sudo: SudoConfig { key: Some(sudo_account) },
 		acurast,

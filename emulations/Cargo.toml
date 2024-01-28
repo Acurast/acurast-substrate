@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # crates.io
-serde = { version = "1.0.132" }
+serde = { version = "1.0.188" }
 parity-scale-codec = { workspace = true }
 proc-macro2 = "1.0.40"
 scale-info = { version = "2.1.2", features = ["derive"] }
@@ -19,7 +19,6 @@ acurast-reputation = { workspace = true }
 
 # Runtimes
 acurast-rococo-runtime = { workspace = true }
-proxy-parachain-runtime = { path = "../examples/proxy-parachain/runtime", default-features = false }
 
 # Substrate
 sp-io = { workspace = true }

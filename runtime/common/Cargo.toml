@@ -24,7 +24,7 @@ log = { workspace = true }
 scale-info = { workspace = true }
 smallvec = { workspace = true }
 derive_more = { workspace = true }
-serde = { version = "1.0.136", optional = true, features = ["derive"] }
+serde = { version = "1.0.188", optional = true, features = ["derive"] }
 
 # Acurast
 pallet-acurast = { workspace = true }

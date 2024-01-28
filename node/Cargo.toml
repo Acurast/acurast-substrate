@@ -12,10 +12,11 @@ build = "build.rs"
 clap = { version = "4.0.29", features = ["derive"] }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.151", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 async-trait = { workspace = true }
 cfg-if = { workspace = true }
+futures = { workspace = true }
 
 # RPC
 pallet-acurast-marketplace = { workspace = true }
@@ -67,6 +68,7 @@ sp-transaction-pool = { workspace = true }
 sp-consensus = { workspace = true }
 sp-inherents = { workspace = true }
 sp-storage = { workspace = true, features = [ "std" ] }
+sc-offchain = { workspace = true }
 substrate-frame-rpc-system = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
 try-runtime-cli = { workspace = true, optional = true }
@@ -94,7 +96,7 @@ cumulus-relay-chain-minimal-node = { workspace = true }
 hex = "0.4"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.43" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
 [features]
 default = ["acurast-local", "acurast-dev", "acurast-rococo"]

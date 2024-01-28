@@ -11,7 +11,8 @@ use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_collator,
-	start_full_node, BuildNetworkParams, StartCollatorParams, StartFullNodeParams,
+	start_full_node, BuildNetworkParams, CollatorSybilResistance, StartCollatorParams,
+	StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -19,12 +20,14 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use pallet_acurast_hyperdrive_outgoing::{mmr_gadget::MmrGadget, traits::MMRInstance};
 use sc_chain_spec::ChainSpec;
+use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor};
 use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
@@ -168,11 +171,11 @@ impl sc_executor::NativeExecutionDispatch for AcurastKusamaNativeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		acurast_rococo_runtime::api::dispatch(method, data)
+		acurast_kusama_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		acurast_rococo_runtime::native_version()
+		acurast_kusama_runtime::native_version()
 	}
 }
 
@@ -197,7 +200,7 @@ pub fn new_partial<RuntimeApi, Executor>(
 		ParachainClient<RuntimeApi, Executor>,
 		ParachainBackend,
 		(),
-		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi, Executor>>,
+		sc_consensus::DefaultImportQueue<Block>,
 		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, Executor>>,
 		(
 			ParachainBlockImport<RuntimeApi, Executor>,
@@ -210,9 +213,7 @@ pub fn new_partial<RuntimeApi, Executor>(
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<
-		StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-	>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let telemetry = config
@@ -319,7 +320,7 @@ pub fn new_partial<RuntimeApi, Executor>(
 		ParachainClient<RuntimeApi, Executor>,
 		ParachainBackend,
 		(),
-		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi, Executor>>,
+		sc_consensus::DefaultImportQueue<Block>,
 		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, Executor>>,
 		(Option<Telemetry>, Option<TelemetryWorkerHandle>),
 	>,
@@ -328,8 +329,7 @@ pub fn new_partial<RuntimeApi, Executor>(
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>>
-		+ sp_consensus_aura::AuraApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection + sp_consensus_aura::AuraApi<Block, AuraId>,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let telemetry = config
@@ -439,9 +439,7 @@ async fn start_node_impl<RuntimeApi, Executor, BIC>(
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<
-		StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-	>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 	BIC: FnOnce(
 		//  client
@@ -509,15 +507,31 @@ where
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			net_config,
+			// because of Aura, according to polkadot-sdk node template
+			sybil_resistance_level: CollatorSybilResistance::Resistant,
 		})
 		.await?;
 
 	if parachain_config.offchain_worker.enabled {
-		sc_service::build_offchain_workers(
-			&parachain_config,
-			task_manager.spawn_handle(),
-			client.clone(),
-			network.clone(),
+		use futures::FutureExt;
+
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-work",
+			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+				runtime_api_provider: client.clone(),
+				keystore: Some(params.keystore_container.keystore()),
+				offchain_db: backend.offchain_storage(),
+				transaction_pool: Some(OffchainTransactionPoolFactory::new(
+					transaction_pool.clone(),
+				)),
+				network_provider: network.clone(),
+				is_validator: parachain_config.role.is_authority(),
+				enable_http_requests: false,
+				custom_extensions: move |_| vec![],
+			})
+			.run(client.clone(), task_manager.spawn_handle())
+			.boxed(),
 		);
 	}
 
@@ -652,8 +666,7 @@ async fn start_node_impl<RuntimeApi, Executor, BIC>(
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>>
-		+ sp_consensus_aura::AuraApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection + sp_consensus_aura::AuraApi<Block, AuraId>,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 	BIC: FnOnce(
 		//  client
@@ -721,15 +734,31 @@ where
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			net_config,
+			// because of PoS over parachain_staking pallet, according to https://github.com/moonbeam-foundation/moonbeam/blob/09b8141e756dd50719d4a64b0326cac3bc4c0708/node/service/src/lib.rs#L702
+			sybil_resistance_level: CollatorSybilResistance::Resistant,
 		})
 		.await?;
 
 	if parachain_config.offchain_worker.enabled {
-		sc_service::build_offchain_workers(
-			&parachain_config,
-			task_manager.spawn_handle(),
-			client.clone(),
-			network.clone(),
+		use futures::FutureExt;
+
+		task_manager.spawn_handle().spawn(
+			"offchain-mmr-indexer",
+			"hyperdrive-outgoing",
+			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+				runtime_api_provider: client.clone(),
+				keystore: Some(params.keystore_container.keystore()),
+				offchain_db: backend.offchain_storage(),
+				transaction_pool: Some(OffchainTransactionPoolFactory::new(
+					transaction_pool.clone(),
+				)),
+				network_provider: network.clone(),
+				is_validator: parachain_config.role.is_authority(),
+				enable_http_requests: false,
+				custom_extensions: move |_| vec![],
+			})
+			.run(client.clone(), task_manager.spawn_handle())
+			.boxed(),
 		);
 	}
 
@@ -856,16 +885,11 @@ fn build_import_queue<RuntimeApi, Executor>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
-) -> Result<
-	sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi, Executor>>,
-	sc_service::Error,
->
+) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<
-		StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-	>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
@@ -913,8 +937,7 @@ pub async fn start_parachain_node<RuntimeApi, Executor>(
 	where
 		RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-		RuntimeApi::RuntimeApi: RuntimeApiCollection<
-			StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>>,
+		RuntimeApi::RuntimeApi: RuntimeApiCollection,
 		Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	start_node_impl::<RuntimeApi, Executor, _>(
@@ -1014,9 +1037,7 @@ pub async fn start_parachain_node<RuntimeApi, Executor>(
 where
 	RuntimeApi:
 		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: RuntimeApiCollection<
-		StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
-	> + sp_consensus_aura::AuraApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection + sp_consensus_aura::AuraApi<Block, AuraId>,
 	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	start_node_impl::<RuntimeApi, Executor, _>(

@@ -648,7 +648,7 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.canary"];
-	pub const ReportTolerance: u64 = 12_000;
+	pub const ReportTolerance: u64 = 120_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.

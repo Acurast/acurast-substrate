@@ -1,4 +1,4 @@
-use frame_support::{dispatch::Weight, weights::constants::RocksDbWeight as DbWeight};
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 use pallet_acurast_hyperdrive_outgoing::WeightInfo;
 

@@ -1,5 +1,5 @@
-use frame_support::{assert_ok, bounded_vec};
-use sp_runtime::Permill;
+use frame_support::assert_ok;
+use sp_runtime::{bounded_vec, Permill};
 
 use crate::acurast_runtime;
 use acurast_runtime::{

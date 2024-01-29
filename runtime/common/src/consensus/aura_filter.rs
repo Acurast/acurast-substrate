@@ -1,7 +1,5 @@
-use frame_support::{
-	inherent::Vec,
-	pallet_prelude::{Get, PhantomData},
-};
+use frame_support::pallet_prelude::{Get, PhantomData};
+use sp_std::vec::Vec;
 
 pub struct AuraCanAuthor<T, PotentialAuthors>(PhantomData<(T, PotentialAuthors)>);
 

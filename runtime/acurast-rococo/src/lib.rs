@@ -84,9 +84,9 @@ use frame_support::traits::{
 use acurast_p256_crypto::MultiSignature;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
-use pallet_acurast::{JobId, MultiOrigin, CU32};
+use pallet_acurast::{EnvironmentFor, JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{
-	instances::{EthereumInstance, HyperdriveInstance, TezosInstance},
+	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
 };
 use pallet_acurast_hyperdrive_outgoing::{
@@ -150,6 +150,10 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
+type MaxEnvVars = CU32<10>;
+type EnvKeyMaxSize = CU32<32>;
+type EnvValueMaxSize = CU32<1024>;
+
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
 ///
@@ -188,7 +192,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 2,
-	spec_version: 18,
+	spec_version: 19,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -610,7 +614,7 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
-	pub const ReportTolerance: u64 = 12_000;
+	pub const ReportTolerance: u64 = 120_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
@@ -653,9 +657,9 @@ impl pallet_acurast::Config for Runtime {
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type MaxSlots = MaxSlots;
 	type PalletId = AcurastPalletId;
-	type MaxEnvVars = CU32<10>;
-	type EnvKeyMaxSize = CU32<32>;
-	type EnvValueMaxSize = CU32<1024>;
+	type MaxEnvVars = MaxEnvVars;
+	type EnvKeyMaxSize = EnvKeyMaxSize;
+	type EnvValueMaxSize = EnvValueMaxSize;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -748,6 +752,21 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				))
 				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
 			},
+			MultiOrigin::AlephZero(_) => {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
+						PubKey::SECP256k1(_) => true,
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+
+				HyperdriveOutgoingAlephZero::send_message(Action::AssignJob(
+					job_id_seq.clone(),
+					key.clone(),
+				))
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+			},
 		}
 	}
 
@@ -768,6 +787,10 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				Action::FinalizeJob(job_id_seq.clone(), refund),
 			)
 			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
+			MultiOrigin::AlephZero(_) => HyperdriveOutgoingAlephZero::send_message(
+				Action::FinalizeJob(job_id_seq.clone(), refund),
+			)
+			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to AlephZero").into()),
 		}
 	}
 }
@@ -921,29 +944,29 @@ parameter_types! {
 	pub const TransmissionRate: u64 = 1;
 
 	pub const EthereumSnapshotRate: u64 = 10;
+	pub const AlephZeroSnapshotRate: u64 = 1;
 
 	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
 
 	pub const TezosNativeAssetId: u128 = 5000;
 }
 
-pub struct AcurastActionExecutor;
-impl
-	pallet_acurast_hyperdrive::ActionExecutor<
-		AccountId,
-		MaxAllowedSourcesFor<Runtime>,
-		ExtraFor<Runtime>,
-	> for AcurastActionExecutor
-{
-	fn execute(
-		action: ParsedAction<AccountId, MaxAllowedSourcesFor<Runtime>, ExtraFor<Runtime>>,
-	) -> DispatchResultWithPostInfo {
+pub struct AcurastActionExecutor<T: pallet_acurast::Config>(PhantomData<T>);
+impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecutor<Runtime> {
+	fn execute(action: ParsedAction<Runtime>) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
 			ParsedAction::DeregisterJob(job_id) => Acurast::deregister_for(job_id),
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::SetJobEnvironment(job_id, environments) => {
+				for (source, env) in environments {
+					let e: EnvironmentFor<Runtime> = env;
+					Acurast::set_environment_for(job_id.clone(), source, e)?;
+				}
+				Ok(().into())
+			},
 			ParsedAction::Noop => {
 				// Intentionally, just logging it
 				log::debug!("Received NOOP operation from hyperdrive");
@@ -966,6 +989,8 @@ parameter_types! {
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
 	/// The acurast gateway on the ethereum network
 	pub EthereumAcurastGateway: StateOwner = hex_literal::hex!("6a34E1f07B57eD968e72895690f3df41b11487eb").to_vec().try_into().unwrap();
+	/// The acurast gateway on the aleph zero network (Not necessary)
+	pub AlephZeroAcurastGateway: StateOwner = vec![].try_into().unwrap();
 }
 
 impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
@@ -975,14 +1000,11 @@ impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
-	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
 	type MaxTransmittersPerSnapshot = CU32<64>;
-	type MaxSlots = MaxSlotsFor<Self>;
-	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor;
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
 	type Proof = pallet_acurast_hyperdrive::chain::tezos::TezosProof<
 		AcurastAccountId,
 		<Self as frame_system::Config>::AccountId,
@@ -997,15 +1019,28 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
-	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
 	type MaxTransmittersPerSnapshot = CU32<64>;
-	type MaxSlots = MaxSlotsFor<Self>;
-	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = EthereumSnapshotRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor;
-	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
+	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<Self, AcurastAccountId>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
+}
+
+impl pallet_acurast_hyperdrive::Config<AlephZeroInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParsableAccountId = AcurastAccountId;
+	type TargetChainOwner = AlephZeroAcurastGateway;
+	type TargetChainHash = H256;
+	type TargetChainBlockNumber = u64;
+	type Balance = Balance;
+	type MaxTransmittersPerSnapshot = CU32<64>;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = AlephZeroSnapshotRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
+	type Proof = pallet_acurast_hyperdrive::chain::substrate::SubstrateProof<
 		AcurastAccountId,
 		<Self as frame_system::Config>::AccountId,
 	>;
@@ -1025,6 +1060,15 @@ impl pallet_acurast_hyperdrive_outgoing::Config<EthereumInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MMRInfo = EthereumInstance;
 	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::ethereum::EthereumConfig;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
+	type OnNewRoot = ();
+	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config<AlephZeroInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MMRInfo = AlephZeroInstance;
+	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::alephzero::AlephZeroConfig;
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
@@ -1301,6 +1345,8 @@ construct_runtime!(
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
 		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2>::{Pallet, Call, Storage, Event<T>} = 49,
+		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3>::{Pallet, Call, Storage, Event<T>} = 50,
+		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3>::{Pallet, Call, Storage, Event<T>} = 51,
 	}
 );
 
@@ -1476,6 +1522,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::number_of_leaves(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::number_of_leaves(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::number_of_leaves(),
 			}
 		}
 
@@ -1483,6 +1530,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::first_mmr_block_number(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::first_mmr_block_number(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::first_mmr_block_number(),
 			}
 		}
 
@@ -1490,6 +1538,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::leaf_meta(leaf_index),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::leaf_meta(leaf_index),
 			}
 		}
 
@@ -1497,6 +1546,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::block_leaf_index(block_number),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::block_leaf_index(block_number),
 			}
 		}
 
@@ -1504,6 +1554,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).collect(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).collect(),
 			}
 		}
 
@@ -1511,6 +1562,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).next().transpose(),
 			}
 		}
 
@@ -1523,6 +1575,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
 			}
 		}
 	}

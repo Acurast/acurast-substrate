@@ -17,7 +17,7 @@ use sp_core::H256;
 
 use acurast_runtime_common::{opaque::Block, AccountId, Balance, MaxAllowedSources, Nonce};
 use pallet_acurast_hyperdrive_outgoing::{
-	instances::{EthereumInstance, TezosInstance},
+	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
 	HyperdriveApi,
 };
 use pallet_acurast_marketplace::MarketplaceRuntimeApi;
@@ -66,6 +66,7 @@ where
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<TezosInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<EthereumInstance, _, _>::new(client.clone()).into_rpc())?;
+	module.merge(Mmr::<AlephZeroInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Marketplace::<_, (Block, Balance, AccountId)>::new(client).into_rpc())?;
 	Ok(module)
 }

@@ -58,7 +58,9 @@ use nimbus_consensus::{BuildNimbusConsensusParams, NimbusConsensus};
 use sc_network::config::FullNetworkConfiguration;
 
 use crate::client::{ClientVariant, RuntimeApiCollection};
-use pallet_acurast_hyperdrive_outgoing::instances::{EthereumInstance, TezosInstance};
+use pallet_acurast_hyperdrive_outgoing::instances::{
+	AlephZeroInstance, EthereumInstance, TezosInstance,
+};
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]
@@ -294,6 +296,16 @@ where
 				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-alephzero-gadget",
+			Some("mmr-gadget"),
+			MmrGadget::<AlephZeroInstance, _, _, _, _>::start(
+				client.clone(),
+				backend.clone(),
+				AlephZeroInstance::INDEXING_PREFIX.to_vec(),
+				AlephZeroInstance::TEMP_INDEXING_PREFIX.to_vec(),
+			),
+		);
 	}
 
 	Ok(PartialComponents {
@@ -407,6 +419,16 @@ where
 				backend.clone(),
 				EthereumInstance::INDEXING_PREFIX.to_vec(),
 				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
+			),
+		);
+		task_manager.spawn_handle().spawn_blocking(
+			"mmr-gadget-alephzero",
+			Some("mmr-gadget"),
+			MmrGadget::<AlephZeroInstance, _, _, _, _>::start(
+				client.clone(),
+				backend.clone(),
+				AlephZeroInstance::INDEXING_PREFIX.to_vec(),
+				AlephZeroInstance::TEMP_INDEXING_PREFIX.to_vec(),
 			),
 		);
 	}

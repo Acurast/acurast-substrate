@@ -15,12 +15,15 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 
-use acurast_runtime_common::{opaque::Block, AccountId, Balance, MaxAllowedSources, Nonce};
+use acurast_runtime_common::{
+	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
+	MaxEnvVars, MaxSlots, Nonce,
+};
 use pallet_acurast_hyperdrive_outgoing::{
 	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
 	HyperdriveApi,
 };
-use pallet_acurast_marketplace::MarketplaceRuntimeApi;
+use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
@@ -51,7 +54,16 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: HyperdriveApi<Block, H256>,
-	C::Api: MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>,
+	C::Api: MarketplaceRuntimeApi<
+		Block,
+		Balance,
+		AccountId,
+		RegistrationExtra<Balance, AccountId, MaxSlots>,
+		MaxAllowedSources,
+		MaxEnvVars,
+		EnvKeyMaxSize,
+		EnvValueMaxSize,
+	>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use pallet_acurast_hyperdrive_outgoing::rpc::{Mmr, MmrApiServer};
@@ -67,6 +79,6 @@ where
 	module.merge(Mmr::<TezosInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<EthereumInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<AlephZeroInstance, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Marketplace::<_, (Block, Balance, AccountId)>::new(client).into_rpc())?;
+	module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }

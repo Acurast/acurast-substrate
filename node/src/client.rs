@@ -35,9 +35,10 @@ use acurast_runtime_common::AuraId;
 
 use acurast_runtime_common::{
 	opaque::{Block, Header},
-	MaxAllowedSources,
+	EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots,
 };
 pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Nonce};
+use pallet_acurast_marketplace::RegistrationExtra;
 
 use crate::service::{self, ParachainBackend, ParachainClient};
 
@@ -56,8 +57,16 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
-	+ sp_consensus_aura::AuraApi<Block, AuraId>
+	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
+		Block,
+		Balance,
+		AccountId,
+		RegistrationExtra<Balance, AccountId, MaxSlots>,
+		MaxAllowedSources,
+		MaxEnvVars,
+		EnvKeyMaxSize,
+		EnvValueMaxSize,
+	> + sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
 }
@@ -77,7 +86,11 @@ impl<Api> RuntimeApiCollection for Api where
 			Block,
 			Balance,
 			AccountId,
+			RegistrationExtra<Balance, AccountId, MaxSlots>,
 			MaxAllowedSources,
+			MaxEnvVars,
+			EnvKeyMaxSize,
+			EnvValueMaxSize,
 		> + sp_consensus_aura::AuraApi<Block, AuraId>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
@@ -94,8 +107,16 @@ pub trait RuntimeApiCollection:
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
 	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources>
-	+ nimbus_primitives::NimbusApi<Block>
+	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
+		Block,
+		Balance,
+		AccountId,
+		RegistrationExtra<Balance, AccountId, MaxSlots>,
+		MaxAllowedSources,
+		MaxEnvVars,
+		EnvKeyMaxSize,
+		EnvValueMaxSize,
+	> + nimbus_primitives::NimbusApi<Block>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
 }
@@ -115,7 +136,11 @@ impl<Api> RuntimeApiCollection for Api where
 			Block,
 			Balance,
 			AccountId,
+			RegistrationExtra<Balance, AccountId, MaxSlots>,
 			MaxAllowedSources,
+			MaxEnvVars,
+			EnvKeyMaxSize,
+			EnvValueMaxSize,
 		> + nimbus_primitives::NimbusApi<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 {

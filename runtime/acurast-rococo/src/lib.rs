@@ -84,7 +84,7 @@ use frame_support::traits::{
 use acurast_p256_crypto::MultiSignature;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
-use pallet_acurast::{EnvironmentFor, JobId, MultiOrigin, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
@@ -94,7 +94,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
+	JobAssignmentFor, MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
 pub use pallet_acurast_processor_manager;
 use pallet_acurast_vesting::VestingBalance;
@@ -149,10 +149,6 @@ pub type Executive = frame_executive::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 >;
-
-type MaxEnvVars = CU32<10>;
-type EnvKeyMaxSize = CU32<32>;
-type EnvValueMaxSize = CU32<1024>;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
@@ -812,7 +808,7 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 	fn accept_attestation_for_origin(
 		_origin: &<Runtime as frame_system::Config>::AccountId,
-		attestation: &pallet_acurast::Attestation,
+		attestation: &Attestation,
 	) -> bool {
 		let attestation_application_id =
 			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
@@ -1580,7 +1576,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources> for Runtime {
+	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, ExtraFor<Runtime>, MaxAllowedSources, MaxEnvVars, EnvKeyMaxSize, EnvValueMaxSize> for Runtime {
 		fn filter_matching_sources(
 			registration: PartialJobRegistration<Balance, AccountId, MaxAllowedSources>,
 			sources: Vec<AccountId>,
@@ -1588,6 +1584,25 @@ impl_runtime_apis! {
 			latest_seen_after: Option<u128>,
 		) -> Result<Vec<AccountId>, RuntimeApiError> {
 			AcurastMarketplace::filter_matching_sources(registration, sources, consumer, latest_seen_after)
+		}
+
+		fn job_environment(
+			job_id: JobId<AccountId>,
+			source: AccountId,
+		) -> Result<Option<EnvironmentFor<Runtime>>, RuntimeApiError> {
+			Ok(Acurast::execution_environment(job_id, source))
+		}
+
+		fn matched_jobs(
+			source: AccountId,
+		) -> Result<Vec<JobAssignmentFor<Runtime>>, RuntimeApiError> {
+			AcurastMarketplace::stored_matches_for_source(source)
+		}
+
+		fn attestation(
+			source: AccountId,
+		) -> Result<Option<Attestation>, RuntimeApiError>{
+			Ok(Acurast::stored_attestation(source))
 		}
 	}
 

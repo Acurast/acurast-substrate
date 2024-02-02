@@ -21,6 +21,7 @@ pub use xcm::{
 
 use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
+use pallet_acurast::CU32;
 
 pub mod consensus;
 pub mod constants;
@@ -50,8 +51,11 @@ pub type Address = MultiAddress<AccountId, ()>;
 
 pub type MaxAllowedSources = pallet_acurast::CU32<1000>;
 pub type MaxAllowedSourcesFor<T> = <T as pallet_acurast::Config>::MaxAllowedSources;
-pub type MaxSlots = pallet_acurast::CU32<64>;
+pub type MaxSlots = CU32<64>;
 pub type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;
+pub type MaxEnvVars = CU32<10>;
+pub type EnvKeyMaxSize = CU32<32>;
+pub type EnvValueMaxSize = CU32<1024>;
 pub type ExtraFor<T> = RegistrationExtra<Balance, AccountId, MaxSlotsFor<T>>;
 
 // the base number of indivisible units for balances

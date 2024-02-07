@@ -14,8 +14,8 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "asn1",
  "chrono",
@@ -34,7 +34,7 @@ dependencies = [
 [[package]]
 name = "acurast-core-ink"
 version = "0.1.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -77,7 +77,7 @@ dependencies = [
  "pallet-author-inherent",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1)",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -203,8 +203,8 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "hex",
  "p256",
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "acurast-reputation"
 version = "0.2.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -270,7 +270,7 @@ dependencies = [
  "pallet-author-inherent",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1)",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -345,7 +345,7 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
- "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1)",
+ "pallet-collator-selection 3.0.0 (git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2)",
  "pallet-democracy",
  "pallet-multisig",
  "pallet-parachain-staking",
@@ -1012,7 +1012,7 @@ dependencies = [
  "futures-lite 2.2.0",
  "parking",
  "polling 3.3.2",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "slab",
  "tracing",
  "windows-sys 0.52.0",
@@ -1062,7 +1062,7 @@ dependencies = [
  "cfg-if",
  "event-listener 3.1.0",
  "futures-lite 1.13.0",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "windows-sys 0.48.0",
 ]
 
@@ -1089,7 +1089,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "signal-hook-registry",
  "slab",
  "windows-sys 0.48.0",
@@ -3123,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "ecdsa_vendored"
 version = "0.14.4"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "der 0.6.1",
  "elliptic-curve-vendored",
@@ -3232,7 +3232,7 @@ dependencies = [
 [[package]]
 name = "elliptic-curve-vendored"
 version = "0.12.3"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "base16ct 0.1.1",
  "crypto-bigint 0.4.9",
@@ -3977,7 +3977,7 @@ version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eeb4ed9e12f43b7fa0baae3f9cdda28352770132ef2e09a23760c29cae8bd47"
 dependencies = [
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "windows-sys 0.48.0",
 ]
 
@@ -4272,7 +4272,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap 2.2.1",
+ "indexmap 2.2.2",
  "slab",
  "tokio",
  "tokio-util",
@@ -4529,14 +4529,14 @@ dependencies = [
  "rustls-native-certs",
  "tokio",
  "tokio-rustls",
- "webpki-roots 0.25.3",
+ "webpki-roots 0.25.4",
 ]
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.59"
+version = "0.1.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6a67363e2aa4443928ce15e57ebae94fd8949958fd1223c4cfc0cd473ad7539"
+checksum = "e7ffbb5a1b541ea2561f8c41c087286cc091e21e556a4f09a8f6cbf17b69b141"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -4666,9 +4666,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.2.1"
+version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433de089bd45971eecf4668ee0ee8f4cec17db4f8bd8f7bc3197a6ce37aa7d9b"
+checksum = "824b2ae422412366ba479e8111fd301f7b5faece8149317bb81925979a53f520"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
@@ -4768,7 +4768,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bad00257d07be169d870ab665980b06cdb366d792ad690bf2e76876dc503455"
 dependencies = [
  "hermit-abi 0.3.4",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "windows-sys 0.52.0",
 ]
 
@@ -4856,7 +4856,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tracing",
- "webpki-roots 0.25.3",
+ "webpki-roots 0.25.4",
 ]
 
 [[package]]
@@ -5061,9 +5061,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libloading"
@@ -5776,7 +5776,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2cffa4ad52c6f791f4f8b15f0c05f9824b2ced1160e88cc393d64fff9a8ac64"
 dependencies = [
- "rustix 0.38.30",
+ "rustix 0.38.31",
 ]
 
 [[package]]
@@ -5849,9 +5849,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
+checksum = "9d811f3e15f28568be3407c8e7fdb6514c1cda3cb30683f15b6a1a1dc4ea14a7"
 dependencies = [
  "adler",
 ]
@@ -6231,6 +6231,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-conv"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
+
+[[package]]
 name = "num-format"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6397,7 +6403,7 @@ dependencies = [
 [[package]]
 name = "p384_vendored"
 version = "0.11.2"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "ecdsa_vendored",
  "elliptic-curve-vendored",
@@ -6405,8 +6411,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6428,8 +6434,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fee-manager"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6442,8 +6448,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-core-ink",
  "alloy-sol-types",
@@ -6473,8 +6479,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-common",
  "acurast-core-ink",
@@ -6514,8 +6520,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-reputation",
  "frame-benchmarking",
@@ -6539,7 +6545,6 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-io",
- "sp-runtime",
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
@@ -6549,29 +6554,35 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
+ "jsonrpsee",
+ "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-timestamp",
  "pallet-uniques",
  "parity-scale-codec",
  "scale-info",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
  "sp-core",
  "sp-io",
  "sp-std",
+ "thiserror",
 ]
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.3.1"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+version = "0.3.2"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-common",
  "frame-support",
@@ -6589,7 +6600,7 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-vesting"
 version = "0.2.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6857,7 +6868,7 @@ dependencies = [
 [[package]]
 name = "pallet-collator-selection"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7276,7 +7287,7 @@ dependencies = [
 [[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "derive_more",
  "frame-benchmarking",
@@ -8022,7 +8033,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap 2.2.1",
+ "indexmap 2.2.2",
 ]
 
 [[package]]
@@ -9319,7 +9330,7 @@ dependencies = [
  "cfg-if",
  "concurrent-queue",
  "pin-project-lite 0.2.13",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -10264,9 +10275,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.30"
+version = "0.38.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "322394588aaf33c24007e8bb3238ee3e4c5c09c084ab32bc73890b99ff326bca"
+checksum = "6ea3e1a662af26cd7a3ba09c0297a31af215563ecf42817c98df621387f4e949"
 dependencies = [
  "bitflags 2.4.2",
  "errno",
@@ -11868,7 +11879,7 @@ dependencies = [
 [[package]]
 name = "signature_vendored"
 version = "1.6.0"
-source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.1#29aec5ef420e85b3c8d85a591026110c4e3598a5"
+source = "git+https://github.com/Acurast/acurast-core.git?tag=acurast-v0.3.2#ce0299db0b97370b02e4d48091fe199b51d0416c"
 dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",
@@ -13359,7 +13370,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.0.1",
  "redox_syscall 0.4.1",
- "rustix 0.38.30",
+ "rustix 0.38.31",
  "windows-sys 0.52.0",
 ]
 
@@ -13507,12 +13518,13 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.31"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f657ba42c3f86e7680e53c8cd3af8abbe56b5491790b46e22e19c0d57463583e"
+checksum = "c8248b6521bb14bc45b4067159b9b6ad792e2d6d754d6c41fb50e29fefe38749"
 dependencies = [
  "deranged",
  "itoa",
+ "num-conv",
  "powerfmt",
  "serde",
  "time-core",
@@ -13527,10 +13539,11 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26197e33420244aeb70c3e8c78376ca46571bc4e701e4791c2cd9f57dcb3a43f"
+checksum = "7ba3a3ef41e6672a2f0f001392bb5dcd3ff0a9992d618ca761a11c3121547774"
 dependencies = [
+ "num-conv",
  "time-core",
 ]
 
@@ -13598,9 +13611,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.35.1"
+version = "1.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c89b4efa943be685f629b149f53829423f8f5531ea21249408e8e2f8671ec104"
+checksum = "61285f6515fa018fb2d1e46eb21223fff441ee8db5d0f1435e8ab4f5cdb80931"
 dependencies = [
  "backtrace",
  "bytes",
@@ -13722,7 +13735,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.2.1",
+ "indexmap 2.2.2",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -13735,7 +13748,7 @@ version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
- "indexmap 2.2.1",
+ "indexmap 2.2.2",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -14612,9 +14625,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.25.3"
+version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1778a42e8b3b90bff8d0f5032bf22250792889a5cdc752aa0020c84abe3aaf10"
+checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
 
 [[package]]
 name = "weierstrass"
@@ -14746,14 +14759,14 @@ dependencies = [
  "either",
  "home",
  "once_cell",
- "rustix 0.38.30",
+ "rustix 0.38.31",
 ]
 
 [[package]]
 name = "wide"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b31891d644eba1789fb6715f27fbc322e4bdf2ecdc412ede1993246159271613"
+checksum = "89beec544f246e679fc25490e3f8e08003bc4bf612068f325120dad4cea02c1c"
 dependencies = [
  "bytemuck",
  "safe_arch",
@@ -15024,9 +15037,9 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "winnow"
-version = "0.5.35"
+version = "0.5.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1931d78a9c73861da0134f453bb1f790ce49b2e30eba8410b4b79bac72b46a2d"
+checksum = "a7cad8365489051ae9f054164e459304af2e7e9bb407c958076c8bf4aef52da5"
 dependencies = [
  "memchr",
 ]

@@ -9,6 +9,6 @@ type SignatureBytes = ecdsa_vendored::SignatureBytes<MockCurve>;
 
 #[test]
 fn rejects_all_zero_signature() {
-    let all_zero_bytes = SignatureBytes::default();
-    assert!(Signature::try_from(all_zero_bytes.as_ref()).is_err());
+	let all_zero_bytes = SignatureBytes::default();
+	assert!(Signature::try_from(all_zero_bytes.as_ref()).is_err());
 }

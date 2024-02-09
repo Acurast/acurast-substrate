@@ -14,28 +14,26 @@ const INPUT_STRING: &[u8] = b"abc";
 
 /// Expected SHA-256 digest for the input string
 const INPUT_STRING_DIGEST: [u8; 32] =
-    hex!("ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad");
+	hex!("ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad");
 
 /// Dummy signature which just contains a digest output
 #[derive(Debug)]
 struct DummySignature(GenericArray<u8, <Sha256 as OutputSizeUser>::OutputSize>);
 
 impl Signature for DummySignature {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        Ok(DummySignature(GenericArray::clone_from_slice(
-            bytes.as_ref(),
-        )))
-    }
+	fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+		Ok(DummySignature(GenericArray::clone_from_slice(bytes.as_ref())))
+	}
 }
 
 impl AsRef<[u8]> for DummySignature {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
-    }
+	fn as_ref(&self) -> &[u8] {
+		self.0.as_ref()
+	}
 }
 
 impl PrehashSignature for DummySignature {
-    type Digest = Sha256;
+	type Digest = Sha256;
 }
 
 /// Dummy signer which just returns the message digest as a `DummySignature`
@@ -43,9 +41,9 @@ impl PrehashSignature for DummySignature {
 struct DummySigner {}
 
 impl DigestSigner<Sha256, DummySignature> for DummySigner {
-    fn try_sign_digest(&self, digest: Sha256) -> Result<DummySignature, Error> {
-        DummySignature::from_bytes(&digest.finalize())
-    }
+	fn try_sign_digest(&self, digest: Sha256) -> Result<DummySignature, Error> {
+		DummySignature::from_bytes(&digest.finalize())
+	}
 }
 
 /// Dummy verifier which ensures the `DummySignature` digest matches the
@@ -56,21 +54,21 @@ impl DigestSigner<Sha256, DummySignature> for DummySigner {
 struct DummyVerifier {}
 
 impl DigestVerifier<Sha256, DummySignature> for DummyVerifier {
-    fn verify_digest(&self, digest: Sha256, signature: &DummySignature) -> Result<(), Error> {
-        let actual_digest = digest.finalize();
-        assert_eq!(signature.as_ref(), actual_digest.as_slice());
-        Ok(())
-    }
+	fn verify_digest(&self, digest: Sha256, signature: &DummySignature) -> Result<(), Error> {
+		let actual_digest = digest.finalize();
+		assert_eq!(signature.as_ref(), actual_digest.as_slice());
+		Ok(())
+	}
 }
 
 #[test]
 fn derived_signer_impl() {
-    let sig: DummySignature = signature::Signer::sign(&DummySigner::default(), INPUT_STRING);
-    assert_eq!(sig.as_ref(), INPUT_STRING_DIGEST.as_ref())
+	let sig: DummySignature = signature::Signer::sign(&DummySigner::default(), INPUT_STRING);
+	assert_eq!(sig.as_ref(), INPUT_STRING_DIGEST.as_ref())
 }
 
 #[test]
 fn derived_verifier_impl() {
-    let sig: DummySignature = signature::Signer::sign(&DummySigner::default(), INPUT_STRING);
-    assert!(signature::Verifier::verify(&DummyVerifier::default(), INPUT_STRING, &sig).is_ok());
+	let sig: DummySignature = signature::Signer::sign(&DummySigner::default(), INPUT_STRING);
+	assert!(signature::Verifier::verify(&DummyVerifier::default(), INPUT_STRING, &sig).is_ok());
 }

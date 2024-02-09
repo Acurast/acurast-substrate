@@ -1,6 +1,5 @@
 use frame_support::traits::Get;
-use sp_std::fmt;
-use sp_std::prelude::*;
+use sp_std::{fmt, prelude::*};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///

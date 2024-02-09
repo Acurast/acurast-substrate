@@ -1,12 +1,11 @@
 #![cfg(test)]
 
-use crate::chain::substrate::{MMRProofItems, ProofLeaf, SubstrateProof};
-use crate::instances::AlephZeroInstance;
-use crate::stub::*;
-use crate::types::*;
 use crate::{
-    mock::*,
-    types::{ActivityWindow, StateTransmitterUpdate},
+	chain::substrate::{MMRProofItems, ProofLeaf, SubstrateProof},
+	instances::AlephZeroInstance,
+	mock::*,
+	stub::*,
+	types::{ActivityWindow, StateTransmitterUpdate, *},
 };
 use frame_support::assert_ok;
 use hex_literal::hex;
@@ -16,9 +15,9 @@ use std::marker::PhantomData;
 
 #[test]
 fn test_send_noop_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         let seq_id_before = 0;
         <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
 
@@ -93,9 +92,9 @@ fn test_send_noop_message() {
 
 #[test]
 fn test_send_noop_message2() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         let seq_id_before = 10;
         <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
 
@@ -172,9 +171,9 @@ fn test_send_noop_message2() {
 
 #[test]
 fn test_send_noop_message3() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         let seq_id_before = 29;
         <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
 

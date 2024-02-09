@@ -11,44 +11,44 @@ use crate::rand_core::{CryptoRng, RngCore};
 /// Sign the provided message bytestring using `Self` (e.g. a cryptographic key
 /// or connection to an HSM), returning a digital signature.
 pub trait Signer<S: Signature> {
-    /// Sign the given message and return a digital signature
-    fn sign(&self, msg: &[u8]) -> S {
-        self.try_sign(msg).expect("signature operation failed")
-    }
+	/// Sign the given message and return a digital signature
+	fn sign(&self, msg: &[u8]) -> S {
+		self.try_sign(msg).expect("signature operation failed")
+	}
 
-    /// Attempt to sign the given message, returning a digital signature on
-    /// success, or an error if something went wrong.
-    ///
-    /// The main intended use case for signing errors is when communicating
-    /// with external signers, e.g. cloud KMS, HSMs, or other hardware tokens.
-    fn try_sign(&self, msg: &[u8]) -> Result<S, Error>;
+	/// Attempt to sign the given message, returning a digital signature on
+	/// success, or an error if something went wrong.
+	///
+	/// The main intended use case for signing errors is when communicating
+	/// with external signers, e.g. cloud KMS, HSMs, or other hardware tokens.
+	fn try_sign(&self, msg: &[u8]) -> Result<S, Error>;
 }
 
 /// Sign the provided message bytestring using `&mut Self` (e.g., an evolving
 /// cryptographic key), returning a digital signature.
 pub trait SignerMut<S: Signature> {
-    /// Sign the given message, update the state, and return a digital signature
-    fn sign(&mut self, msg: &[u8]) -> S {
-        self.try_sign(msg).expect("signature operation failed")
-    }
+	/// Sign the given message, update the state, and return a digital signature
+	fn sign(&mut self, msg: &[u8]) -> S {
+		self.try_sign(msg).expect("signature operation failed")
+	}
 
-    /// Attempt to sign the given message, updating the state, and returning a
-    /// digital signature on success, or an error if something went wrong.
-    ///
-    /// Signing can fail, e.g., if the number of time periods allowed by the
-    /// current key is exceeded.
-    fn try_sign(&mut self, msg: &[u8]) -> Result<S, Error>;
+	/// Attempt to sign the given message, updating the state, and returning a
+	/// digital signature on success, or an error if something went wrong.
+	///
+	/// Signing can fail, e.g., if the number of time periods allowed by the
+	/// current key is exceeded.
+	fn try_sign(&mut self, msg: &[u8]) -> Result<S, Error>;
 }
 
 // Blanket impl of SignerMut for all Signer types
 impl<T, S> SignerMut<S> for T
 where
-    T: Signer<S>,
-    S: Signature,
+	T: Signer<S>,
+	S: Signature,
 {
-    fn try_sign(&mut self, msg: &[u8]) -> Result<S, Error> {
-        T::try_sign(self, msg)
-    }
+	fn try_sign(&mut self, msg: &[u8]) -> Result<S, Error> {
+		T::try_sign(self, msg)
+	}
 }
 
 /// Sign the given prehashed message [`Digest`] using `Self`.
@@ -74,38 +74,36 @@ where
 #[cfg_attr(docsrs, doc(cfg(feature = "digest-preview")))]
 pub trait DigestSigner<D, S>
 where
-    D: Digest,
-    S: Signature,
+	D: Digest,
+	S: Signature,
 {
-    /// Sign the given prehashed message [`Digest`], returning a signature.
-    ///
-    /// Panics in the event of a signing error.
-    fn sign_digest(&self, digest: D) -> S {
-        self.try_sign_digest(digest)
-            .expect("signature operation failed")
-    }
+	/// Sign the given prehashed message [`Digest`], returning a signature.
+	///
+	/// Panics in the event of a signing error.
+	fn sign_digest(&self, digest: D) -> S {
+		self.try_sign_digest(digest).expect("signature operation failed")
+	}
 
-    /// Attempt to sign the given prehashed message [`Digest`], returning a
-    /// digital signature on success, or an error if something went wrong.
-    fn try_sign_digest(&self, digest: D) -> Result<S, Error>;
+	/// Attempt to sign the given prehashed message [`Digest`], returning a
+	/// digital signature on success, or an error if something went wrong.
+	fn try_sign_digest(&self, digest: D) -> Result<S, Error>;
 }
 
 /// Sign the given message using the provided external randomness source.
 #[cfg(feature = "rand-preview")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rand-preview")))]
 pub trait RandomizedSigner<S: Signature> {
-    /// Sign the given message and return a digital signature
-    fn sign_with_rng(&self, rng: impl CryptoRng + RngCore, msg: &[u8]) -> S {
-        self.try_sign_with_rng(rng, msg)
-            .expect("signature operation failed")
-    }
+	/// Sign the given message and return a digital signature
+	fn sign_with_rng(&self, rng: impl CryptoRng + RngCore, msg: &[u8]) -> S {
+		self.try_sign_with_rng(rng, msg).expect("signature operation failed")
+	}
 
-    /// Attempt to sign the given message, returning a digital signature on
-    /// success, or an error if something went wrong.
-    ///
-    /// The main intended use case for signing errors is when communicating
-    /// with external signers, e.g. cloud KMS, HSMs, or other hardware tokens.
-    fn try_sign_with_rng(&self, rng: impl CryptoRng + RngCore, msg: &[u8]) -> Result<S, Error>;
+	/// Attempt to sign the given message, returning a digital signature on
+	/// success, or an error if something went wrong.
+	///
+	/// The main intended use case for signing errors is when communicating
+	/// with external signers, e.g. cloud KMS, HSMs, or other hardware tokens.
+	fn try_sign_with_rng(&self, rng: impl CryptoRng + RngCore, msg: &[u8]) -> Result<S, Error>;
 }
 
 /// Combination of [`DigestSigner`] and [`RandomizedSigner`] with support for
@@ -115,22 +113,21 @@ pub trait RandomizedSigner<S: Signature> {
 #[cfg_attr(docsrs, doc(cfg(feature = "rand-preview")))]
 pub trait RandomizedDigestSigner<D, S>
 where
-    D: Digest,
-    S: Signature,
+	D: Digest,
+	S: Signature,
 {
-    /// Sign the given prehashed message `Digest`, returning a signature.
-    ///
-    /// Panics in the event of a signing error.
-    fn sign_digest_with_rng(&self, rng: impl CryptoRng + RngCore, digest: D) -> S {
-        self.try_sign_digest_with_rng(rng, digest)
-            .expect("signature operation failed")
-    }
+	/// Sign the given prehashed message `Digest`, returning a signature.
+	///
+	/// Panics in the event of a signing error.
+	fn sign_digest_with_rng(&self, rng: impl CryptoRng + RngCore, digest: D) -> S {
+		self.try_sign_digest_with_rng(rng, digest).expect("signature operation failed")
+	}
 
-    /// Attempt to sign the given prehashed message `Digest`, returning a
-    /// digital signature on success, or an error if something went wrong.
-    fn try_sign_digest_with_rng(
-        &self,
-        rng: impl CryptoRng + RngCore,
-        digest: D,
-    ) -> Result<S, Error>;
+	/// Attempt to sign the given prehashed message `Digest`, returning a
+	/// digital signature on success, or an error if something went wrong.
+	fn try_sign_digest_with_rng(
+		&self,
+		rng: impl CryptoRng + RngCore,
+		digest: D,
+	) -> Result<S, Error>;
 }

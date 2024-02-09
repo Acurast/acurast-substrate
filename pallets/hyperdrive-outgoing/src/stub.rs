@@ -13,24 +13,21 @@ pub type AccountId = AccountId32;
 pub type BlockNumber = u64;
 
 pub fn alice_account_id() -> AccountId {
-    [0; 32].into()
+	[0; 32].into()
 }
 
 pub fn tezos_account_id() -> String {
-    "tz1h4EsGunH2Ue1T2uNs8mfKZ8XZoQji3HcK".into()
+	"tz1h4EsGunH2Ue1T2uNs8mfKZ8XZoQji3HcK".into()
 }
 
 pub fn p256_public_key() -> PubKey {
-    PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap())
+	PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap())
 }
 
 pub fn message(id: u128) -> Message {
-    Message {
-        id: id as u64,
-        action: Action::AssignJob(id, p256_public_key()),
-    }
+	Message { id: id as u64, action: Action::AssignJob(id, p256_public_key()) }
 }
 
 pub fn action(id: u128) -> Action {
-    Action::AssignJob(id, p256_public_key())
+	Action::AssignJob(id, p256_public_key())
 }

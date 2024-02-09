@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg",
-    html_favicon_url = "https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg"
+	html_logo_url = "https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg",
+	html_favicon_url = "https://raw.githubusercontent.com/RustCrypto/media/8f1a9894/logo.svg"
 )]
 #![forbid(unsafe_code, clippy::unwrap_used)]
 #![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
@@ -105,12 +105,12 @@ mod public_key;
 mod jwk;
 
 pub use crate::{
-    error::{Error, Result},
-    point::{
-        AffineXCoordinate, DecompactPoint, DecompressPoint, PointCompaction, PointCompression,
-    },
-    scalar::{core::ScalarCore, IsHigh},
-    secret_key::SecretKey,
+	error::{Error, Result},
+	point::{
+		AffineXCoordinate, DecompactPoint, DecompressPoint, PointCompaction, PointCompression,
+	},
+	scalar::{core::ScalarCore, IsHigh},
+	secret_key::SecretKey,
 };
 pub use crypto_bigint as bigint;
 pub use generic_array::{self, typenum::consts};
@@ -120,15 +120,15 @@ pub use zeroize;
 
 #[cfg(feature = "arithmetic")]
 pub use {
-    crate::{
-        arithmetic::{
-            AffineArithmetic, PrimeCurveArithmetic, ProjectiveArithmetic, ScalarArithmetic,
-        },
-        public_key::PublicKey,
-        scalar::{nonzero::NonZeroScalar, Scalar},
-    },
-    ff::{self, Field, PrimeField},
-    group::{self, Group},
+	crate::{
+		arithmetic::{
+			AffineArithmetic, PrimeCurveArithmetic, ProjectiveArithmetic, ScalarArithmetic,
+		},
+		public_key::PublicKey,
+		scalar::{nonzero::NonZeroScalar, Scalar},
+	},
+	ff::{self, Field, PrimeField},
+	group::{self, Group},
 };
 
 #[cfg(feature = "bits")]
@@ -150,7 +150,7 @@ use generic_array::GenericArray;
 #[cfg(feature = "pkcs8")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pkcs8")))]
 pub const ALGORITHM_OID: pkcs8::ObjectIdentifier =
-    pkcs8::ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
+	pkcs8::ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
 
 /// Elliptic curve.
 ///
@@ -161,24 +161,24 @@ pub const ALGORITHM_OID: pkcs8::ObjectIdentifier =
 /// be impl'd by these ZSTs, facilitating types which are generic over elliptic
 /// curves (e.g. [`SecretKey`]).
 pub trait Curve: 'static + Copy + Clone + Debug + Default + Eq + Ord + Send + Sync {
-    /// Integer type used to represent field elements of this elliptic curve.
-    // TODO(tarcieri): replace this with an e.g. `const Curve::MODULUS: UInt`.
-    // Requires rust-lang/rust#60551, i.e. `const_evaluatable_checked`
-    type UInt: bigint::AddMod<Output = Self::UInt>
-        + bigint::ArrayEncoding
-        + bigint::Encoding
-        + bigint::Integer
-        + bigint::NegMod<Output = Self::UInt>
-        + bigint::Random
-        + bigint::RandomMod
-        + bigint::SubMod<Output = Self::UInt>
-        + zeroize::Zeroize;
+	/// Integer type used to represent field elements of this elliptic curve.
+	// TODO(tarcieri): replace this with an e.g. `const Curve::MODULUS: UInt`.
+	// Requires rust-lang/rust#60551, i.e. `const_evaluatable_checked`
+	type UInt: bigint::AddMod<Output = Self::UInt>
+		+ bigint::ArrayEncoding
+		+ bigint::Encoding
+		+ bigint::Integer
+		+ bigint::NegMod<Output = Self::UInt>
+		+ bigint::Random
+		+ bigint::RandomMod
+		+ bigint::SubMod<Output = Self::UInt>
+		+ zeroize::Zeroize;
 
-    /// Order constant.
-    ///
-    /// Subdivided into either 32-bit or 64-bit "limbs" (depending on the
-    /// target CPU's word size), specified from least to most significant.
-    const ORDER: Self::UInt;
+	/// Order constant.
+	///
+	/// Subdivided into either 32-bit or 64-bit "limbs" (depending on the
+	/// target CPU's word size), specified from least to most significant.
+	const ORDER: Self::UInt;
 }
 
 /// Marker trait for elliptic curves with prime order.
@@ -206,15 +206,15 @@ pub type ProjectivePoint<C> = <C as ProjectiveArithmetic>::ProjectivePoint;
 #[cfg(feature = "voprf")]
 #[cfg_attr(docsrs, doc(cfg(feature = "voprf")))]
 pub trait VoprfParameters: Curve {
-    /// The `ID` parameter which identifies a particular elliptic curve
-    /// as defined in [section 4 of `draft-irtf-cfrg-voprf-08`][voprf].
-    ///
-    /// [voprf]: https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-4
-    const ID: u16;
+	/// The `ID` parameter which identifies a particular elliptic curve
+	/// as defined in [section 4 of `draft-irtf-cfrg-voprf-08`][voprf].
+	///
+	/// [voprf]: https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-4
+	const ID: u16;
 
-    /// The `Hash` parameter which assigns a particular hash function to this
-    /// ciphersuite as defined in [section 4 of `draft-irtf-cfrg-voprf-08`][voprf].
-    ///
-    /// [voprf]: https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-4
-    type Hash: digest::Digest;
+	/// The `Hash` parameter which assigns a particular hash function to this
+	/// ciphersuite as defined in [section 4 of `draft-irtf-cfrg-voprf-08`][voprf].
+	///
+	/// [voprf]: https://www.ietf.org/archive/id/draft-irtf-cfrg-voprf-08.html#section-4
+	type Hash: digest::Digest;
 }

@@ -1,9 +1,14 @@
-use frame_support::traits::ConstU32;
-use frame_support::{parameter_types, traits::Everything, PalletId};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, Everything},
+	PalletId,
+};
 use hex_literal::hex;
 use sp_io;
-use sp_runtime::traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256};
-use sp_runtime::{AccountId32, BuildStorage};
+use sp_runtime::{
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256},
+	AccountId32, BuildStorage,
+};
 
 use acurast_common::{AllowedSources, JobModules, Schedule, CU32};
 
@@ -21,43 +26,39 @@ pub type BlockNumber = u32;
 pub struct Barrier;
 
 impl RevocationListUpdateBarrier<Test> for Barrier {
-    fn can_update_revocation_list(
-        origin: &<Test as frame_system::Config>::AccountId,
-        _updates: &Vec<crate::CertificateRevocationListUpdate>,
-    ) -> bool {
-        AllowedRevocationListUpdate::get().contains(origin)
-    }
+	fn can_update_revocation_list(
+		origin: &<Test as frame_system::Config>::AccountId,
+		_updates: &Vec<crate::CertificateRevocationListUpdate>,
+	) -> bool {
+		AllowedRevocationListUpdate::get().contains(origin)
+	}
 }
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build(self) -> sp_io::TestExternalities {
-        let mut t = frame_system::GenesisConfig::<Test>::default()
-            .build_storage()
-            .unwrap();
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-        let parachain_info_config = parachain_info::GenesisConfig {
-            parachain_id: 2000.into(),
-            ..Default::default()
-        };
+		let parachain_info_config =
+			parachain_info::GenesisConfig { parachain_id: 2000.into(), ..Default::default() };
 
-        <parachain_info::GenesisConfig<Test> as BuildStorage>::assimilate_storage(
-            &parachain_info_config,
-            &mut t,
-        )
-        .unwrap();
+		<parachain_info::GenesisConfig<Test> as BuildStorage>::assimilate_storage(
+			&parachain_info_config,
+			&mut t,
+		)
+		.unwrap();
 
-        let mut ext = sp_io::TestExternalities::new(t);
-        ext.execute_with(|| System::set_block_number(1));
-        ext
-    }
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
 }
 
 impl Default for ExtBuilder {
-    fn default() -> Self {
-        Self {}
-    }
+	fn default() -> Self {
+		Self {}
+	}
 }
 
 pub const INITIAL_BALANCE: u128 = UNIT * 10;
@@ -72,81 +73,81 @@ pub const INT_CERT_2: [u8; 564] = hex!("30820230308201b7a003020102020a1590585746
 pub const LEAF_CERT: [u8; 672] = hex!("3082029c30820241a003020102020101300c06082a8648ce3d0403020500302f31193017060355040513103937333533373739333664306464373431123010060355040c0c095374726f6e67426f783022180f32303232303730393130353135355a180f32303238303532333233353935395a301f311d301b06035504030c14416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d03010703420004b20c1d15477662623ecf430104898006e0f81c0db1bae87cb96a87c7777404659e585d3d9057b8a2ff8ae61f401a078fc75cf52c8c4268e810f93798c729e862a382015630820152300e0603551d0f0101ff0404030207803082013e060a2b06010401d6790201110482012e3082012a0201040a01020201290a0102040874657374617364660400306cbf853d0802060181e296611fbf85455c045a305831323030042b636f6d2e7562696e657469632e61747465737465642e6578656375746f722e746573742e746573746e657402010e31220420bdcb4560f6b3c41dad920668169c28be1ef9ea49f23d98cd8eb2f37ae4488ff93081a1a1053103020102a203020103a30402020100a5053103020100aa03020101bf8377020500bf853e03020100bf85404c304a0420879cd3f18ea76e244d4d4ac3bcb9c337c13b4667190b19035afe2536550050f10101ff0a010004203f4136ee3581e6aba8ea337a6b43d703de1eca241f9b7f277ecdfafff7a8dcf1bf854105020301d4c0bf85420502030315debf854e06020401348abdbf854f06020401348abd300c06082a8648ce3d04030205000347003044022033a613cce9a6ed25026a492b651f0ac67c3c0289d4e4743168c6903e2faa0bda0220324cd35c4bf2695d71ad12a28868e69232112922eaf0e3699f6add8133d528d9");
 
 frame_support::construct_runtime!(
-    pub enum Test {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        ParachainInfo: parachain_info::{Pallet, Storage, Config<T>},
-        Acurast: crate::{Pallet, Call, Storage, Event<T>}
-    }
+	pub enum Test {
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>},
+		Acurast: crate::{Pallet, Call, Storage, Event<T>}
+	}
 );
 
 parameter_types! {
-    pub const BlockHashCount: BlockNumber = 2400;
+	pub const BlockHashCount: BlockNumber = 2400;
 }
 parameter_types! {
-    pub const MinimumPeriod: u64 = 6000;
-    pub AllowedRevocationListUpdate: Vec<AccountId> = vec![alice_account_id(), <Test as crate::Config>::PalletId::get().into_account_truncating()];
-    pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	pub const MinimumPeriod: u64 = 6000;
+	pub AllowedRevocationListUpdate: Vec<AccountId> = vec![alice_account_id(), <Test as crate::Config>::PalletId::get().into_account_truncating()];
+	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 }
 parameter_types! {
-    pub const MaxReserves: u32 = 50;
-    pub const MaxLocks: u32 = 50;
+	pub const MaxReserves: u32 = 50;
+	pub const MaxLocks: u32 = 50;
 }
 parameter_types! {
-    pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 }
 
 impl frame_system::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type Nonce = u32;
-    type Block = Block;
-    type Hash = sp_core::H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = AccountIdLookup<AccountId, ()>;
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeOrigin = RuntimeOrigin;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type DbWeight = ();
-    type BaseCallFilter = Everything;
-    type SystemWeightInfo = ();
-    type BlockWeights = ();
-    type BlockLength = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeCall = RuntimeCall;
+	type Nonce = u32;
+	type Block = Block;
+	type Hash = sp_core::H256;
+	type Hashing = BlakeTwo256;
+	type AccountId = AccountId;
+	type Lookup = AccountIdLookup<AccountId, ()>;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type BlockHashCount = BlockHashCount;
+	type Version = ();
+	type PalletInfo = PalletInfo;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type DbWeight = ();
+	type BaseCallFilter = Everything;
+	type SystemWeightInfo = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
 }
 
 impl pallet_balances::Config for Test {
-    /// The type for recording an account's balance.
-    type Balance = Balance;
-    type DustRemoval = ();
-    /// The ubiquitous event type.
-    type RuntimeEvent = RuntimeEvent;
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
-    type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
-    type MaxLocks = MaxLocks;
-    type MaxReserves = MaxReserves;
-    type ReserveIdentifier = [u8; 8];
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    // Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
-    type MaxHolds = ConstU32<2>;
-    type MaxFreezes = ConstU32<0>;
+	/// The type for recording an account's balance.
+	type Balance = Balance;
+	type DustRemoval = ();
+	/// The ubiquitous event type.
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+	type MaxLocks = MaxLocks;
+	type MaxReserves = MaxReserves;
+	type ReserveIdentifier = [u8; 8];
+	type RuntimeHoldReason = ();
+	type FreezeIdentifier = ();
+	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
+	type MaxHolds = ConstU32<2>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 impl parachain_info::Config for Test {}
@@ -154,199 +155,194 @@ impl parachain_info::Config for Test {}
 pub type MaxAllowedSources = CU32<4>;
 
 impl crate::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type RegistrationExtra = ();
-    type MaxAllowedSources = MaxAllowedSources;
-    type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
-    type MaxSlots = CU32<64>;
-    type PalletId = AcurastPalletId;
-    type MaxEnvVars = CU32<10>;
-    type EnvKeyMaxSize = CU32<32>;
-    type EnvValueMaxSize = CU32<1024>;
-    type RevocationListUpdateBarrier = Barrier;
-    type KeyAttestationBarrier = ();
-    type UnixTime = pallet_timestamp::Pallet<Test>;
-    type WeightInfo = crate::weights::WeightInfo<Test>;
-    type JobHooks = ();
-    #[cfg(feature = "runtime-benchmarks")]
-    type BenchmarkHelper = ();
+	type RuntimeEvent = RuntimeEvent;
+	type RegistrationExtra = ();
+	type MaxAllowedSources = MaxAllowedSources;
+	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
+	type MaxSlots = CU32<64>;
+	type PalletId = AcurastPalletId;
+	type MaxEnvVars = CU32<10>;
+	type EnvKeyMaxSize = CU32<32>;
+	type EnvValueMaxSize = CU32<1024>;
+	type RevocationListUpdateBarrier = Barrier;
+	type KeyAttestationBarrier = ();
+	type UnixTime = pallet_timestamp::Pallet<Test>;
+	type WeightInfo = crate::weights::WeightInfo<Test>;
+	type JobHooks = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: crate::Config> BenchmarkHelper<T> for ()
 where
-    T::RegistrationExtra: Default,
-    T::AccountId: Into<AccountId32>,
+	T::RegistrationExtra: Default,
+	T::AccountId: Into<AccountId32>,
 {
-    fn registration_extra(_instant_match: bool) -> T::RegistrationExtra {
-        Default::default()
-    }
+	fn registration_extra(_instant_match: bool) -> T::RegistrationExtra {
+		Default::default()
+	}
 
-    fn funded_account(index: u32) -> T::AccountId {
-        let caller: T::AccountId = frame_benchmarking::account("token_account", index, SEED);
-        <Balances as fungible::Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+	fn funded_account(index: u32) -> T::AccountId {
+		let caller: T::AccountId = frame_benchmarking::account("token_account", index, SEED);
+		<Balances as fungible::Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
 
-        caller
-    }
+		caller
+	}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {
-    let evt = System::events()
-        .into_iter()
-        .map(|evt| evt.event)
-        .collect::<Vec<_>>();
+	let evt = System::events().into_iter().map(|evt| evt.event).collect::<Vec<_>>();
 
-    System::reset_events();
+	System::reset_events();
 
-    evt
+	evt
 }
 
 pub fn script() -> Script {
-    SCRIPT_BYTES.to_vec().try_into().unwrap()
+	SCRIPT_BYTES.to_vec().try_into().unwrap()
 }
 
 pub fn invalid_script_1() -> Script {
-    let end = SCRIPT_BYTES.len() - 2;
-    SCRIPT_BYTES[0..end].to_vec().try_into().unwrap()
+	let end = SCRIPT_BYTES.len() - 2;
+	SCRIPT_BYTES[0..end].to_vec().try_into().unwrap()
 }
 
 pub fn invalid_script_2() -> Script {
-    let mut bytes = SCRIPT_BYTES.to_vec();
-    bytes[0] = 0;
-    bytes.try_into().unwrap()
+	let mut bytes = SCRIPT_BYTES.to_vec();
+	bytes[0] = 0;
+	bytes.try_into().unwrap()
 }
 
 pub fn job_registration(
-    allowed_sources: Option<AllowedSources<AccountId, MaxAllowedSources>>,
-    allow_only_verified_sources: bool,
+	allowed_sources: Option<AllowedSources<AccountId, MaxAllowedSources>>,
+	allow_only_verified_sources: bool,
 ) -> JobRegistration<AccountId, MaxAllowedSources, ()> {
-    JobRegistration {
-        script: script(),
-        allowed_sources,
-        allow_only_verified_sources,
-        schedule: Schedule {
-            duration: 5000,
-            start_time: 1_671_800_400_000, // 23.12.2022 13:00
-            end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
-            interval: 1_800_000,           // 30min
-            max_start_delay: 5000,
-        },
-        memory: 5_000u32,
-        network_requests: 5,
-        storage: 20_000u32,
-        required_modules: JobModules::default(),
-        extra: (),
-    }
+	JobRegistration {
+		script: script(),
+		allowed_sources,
+		allow_only_verified_sources,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: (),
+	}
 }
 
 pub fn invalid_job_registration_1() -> JobRegistration<AccountId, MaxAllowedSources, ()> {
-    JobRegistration {
-        script: invalid_script_1(),
-        allowed_sources: None,
-        allow_only_verified_sources: false,
-        schedule: Schedule {
-            duration: 5000,
-            start_time: 1_671_800_400_000, // 23.12.2022 13:00
-            end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
-            interval: 1_800_000,           // 30min
-            max_start_delay: 5000,
-        },
-        memory: 5_000u32,
-        network_requests: 5,
-        storage: 20_000u32,
-        required_modules: JobModules::default(),
-        extra: (),
-    }
+	JobRegistration {
+		script: invalid_script_1(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: (),
+	}
 }
 
 pub fn invalid_job_registration_2() -> JobRegistration<AccountId, MaxAllowedSources, ()> {
-    JobRegistration {
-        script: invalid_script_2(),
-        allowed_sources: None,
-        allow_only_verified_sources: false,
-        schedule: Schedule {
-            duration: 5000,
-            start_time: 1_671_800_400_000, // 23.12.2022 13:00
-            end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
-            interval: 1_800_000,           // 30min
-            max_start_delay: 5000,
-        },
-        memory: 5_000u32,
-        network_requests: 5,
-        storage: 20_000u32,
-        required_modules: JobModules::default(),
-        extra: (),
-    }
+	JobRegistration {
+		script: invalid_script_2(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: (),
+	}
 }
 
 pub fn attestation_chain() -> AttestationChain {
-    AttestationChain {
-        certificate_chain: vec![
-            ROOT_CERT.to_vec().try_into().unwrap(),
-            INT_CERT_1.to_vec().try_into().unwrap(),
-            INT_CERT_2.to_vec().try_into().unwrap(),
-            LEAF_CERT.to_vec().try_into().unwrap(),
-        ]
-        .try_into()
-        .unwrap(),
-    }
+	AttestationChain {
+		certificate_chain: vec![
+			ROOT_CERT.to_vec().try_into().unwrap(),
+			INT_CERT_1.to_vec().try_into().unwrap(),
+			INT_CERT_2.to_vec().try_into().unwrap(),
+			LEAF_CERT.to_vec().try_into().unwrap(),
+		]
+		.try_into()
+		.unwrap(),
+	}
 }
 
 pub fn invalid_attestation_chain_1() -> AttestationChain {
-    AttestationChain {
-        certificate_chain: vec![LEAF_CERT.to_vec().try_into().unwrap()]
-            .try_into()
-            .unwrap(),
-    }
+	AttestationChain {
+		certificate_chain: vec![LEAF_CERT.to_vec().try_into().unwrap()].try_into().unwrap(),
+	}
 }
 
 pub fn invalid_attestation_chain_2() -> AttestationChain {
-    AttestationChain {
-        certificate_chain: vec![
-            INT_CERT_2.to_vec().try_into().unwrap(),
-            LEAF_CERT.to_vec().try_into().unwrap(),
-        ]
-        .try_into()
-        .unwrap(),
-    }
+	AttestationChain {
+		certificate_chain: vec![
+			INT_CERT_2.to_vec().try_into().unwrap(),
+			LEAF_CERT.to_vec().try_into().unwrap(),
+		]
+		.try_into()
+		.unwrap(),
+	}
 }
 
 pub fn invalid_attestation_chain_3() -> AttestationChain {
-    AttestationChain {
-        certificate_chain: vec![
-            ROOT_CERT.to_vec().try_into().unwrap(),
-            INT_CERT_1.to_vec().try_into().unwrap(),
-            LEAF_CERT.to_vec().try_into().unwrap(),
-        ]
-        .try_into()
-        .unwrap(),
-    }
+	AttestationChain {
+		certificate_chain: vec![
+			ROOT_CERT.to_vec().try_into().unwrap(),
+			INT_CERT_1.to_vec().try_into().unwrap(),
+			LEAF_CERT.to_vec().try_into().unwrap(),
+		]
+		.try_into()
+		.unwrap(),
+	}
 }
 
 pub fn cert_serial_number() -> SerialNumber {
-    hex!("15905857467176635834").to_vec().try_into().unwrap()
+	hex!("15905857467176635834").to_vec().try_into().unwrap()
 }
 
 pub fn processor_account_id() -> AccountId {
-    hex!("b8bc25a2b4c0386b8892b43e435b71fe11fa50533935f027949caf04bcce4694").into()
+	hex!("b8bc25a2b4c0386b8892b43e435b71fe11fa50533935f027949caf04bcce4694").into()
 }
 
 pub fn alice_account_id() -> AccountId {
-    [0; 32].into()
+	[0; 32].into()
 }
 
 pub fn bob_account_id() -> AccountId {
-    [1; 32].into()
+	[1; 32].into()
 }
 
 pub fn charlie_account_id() -> AccountId {
-    [2; 32].into()
+	[2; 32].into()
 }
 
 pub fn dave_account_id() -> AccountId {
-    [3; 32].into()
+	[3; 32].into()
 }
 
 pub fn eve_account_id() -> AccountId {
-    [4; 32].into()
+	[4; 32].into()
 }

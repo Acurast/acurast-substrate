@@ -47,7 +47,7 @@ pub type EphemeralSecret = elliptic_curve::ecdh::EphemeralSecret<NistP384>;
 pub type SharedSecret = elliptic_curve::ecdh::SharedSecret<NistP384>;
 
 impl From<&AffinePoint> for SharedSecret {
-    fn from(affine: &AffinePoint) -> SharedSecret {
-        affine.x.to_sec1().into()
-    }
+	fn from(affine: &AffinePoint) -> SharedSecret {
+		affine.x.to_sec1().into()
+	}
 }

@@ -2,317 +2,301 @@ use crate::{chain::ethereum::EthereumValidationError, MessageIdentifier};
 use derive_more::{Display, From};
 use rlp::{decode_list, encode, Rlp};
 use sp_core::Hasher;
-use sp_runtime::traits::Keccak256;
-use sp_runtime::RuntimeDebug;
-use sp_std::vec;
-use sp_std::vec::Vec;
+use sp_runtime::{traits::Keccak256, RuntimeDebug};
+use sp_std::{vec, vec::Vec};
 
 const EMPTY_TRIE_ROOT_HASH: [u8; 32] =
-    hex_literal::hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+	hex_literal::hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
 
 /// Errors specific to the evm proof validation
 #[derive(RuntimeDebug, Display, From, PartialEq)]
 enum EvmProofValidationError {
-    NodeDoesNotExist,
-    InvalidNode,
-    InvalidRlpValue,
-    InvalidProof,
-    BadFirstProofPart,
-    BadHash,
-    EmptyBytes,
-    InvalidLength,
-    UnexpectedFirstNibble,
-    ContinuingBranchHasDepletedPath,
-    InvalidExclusionProof,
-    UnexpectedEndOfProof,
+	NodeDoesNotExist,
+	InvalidNode,
+	InvalidRlpValue,
+	InvalidProof,
+	BadFirstProofPart,
+	BadHash,
+	EmptyBytes,
+	InvalidLength,
+	UnexpectedFirstNibble,
+	ContinuingBranchHasDepletedPath,
+	InvalidExclusionProof,
+	UnexpectedEndOfProof,
 }
 
 pub fn validate_storage_proof(
-    account_path: &Vec<u8>,
-    storage_path: &Vec<u8>,
-    account_proof: &Vec<Vec<u8>>,
-    storage_proof: &Vec<Vec<u8>>,
+	account_path: &Vec<u8>,
+	storage_path: &Vec<u8>,
+	account_proof: &Vec<Vec<u8>>,
+	storage_proof: &Vec<Vec<u8>>,
 ) -> Result<Vec<u8>, EthereumValidationError> {
-    let root_hash: Vec<u8> = Keccak256::hash(&account_proof[0]).as_bytes().to_vec();
-    let account_state_rlp = validate_proof(account_proof, &root_hash, &account_path)
-        .map(|rlp| decode_list(&rlp))
-        .map_err(|err| {
-            log::debug!(
-                "Account proof validation failed with the following error: {:?}",
-                err
-            );
-            #[cfg(test)]
-            dbg!(err);
+	let root_hash: Vec<u8> = Keccak256::hash(&account_proof[0]).as_bytes().to_vec();
+	let account_state_rlp = validate_proof(account_proof, &root_hash, &account_path)
+		.map(|rlp| decode_list(&rlp))
+		.map_err(|err| {
+			log::debug!("Account proof validation failed with the following error: {:?}", err);
+			#[cfg(test)]
+			dbg!(err);
 
-            EthereumValidationError::InvalidAccountProof
-        })?;
-    // The account state root hash is the 3rd element
-    let account_state_root = account_state_rlp
-        .get(2)
-        .ok_or(EthereumValidationError::InvalidAccountProof)?;
+			EthereumValidationError::InvalidAccountProof
+		})?;
+	// The account state root hash is the 3rd element
+	let account_state_root =
+		account_state_rlp.get(2).ok_or(EthereumValidationError::InvalidAccountProof)?;
 
-    validate_proof(storage_proof, &account_state_root, storage_path).map_err(|err| {
-        log::debug!(
-            "Storage proof validation failed with the following error: {:?}",
-            err
-        );
-        #[cfg(test)]
-        dbg!(err);
+	validate_proof(storage_proof, &account_state_root, storage_path).map_err(|err| {
+		log::debug!("Storage proof validation failed with the following error: {:?}", err);
+		#[cfg(test)]
+		dbg!(err);
 
-        EthereumValidationError::InvalidStorageProof
-    })
+		EthereumValidationError::InvalidStorageProof
+	})
 }
 
 fn validate_proof(
-    proof: &Vec<Vec<u8>>,
-    root: &Vec<u8>,
-    path: &Vec<u8>,
+	proof: &Vec<Vec<u8>>,
+	root: &Vec<u8>,
+	path: &Vec<u8>,
 ) -> Result<Vec<u8>, EvmProofValidationError> {
-    fn bytes_without_prefix(rlp: &Rlp) -> Result<Vec<u8>, EvmProofValidationError> {
-        rlp.as_val()
-            .map_err(|_| EvmProofValidationError::InvalidRlpValue)
-    }
+	fn bytes_without_prefix(rlp: &Rlp) -> Result<Vec<u8>, EvmProofValidationError> {
+		rlp.as_val().map_err(|_| EvmProofValidationError::InvalidRlpValue)
+	}
 
-    let nibbles = to_nibbles(&path, 0)?;
+	let nibbles = to_nibbles(&path, 0)?;
 
-    if proof.len() == 0 {
-        // Root hash of an empty tx trie
-        if root.as_slice() == EMPTY_TRIE_ROOT_HASH {
-            return Ok(vec![]);
-        }
-        return Err(EvmProofValidationError::InvalidProof);
-    }
+	if proof.len() == 0 {
+		// Root hash of an empty tx trie
+		if root.as_slice() == EMPTY_TRIE_ROOT_HASH {
+			return Ok(vec![])
+		}
+		return Err(EvmProofValidationError::InvalidProof)
+	}
 
-    let mut path_offset = 0;
-    let mut next_hash: Vec<u8> = vec![];
-    for (i, node) in proof.iter().enumerate() {
-        if i == 0 {
-            if root.as_slice() != Keccak256::hash(node).0 {
-                return Err(EvmProofValidationError::BadFirstProofPart);
-            }
-        } else {
-            if next_hash.as_slice() != Keccak256::hash(node).0 {
-                return Err(EvmProofValidationError::BadHash);
-            }
-        }
+	let mut path_offset = 0;
+	let mut next_hash: Vec<u8> = vec![];
+	for (i, node) in proof.iter().enumerate() {
+		if i == 0 {
+			if root.as_slice() != Keccak256::hash(node).0 {
+				return Err(EvmProofValidationError::BadFirstProofPart)
+			}
+		} else {
+			if next_hash.as_slice() != Keccak256::hash(node).0 {
+				return Err(EvmProofValidationError::BadHash)
+			}
+		}
 
-        let node_list: Vec<Rlp> = Rlp::new(&node).iter().collect();
+		let node_list: Vec<Rlp> = Rlp::new(&node).iter().collect();
 
-        // Extension or Leaf node
-        if node_list.len() == 2 {
-            let node_wihout_prefix = bytes_without_prefix(
-                node_list
-                    .first()
-                    .ok_or(EvmProofValidationError::NodeDoesNotExist)?,
-            )?;
-            let node_path = merkle_patricia_compact_decode(&node_wihout_prefix)?;
-            path_offset += shared_prefix_length(&nibbles, path_offset, &node_path);
-            let children = node_list
-                .get(1)
-                .ok_or(EvmProofValidationError::NodeDoesNotExist)?;
-            let children_wihout_prefix = bytes_without_prefix(children)?;
+		// Extension or Leaf node
+		if node_list.len() == 2 {
+			let node_wihout_prefix = bytes_without_prefix(
+				node_list.first().ok_or(EvmProofValidationError::NodeDoesNotExist)?,
+			)?;
+			let node_path = merkle_patricia_compact_decode(&node_wihout_prefix)?;
+			path_offset += shared_prefix_length(&nibbles, path_offset, &node_path);
+			let children = node_list.get(1).ok_or(EvmProofValidationError::NodeDoesNotExist)?;
+			let children_wihout_prefix = bytes_without_prefix(children)?;
 
-            if i == proof.len() - 1 {
-                // exclusion proof
-                if path_offset == nibbles.len() {
-                    return Ok(children_wihout_prefix); // Data is the second item in a leaf node
-                } else {
-                    return Err(EvmProofValidationError::UnexpectedEndOfProof);
-                }
-            } else {
-                // not last proof item
-                if Rlp::new(children.as_raw()).is_list() {
-                    next_hash = Keccak256::hash(children.as_raw()).0.to_vec();
-                } else {
-                    next_hash = get_next_hash(&children_wihout_prefix)?;
-                }
-            }
-        } else if node_list.len() == 17 {
-            if i == proof.len() - 1 {
-                // Proof ends in a branch node, exclusion proof in most cases
-                if path_offset + 1 == nibbles.len() {
-                    let node_wihout_prefix = bytes_without_prefix(
-                        node_list
-                            .get(16)
-                            .ok_or(EvmProofValidationError::NodeDoesNotExist)?,
-                    )?;
-                    return Ok(node_wihout_prefix);
-                } else {
-                    let children_index = get_nibble(path, path_offset) as usize;
-                    let children_wihout_prefix = bytes_without_prefix(
-                        node_list
-                            .get(children_index)
-                            .ok_or(EvmProofValidationError::NodeDoesNotExist)?,
-                    )?;
+			if i == proof.len() - 1 {
+				// exclusion proof
+				if path_offset == nibbles.len() {
+					return Ok(children_wihout_prefix) // Data is the second item in a leaf node
+				} else {
+					return Err(EvmProofValidationError::UnexpectedEndOfProof)
+				}
+			} else {
+				// not last proof item
+				if Rlp::new(children.as_raw()).is_list() {
+					next_hash = Keccak256::hash(children.as_raw()).0.to_vec();
+				} else {
+					next_hash = get_next_hash(&children_wihout_prefix)?;
+				}
+			}
+		} else if node_list.len() == 17 {
+			if i == proof.len() - 1 {
+				// Proof ends in a branch node, exclusion proof in most cases
+				if path_offset + 1 == nibbles.len() {
+					let node_wihout_prefix = bytes_without_prefix(
+						node_list.get(16).ok_or(EvmProofValidationError::NodeDoesNotExist)?,
+					)?;
+					return Ok(node_wihout_prefix)
+				} else {
+					let children_index = get_nibble(path, path_offset) as usize;
+					let children_wihout_prefix = bytes_without_prefix(
+						node_list
+							.get(children_index)
+							.ok_or(EvmProofValidationError::NodeDoesNotExist)?,
+					)?;
 
-                    // Ensure that the next path item is empty, end of exclusion proof
-                    if children_wihout_prefix.len() == 0 {
-                        return Ok(vec![]);
-                    }
-                    return Err(EvmProofValidationError::InvalidExclusionProof);
-                }
-            } else {
-                if path_offset < nibbles.len() {
-                    let children_index = get_nibble(path, path_offset) as usize;
-                    let children = node_list
-                        .get(children_index)
-                        .ok_or(EvmProofValidationError::NodeDoesNotExist)?;
-                    let children_wihout_prefix = bytes_without_prefix(children)?;
+					// Ensure that the next path item is empty, end of exclusion proof
+					if children_wihout_prefix.len() == 0 {
+						return Ok(vec![])
+					}
+					return Err(EvmProofValidationError::InvalidExclusionProof)
+				}
+			} else {
+				if path_offset < nibbles.len() {
+					let children_index = get_nibble(path, path_offset) as usize;
+					let children = node_list
+						.get(children_index)
+						.ok_or(EvmProofValidationError::NodeDoesNotExist)?;
+					let children_wihout_prefix = bytes_without_prefix(children)?;
 
-                    path_offset += 1; // advance by one
+					path_offset += 1; // advance by one
 
-                    // not last level
-                    if Rlp::new(children.as_raw()).is_list() {
-                        next_hash = Keccak256::hash(children.as_raw()).0.to_vec();
-                    } else {
-                        next_hash = get_next_hash(&children_wihout_prefix)?;
-                    }
-                } else {
-                    return Err(EvmProofValidationError::ContinuingBranchHasDepletedPath);
-                }
-            }
-        } else {
-            return Err(EvmProofValidationError::InvalidLength);
-        }
-    }
+					// not last level
+					if Rlp::new(children.as_raw()).is_list() {
+						next_hash = Keccak256::hash(children.as_raw()).0.to_vec();
+					} else {
+						next_hash = get_next_hash(&children_wihout_prefix)?;
+					}
+				} else {
+					return Err(EvmProofValidationError::ContinuingBranchHasDepletedPath)
+				}
+			}
+		} else {
+			return Err(EvmProofValidationError::InvalidLength)
+		}
+	}
 
-    Err(EvmProofValidationError::InvalidProof)
+	Err(EvmProofValidationError::InvalidProof)
 }
 
 fn get_next_hash(bytes: &Vec<u8>) -> Result<Vec<u8>, EvmProofValidationError> {
-    if bytes.len() == 32 {
-        return Ok(bytes.clone());
-    }
-    Err(EvmProofValidationError::InvalidNode)
+	if bytes.len() == 32 {
+		return Ok(bytes.clone())
+	}
+	Err(EvmProofValidationError::InvalidNode)
 }
 
 /// Convert a byte sequence to a sequence nibbels (e.g. [0xff] => [0x0f, 0x0f])
 fn to_nibbles(bytes: &Vec<u8>, nibbles_to_skip: usize) -> Result<Vec<u8>, EvmProofValidationError> {
-    // empty byte sequences are not allowed
-    if bytes.is_empty() {
-        return Err(EvmProofValidationError::EmptyBytes);
-    }
+	// empty byte sequences are not allowed
+	if bytes.is_empty() {
+		return Err(EvmProofValidationError::EmptyBytes)
+	}
 
-    let nibbles_count: usize = bytes.len() * 2; // 1 byte is represented by 2 nibbles
-    if nibbles_count < nibbles_count {
-        return Err(EvmProofValidationError::InvalidLength);
-    }
+	let nibbles_count: usize = bytes.len() * 2; // 1 byte is represented by 2 nibbles
+	if nibbles_count < nibbles_count {
+		return Err(EvmProofValidationError::InvalidLength)
+	}
 
-    let mut nibbles = vec![];
-    for pos in nibbles_to_skip..nibbles_count {
-        let index: usize = pos / 2;
-        if pos % 2 == 0 {
-            nibbles.push((bytes[index] >> 4) & 0xF);
-        } else {
-            nibbles.push((bytes[index] >> 0) & 0xF);
-        }
-    }
+	let mut nibbles = vec![];
+	for pos in nibbles_to_skip..nibbles_count {
+		let index: usize = pos / 2;
+		if pos % 2 == 0 {
+			nibbles.push((bytes[index] >> 4) & 0xF);
+		} else {
+			nibbles.push((bytes[index] >> 0) & 0xF);
+		}
+	}
 
-    return Ok(nibbles);
+	return Ok(nibbles)
 }
 
 fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
-    let path_without_offset = path.clone()[path_offset..].to_vec();
+	let path_without_offset = path.clone()[path_offset..].to_vec();
 
-    let len = core::cmp::min(node_path.len(), path_without_offset.len());
+	let len = core::cmp::min(node_path.len(), path_without_offset.len());
 
-    let mut prefix_len = 0;
-    for i in 0..len {
-        let path_nibble = get_nibble(&path_without_offset, i);
-        let node_path_nibble = get_nibble(node_path, i);
+	let mut prefix_len = 0;
+	for i in 0..len {
+		let path_nibble = get_nibble(&path_without_offset, i);
+		let node_path_nibble = get_nibble(node_path, i);
 
-        if path_nibble == node_path_nibble {
-            prefix_len += 1;
-        } else {
-            break;
-        }
-    }
+		if path_nibble == node_path_nibble {
+			prefix_len += 1;
+		} else {
+			break
+		}
+	}
 
-    prefix_len
+	prefix_len
 }
 
 fn merkle_patricia_compact_decode(compact: &Vec<u8>) -> Result<Vec<u8>, EvmProofValidationError> {
-    if compact.is_empty() {
-        return Err(EvmProofValidationError::EmptyBytes);
-    }
+	if compact.is_empty() {
+		return Err(EvmProofValidationError::EmptyBytes)
+	}
 
-    let first_nibble = (compact[0] >> 4) & 0xF;
-    let nibbles_to_skip = match first_nibble {
-        0 => 2,
-        1 => 1,
-        2 => 2,
-        3 => 1,
-        _ => {
-            // Should never happen
-            return Err(EvmProofValidationError::UnexpectedFirstNibble);
-        }
-    };
+	let first_nibble = (compact[0] >> 4) & 0xF;
+	let nibbles_to_skip = match first_nibble {
+		0 => 2,
+		1 => 1,
+		2 => 2,
+		3 => 1,
+		_ => {
+			// Should never happen
+			return Err(EvmProofValidationError::UnexpectedFirstNibble)
+		},
+	};
 
-    return to_nibbles(compact, nibbles_to_skip);
+	return to_nibbles(compact, nibbles_to_skip)
 }
 
 fn get_nibble(path: &[u8], offset: usize) -> u8 {
-    let byte = path[offset / 2];
-    if offset % 2 == 0 {
-        byte >> 4
-    } else {
-        byte & 0xF
-    }
+	let byte = path[offset / 2];
+	if offset % 2 == 0 {
+		byte >> 4
+	} else {
+		byte & 0xF
+	}
 }
 
 /// Obtain the storage path for the proof
 pub fn storage_path(storage_index: &u8, message_id: &MessageIdentifier) -> [u8; 32] {
-    let mut key_bytes: [u8; 32] = [0u8; 32];
-    let message_id_encoded = encode(message_id);
-    key_bytes[32 - message_id_encoded.as_ref().len()..]
-        .copy_from_slice(message_id_encoded.as_ref());
+	let mut key_bytes: [u8; 32] = [0u8; 32];
+	let message_id_encoded = encode(message_id);
+	key_bytes[32 - message_id_encoded.as_ref().len()..]
+		.copy_from_slice(message_id_encoded.as_ref());
 
-    let mut storage_index_bytes: [u8; 32] = [0u8; 32];
-    storage_index_bytes[31] = encode(storage_index)[0];
+	let mut storage_index_bytes: [u8; 32] = [0u8; 32];
+	storage_index_bytes[31] = encode(storage_index)[0];
 
-    let combined = [key_bytes, storage_index_bytes].concat();
+	let combined = [key_bytes, storage_index_bytes].concat();
 
-    Keccak256::hash(&Keccak256::hash(combined.as_slice()).0).0
+	Keccak256::hash(&Keccak256::hash(combined.as_slice()).0).0
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::chain::util::evm::validate_proof;
-    use rlp::Rlp;
-    use sp_runtime::traits::Keccak256;
+	use crate::chain::util::evm::validate_proof;
+	use rlp::Rlp;
+	use sp_runtime::traits::Keccak256;
 
-    use super::{shared_prefix_length, storage_path, to_nibbles};
-    use hex_literal::hex;
+	use super::{shared_prefix_length, storage_path, to_nibbles};
+	use hex_literal::hex;
 
-    #[test]
-    fn test_calculate_proof_path() {
-        let path = storage_path(&6, &1);
-        assert_eq!(
-            path.as_slice(),
-            hex!("80497882cf9008f7f796a89e5514a7b55bd96eab88ecb66aee4fb0a6fd34811c").as_slice()
-        );
+	#[test]
+	fn test_calculate_proof_path() {
+		let path = storage_path(&6, &1);
+		assert_eq!(
+			path.as_slice(),
+			hex!("80497882cf9008f7f796a89e5514a7b55bd96eab88ecb66aee4fb0a6fd34811c").as_slice()
+		);
 
-        let path = storage_path(&4, &1);
-        assert_eq!(
-            path.as_slice(),
-            hex!("210afe6ebef982fa193bb4e17f9f236cdf09af7788627b5d54d9e3e4b100021b").as_slice()
-        );
-    }
+		let path = storage_path(&4, &1);
+		assert_eq!(
+			path.as_slice(),
+			hex!("210afe6ebef982fa193bb4e17f9f236cdf09af7788627b5d54d9e3e4b100021b").as_slice()
+		);
+	}
 
-    #[test]
-    fn test_shared_prefix_length() {
-        // We compare the path starting from the 3th nibble
-        let path: Vec<u8> = vec![0x01, 0x0f, 0x04, 0x03, 0x0c, 0x02, 0x08];
-        let path_offset = 3;
-        // Our node path matches only the last 4 nibbles of the path
-        let node_path: Vec<u8> = vec![0x03, 0x0c, 0x02, 0x08];
-        let shared_len = shared_prefix_length(&path, path_offset, &node_path);
-        assert_eq!(shared_len, 4);
-    }
+	#[test]
+	fn test_shared_prefix_length() {
+		// We compare the path starting from the 3th nibble
+		let path: Vec<u8> = vec![0x01, 0x0f, 0x04, 0x03, 0x0c, 0x02, 0x08];
+		let path_offset = 3;
+		// Our node path matches only the last 4 nibbles of the path
+		let node_path: Vec<u8> = vec![0x03, 0x0c, 0x02, 0x08];
+		let shared_len = shared_prefix_length(&path, path_offset, &node_path);
+		assert_eq!(shared_len, 4);
+	}
 
-    #[test]
-    fn test_verify_account_state_proof() {
-        let proof: Vec<Vec<u8>> = vec![
+	#[test]
+	fn test_verify_account_state_proof() {
+		let proof: Vec<Vec<u8>> = vec![
             hex!("f90211a0f95b30e8057169e0fc1daa9f78787333a372e485d8e1d2c2d6e6490c3bd6016fa0681665dc7c7d2a1b6209c6f317c718eee11ab8eedd61fccf86c067a6e3806d27a07207538d7bfeebf3470e06fcdaee54257f5916b58116b26db1cf7b76f1159cb2a01686a528f93001316f899c817524945b9c9be4315dc338bfafa618c813a4e207a06c36fd3689e73ce2827b5f92d67a770eff3b50aa1347583e1322dbb368f23632a0f304a9873278d4a7883cbb1279f22ab463aff78049baa716c6afc1539f6597b8a01d5ebc8150378a4038a4abaaa3462fbbe73b9cd84e640d0c3e882b49a1ddafc2a0cb252bf4d64b84ed05e71d33394a21d8eb79c17efccdf4fc22a7616d7938b936a06e66ee831d3d94c099ae66dbe115b4ddbb6d25f74e80d5c518794b6780ce9384a01474af95a02eff151cccab14ddb3a742696cb4111c3ee6c9022e0320f67b3377a0fabd16e8b32fa448ef500b790994f20814926337176a15844b89477173fb807ba02e07808444c4f433715574baa5cee086b63e702921b14a201a2180db17d9cb4ca0ce71a37dc14cf4c103d685246b354c95662564142a5a150c070b36730c3d2634a07417c43675ea5cd1b7826d11d2dd9ddad001c5977d2928a2a00caa69a44509f0a0bce5abe6ef48bf0cd83c1b1dad37e6616b5acee93e055ef055698946a99edb58a060cd523662c2656342ca06a1914489c2d66b823a1996cabfa11888f8c5126f3580").to_vec(),
             hex!("f90211a04dad2e8c56b4d41a8bf62784c999d62946787aa89608e74e63e70db454a941dea06182484ec7e0ff2a22680b567bd979a0ed0883729192425be22346f66dbff7eaa09555cd7bd1a1f2f046e84af6293a1d90d427d1aa1e8532aa4d123d5b8a33872ba027d4b7804eeb1516fba785caebfe9cb13697b95d5b23b74119e0635b4f7aa3a9a02b18f67a754a345e573ae03aae01d3e371465d757999f0c41ef13eecd30a11cda096560ee6b086fb8e10d65d0ae75a6d8b093e226b06e181afd5f7869ec0327117a07954049a9a8256f41d22164429692c1cc75f1c6b604a088c79c5dc5778f05efaa007ffb113f7370423f31b3c0bb9e2c2e3513e0f48a8550fb42694b8a632b05c40a02291acda3ef7748c9aa6139832f0cc8c10e4227643d194ef11d4163b4cd36e01a03c71b4760b879e666c704c744036eb3ff585d085fe7fd82a08634140d6c98207a0daaed6465d195816bd1919fdd19688a6e2a9156ef351d106e2f1a07781cc9d57a058f9047b134ad2ecc5af428d272f5acc8d386249e1bef5bd6f96c18f457063cea032b4f66d9fc622bbab0c862a4b51aed5956b48ca9f05beb7da6d37b35a3263dda0dfefe8a210051438b50dd2f092d03300311d93e235aaeadcaf3e5681988c1feca0eeb5cbe3746d80b37387802ae393c36511e66b5080b3c767f0731588037e508aa03dcb5f831c18d2c6c6ca69e25a13266075960d81a632385ee3cb87d7a1e9843280").to_vec(),
             hex!("f90211a0d0fa35677e37b205b596cf4c212b479326befc3a4a9e18c6bfaa7c59643b9fd0a072fe41c97253aa0ec8dcac18ba5fd453f0eefdf850d10a39cd30524d20439452a0723752b0350d1ecefe1eba876307099c28fdac16f6e70a667a69d7d93fbf75cfa076e5549004b7168bc37c15e83b0c48966408c294c84c352c5fb650647b799292a00110a0b7592311b22cd1bc621e896861e1414546672baf6ecac1fdc618acc017a07c44a8353e9e0aad2cb10d6c6ea99b1546370138078b42ef37532314c705791ba0c5f785f12278ef0012b8aee57beefcd83ffd262c084c5eca786c06b916b01e85a001f1ef52f4a5c6a94a50694b595cc008a61f5571bfdf7d2b937bf1353c9acba7a039fee3000c0ac6daa58d716d8d412efcdc9bc0bd7939f7b7ca3b5a6cf0c061e0a0162e73de59897db33bd41bc8e09acdadb830df30e6036d5e7329f75285d3d914a02a83b09982f2d3f0a8b3730a768fbf2db12bfdc25dd383d5e8f4e5b7336b39ffa0bd052c8dcfe57c7ee8fe2ad4167ea361972cf68ce9dda5ffb14374ea72d1ac79a007b92b3f0c3cd17275ee20fae41512d59d04b5d3eef5cad3f48c0b21c0e17703a039abe83169b68fdf16d227d94a082cf112cfa9085208fe6b5896cd159d0588aba08261e532414b5bcd0929a7a950ea165e7e3ff54af23b3b460b9e862e22770260a01eb72340083708752d3aa06f2c0a3a1047e611aa1a07b7ed676d95401e5afe7480").to_vec(),
@@ -321,72 +305,72 @@ mod tests {
             hex!("f87180a09561a997c264962c9a8b4aee2582b8ef36a189e3e726d35c2cb826fe8d0fd87d80808080a00010dfaea0e22d6ff3ef10c217e1c415911b21a17c987a26f23c3a01e89b3d0a808080808080a0be6964353ef31b78edaaad0e8bd87b64d62632aef85fdd3ae963955a98628ec2808080").to_vec(),
             hex!("f8679e20389db67e3b84adf9d34deca5638f3aaf86a8eaaa6147889bca489e7a7cb846f8440180a0c043666e3ecc8c280ba165497aa3ed83dddba54c00e6e73486c68427925e0778a0e751f0a9365eab5149f29145082d5b033520eb9cb2432527d65e19d6efcbdd0b").to_vec(),
         ];
-        let path =
-            hex!("14c9bd389db67e3b84adf9d34deca5638f3aaf86a8eaaa6147889bca489e7a7c").to_vec();
-        let value = hex!("f8440180a0c043666e3ecc8c280ba165497aa3ed83dddba54c00e6e73486c68427925e0778a0e751f0a9365eab5149f29145082d5b033520eb9cb2432527d65e19d6efcbdd0b").to_vec();
-        let root =
-            hex!("297677d612641f8a53454bc8126f4b225b95ddb6ab395d12a2ed740b8ca81cd4").to_vec();
-        assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
-    }
+		let path =
+			hex!("14c9bd389db67e3b84adf9d34deca5638f3aaf86a8eaaa6147889bca489e7a7c").to_vec();
+		let value = hex!("f8440180a0c043666e3ecc8c280ba165497aa3ed83dddba54c00e6e73486c68427925e0778a0e751f0a9365eab5149f29145082d5b033520eb9cb2432527d65e19d6efcbdd0b").to_vec();
+		let root =
+			hex!("297677d612641f8a53454bc8126f4b225b95ddb6ab395d12a2ed740b8ca81cd4").to_vec();
+		assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
+	}
 
-    #[test]
-    fn test_verify_storage_proof() {
-        let proof: Vec<Vec<u8>> = vec![
+	#[test]
+	fn test_verify_storage_proof() {
+		let proof: Vec<Vec<u8>> = vec![
             hex!("f90111a04c77a8959da29908fa97ea8718d3dd2fc298c353a9da9e09c6131a6a1cc3de8880a0308611a8afda5c8a10b09de3fed011ae43c480313fd2c85d65a92d35359de7fb808080a0f088bca3be2219e02d2ce722d00fdf516680747991013835a1c30d5296b47fec80a0017e20495a1d135325ad9f1f72d720a0b20b85eca8319f10f8c6f461a62e27bf8080a0482e10e64fe37936565267fcb8e0dd9cf74303ab0ce750dd5437bfdd99249528a0b794f22030a6452bd30975ba1b9dee4b798f3b560807323473a401da7f87124980a01f0b30aa51df7ff59d462dcefc151653f1af532a650eb9a5c59672dcf751a5f7a02f948e17d693c90a394a6dff75aa79461702f6361a43daee7f3eaa143825489d80").to_vec(),
             hex!("f87180a0367682f42ce7bfb86a31cc6924f7038a750e822f31c0e905b51f5ddf9b8dfb2380808080808080a04d0c15612e60ae90c040ff5eef0f99778a6f3dfdbdfacf954295252cef782a108080808080a02e5c6b3fb31df33a8f3f8e62ddfb6ef3078682b4aa8e1748b4fde838aaac742e80").to_vec(),
             hex!("f843a0200afe6ebef982fa193bb4e17f9f236cdf09af7788627b5d54d9e3e4b100021ba1a05f786a9fcb8250a3f27ed9192c66594dec76f3d53a4bf9d27ffc086b5196280d").to_vec()
         ];
 
-        let path =
-            hex!("210afe6ebef982fa193bb4e17f9f236cdf09af7788627b5d54d9e3e4b100021b").to_vec();
-        let value =
-            hex!("a05f786a9fcb8250a3f27ed9192c66594dec76f3d53a4bf9d27ffc086b5196280d").to_vec();
-        let root =
-            hex!("c043666e3ecc8c280ba165497aa3ed83dddba54c00e6e73486c68427925e0778").to_vec();
-        assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
-    }
+		let path =
+			hex!("210afe6ebef982fa193bb4e17f9f236cdf09af7788627b5d54d9e3e4b100021b").to_vec();
+		let value =
+			hex!("a05f786a9fcb8250a3f27ed9192c66594dec76f3d53a4bf9d27ffc086b5196280d").to_vec();
+		let root =
+			hex!("c043666e3ecc8c280ba165497aa3ed83dddba54c00e6e73486c68427925e0778").to_vec();
+		assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
+	}
 
-    #[test]
-    fn test_verify_storage_proof2() {
-        let proof: Vec<Vec<u8>> = vec![
+	#[test]
+	fn test_verify_storage_proof2() {
+		let proof: Vec<Vec<u8>> = vec![
             hex!("f90131a0fe1cec69138a035b27919cba7d03d2f3b5867e183fc5928af3bc0b0f85b562a880a0e759fad30e475a8a7de20efb084aeaad48864ef0c5eb678f0133226a4489d5f8a0da9cbdd2154724e704491b792e162e096df39e9f51363b9b950933a61186820280a0de572a50aef9d550512795e67eaf06acda25ada12d45e5944fba2cb429641f5480a05abb50d3ee32dffe73e3a7f9f354bffe92e4971bf45b527d046208a6818120f980a0ca5985306e251400a05df43a16a3391bca6cf1e5a39acfde6f619c8ea03e3fbc8080a03783bc2fd4d98095264ccacf2098c92a04e317f93a82d87a713d645e0743ef8a80a0bb7fbc81f9cb125fa6229c00a3b6442d31316510f0a9054827bd2317fc95ac9ba0b60d522b76ccaef75c1d5d2faf67a3904ea0aadfe459950661a60e2111e94ca680").to_vec(),
             hex!("f8518080808080808080a0ff1d82682091977c3bd249fd5840706e2c8f487add0b1ae09d430e80d9aeb8f9808080808080a066ba505307e91ddbb884cf21cfffd24941ca533e0b9384a68144039ab7fc57a280").to_vec(),
             hex!("f843a0202ead72d53401d823f4de3290714b95c588de2c574133f57728a2d3d3763d3aa1a0f03ee4236f341d60bc114bdc519db37d120d1d98b8d3f12b9b6a65c2aa99b01d").to_vec()
         ];
 
-        let path =
-            hex!("ff2ead72d53401d823f4de3290714b95c588de2c574133f57728a2d3d3763d3a").to_vec();
-        let value =
-            hex!("a0f03ee4236f341d60bc114bdc519db37d120d1d98b8d3f12b9b6a65c2aa99b01d").to_vec();
-        let root =
-            hex!("c53cbaddd072fc5094f0e0986a1baff9ed3d6dbe4133eb4e7764dd9e93f9ec9d").to_vec();
-        assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
-    }
+		let path =
+			hex!("ff2ead72d53401d823f4de3290714b95c588de2c574133f57728a2d3d3763d3a").to_vec();
+		let value =
+			hex!("a0f03ee4236f341d60bc114bdc519db37d120d1d98b8d3f12b9b6a65c2aa99b01d").to_vec();
+		let root =
+			hex!("c53cbaddd072fc5094f0e0986a1baff9ed3d6dbe4133eb4e7764dd9e93f9ec9d").to_vec();
+		assert_eq!(validate_proof(&proof, &root, &path), Ok(value));
+	}
 
-    #[test]
-    fn test_to_nibbles() {
-        let input = vec![0xff];
-        let expected = vec![0x0f, 0x0f];
+	#[test]
+	fn test_to_nibbles() {
+		let input = vec![0xff];
+		let expected = vec![0x0f, 0x0f];
 
-        let output = to_nibbles(&input, 0);
+		let output = to_nibbles(&input, 0);
 
-        assert_eq!(output, Ok(expected));
-    }
+		assert_eq!(output, Ok(expected));
+	}
 
-    #[test]
-    fn t() {
-        let input: Vec<u8> = vec![0x82, 0xff, 0xff];
-        let expected: Vec<u8> = vec![0xff, 0xff];
+	#[test]
+	fn t() {
+		let input: Vec<u8> = vec![0x82, 0xff, 0xff];
+		let expected: Vec<u8> = vec![0xff, 0xff];
 
-        let rlp: Rlp<'_> = Rlp::new(input.as_slice());
+		let rlp: Rlp<'_> = Rlp::new(input.as_slice());
 
-        dbg!(rlp.data().unwrap());
-        assert_eq!(rlp.data().unwrap(), expected.as_slice())
-    }
+		dbg!(rlp.data().unwrap());
+		assert_eq!(rlp.data().unwrap(), expected.as_slice())
+	}
 
-    #[test]
-    fn test_validate_proof1() {
-        let proof: Vec<Vec<u8>> = vec![
+	#[test]
+	fn test_validate_proof1() {
+		let proof: Vec<Vec<u8>> = vec![
             hex!("f90211a01e6a427425517df2b64d83df8c8cc2577227a3593d1ff8c1f43200ef40857fcaa0dd70148b3f76a278380eea8a0ed86ae725b8acd7d3d78a5092c59fb2d011990ca03809e04399911d5abf36e120b614a9da13ac4bcfeff658e391442e16d257d4b1a0feeebbaad3d132b85373ce0b713cde63d9fbda6e4a8920b232abc0c47ad63fafa022a28681bca7ede4e347b3a2cb6a0579122201f28bae7cc64eb2c04ff398da92a04d20ace3c48bc32801ea8981b962521087cb7252c3d2720548c5fddf8ba35d8fa0f2a796e896270c04ee6f37375219cdb84997c53123a83ea1ecfc4423e75ce7b0a0f50a317a8e7480ff78e886b6cece9ed7a931300a6d88d0fb63ba89c4d3afbc96a0be46e711f140c5e6b546f7a009f9a985531a9a4e363fcb536eaa01a2d2ed9070a0aacbc1190a7dbc30ad85284a0c7568535575836b26376e18c264ff02553d957ba0514bcf049e1802ce3bf91ae4a9252e460e84bff4fcfa92f5813b8738b556e380a02af47e0f88d5641608d03d3751f5905d32b56f6685bfd79c7153ae7977af13d7a035668a4e9099f0071dd53356da6d6d08b24f48f03cab9d7b2e70f8b7a9563200a0a43e25bb65f98f9ba2a9999d6cf5da1da2019919a3c95cb953a7d1eff650649ea0ede0a02bb3d82444eff81d1251c7e8f3c1ab8d84824f87f2c364ddb02e1ff7a6a0bd5b7de2e00ab0396fb9a42e12a7b3801e4a8409bf439ea073a28b6a3ca8616f80").to_vec(),
             hex!("f90211a056191244eb9f024361fa4704b6a181ff111d0cb37a13cf15af81b795c2a93823a0a00ecaf344c97f51f111c8cbbf7897a64c93c31a1663cb09cc58b05a33810c8ca0398a72a9a9bbc6091292e6871291292fdfef2f85f8fe5ce520630bd477e55cd8a01a62908e6a386ff412d5cba050f9485530b36fe14aa29e668fe87335173b67afa00c88de9fd09b791e4b2c02ebabd3ebbd80af2e44572f1ca46447425969ec2dfda0637a86f1bb24273b42378a707cb385785116e4e3d86c3bd91761b5e501233ba4a082d9101880c166dd752bca20672be6a17dc0af25f675ca8148fec20986e854c8a058fba32e4201f8591c8fc60ce1f3207eaee055e4bd36f1cf08bb40138f001f38a0c8e3502b34b734bded6bc0595de7ec85e83e8ac9cba6619e1703c07c91e58d05a03ab8bb8772b4af2373e8a5eb70855015fbf1ddc0db13e7f19b8b61ab3c940bb5a0e0af59b0a454d5324c031dec76e0c5f68338d1fbfb5f132407d762ebccef108aa0e1a356c43f883107b6098ed1c181fe1dee91aa2d30803ae430bb24fcd7fb1dbea019e2759edcc71b15e5e4e8dacf895ea5e488b0a452720eff81088cc8c55835a4a0fdea5706ec6d2ca3af188022dbce15c4d042e6c103a1f5949ae155d121b56238a0725da3cc14339dfd78cc4f932f74e5559c8c1b06bedb071a19a7d7495ad1d542a06ff2c1218fd9a0596e5603a4b2da9ffc6504406277f8112b4427578b548737be80").to_vec(),
             hex!("f90211a0ae4c2efc81cef10fb81e95229054a07f026c22eedda2582007beede43e478769a066eb86f82b30900eaea429345d4b344bda3d2684267a7443fa063683de170ed5a0da5492911f28cc7e13220bfb1ba84024a4436b319e4470c926954b30dc35b467a0d9adc4937283c6de302f5fbb6cbd128871ef27930ca3b42842e27d806ec65fafa00005ea9ad2a44b9779136735a01a9951726c984c8159c6108ca320e84306ba78a0eedbce0abf3d12bcab3b79cb0500f814913ca66dd522628e6081f2d7a2f316bba0375ef1473700c00b2f1129b4201ace1b91978a7e93a4623aac3dc9d8e03d84fba0bce9a43f1a91483bf3e8b0bca2db7ed9d865489d18351bf4bdfbeeef98a2c1eea0896659018b5be4f81975052bc33012d75990a3c4a3733a05707fd443ea6e2efca0084ce973bfb50078a182dc9de3d46338a9608b103e9bd95f3c14d59f890c8e60a0edd2176279800065a96d4af687238f4925c6f79e1af5fd0a7370097ee3c7a2d2a04321c84e8442f2c04f028c47be1746bbe61be1bfb933b5812e25d38a63655d79a0d68f9aceb1e90eb19e00a300f4109334ae9328b88a8a363d13e23c98eba76e36a0278b4b6ff61e30c699ada71bb82ada9967b8358d061a8ff5e93161459c3540dba06c43fa474d56eb93966b4f935c7b3b2604adc8c71331bdc9d3b12fd1777c5533a0b3b8c2b0b7e60a1084b821ea5ba35ceba40e77f5f877bca6297ff1f458639a1880").to_vec(),
@@ -397,18 +381,18 @@ mod tests {
             hex!("f8669d3f77bc3bbc1cfa5699cadd3850753e93731f02f6bf025f1e4ffc3fb788b846f8440180a0865742af102ffd57df06bdb6d58b31c8a76e368332f4b5db7386e5ba450eca0ea0dbe350999ed56f5a428aa0d998f2fc2d98a8599929bb156ca57dfc0fd5e75022").to_vec(),
         ];
 
-        let path =
-            <Keccak256 as sp_core::Hasher>::hash(&hex!("9b526A28eB683c431411435F2A06632642bCcBE9"))
-                .0
-                .to_vec();
-        let root = hex!("660161203bd2b16c79b1e003d39fb65201c7b961355bb130b6ffdaa80ece9737");
+		let path =
+			<Keccak256 as sp_core::Hasher>::hash(&hex!("9b526A28eB683c431411435F2A06632642bCcBE9"))
+				.0
+				.to_vec();
+		let root = hex!("660161203bd2b16c79b1e003d39fb65201c7b961355bb130b6ffdaa80ece9737");
 
-        assert!(validate_proof(&proof, &root.to_vec(), &path).is_ok());
-    }
+		assert!(validate_proof(&proof, &root.to_vec(), &path).is_ok());
+	}
 
-    #[test]
-    fn test_validate_proof2() {
-        let proof: Vec<Vec<u8>> = vec![
+	#[test]
+	fn test_validate_proof2() {
+		let proof: Vec<Vec<u8>> = vec![
             hex!("f90211a0dded1ea1ded6da9ae53a491896a34344c885a87123a0fc3406403c40dada8fe1a062fad4c414d0968b0d4b61b06abe4a12785c05dc94f2052087a24603377a1127a0762dbe56774d5c2f74f3bc62eebbff2c1ef8d622e044d763ef46a9c6e05b0895a024e16ad0a70f8e2a373cd20fbcb1beefd236930c9e80972676ee75e71376f748a05c0b8e998808ff95805f6e6d114aca2bdbc3c8a05cac100caa83453a80fc551da084cc118be70d76f1d7d45e731adb32a5ea98194f1e55e12e8a81c1265bb35804a0cfe0d0d5a659bf87435d9175311ce312a99fde37a714844fe8a86b6671485b29a014d0b6e6bd843f8f5652a691b07e8bd57d8daefebf68518dfa1ca2c27371c955a0e59a89693faa726341f6eac51e893e81bcdf3983788bfcf88cd35e85f2692072a074ad7d620707530ae12cef2d83f28cfa6b381176f2f17dda157f3d94194c3edaa060e8042b25a70cbdb5b7bf7acd57e96f389f8c5ca61568a3d104bb6e89410397a00be1c2a477f8eac3a4ba620b959b4e9702f919ef860337420a3dce5be814158fa091dff9cd84917e1dad5c65c824aa549be1e2b537eaa84adebbf0c7a34c0516b8a09db42f5adcc060c2fb368c2b5b5f2df2bd432018e76c5497305cf9ab040ece2fa0827453674aa8a0721788852fc341b097c451b87949198314a6df7bf7640c34bea0926595591284d182861c26ea9e71e86c7b9f8ee3b6859ee29113ebe08026916b80").to_vec(),
             hex!("f90211a0ee8f768253ed6c37765832d64884a5e092e41cbfdaf0fb8f0932211ce0d568c4a0ce495a7fa0836aaeab91fbbdc7dea5ce1aa96b857fd1a8e39f86f254010f2973a0491069c53daf75d1997636cf24365e3df2fb7b0c1f473512f4015bccd7c0c495a0bc5e1a2ff02cee76141ebbde7e11ef1cde35ea2870dfb9c86c3686a1149359d3a0981b41642f7de62e3b86aacbaf87550fd5e6cd25fa74184b83547adf23a22fc5a0fddadd87475a00c34bb9d6f0247c6f2e1aa35a9ae3f704e053a8a5c2ce5c3913a073f979076c82f9b273fdb1490eed2a42118a22657e9e4aff5531b9434b601bf1a034f4c189b0d5b87be223f8d9ded6ea924b183ee5cf6559406de3c8c0a748df0fa0ad24cc8adf2c208cd3b4a618b16bbf9ad14caacd2b07fbc90bb62df6be85496ea0ea35325f678defc5ea53d77a23a293fc68c2d0b39fb1231466cd6c234da540b8a00ba70a69e36fa88db1d0eaa49c5b55e898560a8f7eefe11b6784020be2dbd8f4a0b3caf50d4308581d338e3ea7c22525d82188aebbee020b632587460edeae4af8a02272da0b5d0a15df06e7afbcb3c72d46f014ff8ffc767fed67bd913f7726681da0b7e7835994dcd6ff3b2acb150d385946911e12cff2deebce7b2c1d330443812fa0eaf2a4492c71a0c4f472d0def98e87407968800bef137205774089c5f516fcd4a093473cfe514cb3d370ab4be46ac4e5f4d7789246018164ce27b0aa67f389665e80").to_vec(),
             hex!("f90211a03467744e52388cea47422c20dd914ba06b7774b831b6495bb4698c15d389148ba088525a844b5a5d4d8ef78f2a3778ed158134c67bf398c7d3bdf75eaeecaea572a05eb80f9c3226203a10218dc0fae5ae105405d88965dae3f54e8182a78cce661ca0fce6fb480556411a6154d06549bb13faead17c58ad5a2f007dd15c27c8b71ab9a039ce7123fca637f72e2453bf5fb6d41d339c9ed89d952528b2834864b3b95380a049082b9365e9191eae486a26eb45c46b86c684f1e681262ab2901e8966f00e9da0d4033860fd491626ee7b19e5a139740adb20b20681a4caa3476d192bbe0fb394a0c93505a507ac2a8c02679f893abd01c472a1d4f55da00fdc761d8b05ec3af045a0974c124e54de2d0d35da4e8f96e0e79594f1fb8c89eb9988dcce906ba03000a4a0d2b3c203d5ec947f1a8fb4d1bb9d0c988543f26aabbc41348e539a1611b2f1dda08829379b6999f03962ed414b65a0a23eb969525a0ad183182c32b116cc889be1a0721b85e9bb81dba6362be176d5a335ed706ba83d0e977ef7621d72060d84e28fa0174f7dc9393883bcb4439c7af8b090e45edd7e812908bd8ff47903f371471fc3a0713ab60afd75ae70440f07eac886187729e27b06f760f056e81cf2ea72b766f0a0197b0c5479eb956a72b7b52e5b4a6c2617afb71d7437559f208850d3b2fac728a0d8a6b21e99114d2bcf3ccc468bd6bfd3c6cef707c930b709294e90b537d20ead80").to_vec(),
@@ -419,10 +403,10 @@ mod tests {
             hex!("f8669d3eba0fa7e2848bcd30e1bf958707d2a02f8f03ae438d6622a21b562c7fb846f8440180a0ab4f5e5ac89f9bed9eab40a5b02763168e73ca32c5dd9f5ced76ae92815e42e1a03c789e7c0b32cfb991ed499ea05ca68b7ae8e89f5ed2bbf04deb5878c4018f68").to_vec(),
         ];
 
-        let path =
-            hex!("406f40eeba0fa7e2848bcd30e1bf958707d2a02f8f03ae438d6622a21b562c7f").to_vec();
-        let root = hex!("165f651aca44dc76ac642127d4a904b2270b22459c13b1bd5a360ea25f314f1d");
+		let path =
+			hex!("406f40eeba0fa7e2848bcd30e1bf958707d2a02f8f03ae438d6622a21b562c7f").to_vec();
+		let root = hex!("165f651aca44dc76ac642127d4a904b2270b22459c13b1bd5a360ea25f314f1d");
 
-        assert!(validate_proof(&proof, &root.to_vec(), &path).is_ok());
-    }
+		assert!(validate_proof(&proof, &root.to_vec(), &path).is_ok());
+	}
 }

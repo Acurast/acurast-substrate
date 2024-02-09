@@ -3,335 +3,283 @@
 use frame_support::{assert_err, assert_ok, error::BadOrigin};
 use hex_literal::hex;
 use sp_core::H256;
-use sp_runtime::bounded_vec;
-use sp_runtime::traits::Keccak256;
-use sp_runtime::AccountId32;
+use sp_runtime::{bounded_vec, traits::Keccak256, AccountId32};
 use std::marker::PhantomData;
 
-use crate::chain::tezos::TezosProof;
-use crate::instances::TezosInstance;
-use crate::stub::*;
-use crate::types::*;
 use crate::{
-    mock::*,
-    types::{ActivityWindow, StateTransmitterUpdate},
-    Error,
+	chain::tezos::TezosProof,
+	instances::TezosInstance,
+	mock::*,
+	stub::*,
+	types::{ActivityWindow, StateTransmitterUpdate, *},
+	Error,
 };
 
 #[test]
 fn update_single_state_transmitters() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        // A single action
+	test.execute_with(|| {
+		// A single action
 
-        let actions = vec![StateTransmitterUpdate::Add(
-            alice_account_id(),
-            ActivityWindow {
-                start_block: 0,
-                end_block: 100,
-            },
-        )];
+		let actions = vec![StateTransmitterUpdate::Add(
+			alice_account_id(),
+			ActivityWindow { start_block: 0, end_block: 100 },
+		)];
 
-        assert_ok!(TezosHyperdrive::update_state_transmitters(
-            RuntimeOrigin::root().into(),
-            StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-        ));
+		assert_ok!(TezosHyperdrive::update_state_transmitters(
+			RuntimeOrigin::root().into(),
+			StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+		));
 
-        assert_eq!(
-            events(),
-            [RuntimeEvent::TezosHyperdrive(
-                crate::Event::StateTransmittersUpdate {
-                    added: vec![(
-                        alice_account_id(),
-                        ActivityWindow {
-                            start_block: 0,
-                            end_block: 100
-                        }
-                    )],
-                    updated: vec![],
-                    removed: vec![],
-                }
-            )]
-        );
-    });
+		assert_eq!(
+			events(),
+			[RuntimeEvent::TezosHyperdrive(crate::Event::StateTransmittersUpdate {
+				added: vec![(
+					alice_account_id(),
+					ActivityWindow { start_block: 0, end_block: 100 }
+				)],
+				updated: vec![],
+				removed: vec![],
+			})]
+		);
+	});
 }
 
 #[test]
 fn update_multiple_state_transmitters() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        let actions = vec![
-            StateTransmitterUpdate::Add(
-                alice_account_id(),
-                ActivityWindow {
-                    start_block: 0,
-                    end_block: 100,
-                },
-            ),
-            StateTransmitterUpdate::Update(
-                alice_account_id(),
-                ActivityWindow {
-                    start_block: 0,
-                    end_block: 100,
-                },
-            ),
-            StateTransmitterUpdate::Remove(alice_account_id()),
-        ];
+	test.execute_with(|| {
+		let actions = vec![
+			StateTransmitterUpdate::Add(
+				alice_account_id(),
+				ActivityWindow { start_block: 0, end_block: 100 },
+			),
+			StateTransmitterUpdate::Update(
+				alice_account_id(),
+				ActivityWindow { start_block: 0, end_block: 100 },
+			),
+			StateTransmitterUpdate::Remove(alice_account_id()),
+		];
 
-        assert_ok!(TezosHyperdrive::update_state_transmitters(
-            RuntimeOrigin::root().into(),
-            StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-        ));
+		assert_ok!(TezosHyperdrive::update_state_transmitters(
+			RuntimeOrigin::root().into(),
+			StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+		));
 
-        assert_eq!(
-            events(),
-            [RuntimeEvent::TezosHyperdrive(
-                crate::Event::StateTransmittersUpdate {
-                    added: vec![(
-                        alice_account_id(),
-                        ActivityWindow {
-                            start_block: 0,
-                            end_block: 100
-                        }
-                    )],
-                    updated: vec![(
-                        alice_account_id(),
-                        ActivityWindow {
-                            start_block: 0,
-                            end_block: 100
-                        }
-                    )],
-                    removed: vec![(alice_account_id())],
-                }
-            )]
-        );
-    });
+		assert_eq!(
+			events(),
+			[RuntimeEvent::TezosHyperdrive(crate::Event::StateTransmittersUpdate {
+				added: vec![(
+					alice_account_id(),
+					ActivityWindow { start_block: 0, end_block: 100 }
+				)],
+				updated: vec![(
+					alice_account_id(),
+					ActivityWindow { start_block: 0, end_block: 100 }
+				)],
+				removed: vec![(alice_account_id())],
+			})]
+		);
+	});
 }
 
 /// Non root calls should fail
 #[test]
 fn update_state_transmitters_non_root() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        let actions = vec![StateTransmitterUpdate::Add(
-            alice_account_id(),
-            ActivityWindow {
-                start_block: 0,
-                end_block: 100,
-            },
-        )];
+	test.execute_with(|| {
+		let actions = vec![StateTransmitterUpdate::Add(
+			alice_account_id(),
+			ActivityWindow { start_block: 0, end_block: 100 },
+		)];
 
-        assert_err!(
-            TezosHyperdrive::update_state_transmitters(
-                RuntimeOrigin::signed(alice_account_id()).into(),
-                StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-            ),
-            BadOrigin
-        );
-    });
+		assert_err!(
+			TezosHyperdrive::update_state_transmitters(
+				RuntimeOrigin::signed(alice_account_id()).into(),
+				StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+			),
+			BadOrigin
+		);
+	});
 }
 
 #[test]
 fn submit_outside_activity_window() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        let actions = vec![StateTransmitterUpdate::Add(
-            alice_account_id(),
-            ActivityWindow {
-                start_block: 10,
-                end_block: 20,
-            },
-        )];
+	test.execute_with(|| {
+		let actions = vec![StateTransmitterUpdate::Add(
+			alice_account_id(),
+			ActivityWindow { start_block: 10, end_block: 20 },
+		)];
 
-        assert_ok!(TezosHyperdrive::update_state_transmitters(
-            RuntimeOrigin::root().into(),
-            StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-        ));
+		assert_ok!(TezosHyperdrive::update_state_transmitters(
+			RuntimeOrigin::root().into(),
+			StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+		));
 
-        System::set_block_number(9);
-        assert_err!(
-            TezosHyperdrive::submit_state_merkle_root(
-                RuntimeOrigin::signed(alice_account_id()),
-                1,
-                HASH
-            ),
-            Error::<Test, TezosInstance>::SubmitOutsideTransmitterActivityWindow
-        );
+		System::set_block_number(9);
+		assert_err!(
+			TezosHyperdrive::submit_state_merkle_root(
+				RuntimeOrigin::signed(alice_account_id()),
+				1,
+				HASH
+			),
+			Error::<Test, TezosInstance>::SubmitOutsideTransmitterActivityWindow
+		);
 
-        System::set_block_number(20);
-        assert_err!(
-            TezosHyperdrive::submit_state_merkle_root(
-                RuntimeOrigin::signed(alice_account_id()),
-                1,
-                HASH
-            ),
-            Error::<Test, TezosInstance>::SubmitOutsideTransmitterActivityWindow
-        );
+		System::set_block_number(20);
+		assert_err!(
+			TezosHyperdrive::submit_state_merkle_root(
+				RuntimeOrigin::signed(alice_account_id()),
+				1,
+				HASH
+			),
+			Error::<Test, TezosInstance>::SubmitOutsideTransmitterActivityWindow
+		);
 
-        System::set_block_number(10);
-        assert_ok!(TezosHyperdrive::submit_state_merkle_root(
-            RuntimeOrigin::signed(alice_account_id()),
-            1,
-            HASH
-        ));
-    });
+		System::set_block_number(10);
+		assert_ok!(TezosHyperdrive::submit_state_merkle_root(
+			RuntimeOrigin::signed(alice_account_id()),
+			1,
+			HASH
+		));
+	});
 }
 
 #[test]
 fn submit_outside_transmission_rate() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        let actions = vec![StateTransmitterUpdate::Add(
-            alice_account_id(),
-            ActivityWindow {
-                start_block: 10,
-                end_block: 20,
-            },
-        )];
+	test.execute_with(|| {
+		let actions = vec![StateTransmitterUpdate::Add(
+			alice_account_id(),
+			ActivityWindow { start_block: 10, end_block: 20 },
+		)];
 
-        assert_ok!(TezosHyperdrive::update_state_transmitters(
-            RuntimeOrigin::root().into(),
-            StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-        ));
+		assert_ok!(TezosHyperdrive::update_state_transmitters(
+			RuntimeOrigin::root().into(),
+			StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+		));
 
-        System::set_block_number(10);
-        assert_err!(
-            TezosHyperdrive::submit_state_merkle_root(
-                RuntimeOrigin::signed(bob_account_id()),
-                6,
-                HASH
-            ),
-            Error::<Test, TezosInstance>::UnexpectedSnapshot
-        );
-    });
+		System::set_block_number(10);
+		assert_err!(
+			TezosHyperdrive::submit_state_merkle_root(
+				RuntimeOrigin::signed(bob_account_id()),
+				6,
+				HASH
+			),
+			Error::<Test, TezosInstance>::UnexpectedSnapshot
+		);
+	});
 }
 
 #[test]
 fn submit_state_merkle_root() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
-        let actions = vec![
-            StateTransmitterUpdate::Add(
-                alice_account_id(),
-                ActivityWindow {
-                    start_block: 10,
-                    end_block: 20,
-                },
-            ),
-            StateTransmitterUpdate::Add(
-                bob_account_id(),
-                ActivityWindow {
-                    start_block: 10,
-                    end_block: 50,
-                },
-            ),
-        ];
+	test.execute_with(|| {
+		let actions = vec![
+			StateTransmitterUpdate::Add(
+				alice_account_id(),
+				ActivityWindow { start_block: 10, end_block: 20 },
+			),
+			StateTransmitterUpdate::Add(
+				bob_account_id(),
+				ActivityWindow { start_block: 10, end_block: 50 },
+			),
+		];
 
-        assert_ok!(TezosHyperdrive::update_state_transmitters(
-            RuntimeOrigin::root().into(),
-            StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
-        ));
+		assert_ok!(TezosHyperdrive::update_state_transmitters(
+			RuntimeOrigin::root().into(),
+			StateTransmitterUpdates::<Test>::try_from(actions).unwrap()
+		));
 
-        System::set_block_number(10);
+		System::set_block_number(10);
 
-        // first submission for target chain snapshot 1
-        assert_ok!(TezosHyperdrive::submit_state_merkle_root(
-            RuntimeOrigin::signed(alice_account_id()),
-            1,
-            HASH
-        ));
-        // does not validate until quorum reached
-        assert_eq!(TezosHyperdrive::validate_state_merkle_root(1, HASH), false);
+		// first submission for target chain snapshot 1
+		assert_ok!(TezosHyperdrive::submit_state_merkle_root(
+			RuntimeOrigin::signed(alice_account_id()),
+			1,
+			HASH
+		));
+		// does not validate until quorum reached
+		assert_eq!(TezosHyperdrive::validate_state_merkle_root(1, HASH), false);
 
-        // intermitted submission for different snapshot is not allowed!
-        assert_err!(
-            TezosHyperdrive::submit_state_merkle_root(
-                RuntimeOrigin::signed(bob_account_id()),
-                2,
-                HASH
-            ),
-            Error::<Test, TezosInstance>::UnexpectedSnapshot
-        );
+		// intermitted submission for different snapshot is not allowed!
+		assert_err!(
+			TezosHyperdrive::submit_state_merkle_root(
+				RuntimeOrigin::signed(bob_account_id()),
+				2,
+				HASH
+			),
+			Error::<Test, TezosInstance>::UnexpectedSnapshot
+		);
 
-        // second submission for target chain snapshot 1
-        assert_ok!(TezosHyperdrive::submit_state_merkle_root(
-            RuntimeOrigin::signed(bob_account_id()),
-            1,
-            HASH
-        ));
-        // does validate since quorum reached
-        assert_eq!(TezosHyperdrive::validate_state_merkle_root(1, HASH), true);
+		// second submission for target chain snapshot 1
+		assert_ok!(TezosHyperdrive::submit_state_merkle_root(
+			RuntimeOrigin::signed(bob_account_id()),
+			1,
+			HASH
+		));
+		// does validate since quorum reached
+		assert_eq!(TezosHyperdrive::validate_state_merkle_root(1, HASH), true);
 
-        assert_eq!(
-            events(),
-            [
-                RuntimeEvent::TezosHyperdrive(crate::Event::StateTransmittersUpdate {
-                    added: vec![
-                        (
-                            alice_account_id(),
-                            ActivityWindow {
-                                start_block: 10,
-                                end_block: 20
-                            }
-                        ),
-                        (
-                            bob_account_id(),
-                            ActivityWindow {
-                                start_block: 10,
-                                end_block: 50
-                            }
-                        )
-                    ],
-                    updated: vec![],
-                    removed: vec![],
-                }),
-                RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootSubmitted {
-                    source: alice_account_id(),
-                    snapshot: 1,
-                    state_merkle_root: HASH
-                }),
-                RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootSubmitted {
-                    source: bob_account_id(),
-                    snapshot: 1,
-                    state_merkle_root: HASH
-                }),
-                RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootAccepted {
-                    snapshot: 1,
-                    state_merkle_root: HASH
-                })
-            ]
-        );
-    });
+		assert_eq!(
+			events(),
+			[
+				RuntimeEvent::TezosHyperdrive(crate::Event::StateTransmittersUpdate {
+					added: vec![
+						(alice_account_id(), ActivityWindow { start_block: 10, end_block: 20 }),
+						(bob_account_id(), ActivityWindow { start_block: 10, end_block: 50 })
+					],
+					updated: vec![],
+					removed: vec![],
+				}),
+				RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootSubmitted {
+					source: alice_account_id(),
+					snapshot: 1,
+					state_merkle_root: HASH
+				}),
+				RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootSubmitted {
+					source: bob_account_id(),
+					snapshot: 1,
+					state_merkle_root: HASH
+				}),
+				RuntimeEvent::TezosHyperdrive(crate::Event::StateMerkleRootAccepted {
+					snapshot: 1,
+					state_merkle_root: HASH
+				})
+			]
+		);
+	});
 }
 
 #[test]
 fn test_verify_proof() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    let owner = StateOwner::try_from(
-        hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec(),
-    )
-    .unwrap();
-    let key = key();
-    let value = value();
-    test.execute_with(|| {
-        let leaf = crate::chain::tezos::leaf_hash::<Test, TezosInstance>(owner, key, value);
-        let proof: StateProof<H256> = proof();
-        assert_eq!(derive_proof::<Keccak256, _>(proof, leaf), ROOT_HASH);
-    });
+	let owner = StateOwner::try_from(
+		hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec(),
+	)
+	.unwrap();
+	let key = key();
+	let value = value();
+	test.execute_with(|| {
+		let leaf = crate::chain::tezos::leaf_hash::<Test, TezosInstance>(owner, key, value);
+		let proof: StateProof<H256> = proof();
+		assert_eq!(derive_proof::<Keccak256, _>(proof, leaf), ROOT_HASH);
+	});
 }
 
 #[test]
 fn test_send_message_value_parsing_fails() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         let seq_id_before = TezosHyperdrive::message_seq_id();
 
         let actions = vec![
@@ -417,9 +365,9 @@ fn test_send_message_value_parsing_fails() {
 
 #[test]
 fn test_send_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 74;
         <crate::MessageSequenceId::<Test, TezosInstance>>::set(seq_id_before);

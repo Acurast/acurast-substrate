@@ -12,22 +12,22 @@ pub type FulfillReturn = Result<(), ink::prelude::string::String>;
 
 #[ink::contract]
 mod client {
-    use ink::prelude::vec::Vec;
+	use ink::prelude::vec::Vec;
 
-    #[ink(storage)]
-    pub struct Client {
-        // Template
-    }
+	#[ink(storage)]
+	pub struct Client {
+		// Template
+	}
 
-    impl Client {
-        #[ink(constructor)]
-        pub fn new() -> Self {
-            Self {}
-        }
+	impl Client {
+		#[ink(constructor)]
+		pub fn new() -> Self {
+			Self {}
+		}
 
-        #[ink(message)]
-        pub fn fulfill(&mut self, _job_id: u64, _payload: Vec<u8>) -> crate::FulfillReturn {
-            Ok(())
-        }
-    }
+		#[ink(message)]
+		pub fn fulfill(&mut self, _job_id: u64, _payload: Vec<u8>) -> crate::FulfillReturn {
+			Ok(())
+		}
+	}
 }

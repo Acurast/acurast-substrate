@@ -7,8 +7,8 @@ use core::fmt::Debug;
 #[cfg(feature = "digest-preview")]
 #[allow(unused_imports)]
 use crate::{
-    signer::{DigestSigner, Signer},
-    verifier::{DigestVerifier, Verifier},
+	signer::{DigestSigner, Signer},
+	verifier::{DigestVerifier, Verifier},
 };
 
 /// Trait impl'd by concrete types that represent digital signatures.
@@ -33,13 +33,13 @@ use crate::{
 /// recommended that "provider" libraries maintain their own internal signature
 /// type and use `From` bounds to provide automatic conversions.
 pub trait Signature: AsRef<[u8]> + Debug + Sized {
-    /// Parse a signature from its byte representation
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
+	/// Parse a signature from its byte representation
+	fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
 
-    /// Borrow a byte slice representing the serialized form of this signature
-    fn as_bytes(&self) -> &[u8] {
-        self.as_ref()
-    }
+	/// Borrow a byte slice representing the serialized form of this signature
+	fn as_bytes(&self) -> &[u8] {
+		self.as_ref()
+	}
 }
 
 /// Marker trait for `Signature` types computable as `𝐒(𝐇(𝒎))`
@@ -63,6 +63,6 @@ pub trait Signature: AsRef<[u8]> + Debug + Sized {
 #[cfg(feature = "digest-preview")]
 #[cfg_attr(docsrs, doc(cfg(feature = "digest-preview")))]
 pub trait PrehashSignature: Signature {
-    /// Preferred `Digest` algorithm to use when computing this signature type.
-    type Digest: digest::Digest;
+	/// Preferred `Digest` algorithm to use when computing this signature type.
+	type Digest: digest::Digest;
 }

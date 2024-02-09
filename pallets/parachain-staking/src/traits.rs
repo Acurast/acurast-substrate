@@ -6,10 +6,10 @@
 use frame_support::pallet_prelude::Weight;
 
 pub trait OnNewRound {
-    fn on_new_round(round_index: crate::RoundIndex) -> Weight;
+	fn on_new_round(round_index: crate::RoundIndex) -> Weight;
 }
 impl OnNewRound for () {
-    fn on_new_round(_round_index: crate::RoundIndex) -> Weight {
-        Weight::zero()
-    }
+	fn on_new_round(_round_index: crate::RoundIndex) -> Weight {
+		Weight::zero()
+	}
 }

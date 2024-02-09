@@ -18,8 +18,8 @@ pub use ecdsa::signature_vendored::{self as signature, Error};
 pub use ecdsa_vendored as ecdsa;
 #[cfg(feature = "ecdsa")]
 use {
-    crate::{AffinePoint, Scalar},
-    ecdsa::hazmat::{SignPrimitive, VerifyPrimitive},
+	crate::{AffinePoint, Scalar},
+	ecdsa::hazmat::{SignPrimitive, VerifyPrimitive},
 };
 
 use super::NistP384;
@@ -43,7 +43,7 @@ pub type VerifyingKey = ecdsa::VerifyingKey<NistP384>;
 #[cfg(feature = "sha384")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sha384")))]
 impl ecdsa::hazmat::DigestPrimitive for NistP384 {
-    type Digest = sha2::Sha384;
+	type Digest = sha2::Sha384;
 }
 
 #[cfg(feature = "ecdsa")]
@@ -54,30 +54,30 @@ impl VerifyPrimitive<NistP384> for AffinePoint {}
 
 #[cfg(all(test, feature = "ecdsa"))]
 mod tests {
-    use crate::{ecdsa::SigningKey, SecretKey};
+	use crate::{ecdsa::SigningKey, SecretKey};
 
-    #[test]
-    fn signing_secret_key_equivalent() {
-        let raw_sk: [u8; 48] = [
-            32, 52, 118, 9, 96, 116, 119, 172, 168, 251, 251, 197, 230, 33, 132, 85, 243, 25, 150,
-            105, 121, 46, 248, 180, 102, 250, 168, 123, 220, 103, 121, 129, 68, 200, 72, 221, 3,
-            102, 30, 237, 90, 198, 36, 97, 52, 12, 234, 150,
-        ];
+	#[test]
+	fn signing_secret_key_equivalent() {
+		let raw_sk: [u8; 48] = [
+			32, 52, 118, 9, 96, 116, 119, 172, 168, 251, 251, 197, 230, 33, 132, 85, 243, 25, 150,
+			105, 121, 46, 248, 180, 102, 250, 168, 123, 220, 103, 121, 129, 68, 200, 72, 221, 3,
+			102, 30, 237, 90, 198, 36, 97, 52, 12, 234, 150,
+		];
 
-        let sigk = SigningKey::from_bytes(raw_sk.as_slice()).unwrap();
-        let seck = SecretKey::from_be_bytes(raw_sk.as_slice()).unwrap();
+		let sigk = SigningKey::from_bytes(raw_sk.as_slice()).unwrap();
+		let seck = SecretKey::from_be_bytes(raw_sk.as_slice()).unwrap();
 
-        assert_eq!(sigk.to_bytes().as_slice(), &raw_sk);
-        assert_eq!(sigk.to_bytes(), seck.to_be_bytes());
-    }
+		assert_eq!(sigk.to_bytes().as_slice(), &raw_sk);
+		assert_eq!(sigk.to_bytes(), seck.to_be_bytes());
+	}
 
-    mod sign {
-        use crate::{test_vectors::ecdsa::ECDSA_TEST_VECTORS, NistP384};
-        ecdsa_vendored::new_signing_test!(NistP384, ECDSA_TEST_VECTORS);
-    }
+	mod sign {
+		use crate::{test_vectors::ecdsa::ECDSA_TEST_VECTORS, NistP384};
+		ecdsa_vendored::new_signing_test!(NistP384, ECDSA_TEST_VECTORS);
+	}
 
-    mod verify {
-        use crate::{test_vectors::ecdsa::ECDSA_TEST_VECTORS, NistP384};
-        ecdsa_vendored::new_verification_test!(NistP384, ECDSA_TEST_VECTORS);
-    }
+	mod verify {
+		use crate::{test_vectors::ecdsa::ECDSA_TEST_VECTORS, NistP384};
+		ecdsa_vendored::new_verification_test!(NistP384, ECDSA_TEST_VECTORS);
+	}
 }

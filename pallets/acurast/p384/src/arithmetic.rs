@@ -14,17 +14,17 @@ pub(crate) mod projective;
 pub(crate) mod scalar;
 
 use self::{
-    affine::AffinePoint,
-    field::{FieldElement, MODULUS},
-    projective::ProjectivePoint,
-    scalar::Scalar,
+	affine::AffinePoint,
+	field::{FieldElement, MODULUS},
+	projective::ProjectivePoint,
+	scalar::Scalar,
 };
 
 /// a = -3 (0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000fffffffc)
 const CURVE_EQUATION_A: FieldElement = FieldElement::ZERO
-    .sub(&FieldElement::ONE)
-    .sub(&FieldElement::ONE)
-    .sub(&FieldElement::ONE);
+	.sub(&FieldElement::ONE)
+	.sub(&FieldElement::ONE)
+	.sub(&FieldElement::ONE);
 
 /// b = b3312fa7 e23ee7e4 988e056b e3f82d19 181d9c6e fe814112
 ///     0314088f 5013875a c656398d 8a2ed19d 2a85c8ed d3ec2aef

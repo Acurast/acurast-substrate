@@ -27,6 +27,6 @@ pub type ScalarBits<C> = ff::FieldBits<<Scalar<C> as ff::PrimeFieldBits>::ReprBi
 /// - For scalars 0 through n / 2: `Choice::from(0)`
 /// - For scalars (n / 2) + 1 through n - 1: `Choice::from(1)`
 pub trait IsHigh {
-    /// Is this scalar greater than or equal to n / 2?
-    fn is_high(&self) -> Choice;
+	/// Is this scalar greater than or equal to n / 2?
+	fn is_high(&self) -> Choice;
 }

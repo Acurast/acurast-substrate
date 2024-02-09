@@ -6,22 +6,19 @@ use sp_core::H256;
 use sp_runtime::bounded_vec;
 use std::marker::PhantomData;
 
-use crate::chain::ethereum::{
-    EthereumProof, EthereumProofItem, EthereumProofItems, EthereumProofValue,
-};
-use crate::instances::EthereumInstance;
-use crate::stub::*;
-use crate::types::*;
 use crate::{
-    mock::*,
-    types::{ActivityWindow, StateTransmitterUpdate},
+	chain::ethereum::{EthereumProof, EthereumProofItem, EthereumProofItems, EthereumProofValue},
+	instances::EthereumInstance,
+	mock::*,
+	stub::*,
+	types::{ActivityWindow, StateTransmitterUpdate, *},
 };
 
 #[test]
 fn test_send_register_job_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 7;
         <crate::MessageSequenceId::<Test, EthereumInstance>>::set(seq_id_before);
@@ -122,9 +119,9 @@ fn test_send_register_job_message() {
 
 #[test]
 fn test_send_noop_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 0;
         <crate::MessageSequenceId::<Test, EthereumInstance>>::set(seq_id_before);
@@ -225,9 +222,9 @@ fn test_send_noop_message() {
 
 #[test]
 fn test_send_noop_message2() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 0;
         <crate::MessageSequenceId::<Test, EthereumInstance>>::set(seq_id_before);
@@ -328,9 +325,9 @@ fn test_send_noop_message2() {
 
 #[test]
 fn test_send_deregister_job_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 9;
         <crate::MessageSequenceId::<Test, EthereumInstance>>::set(seq_id_before);
@@ -432,9 +429,9 @@ fn test_send_deregister_job_message() {
 
 #[test]
 fn test_send_finalize_job_message() {
-    let mut test = new_test_ext();
+	let mut test = new_test_ext();
 
-    test.execute_with(|| {
+	test.execute_with(|| {
         // pretend given message seq_id was just before test message 75 arrives
         let seq_id_before = 8;
         <crate::MessageSequenceId::<Test, EthereumInstance>>::set(seq_id_before);

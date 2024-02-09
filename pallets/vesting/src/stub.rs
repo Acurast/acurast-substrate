@@ -14,25 +14,25 @@ pub const MILLIUNIT: Balance = UNIT / 1_000;
 pub const MICROUNIT: Balance = UNIT / 1_000_000;
 
 parameter_types! {
-    pub const BlockHashCount: BlockNumber = 2400;
+	pub const BlockHashCount: BlockNumber = 2400;
 }
 
 pub const fn alice_account_id() -> AccountId {
-    AccountId32::new([0u8; 32])
+	AccountId32::new([0u8; 32])
 }
 
 pub const fn bob_account_id() -> AccountId {
-    AccountId32::new([1u8; 32])
+	AccountId32::new([1u8; 32])
 }
 
 pub const fn charlie_account_id() -> AccountId {
-    AccountId32::new([2u8; 32])
+	AccountId32::new([2u8; 32])
 }
 
 pub const fn dave_account_id() -> AccountId {
-    AccountId32::new([3u8; 32])
+	AccountId32::new([3u8; 32])
 }
 
 pub const fn eve_account_id() -> AccountId {
-    AccountId32::new([4u8; 32])
+	AccountId32::new([4u8; 32])
 }

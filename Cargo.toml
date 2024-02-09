@@ -197,10 +197,6 @@ inherits = "release"
 lto = true
 codegen-units = 1
 
-# TODO: remove once tokenomics are ready
-[patch."https://github.com/paritytech/polkadot-sdk"]
-frame-support-procedural = { path = "./frame/support/procedural" }
-
 # TODO: Temporary workaround (https://substrate.stackexchange.com/questions/9870)
 [patch.crates-io]
 parity-scale-codec = { git = "https://github.com/paritytech/parity-scale-codec.git", tag = "v3.6.5" }

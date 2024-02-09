@@ -1,0 +1,64 @@
+[package]
+name = "p384_vendored"
+version = "0.11.2"
+description = """
+Pure Rust implementation of the NIST P-384 (a.k.a. secp384r1) elliptic curve
+with support for ECDH, ECDSA signing/verification, and general purpose curve
+arithmetic support.
+"""
+authors = ["RustCrypto Developers", "Frank Denis <github@pureftpd.org>"]
+license = "Apache-2.0 OR MIT"
+documentation = "https://docs.rs/p384"
+repository = "https://github.com/RustCrypto/elliptic-curves/tree/master/p384"
+readme = "README.md"
+categories = ["cryptography", "no-std"]
+keywords = ["crypto", "ecc", "nist", "secp384r1"]
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+elliptic-curve = { package = "elliptic-curve-vendored", path = "ecdsa/elliptic-curve", version = "0.12.3", default-features = false, features = ["hazmat", "sec1"] }
+
+# optional dependencies
+ecdsa_vendored = { package = "ecdsa_vendored", path = "ecdsa", optional = true, default-features = false, features = ["der"] }
+hex-literal = { version = "0.3", optional = true }
+serdect = { version = "0.1", optional = true, default-features = false }
+sha2 = { version = "0.10", optional = true, default-features = false }
+
+[dev-dependencies]
+blobby = "0.3"
+criterion = "0.3"
+ecdsa_vendored = { package = "ecdsa_vendored", path = "ecdsa", default-features = false, features = ["dev"] }
+hex-literal = "0.3"
+proptest = "1.0"
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+[features]
+default = ["arithmetic", "ecdh", "ecdsa", "pem", "std"]
+arithmetic = ["elliptic-curve/arithmetic", "elliptic-curve/digest"]
+bits = ["arithmetic", "elliptic-curve/bits"]
+digest = ["ecdsa_vendored/digest", "ecdsa_vendored/hazmat"]
+ecdh = ["arithmetic", "elliptic-curve/ecdh"]
+ecdsa = ["arithmetic", "ecdsa_vendored/sign", "ecdsa_vendored/verify"]
+expose-field = ["arithmetic"]
+hash2curve = ["arithmetic", "elliptic-curve/hash2curve"]
+jwk = ["elliptic-curve/jwk"]
+pem = ["elliptic-curve/pem", "ecdsa_vendored/pem", "pkcs8"]
+pkcs8 = ["ecdsa_vendored/pkcs8", "elliptic-curve/pkcs8"]
+serde = ["ecdsa_vendored/serde", "elliptic-curve/serde", "serdect"]
+sha384 = ["digest", "sha2"]
+std = ["ecdsa_vendored/std", "elliptic-curve/std"]
+test-vectors = ["hex-literal"]
+voprf = ["elliptic-curve/voprf", "sha2"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[bench]]
+name = "field"
+harness = false
+required-features = ["expose-field"]
+
+[[bench]]
+name = "scalar"
+harness = false

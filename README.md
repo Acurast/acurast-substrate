@@ -1,8 +1,23 @@
-# Acurast Substrate
+# Acurast
+## 🚧🚧🚧 The project is still a work in progress 🚧🚧🚧
 
 Acurast Substrate is a [Cumulus](https://github.com/paritytech/cumulus/)-based parachain. The [Cumulus Parachain Template](https://github.com/paritytech/cumulus/tree/master/parachain-template) was used as the base for the node and runtime implementation.
 
 To learn more about Acurast please visit the [website](https://acurast.com/) and [documentation](https://docs.acurast.com/).
+
+## Integrations
+
+Pallets and crates relevant for third, party integrations.
+
+- [Acurast P256 crypto](p256-crypto/README.md): Crates providing crypto primitives to support p256 signatures in substrate
+- [ink contracts for substrate-based chains](./ink/README.md):
+
+## Acurast Protocol
+
+Acurast Protocol specific pallets.
+
+- [Acurast Pallet](pallets/acurast/README.md): Main pallet integrated by the Acurast parachain
+- [Acurast Marketplace Pallet](pallets/marketplace/README.md): Acurast marketplace functionality integrated by the Acurast parachain
 
 ## Build for rococo
 

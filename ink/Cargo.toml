@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "proxy",
+    "state",
+    "validator",
+    "consumer"
+]
+resolver ="1"
+
+[profile.release]
+overflow-checks = false     # Disable integer overflow checks.

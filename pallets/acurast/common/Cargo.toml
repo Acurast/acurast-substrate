@@ -1,0 +1,54 @@
+[package]
+name = "acurast-common"
+authors = { workspace = true }
+version = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+scale-info = { version = "2.2.0", features = ["derive"], default-features = false }
+# Substrate
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+# Attestation
+asn1 = { version = "0.15.5", default-features = false, optional = true }
+p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, features = ["ecdsa", "sha256"], optional = true }
+p384 = { package = "p384_vendored", path = "../p384", default-features = false, features = ["ecdsa", "arithmetic", "expose-field"], optional = true }
+sha2 = { version = "0.10", default-features = false, optional = true }
+num-bigint = { version = "0.4.3", default-features = false, optional = true }
+ecdsa-vendored = { package = "ecdsa_vendored", path = "../p384/ecdsa", default-features = false, optional = true }
+serde = { version = "1.0.188", default-features = false, features = ["derive"] }
+chrono = { version = "^0.4", default-features = false, optional = true }
+
+[dev-dependencies]
+base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
+hex-literal = "0.3"
+
+[features]
+default = ["std"]
+std = [
+    "frame-support/std",
+    "sp-std/std",
+    "codec/std",
+    "scale-info/std",
+    "asn1?/std",
+    "p256?/std",
+    "p384?/std",
+    "sha2?/std",
+    "num-bigint?/std",
+    "chrono?/std",
+]
+attestation = [
+    "asn1",
+    "p256",
+    "p384",
+    "sha2",
+    "num-bigint",
+    "ecdsa-vendored",
+    "chrono",
+]

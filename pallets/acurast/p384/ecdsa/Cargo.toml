@@ -1,0 +1,49 @@
+[package]
+name = "ecdsa_vendored"
+version = "0.14.4"
+description = """
+Pure Rust implementation of the Elliptic Curve Digital Signature Algorithm
+(ECDSA) as specified in FIPS 186-4 (Digital Signature Standard), providing
+RFC6979 deterministic signatures as well as support for added entropy
+"""
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/RustCrypto/signatures/tree/master/ecdsa"
+readme = "README.md"
+categories = ["cryptography", "no-std"]
+keywords = ["crypto", "ecc", "nist", "secp256k1", "signature"]
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+elliptic-curve = { package = "elliptic-curve-vendored", path = "elliptic-curve", version = "0.12.3", default-features = false, features = ["digest", "sec1"] }
+signature_vendored = { package = "signature_vendored", path = "signature", default-features = false, features = ["rand-preview"] }
+
+
+# optional dependencies
+der = { version = "0.6", optional = true }
+rfc6979 = { version = "0.3", optional = true }
+serdect = { version = "0.1", optional = true, default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+elliptic-curve = { package = "elliptic-curve-vendored", path = "elliptic-curve", default-features = false, features = ["dev"] }
+hex-literal = "0.3"
+sha2 = { version = "0.10", default-features = false }
+
+[features]
+default = ["digest"]
+alloc = []
+arithmetic = ["elliptic-curve/arithmetic"]
+dev = ["arithmetic", "digest", "elliptic-curve/dev", "hazmat"]
+digest = ["signature_vendored/digest-preview"]
+hazmat = []
+pkcs8 = ["elliptic-curve/pkcs8", "der"]
+pem = ["elliptic-curve/pem", "pkcs8"]
+serde = ["elliptic-curve/serde", "serdect"]
+sign = ["arithmetic", "digest", "hazmat", "rfc6979"]
+std = ["alloc", "elliptic-curve/std", "signature_vendored/std"]
+verify = ["arithmetic", "digest", "hazmat"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

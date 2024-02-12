@@ -1,0 +1,29 @@
+[package]
+name = "acurast-validator-ink"
+version = "0.1.0"
+authors = ["Papers AG"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.2.0", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+
+ckb-merkle-mountain-range = { version = "0.6.0", default-features = false }
+
+[dev-dependencies]
+hex-literal = "0.4.1"
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "ckb-merkle-mountain-range/std"
+]
+ink-as-dependency = []

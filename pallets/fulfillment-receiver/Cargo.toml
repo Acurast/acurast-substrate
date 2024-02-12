@@ -1,0 +1,53 @@
+[package]
+name = "pallet-acurast-fulfillment-receiver"
+authors = { workspace = true }
+version = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+scale-info = { version = "2.2.0", features = ["derive"], default-features = false }
+
+# Substrate
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+
+# Acurast
+acurast-common = { path = "../acurast/common", default-features = false }
+
+# Benchmarks
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+hex-literal = { version = "0.3", optional = true }
+
+[dev-dependencies]
+hex-literal = "0.3"
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+
+[features]
+default = ["std"]
+
+std = [
+  "codec/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "frame-system/std",
+  "scale-info/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-std/std",
+  "acurast-common/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"sp-core",
+	"hex-literal",
+]
+try-runtime = ["frame-support/try-runtime"]

@@ -1,0 +1,38 @@
+[package]
+name = "acurast-reputation"
+authors = ["Papers AG"]
+description = "Library to manage reputation for Acurast marketplace."
+version = "0.2.0"
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+repository = "https://github.com/acurast"
+edition = "2021"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+name = "reputation"
+path = "src/lib.rs"
+crate-type = ["lib"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+
+# Substrate
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+
+[dev-dependencies]
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+hex-literal = "0.3.4"
+rand = "0.8.5"
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "sp-core/std",
+    "scale-info/std",
+]

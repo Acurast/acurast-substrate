@@ -1,0 +1,24 @@
+[package]
+name          = "async-signature"
+description   = "Traits for cryptographic signature algorithms (e.g. ECDSA, Ed25519)"
+version       = "0.2.0-pre"
+authors       = ["RustCrypto Developers"]
+license       = "Apache-2.0 OR MIT"
+documentation = "https://docs.rs/async-signature"
+repository    = "https://github.com/RustCrypto/traits/tree/master/signature/async"
+readme        = "README.md"
+keywords      = ["crypto", "ecdsa", "ed25519", "signature", "signing"]
+categories    = ["cryptography", "no-std"]
+edition       = "2021"
+rust-version  = "1.56"
+
+[dependencies]
+async-trait = "0.1.57"
+signature = { version = "1.6", path = ".." }
+
+[features]
+digest = ["signature/digest-preview"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

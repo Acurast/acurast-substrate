@@ -103,6 +103,10 @@ benchmarks! {
 		let hash: BinaryHash = [1; 32].into();
 	}: _(RawOrigin::Root, version, Some(hash))
 
+	update_api_version {
+		let version = 1;
+	}: _(RawOrigin::Root, version)
+
 	set_processor_update_info {
 		let x in 1 .. T::MaxProcessorsInSetUpdateInfo::get();
 		let caller: T::AccountId = alice_account_id().into();

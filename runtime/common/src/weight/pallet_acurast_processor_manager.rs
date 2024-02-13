@@ -175,6 +175,17 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: AcurastProcessorManager KnownBinaryHash (r:0 w:1)
+	/// Proof: AcurastProcessorManager KnownBinaryHash (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
+	fn update_api_version() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 14_640_000 picoseconds.
+		Weight::from_parts(15_210_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: AcurastProcessorManager KnownBinaryHash (r:1 w:0)
 	/// Proof: AcurastProcessorManager KnownBinaryHash (max_values: None, max_size: Some(56), added: 2531, mode: MaxEncodedLen)
 	/// Storage: Uniques Account (r:1 w:0)

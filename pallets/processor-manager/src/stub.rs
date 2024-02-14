@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
+#[cfg(feature = "std")]
 use codec::Encode;
-use frame_support::{
-	parameter_types,
-	sp_runtime::{AccountId32, MultiSignature},
-	weights::Weight,
-	PalletId,
-};
+#[cfg(feature = "std")]
+use frame_support::sp_runtime::MultiSignature;
+use frame_support::{parameter_types, sp_runtime::AccountId32, weights::Weight, PalletId};
 use hex_literal::hex;
+#[cfg(feature = "std")]
 use sp_core::sr25519;
 #[cfg(feature = "std")]
 use sp_core::Pair;

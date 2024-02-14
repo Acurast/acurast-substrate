@@ -422,7 +422,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			<ApiVersion<T>>::set(api_version);
+			<ApiVersion<T>>::put(api_version);
 
 			Self::deposit_event(Event::<T>::ApiVersionUpdated(api_version));
 

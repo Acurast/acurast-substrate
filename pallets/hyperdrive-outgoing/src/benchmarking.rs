@@ -3,6 +3,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::benchmarks_instance_pallet;
+use frame_support::assert_ok;
 
 use crate::{stub::action, *};
 
@@ -12,11 +13,11 @@ benchmarks_instance_pallet! {
 
 		let leaves = x as NodeIndex;
 		for i in 0..leaves {
-			_ = Pallet::<T, I>::send_message(action(i as u128));
+			assert_ok!(Pallet::<T, I>::send_message(action(i as u128)));
 		}
 	}: {
 		// insert last leave as the benchmarked one
-		_ = Pallet::<T, I>::send_message(action(leaves as u128));
+		assert_ok!(Pallet::<T, I>::send_message(action(leaves as u128)));
 	} verify {
 		assert_eq!(crate::NumberOfLeaves::<T, I>::get(), leaves+1);
 	}

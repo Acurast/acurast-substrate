@@ -32,7 +32,7 @@ make build-release
 ### Build for Kusama
 
 ```sh
-cargo build --no-default-features --features "proof-of-authority std" --release
+cargo build --no-default-features --features "std" --release
 
 # or
 

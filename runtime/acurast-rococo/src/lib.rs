@@ -15,7 +15,7 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
+use frame_support::traits::{ConstBool, ConstU128, ConstU32};
 use implementations::*;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -58,7 +58,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
-use pallet_parachain_staking::InflationInfoWithoutRound;
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -1227,61 +1226,6 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_author_inherent::Config for Runtime {
-	// A new slot starts on every new relay block.
-	type SlotBeacon = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
-	type AccountLookup = CollatorSelection;
-	type CanAuthor = consensus::aura_filter::AuraCanAuthor<Self, ParachainStaking>;
-	type WeightInfo = (); // TODO
-}
-
-parameter_types! {
-	pub const DefaultInflationConfig: InflationInfoWithoutRound = staking_info::DEFAULT_INFLATION_CONFIG;
-}
-
-impl pallet_parachain_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type MonetaryGovernanceOrigin = EnsureRoot<AccountId>;
-	/// Minimum round length is 2 minutes (10 * 12 second block times)
-	type MinBlocksPerRound = ConstU32<10>;
-	/// Rounds before the collator leaving the candidates request can be executed
-	type LeaveCandidatesDelay = ConstU64<{ 4 * 7 }>;
-	/// Rounds before the candidate bond increase/decrease can be executed
-	type CandidateBondLessDelay = ConstU64<{ 4 * 7 }>;
-	/// Rounds before the delegator exit can be executed
-	type LeaveDelegatorsDelay = ConstU64<{ 4 * 7 }>;
-	/// Rounds before the delegator revocation can be executed
-	type RevokeDelegationDelay = ConstU64<{ 4 * 7 }>;
-	/// Rounds before the delegator bond increase/decrease can be executed
-	type DelegationBondLessDelay = ConstU64<{ 4 * 7 }>;
-	/// Rounds before the reward is paid
-	type RewardPaymentDelay = ConstU64<2>;
-	/// Minimum collators selected per round, default at genesis and minimum forever after
-	type MinSelectedCandidates = ConstU32<{ staking_info::MINIMUM_SELECTED_CANDIDATES }>;
-	/// Maximum top delegations per candidate
-	type MaxTopDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum bottom delegations per candidate
-	type MaxBottomDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum delegations per delegator
-	type MaxDelegationsPerDelegator = ConstU32<{ staking_info::MAXIMUM_DELEGATIONS_PER_DELEGATOR }>;
-	/// Minimum stake required to be reserved to be a candidate
-	type MinCandidateStk = ConstU128<{ staking_info::MINIMUM_COLLATOR_STAKE }>;
-	/// Minimum stake required to be reserved to be a delegator
-	type MinDelegation = ConstU128<{ staking_info::MINIMUM_DELEGATION }>;
-	type MinDelegatorStk = ConstU128<{ staking_info::MINIMUM_DELEGATOR_STAKE }>;
-	type DefaultInflationConfig = DefaultInflationConfig;
-	type BlockAuthor = AuthorInherent;
-	type OnNewRound = (); // TBD
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type StakingHooks = StakingOverVesting;
-	#[cfg(feature = "runtime-benchmarks")]
-	type StakingHooks = ();
-	type WeightInfo = weights::pallet_parachain_staking::WeightInfo<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1313,8 +1257,10 @@ construct_runtime!(
 
 		// Consensus. The order of these are important and shall not change.
 		AcurastVesting: pallet_acurast_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 17,
-		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
-		AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
+		// (keep comment, just so we know that pallet_parachain_staking used to be on this pallet index)
+		// ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
+		// (keep comment, just so we know that pallet_author_inherent used to be on this pallet index)
+		// AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
@@ -1368,7 +1314,6 @@ mod benches {
 		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
 		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 		[pallet_acurast_vesting, AcurastVesting]
-		[pallet_parachain_staking, ParachainStaking]
 	);
 }
 
@@ -1686,46 +1631,6 @@ impl_runtime_apis! {
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
-		}
-	}
-
-	impl nimbus_primitives::NimbusApi<Block> for Runtime {
-		fn can_author(
-			author: nimbus_primitives::NimbusId,
-			slot: u32,
-			parent_header: &<Block as BlockT>::Header
-		) -> bool {
-			let block_number = parent_header.number + 1;
-
-			// This runtime uses an entropy source that is updated during block initialization
-			// Therefore we need to initialize it to match the state it will be in when the
-			// next block is being executed.
-			System::initialize(
-				&block_number,
-				&parent_header.hash(),
-				&parent_header.digest,
-			);
-
-			// Because the staking solution calculates the next staking set at the beginning
-			// of the first block in the new round, the only way to accurately predict the
-			// authors is to compute the selection during prediction.
-			if pallet_parachain_staking::Pallet::<Self>::round().should_update(block_number) {
-				// get author account id
-				use nimbus_primitives::AccountLookup;
-				match CollatorSelection::lookup_account(&author) {
-					Some(account) => {
-						let candidates = pallet_parachain_staking::Pallet::<Self>::compute_top_candidates();
-						consensus::aura_filter::can_author::<Self>(&account, &slot, &candidates)
-					},
-					None => {
-						// Not eligible
-						return false;
-					}
-				}
-			} else {
-				// No updates
-				<AuthorInherent as nimbus_primitives::CanAuthor<_>>::can_author(&author, &slot)
-			}
 		}
 	}
 }

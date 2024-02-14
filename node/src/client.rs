@@ -30,7 +30,6 @@ use sp_runtime::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 
-#[cfg(feature = "proof-of-authority")]
 use acurast_runtime_common::AuraId;
 
 use acurast_runtime_common::{
@@ -46,7 +45,6 @@ use crate::service::{self, ParachainBackend, ParachainClient};
 ///
 /// This trait has no methods or associated type. It is a concise marker for all the trait bounds
 /// that it contains.
-#[cfg(feature = "proof-of-authority")]
 pub trait RuntimeApiCollection:
 	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 	+ sp_api::ApiExt<Block>
@@ -71,7 +69,6 @@ pub trait RuntimeApiCollection:
 {
 }
 
-#[cfg(feature = "proof-of-authority")]
 impl<Api> RuntimeApiCollection for Api where
 	Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::ApiExt<Block>
@@ -92,56 +89,6 @@ impl<Api> RuntimeApiCollection for Api where
 			EnvKeyMaxSize,
 			EnvValueMaxSize,
 		> + sp_consensus_aura::AuraApi<Block, AuraId>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>
-{
-}
-
-#[cfg(feature = "proof-of-stake")]
-pub trait RuntimeApiCollection:
-	sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-	+ sp_api::ApiExt<Block>
-	+ sp_block_builder::BlockBuilder<Block>
-	+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
-	+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
-	+ sp_api::Metadata<Block>
-	+ sp_offchain::OffchainWorkerApi<Block>
-	+ sp_session::SessionKeys<Block>
-	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
-		Block,
-		Balance,
-		AccountId,
-		RegistrationExtra<Balance, AccountId, MaxSlots>,
-		MaxAllowedSources,
-		MaxEnvVars,
-		EnvKeyMaxSize,
-		EnvValueMaxSize,
-	> + nimbus_primitives::NimbusApi<Block>
-	+ cumulus_primitives_core::CollectCollationInfo<Block>
-{
-}
-
-#[cfg(feature = "proof-of-stake")]
-impl<Api> RuntimeApiCollection for Api where
-	Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
-		+ pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
-		+ sp_api::Metadata<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_session::SessionKeys<Block>
-		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
-		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
-			Block,
-			Balance,
-			AccountId,
-			RegistrationExtra<Balance, AccountId, MaxSlots>,
-			MaxAllowedSources,
-			MaxEnvVars,
-			EnvKeyMaxSize,
-			EnvValueMaxSize,
-		> + nimbus_primitives::NimbusApi<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 {
 }

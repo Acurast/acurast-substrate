@@ -104,9 +104,9 @@ default = ["acurast-local", "acurast-dev", "acurast-rococo"]
 proof-of-stake = []
 proof-of-authority = []
 
-acurast-local = ["proof-of-stake"]
-acurast-dev = ["proof-of-stake"]
-acurast-rococo = ["proof-of-stake"]
+acurast-local = ["proof-of-authority"]
+acurast-dev = ["proof-of-authority"]
+acurast-rococo = ["proof-of-authority"]
 acurast-kusama = ["proof-of-authority"]
 
 runtime-benchmarks = [

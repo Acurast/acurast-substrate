@@ -179,7 +179,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub nimbus: AuthorInherent,
+		pub aura: Aura,
 	}
 }
 
@@ -187,7 +187,7 @@ impl_opaque_keys! {
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
-	authoring_version: 2,
+	authoring_version: 3,
 	spec_version: 19,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
@@ -343,7 +343,7 @@ parameter_types! {
 
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = AuthorInherent;
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -559,8 +559,8 @@ impl pallet_session::Config for Runtime {
 /// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
-	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
+	type DisabledValidators = ();
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
@@ -958,8 +958,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
 				for (source, env) in environments {
-					let e: EnvironmentFor<Runtime> = env;
-					Acurast::set_environment_for(job_id.clone(), source, e)?;
+					Acurast::set_environment_for(job_id.clone(), source, env)?;
 				}
 				Ok(().into())
 			},
@@ -1319,8 +1318,8 @@ construct_runtime!(
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		//Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		//AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
+		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
@@ -1374,15 +1373,13 @@ mod benches {
 }
 
 impl_runtime_apis! {
-	/// TODO: This could maybe be removed
-	/// Disabled, the node client currently requires this for backward compatibility with aura blocks
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(0u64)
+			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			vec![]
+			Aura::authorities().into_inner()
 		}
 	}
 
@@ -1758,6 +1755,6 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
 }

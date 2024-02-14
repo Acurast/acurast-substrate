@@ -94,7 +94,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 	)
 }
 
-/// Returns the testnet [acurast_runtime::GenesisConfig].
+/// Returns the testnet [acurast_runtime::RuntimeGenesisConfig].
 fn genesis_config(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,

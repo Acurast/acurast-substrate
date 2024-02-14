@@ -1,5 +1,4 @@
 use cumulus_primitives_core::ParaId;
-use nimbus_primitives::NimbusId;
 use sc_service::ChainType;
 use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32, Percent};
 use std::str::FromStr;
@@ -29,8 +28,8 @@ const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn acurast_session_keys(keys: NimbusId) -> acurast_runtime::SessionKeys {
-	acurast_runtime::SessionKeys { nimbus: keys }
+pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
+	acurast_runtime::SessionKeys { aura: keys }
 }
 
 /// Returns the rococo [ChainSpec].
@@ -54,13 +53,13 @@ pub fn acurast_rococo_config() -> ChainSpec {
 					(
 						AccountId32::from_str("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f")
 							.unwrap(),
-						NimbusId::from_string("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f")
+						AuraId::from_string("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f")
 							.unwrap(),
 					),
 					(
 						AccountId32::from_str("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58")
 							.unwrap(),
-						NimbusId::from_string("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58")
+						AuraId::from_string("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58")
 							.unwrap(),
 					),
 				],
@@ -75,11 +74,17 @@ pub fn acurast_rococo_config() -> ChainSpec {
 				AcurastConfig { attestations: vec![] },
 			)
 		},
+		// Bootnodes
 		Vec::new(),
+		// Telemetry
 		None,
+		// Protocol ID
 		None,
+		// Fork ID
 		None,
+		// Properties
 		Some(properties),
+		// Extensions
 		Extensions {
 			relay_chain: "rococo".into(), // You MUST set this to the correct network!
 			para_id: ROCOCO_PARACHAIN_ID,
@@ -89,7 +94,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 
 /// Returns the testnet [acurast_runtime::RuntimeGenesisConfig].
 fn genesis_config(
-	invulnerables: Vec<(AccountId, NimbusId)>,
+	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
@@ -125,6 +130,10 @@ fn genesis_config(
 				})
 				.collect(),
 		},
+		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
+		// of this.
+		aura: Default::default(),
+		aura_ext: Default::default(),
 		parachain_system: Default::default(),
 		parachain_staking: acurast_runtime::ParachainStakingConfig {
 			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)

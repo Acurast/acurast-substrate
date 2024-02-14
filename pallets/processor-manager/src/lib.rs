@@ -152,6 +152,19 @@ pub mod pallet {
 	pub(super) type ProcessorVersion<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Version>;
 
+	/// Current api version to be used.
+	///
+	/// This is a single version number allowing to switch quickly between supported parachain API versions, within one processor build (without a forced OTA update):
+	/// - The `api_version` should be read out regularly by processors to select the implementation compatible with the current runtime API (and storage structure).
+	///   Thus the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by a Acurast Parachain runtime upgrade.
+	/// - The version number must be increased on backwards incompatible changes on a runtime upgrade, **by means of a migration** to make it synchronous with the runtime upgrade.
+	///   **All processors that have no installed a build to support this version will break.**
+	/// - There is an permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
+	///   This is only a valid rollback strategy if the storage format did not change backwards incompatibly.
+	#[pallet::storage]
+	#[pallet::getter(fn api_version)]
+	pub(super) type ApiVersion<T: Config> = StorageValue<_, u32, ValueQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn known_binary_hash)]
 	pub(super) type KnownBinaryHash<T: Config> =
@@ -184,8 +197,10 @@ pub mod pallet {
 		ProcessorHeartbeatWithVersion(T::AccountId, Version),
 		/// Binary hash updated. [version, binary_hash]
 		BinaryHashUpdated(Version, Option<BinaryHash>),
-		/// Set update info for processor. [manager_account_id, update_info]
+		/// Set update info for processors. [manager_account_id, update_info]
 		ProcessorUpdateInfoSet(T::AccountId, UpdateInfo),
+		/// Set api version used by processors. [api_version]
+		ApiVersionUpdated(u32),
 	}
 
 	// Errors inform users that something went wrong.
@@ -395,6 +410,21 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::<T>::BinaryHashUpdated(version, hash));
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::update_api_version())]
+		pub fn update_api_version(
+			origin: OriginFor<T>,
+			api_version: u32,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			<ApiVersion<T>>::put(api_version);
+
+			Self::deposit_event(Event::<T>::ApiVersionUpdated(api_version));
 
 			Ok(().into())
 		}

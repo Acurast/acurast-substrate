@@ -73,7 +73,7 @@ pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result
 		.key_description
 		.tee_enforced
 		.usage_expire_date_time
-		.or({ attestation.key_description.software_enforced.usage_expire_date_time });
+		.or(attestation.key_description.software_enforced.usage_expire_date_time);
 	if let Some(expire_date_time) = expire_date_time {
 		if now >= expire_date_time {
 			return Err(Error::<T>::AttestationUsageExpired)

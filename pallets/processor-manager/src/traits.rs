@@ -40,5 +40,6 @@ pub trait WeightInfo {
 	fn heartbeat_with_version() -> Weight;
 	fn advertise_for() -> Weight;
 	fn update_binary_hash() -> Weight;
+	fn update_api_version() -> Weight;
 	fn set_processor_update_info(x: u32) -> Weight;
 }

@@ -26,7 +26,7 @@ fn update_state_transmitters_helper<T: Config<I>, I: 'static>(
 ) -> (T::AccountId, StateTransmitterUpdates<T>)
 where
 	T::AccountId: From<AccountId32>,
-	BlockNumberFor<T>: From<u64>,
+	BlockNumberFor<T>: From<u32>,
 {
 	let caller: T::AccountId = whitelisted_caller();
 	whitelist_account!(caller);
@@ -57,10 +57,10 @@ benchmarks_instance_pallet! {
 		where
 		T: Config<I>,
 		T::AccountId: From<AccountId32>,
-		BlockNumberFor<T>: From<u64>,
+		BlockNumberFor<T>: From<u32>,
 		T: Config<I, Proof = TezosProof<<T as Config<I>>::ParsableAccountId, <T as frame_system::Config>::AccountId>>,
-		<T as pallet::Config<I>>::TargetChainBlockNumber: From<u64>,
-		<T as pallet::Config<I>>::TargetChainHash: From<H256>,
+		<T as Config<I>>::TargetChainBlockNumber: From<u64>,
+		<T as Config<I>>::TargetChainHash: From<H256>,
 	}
 	update_state_transmitters {
 		let l in 0 .. STATE_TRANSMITTER_UPDATES_MAX_LENGTH;

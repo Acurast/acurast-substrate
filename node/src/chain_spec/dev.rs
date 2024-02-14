@@ -168,19 +168,6 @@ fn genesis_config(
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		parachain_staking: acurast_runtime::ParachainStakingConfig {
-			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)
-			collator_commission: Perbill::from_percent(20), // TBD
-			num_selected_candidates: 128u32.into(),
-			parachain_bond_reserve_percent: Percent::from_percent(30), // TBD
-			candidates: invulnerables
-				.iter()
-				.cloned()
-				.map(|(acc, _)| (acc, staking_info::MINIMUM_COLLATOR_STAKE))
-				.collect(),
-			delegations: vec![],
-			inflation_config: staking_info::DEFAULT_INFLATION_CONFIG,
-		},
 		acurast_vesting: AcurastVestingConfig {
 			vesters: invulnerables
 				.into_iter()

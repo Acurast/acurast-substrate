@@ -101,13 +101,10 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-s
 [features]
 default = ["acurast-local", "acurast-dev", "acurast-rococo"]
 
-proof-of-stake = []
-proof-of-authority = []
-
-acurast-local = ["proof-of-authority"]
-acurast-dev = ["proof-of-authority"]
-acurast-rococo = ["proof-of-authority"]
-acurast-kusama = ["proof-of-authority"]
+acurast-local = []
+acurast-dev = []
+acurast-rococo = []
+acurast-kusama = []
 
 runtime-benchmarks = [
 	"try-runtime-cli/try-runtime",

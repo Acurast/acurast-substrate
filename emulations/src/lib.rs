@@ -25,7 +25,7 @@ mod tests {
 	// parent re-exports
 	use crate::acurast_runtime::{
 		pallet_acurast, pallet_acurast_marketplace,
-		pallet_acurast_marketplace::ExecutionOperationHash,
+		pallet_acurast_marketplace::ExecutionOperationHash, pallet_acurast_processor_manager,
 	};
 	use xcm_simulator::{self, decl_test_network, decl_test_relay_chain};
 
@@ -123,6 +123,8 @@ mod tests {
 	type Acurast = pallet_acurast::Pallet<acurast_runtime::Runtime>;
 	type AcurastMarketplace = pallet_acurast_marketplace::Pallet<acurast_runtime::Runtime>;
 	type AcurastBalances = pallet_balances::Pallet<acurast_runtime::Runtime>;
+	type AcurastProcessorManager =
+		pallet_acurast_processor_manager::Pallet<acurast_runtime::Runtime>;
 
 	/// Type representing the utf8 bytes of a string containing the value of an ipfs url.
 	/// The ipfs url is expected to point to a script.

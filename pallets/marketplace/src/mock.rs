@@ -112,6 +112,7 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hypdrpid");
 	pub const ReportTolerance: u64 = 12000;
+	pub const HeartbeatTolerance: u64 = 1200000;
 }
 
 impl frame_system::Config for Test {
@@ -232,6 +233,7 @@ impl Config for Test {
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
+	type HeartbeatTolerance = HeartbeatTolerance;
 	type Balance = Balance;
 	type ManagerProvider = ManagerOf;
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>>;

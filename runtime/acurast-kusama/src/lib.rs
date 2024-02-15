@@ -646,6 +646,7 @@ parameter_types! {
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.canary"];
 	pub const ReportTolerance: u64 = 120_000;
+	pub const HeartbeatTolerance: u64 = 1_200_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
@@ -731,6 +732,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
+	type HeartbeatTolerance = HeartbeatTolerance;
 	type Balance = Balance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;

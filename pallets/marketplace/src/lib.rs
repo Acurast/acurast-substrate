@@ -81,13 +81,17 @@ pub mod pallet {
 		/// The ID of the hyperdrive pallet
 		#[pallet::constant]
 		type HyperdrivePalletId: Get<PalletId>;
-		/// The the time tolerance in milliseconds. Represents the delta by how much we expect `now` timestamp being stale,
-		/// hence `now <= currentmillis <= now + ReportTolerance`.
+		/// The time tolerance in milliseconds. Represents the delta by how much we expect `now` timestamp being stale,
+		/// hence `now <= currentmillis <= now + [`T::ReportTolerance`]`.
 		///
 		/// Should be at least the worst case block time. Otherwise valid reports that are included near the end of a block
 		/// would be considered outide of the agreed schedule despite being within schedule.
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
+		/// The time tolerance in milliseconds. Represents the maximum delta we allow a source's heartbeat to be back in time when matching this source,
+		/// i.e. `processor_last_seen() >= now - [`T::HeartbeatTolerance`]` must hold.
+		#[pallet::constant]
+		type HeartbeatTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
 		type ManagerProvider: ManagerProvider<Self>;
 		type ProcessorLastSeenProvider: ProcessorLastSeenProvider<Self>;
@@ -269,6 +273,8 @@ pub mod pallet {
 		DuplicateSourceInMatch,
 		/// Match is invalid due to an unverfied source while `allow_only_verified_sources` is true.
 		UnverifiedSourceInMatch,
+		/// Match is invalid due to no recent heartbeat registered by proposed source.
+		SourceInMatchDidNotHeartbeat,
 		/// Match is invalid due to a source's maximum memory exceeded.
 		SchedulingWindowExceededInMatch,
 		/// Match is invalid due to a source's maximum memory exceeded.
@@ -319,6 +325,7 @@ pub mod pallet {
 				Error::IncorrectSourceCountInMatch => true,
 				Error::DuplicateSourceInMatch => true,
 				Error::UnverifiedSourceInMatch => true,
+				Error::SourceInMatchDidNotHeartbeat => true,
 				Error::SchedulingWindowExceededInMatch => true,
 				Error::MaxMemoryExceededInMatch => true,
 				Error::NetworkRequestQuotaExceededInMatch => true,
@@ -921,6 +928,16 @@ pub mod pallet {
 						!registration.allow_only_verified_sources ||
 							ensure_source_verified::<T>(&planned_execution.source).is_ok(),
 						Error::<T>::UnverifiedSourceInMatch
+					);
+
+					// check the heartbeat is not longer ago than configured value
+					let now = Self::now()?;
+					ensure!(
+						T::ProcessorLastSeenProvider::last_seen(&planned_execution.source)
+							.map(|last_seen| last_seen >=
+								now.saturating_sub(T::HeartbeatTolerance::get()) as u128)
+							.unwrap_or(false),
+						Error::<T>::SourceInMatchDidNotHeartbeat
 					);
 
 					let ad = <StoredAdvertisementRestriction<T>>::get(&planned_execution.source)

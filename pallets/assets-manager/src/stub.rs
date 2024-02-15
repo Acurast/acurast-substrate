@@ -34,6 +34,7 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const ReportTolerance: u64 = 12000;
+	pub const HeartbeatTolerance: u64 = 1200000;
 }
 
 pub fn pallet_assets_account() -> AccountId {

@@ -130,6 +130,10 @@ fn register_match_report_job() {
 		// pretend current time
 		later(now);
 
+		assert_ok!(AcurastProcessorManager::heartbeat(acurast_runtime::RuntimeOrigin::signed(
+			BOB.clone()
+		)));
+
 		// register job
 		let job_id = {
 			let balance_ferdie_test_token = AcurastBalances::balance(&FERDIE);
@@ -278,6 +282,10 @@ fn register_match_report_job2() {
 
 		// pretend current time
 		later(now);
+
+		assert_ok!(AcurastProcessorManager::heartbeat(acurast_runtime::RuntimeOrigin::signed(
+			BOB.clone()
+		)));
 
 		// register job
 		let job_id = {

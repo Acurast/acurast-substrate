@@ -231,6 +231,21 @@ impl Schedule {
 		})
 	}
 
+	pub fn nth_start_time(&self, start_delay: u64, execution_index: u64) -> Option<u64> {
+		if execution_index >= self.execution_count() {
+			return None
+		}
+		Some(
+			self.start_time
+				.checked_add(start_delay)?
+				.checked_add(self.interval.checked_mul(execution_index)?)?,
+		)
+	}
+
+	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
+		Some(now.saturating_sub(self.start_time.checked_add(start_delay)?) / self.interval)
+	}
+
 	/// Range of a schedule from first execution's start to end of last execution, respecting `start_delay`.
 	///
 	/// Example:
@@ -248,7 +263,8 @@ impl Schedule {
 		Some((actual_start, actual_end))
 	}
 
-	pub fn overlaps(&self, start_delay: u64, a: u64, b: u64) -> Option<bool> {
+	pub fn overlaps(&self, start_delay: u64, bounds: (u64, u64)) -> Option<bool> {
+		let (a, b) = bounds;
 		let (start, end) = self.range(start_delay)?;
 		if b <= a || start == end || b <= start || end <= a {
 			return Some(false)

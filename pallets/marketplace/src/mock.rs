@@ -226,7 +226,11 @@ impl crate::traits::ProcessorLastSeenProvider<Test> for ProcessorLastSeenProvide
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = pallet_acurast::CU32<4>;
+	type Competing = pallet_acurast::CU32<2>;
+	type MatchingCompetingMinInterval = frame_support::traits::ConstU64<300_000>;
+	type MatchingCompetingDueDelta = frame_support::traits::ConstU64<120_000>;
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
+	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
 	type RegistrationExtra = JobRequirementsFor<Self>;
 	type PalletId = AcurastPalletId;

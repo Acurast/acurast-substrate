@@ -455,6 +455,13 @@ pub mod pallet {
 					// CHECK that job was matched previously to calling source
 					let assignment =
 						m.as_mut().ok_or(Error::<T>::CannotAcknowledgeWhenNotMatched)?;
+
+					// CHECK that acknowledge is for the current execution (for idempotency of this extrinsic)
+					ensure!(
+						assignment.execution == execution,
+						Error::<T>::CannotAcknowledgeForOtherThanCurrentExecution
+					);
+
 					let changed = !assignment.acknowledged;
 					assignment.acknowledged = true;
 					assignment.pub_keys = pub_keys;

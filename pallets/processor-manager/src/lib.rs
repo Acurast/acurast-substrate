@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod functions;
+mod migration;
 mod traits;
 mod types;
 
@@ -26,6 +27,8 @@ pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
+pub(crate) use pallet::STORAGE_VERSION;
+
 pub type ProcessorPairingFor<T> =
 	ProcessorPairing<<T as frame_system::Config>::AccountId, <T as Config>::Proof>;
 pub type ProcessorPairingUpdateFor<T> =
@@ -50,7 +53,10 @@ pub mod pallet {
 		traits::{Get, UnixTime},
 		Blake2_128, Parameter,
 	};
-	use frame_system::{ensure_root, ensure_signed, pallet_prelude::OriginFor};
+	use frame_system::{
+		ensure_root, ensure_signed,
+		pallet_prelude::{BlockNumberFor, OriginFor},
+	};
 	use sp_std::prelude::*;
 
 	use crate::{
@@ -158,7 +164,7 @@ pub mod pallet {
 	/// - The `api_version` should be read out regularly by processors to select the implementation compatible with the current runtime API (and storage structure).
 	///   Thus the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by a Acurast Parachain runtime upgrade.
 	/// - The version number must be increased on backwards incompatible changes on a runtime upgrade, **by means of a migration** to make it synchronous with the runtime upgrade.
-	///   **All processors that have no installed a build to support this version will break.**
+	///   **All processors that have not installed a build to support this version will break.**
 	/// - There is an permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
 	///   This is only a valid rollback strategy if the storage format did not change backwards incompatibly.
 	#[pallet::storage]
@@ -175,7 +181,10 @@ pub mod pallet {
 	pub(super) type ProcessorUpdateInfo<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, UpdateInfo>;
 
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::event]
@@ -230,6 +239,13 @@ pub mod pallet {
 			}
 
 			Ok(manager_id)
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			crate::migration::migrate::<T>()
 		}
 	}
 

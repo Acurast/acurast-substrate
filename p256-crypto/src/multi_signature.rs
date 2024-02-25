@@ -8,10 +8,11 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Lazy, Verify},
 	AccountId32, BoundedVec, MultiSignature as SPMultiSignature, MultiSigner as SPMultiSigner,
 };
-
+use sp_std::prelude::*;
 use crate::application_crypto::p256::{Public, Signature};
 
 pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
+pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
 pub type MessagePrefix = BoundedVec<u8, ConstU32<100>>;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -26,7 +27,7 @@ pub enum MultiSignature {
 	/// An ECDSA/SECP256r1 signature
 	P256(Signature),
 	/// An ECDSA/SECP256r1 signature with additional authenticator data
-	P256WithAuthData(Signature, AuthenticatorData),
+	P256WithAuthData(Signature, AuthenticatorData, Option<ClientDataContext>),
 	/// An Ed25519 signature with message prefix.
 	Ed25519WithPrefix(ed25519::Signature, MessagePrefix),
 }
@@ -258,17 +259,11 @@ impl Verify for MultiSignature {
 							<dyn AsRef<[u8; 32]>>::as_ref(who)
 					})
 					.unwrap_or(false),
-			(Self::P256WithAuthData(sig, auth_data), who) =>
+			(Self::P256WithAuthData(sig, auth_data, client_context), who) =>
 				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
 					.and_then(|signature| {
 						let msg_bytes = msg.get();
-						let msg = if msg_bytes.len() != 32 {
-							sp_io::hashing::sha2_256(msg_bytes)
-						} else {
-							msg_bytes.try_into().unwrap()
-						};
-						let signed_msg =
-							sp_io::hashing::sha2_256(&[auth_data.as_slice(), &msg].concat());
+						let signed_msg = Self::construct_full_message(msg_bytes, auth_data, client_context);
 						signature.recover_verifying_key(&signed_msg)
 					})
 					.map(|pubkey| {
@@ -281,6 +276,27 @@ impl Verify for MultiSignature {
 				let message = sp_io::hashing::blake2_256(&[prefix.as_slice(), msg.get()].concat());
 				msig.verify(&message[..], signer)
 			},
+		}
+	}
+}
+
+use base64::{Engine as _, engine::{self, general_purpose}, alphabet};
+const ENGINE: engine::GeneralPurpose = engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+
+impl MultiSignature {
+	fn construct_full_message(message: &[u8], auth_data: &AuthenticatorData, client_context: &Option<ClientDataContext>) -> Vec<u8> {
+		let msg = if message.len() != 32 {
+			sp_io::hashing::sha2_256(message)
+		} else {
+			message.try_into().unwrap()
+		};
+		if let Some(client_context) = client_context {
+			let encoded_message = ENGINE.encode(msg.as_slice());
+			let client_data = [client_context.0.as_slice(), encoded_message.as_bytes(), client_context.1.as_slice()].concat();
+			let msg = sp_io::hashing::sha2_256(&client_data);
+			[auth_data.as_slice(), &msg].concat()
+		} else {
+			sp_io::hashing::sha2_256(&[auth_data.as_slice(), &msg].concat()).to_vec()
 		}
 	}
 }

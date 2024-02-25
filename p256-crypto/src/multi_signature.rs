@@ -1,5 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 
+use crate::application_crypto::p256::{Public, Signature};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,6 @@ use sp_runtime::{
 	AccountId32, BoundedVec, MultiSignature as SPMultiSignature, MultiSigner as SPMultiSigner,
 };
 use sp_std::prelude::*;
-use crate::application_crypto::p256::{Public, Signature};
 
 pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
 pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
@@ -263,7 +263,8 @@ impl Verify for MultiSignature {
 				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
 					.and_then(|signature| {
 						let msg_bytes = msg.get();
-						let signed_msg = Self::construct_full_message(msg_bytes, auth_data, client_context);
+						let signed_msg =
+							Self::construct_full_message(msg_bytes, auth_data, client_context);
 						signature.recover_verifying_key(&signed_msg)
 					})
 					.map(|pubkey| {
@@ -280,11 +281,20 @@ impl Verify for MultiSignature {
 	}
 }
 
-use base64::{Engine as _, engine::{self, general_purpose}, alphabet};
-const ENGINE: engine::GeneralPurpose = engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+use base64::{
+	alphabet,
+	engine::{self, general_purpose},
+	Engine as _,
+};
+const ENGINE: engine::GeneralPurpose =
+	engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
 
 impl MultiSignature {
-	fn construct_full_message(message: &[u8], auth_data: &AuthenticatorData, client_context: &Option<ClientDataContext>) -> Vec<u8> {
+	fn construct_full_message(
+		message: &[u8],
+		auth_data: &AuthenticatorData,
+		client_context: &Option<ClientDataContext>,
+	) -> Vec<u8> {
 		let msg = if message.len() != 32 {
 			sp_io::hashing::sha2_256(message)
 		} else {
@@ -292,7 +302,12 @@ impl MultiSignature {
 		};
 		if let Some(client_context) = client_context {
 			let encoded_message = ENGINE.encode(msg.as_slice());
-			let client_data = [client_context.0.as_slice(), encoded_message.as_bytes(), client_context.1.as_slice()].concat();
+			let client_data = [
+				client_context.0.as_slice(),
+				encoded_message.as_bytes(),
+				client_context.1.as_slice(),
+			]
+			.concat();
 			let msg = sp_io::hashing::sha2_256(&client_data);
 			[auth_data.as_slice(), &msg].concat()
 		} else {

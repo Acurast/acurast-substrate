@@ -100,6 +100,10 @@ cumulus-primitives-utility = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
+# TODO: remove once tokenomics are ready
+[patch."https://github.com/paritytech/polkadot-sdk"]
+frame-support-procedural = { path = "./frame/support/procedural" }
+
 [features]
 default = [
 	"std",
@@ -143,7 +147,6 @@ std = [
 	"pallet-acurast-hyperdrive-outgoing/std",
 	"acurast-runtime-common/std",
 	"parachain-info/std",
-	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -164,7 +167,7 @@ std = [
 	"nimbus-primitives/std",
 	"pallet-author-inherent/std",
 	"pallet-parachain-staking/std",
-	"pallet-collator-selection/std"
+	"pallet-collator-selection/std",
 ]
 
 runtime-benchmarks = [

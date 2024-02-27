@@ -1,0 +1,40 @@
+[package]
+name = "acurast-proxy-ink"
+version = "0.1.0"
+authors = ["Papers AG"]
+edition = "2021"
+
+[profile.release]
+overflow-checks = false     # Disable integer overflow checks.
+
+[dependencies]
+ink = { version = "4.2.0", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"] }
+
+derive_more = { version = "0.99.17", default-features = false }
+
+acurast-core-ink = { path = "../core", default-features = false }
+acurast-state-ink = { path = "../state", default-features = false, features = ["ink-as-dependency"] }
+acurast-validator-ink = { path = "../validator", default-features = false, features = ["ink-as-dependency"] }
+acurast-consumer-ink = { path = "../consumer", default-features = false, features = ["ink-as-dependency"] }
+
+[dev-dependencies]
+hex-literal = "0.4.1"
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "acurast-core-ink/std",
+    "acurast-state-ink/std",
+    "acurast-validator-ink/std",
+    "acurast-consumer-ink/std"
+]
+ink-as-dependency = []

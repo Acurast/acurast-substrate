@@ -1,0 +1,77 @@
+[package]
+name = "pallet-acurast-processor-manager"
+authors = { workspace = true }
+version = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+edition = "2021"
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+
+acurast-common = { path = "../acurast/common", default-features = false }
+
+# Substrate
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", optional = true, default-features = false, tag = "polkadot-v1.1.0" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
+hex-literal = { version = "0.3", optional = true }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+
+# for RPC
+sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0", optional = true }
+jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"], optional = true }
+sp-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+serde = { version = "1.0.188", features = ["derive"], default-features = false, optional = true }
+thiserror = { version = "1.0", optional = true }
+log = { version = "0.4.17", default-features = false }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+hex-literal = { version = "0.3" }
+serde_json = "1.0.85"
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame-support/std",
+	"frame-system/std",
+	"frame-benchmarking/std",
+	"acurast-common/std",
+	"sp-core/std",
+	"pallet-uniques/std",
+	"jsonrpsee",
+	"log/std",
+	"serde",
+	"thiserror",
+	"sp-blockchain",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"sp-io",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-uniques/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"hex-literal",
+]
+try-runtime = ["frame-support/try-runtime"]

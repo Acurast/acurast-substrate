@@ -1,0 +1,19 @@
+[package]
+name = "acurast-core-ink"
+version = "0.1.0"
+authors = ["Papers AG"]
+edition = "2021"
+
+[dependencies]
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"] }
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "scale/std",
+    "scale-info/std",
+]

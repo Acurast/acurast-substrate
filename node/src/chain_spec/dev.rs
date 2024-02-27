@@ -1,5 +1,4 @@
 use cumulus_primitives_core::ParaId;
-use nimbus_primitives::NimbusId;
 use sc_service::ChainType;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
@@ -16,7 +15,8 @@ use acurast_runtime_common::*;
 use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, DEFAULT_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<acurast_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec =
+	sc_service::GenericChainSpec<acurast_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -39,8 +39,8 @@ const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 /// Generate collator keys from seed.
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed(seed: &str) -> NimbusId {
-	get_from_seed::<NimbusId>(seed)
+pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
+	get_from_seed::<AuraId>(seed)
 }
 
 /// Helper function to generate an account ID from seed
@@ -54,8 +54,8 @@ where
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn acurast_session_keys(keys: NimbusId) -> acurast_runtime::SessionKeys {
-	acurast_runtime::SessionKeys { nimbus: keys }
+pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
+	acurast_runtime::SessionKeys { aura: keys }
 }
 
 /// Returns the development [ChainSpec].
@@ -107,11 +107,17 @@ pub fn acurast_development_config() -> ChainSpec {
 				AcurastConfig { attestations: vec![] },
 			)
 		},
+		// Bootnodes
 		Vec::new(),
+		// Telemetry
 		None,
+		// Protocol ID
 		None,
+		// Fork ID
 		None,
+		// Properties
 		Some(properties),
+		// Extensions
 		Extensions {
 			relay_chain: "atera-local".into(), // You MUST set this to the correct network!
 			para_id: DEFAULT_PARACHAIN_ID,
@@ -119,22 +125,26 @@ pub fn acurast_development_config() -> ChainSpec {
 	)
 }
 
-/// Returns the testnet [acurast_runtime::GenesisConfig].
+/// Returns the testnet [acurast_runtime::RuntimeGenesisConfig].
 fn genesis_config(
-	invulnerables: Vec<(AccountId, NimbusId)>,
+	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
 	acurast: AcurastConfig,
-) -> acurast_runtime::GenesisConfig {
-	acurast_runtime::GenesisConfig {
+) -> acurast_runtime::RuntimeGenesisConfig {
+	acurast_runtime::RuntimeGenesisConfig {
 		system: acurast_runtime::SystemConfig {
 			code: acurast_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
+			..Default::default()
 		},
 		balances: acurast_runtime::BalancesConfig { balances: endowed_accounts },
-		parachain_info: acurast_runtime::ParachainInfoConfig { parachain_id: id },
+		parachain_info: acurast_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
 		collator_selection: acurast_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
@@ -153,20 +163,11 @@ fn genesis_config(
 				})
 				.collect(),
 		},
+		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
+		// of this.
+		aura: Default::default(),
+		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		parachain_staking: acurast_runtime::ParachainStakingConfig {
-			blocks_per_round: 3600u32.into(), // 3600 * ~12s = ~12h (TBD)
-			collator_commission: Perbill::from_percent(20), // TBD
-			num_selected_candidates: 128u32.into(),
-			parachain_bond_reserve_percent: Percent::from_percent(30), // TBD
-			candidates: invulnerables
-				.iter()
-				.cloned()
-				.map(|(acc, _)| (acc, staking_info::MINIMUM_COLLATOR_STAKE))
-				.collect(),
-			delegations: vec![],
-			inflation_config: staking_info::DEFAULT_INFLATION_CONFIG,
-		},
 		acurast_vesting: AcurastVestingConfig {
 			vesters: invulnerables
 				.into_iter()
@@ -184,6 +185,7 @@ fn genesis_config(
 		},
 		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
 		},
 		sudo: SudoConfig { key: Some(sudo_account) },
 		acurast,

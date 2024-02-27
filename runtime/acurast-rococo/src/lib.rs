@@ -15,10 +15,11 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use frame_support::traits::{ConstBool, ConstU128, ConstU32};
 use implementations::*;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128, ConstU32, OpaqueMetadata, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -57,7 +58,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
-use pallet_parachain_staking::InflationInfoWithoutRound;
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -83,9 +83,9 @@ use frame_support::traits::{
 use acurast_p256_crypto::MultiSignature;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
-use pallet_acurast::{JobId, MultiOrigin, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{
-	instances::{EthereumInstance, HyperdriveInstance, TezosInstance},
+	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
 };
 use pallet_acurast_hyperdrive_outgoing::{
@@ -93,7 +93,7 @@ use pallet_acurast_hyperdrive_outgoing::{
 };
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
-	MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
+	JobAssignmentFor, MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
 };
 pub use pallet_acurast_processor_manager;
 use pallet_acurast_vesting::VestingBalance;
@@ -178,7 +178,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub nimbus: AuthorInherent,
+		pub aura: Aura,
 	}
 }
 
@@ -186,8 +186,8 @@ impl_opaque_keys! {
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
-	authoring_version: 2,
-	spec_version: 18,
+	authoring_version: 3,
+	spec_version: 19,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -283,15 +283,13 @@ impl frame_system::Config for Runtime {
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
-	type Index = Index;
-	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
+	type Nonce = Nonce;
+	/// The block type.
+	type Block = Block;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
 	type Hashing = BlakeTwo256;
-	/// The header type.
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
@@ -344,7 +342,7 @@ parameter_types! {
 
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = AuthorInherent;
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -367,7 +365,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weight::pallet_balances::WeightInfo<Runtime>;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	type HoldIdentifier = [u8; 8];
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<{ u32::MAX }>;
 	type MaxFreezes = ConstU32<0>;
@@ -560,8 +558,9 @@ impl pallet_session::Config for Runtime {
 /// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
-	type DisabledValidators = ();
 	type MaxAuthorities = MaxAuthorities;
+	type DisabledValidators = ();
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 parameter_types! {
@@ -610,7 +609,7 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
-	pub const ReportTolerance: u64 = 12_000;
+	pub const ReportTolerance: u64 = 120_000;
 }
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
@@ -653,9 +652,9 @@ impl pallet_acurast::Config for Runtime {
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type MaxSlots = MaxSlots;
 	type PalletId = AcurastPalletId;
-	type MaxEnvVars = CU32<10>;
-	type EnvKeyMaxSize = CU32<32>;
-	type EnvValueMaxSize = CU32<1024>;
+	type MaxEnvVars = MaxEnvVars;
+	type EnvKeyMaxSize = EnvKeyMaxSize;
+	type EnvValueMaxSize = EnvValueMaxSize;
 	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -748,6 +747,21 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				))
 				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
 			},
+			MultiOrigin::AlephZero(_) => {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
+						PubKey::SECP256k1(_) => true,
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+
+				HyperdriveOutgoingAlephZero::send_message(Action::AssignJob(
+					job_id_seq.clone(),
+					key.clone(),
+				))
+				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+			},
 		}
 	}
 
@@ -768,6 +782,10 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 				Action::FinalizeJob(job_id_seq.clone(), refund),
 			)
 			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
+			MultiOrigin::AlephZero(_) => HyperdriveOutgoingAlephZero::send_message(
+				Action::FinalizeJob(job_id_seq.clone(), refund),
+			)
+			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to AlephZero").into()),
 		}
 	}
 }
@@ -789,7 +807,7 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 	fn accept_attestation_for_origin(
 		_origin: &<Runtime as frame_system::Config>::AccountId,
-		attestation: &pallet_acurast::Attestation,
+		attestation: &Attestation,
 	) -> bool {
 		let attestation_application_id =
 			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
@@ -921,29 +939,28 @@ parameter_types! {
 	pub const TransmissionRate: u64 = 1;
 
 	pub const EthereumSnapshotRate: u64 = 10;
+	pub const AlephZeroSnapshotRate: u64 = 1;
 
 	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
 
 	pub const TezosNativeAssetId: u128 = 5000;
 }
 
-pub struct AcurastActionExecutor;
-impl
-	pallet_acurast_hyperdrive::ActionExecutor<
-		AccountId,
-		MaxAllowedSourcesFor<Runtime>,
-		ExtraFor<Runtime>,
-	> for AcurastActionExecutor
-{
-	fn execute(
-		action: ParsedAction<AccountId, MaxAllowedSourcesFor<Runtime>, ExtraFor<Runtime>>,
-	) -> DispatchResultWithPostInfo {
+pub struct AcurastActionExecutor<T: pallet_acurast::Config>(PhantomData<T>);
+impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecutor<Runtime> {
+	fn execute(action: ParsedAction<Runtime>) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) =>
 				Acurast::register_for(job_id, registration.into()),
 			ParsedAction::DeregisterJob(job_id) => Acurast::deregister_for(job_id),
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
+			ParsedAction::SetJobEnvironment(job_id, environments) => {
+				for (source, env) in environments {
+					Acurast::set_environment_for(job_id.clone(), source, env)?;
+				}
+				Ok(().into())
+			},
 			ParsedAction::Noop => {
 				// Intentionally, just logging it
 				log::debug!("Received NOOP operation from hyperdrive");
@@ -966,6 +983,8 @@ parameter_types! {
 	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
 	/// The acurast gateway on the ethereum network
 	pub EthereumAcurastGateway: StateOwner = hex_literal::hex!("6a34E1f07B57eD968e72895690f3df41b11487eb").to_vec().try_into().unwrap();
+	/// The acurast gateway on the aleph zero network (Not necessary)
+	pub AlephZeroAcurastGateway: StateOwner = vec![].try_into().unwrap();
 }
 
 impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
@@ -975,14 +994,11 @@ impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
-	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
 	type MaxTransmittersPerSnapshot = CU32<64>;
-	type MaxSlots = MaxSlotsFor<Self>;
-	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor;
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
 	type Proof = pallet_acurast_hyperdrive::chain::tezos::TezosProof<
 		AcurastAccountId,
 		<Self as frame_system::Config>::AccountId,
@@ -997,15 +1013,28 @@ impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
-	type MaxAllowedSources = MaxAllowedSourcesFor<Self>;
 	type MaxTransmittersPerSnapshot = CU32<64>;
-	type MaxSlots = MaxSlotsFor<Self>;
-	type RegistrationExtra = ExtraFor<Self>;
 	type TargetChainHashing = sp_runtime::traits::Keccak256;
 	type TransmissionRate = EthereumSnapshotRate;
 	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor;
-	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
+	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<Self, AcurastAccountId>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
+}
+
+impl pallet_acurast_hyperdrive::Config<AlephZeroInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParsableAccountId = AcurastAccountId;
+	type TargetChainOwner = AlephZeroAcurastGateway;
+	type TargetChainHash = H256;
+	type TargetChainBlockNumber = u64;
+	type Balance = Balance;
+	type MaxTransmittersPerSnapshot = CU32<64>;
+	type TargetChainHashing = sp_runtime::traits::Keccak256;
+	type TransmissionRate = AlephZeroSnapshotRate;
+	type TransmissionQuorum = TransmissionQuorum;
+	type ActionExecutor = AcurastActionExecutor<Runtime>;
+	type Proof = pallet_acurast_hyperdrive::chain::substrate::SubstrateProof<
 		AcurastAccountId,
 		<Self as frame_system::Config>::AccountId,
 	>;
@@ -1025,6 +1054,15 @@ impl pallet_acurast_hyperdrive_outgoing::Config<EthereumInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MMRInfo = EthereumInstance;
 	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::ethereum::EthereumConfig;
+	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
+	type OnNewRoot = ();
+	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+impl pallet_acurast_hyperdrive_outgoing::Config<AlephZeroInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MMRInfo = AlephZeroInstance;
+	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::alephzero::AlephZeroConfig;
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
@@ -1188,75 +1226,17 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_author_inherent::Config for Runtime {
-	// A new slot starts on every new relay block.
-	type SlotBeacon = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
-	type AccountLookup = CollatorSelection;
-	type CanAuthor = consensus::aura_filter::AuraCanAuthor<Self, ParachainStaking>;
-	type WeightInfo = (); // TODO
-}
-
-parameter_types! {
-	pub const DefaultInflationConfig: InflationInfoWithoutRound = staking_info::DEFAULT_INFLATION_CONFIG;
-}
-
-impl pallet_parachain_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type MonetaryGovernanceOrigin = EnsureRoot<AccountId>;
-	/// Minimum round length is 2 minutes (10 * 12 second block times)
-	type MinBlocksPerRound = ConstU32<10>;
-	/// Rounds before the collator leaving the candidates request can be executed
-	type LeaveCandidatesDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the candidate bond increase/decrease can be executed
-	type CandidateBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator exit can be executed
-	type LeaveDelegatorsDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator revocation can be executed
-	type RevokeDelegationDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the delegator bond increase/decrease can be executed
-	type DelegationBondLessDelay = ConstU32<{ 4 * 7 }>;
-	/// Rounds before the reward is paid
-	type RewardPaymentDelay = ConstU32<2>;
-	/// Minimum collators selected per round, default at genesis and minimum forever after
-	type MinSelectedCandidates = ConstU32<{ staking_info::MINIMUM_SELECTED_CANDIDATES }>;
-	/// Maximum top delegations per candidate
-	type MaxTopDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum bottom delegations per candidate
-	type MaxBottomDelegationsPerCandidate =
-		ConstU32<{ staking_info::MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE }>;
-	/// Maximum delegations per delegator
-	type MaxDelegationsPerDelegator = ConstU32<{ staking_info::MAXIMUM_DELEGATIONS_PER_DELEGATOR }>;
-	/// Minimum stake required to be reserved to be a candidate
-	type MinCandidateStk = ConstU128<{ staking_info::MINIMUM_COLLATOR_STAKE }>;
-	/// Minimum stake required to be reserved to be a delegator
-	type MinDelegation = ConstU128<{ staking_info::MINIMUM_DELEGATION }>;
-	type MinDelegatorStk = ConstU128<{ staking_info::MINIMUM_DELEGATOR_STAKE }>;
-	type DefaultInflationConfig = DefaultInflationConfig;
-	type BlockAuthor = AuthorInherent;
-	type OnNewRound = (); // TBD
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type StakingHooks = StakingOverVesting;
-	#[cfg(feature = "runtime-benchmarks")]
-	type StakingHooks = ();
-	type WeightInfo = weights::pallet_parachain_staking::WeightInfo<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
 		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
+			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
 		} = 1,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config} = 3,
+		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
 		Sudo: pallet_sudo = 4,
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
@@ -1277,17 +1257,19 @@ construct_runtime!(
 
 		// Consensus. The order of these are important and shall not change.
 		AcurastVesting: pallet_acurast_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 17,
-		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
-		AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
+		// (keep comment, just so we know that pallet_parachain_staking used to be on this pallet index)
+		// ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
+		// (keep comment, just so we know that pallet_author_inherent used to be on this pallet index)
+		// AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		//Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		//AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
+		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
+		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config} = 31,
+		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
@@ -1304,6 +1286,8 @@ construct_runtime!(
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
 		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
 		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2>::{Pallet, Call, Storage, Event<T>} = 49,
+		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3>::{Pallet, Call, Storage, Event<T>} = 50,
+		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3>::{Pallet, Call, Storage, Event<T>} = 51,
 	}
 );
 
@@ -1330,20 +1314,17 @@ mod benches {
 		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
 		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 		[pallet_acurast_vesting, AcurastVesting]
-		[pallet_parachain_staking, ParachainStaking]
 	);
 }
 
 impl_runtime_apis! {
-	/// TODO: This could maybe be removed
-	/// Disabled, the node client currently requires this for backward compatibility with aura blocks
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(0u64)
+			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			vec![]
+			Aura::authorities().into_inner()
 		}
 	}
 
@@ -1424,8 +1405,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
@@ -1479,6 +1460,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::number_of_leaves(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::number_of_leaves(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::number_of_leaves(),
 			}
 		}
 
@@ -1486,6 +1468,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::first_mmr_block_number(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::first_mmr_block_number(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::first_mmr_block_number(),
 			}
 		}
 
@@ -1493,6 +1476,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::leaf_meta(leaf_index),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::leaf_meta(leaf_index),
 			}
 		}
 
@@ -1500,6 +1484,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::block_leaf_index(block_number),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::block_leaf_index(block_number),
 			}
 		}
 
@@ -1507,6 +1492,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).collect(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).collect(),
 			}
 		}
 
@@ -1514,6 +1500,7 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose(),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).next().transpose(),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).next().transpose(),
 			}
 		}
 
@@ -1526,11 +1513,12 @@ impl_runtime_apis! {
 			match instance {
 				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
 				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
+				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
 			}
 		}
 	}
 
-	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, MaxAllowedSources> for Runtime {
+	impl pallet_acurast_marketplace::MarketplaceRuntimeApi<Block, Balance, AccountId, ExtraFor<Runtime>, MaxAllowedSources, MaxEnvVars, EnvKeyMaxSize, EnvValueMaxSize> for Runtime {
 		fn filter_matching_sources(
 			registration: PartialJobRegistration<Balance, AccountId, MaxAllowedSources>,
 			sources: Vec<AccountId>,
@@ -1538,6 +1526,25 @@ impl_runtime_apis! {
 			latest_seen_after: Option<u128>,
 		) -> Result<Vec<AccountId>, RuntimeApiError> {
 			AcurastMarketplace::filter_matching_sources(registration, sources, consumer, latest_seen_after)
+		}
+
+		fn job_environment(
+			job_id: JobId<AccountId>,
+			source: AccountId,
+		) -> Result<Option<EnvironmentFor<Runtime>>, RuntimeApiError> {
+			Ok(Acurast::execution_environment(job_id, source))
+		}
+
+		fn matched_jobs(
+			source: AccountId,
+		) -> Result<Vec<JobAssignmentFor<Runtime>>, RuntimeApiError> {
+			AcurastMarketplace::stored_matches_for_source(source)
+		}
+
+		fn attestation(
+			source: AccountId,
+		) -> Result<Option<Attestation>, RuntimeApiError>{
+			Ok(Acurast::stored_attestation(source))
 		}
 	}
 
@@ -1587,7 +1594,8 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
+			use frame_support::traits::TrackedStorageKey;
 
 			impl frame_system_benchmarking::Config for Runtime {
 				// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
@@ -1625,46 +1633,6 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
-
-	impl nimbus_primitives::NimbusApi<Block> for Runtime {
-		fn can_author(
-			author: nimbus_primitives::NimbusId,
-			slot: u32,
-			parent_header: &<Block as BlockT>::Header
-		) -> bool {
-			let block_number = parent_header.number + 1;
-
-			// This runtime uses an entropy source that is updated during block initialization
-			// Therefore we need to initialize it to match the state it will be in when the
-			// next block is being executed.
-			System::initialize(
-				&block_number,
-				&parent_header.hash(),
-				&parent_header.digest,
-			);
-
-			// Because the staking solution calculates the next staking set at the beginning
-			// of the first block in the new round, the only way to accurately predict the
-			// authors is to compute the selection during prediction.
-			if pallet_parachain_staking::Pallet::<Self>::round().should_update(block_number) {
-				// get author account id
-				use nimbus_primitives::AccountLookup;
-				match CollatorSelection::lookup_account(&author) {
-					Some(account) => {
-						let candidates = pallet_parachain_staking::Pallet::<Self>::compute_top_candidates();
-						consensus::aura_filter::can_author::<Self>(&account, &slot, &candidates)
-					},
-					None => {
-						// Not eligible
-						return false;
-					}
-				}
-			} else {
-				// No updates
-				<AuthorInherent as nimbus_primitives::CanAuthor<_>>::can_author(&author, &slot)
-			}
-		}
-	}
 }
 
 struct CheckInherents;
@@ -1692,6 +1660,6 @@ impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 	CheckInherents = CheckInherents,
 }

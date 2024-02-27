@@ -101,8 +101,8 @@ where
 	/// the block import process.
 	async fn verify(
 		&mut self,
-		block_params: BlockImportParams<Block, ()>,
-	) -> Result<BlockImportParams<Block, ()>, String> {
+		block_params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
 		match get_consensus_kind::<Block>(&block_params.header) {
 			ConsensusKind::Aura => self.aura_verifier.verify(block_params).await,
 			ConsensusKind::Nimbus => self.nimbus_verifier.verify(block_params).await,
@@ -118,10 +118,9 @@ pub fn import_queue<Client, Backend, Block: BlockT, InnerBI>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
-) -> ClientResult<BasicQueue<Block, InnerBI::Transaction>>
+) -> ClientResult<BasicQueue<Block>>
 where
 	InnerBI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	InnerBI::Transaction: Send,
 	Client::Api: BlockBuilderApi<Block>,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	Client: sc_client_api::AuxStore + sc_client_api::UsageProvider<Block>,

@@ -10,9 +10,6 @@ mod client;
 mod command;
 mod rpc;
 
-#[cfg(feature = "proof-of-stake")]
-mod block_verifier;
-
 fn main() -> sc_cli::Result<()> {
 	command::run()
 }

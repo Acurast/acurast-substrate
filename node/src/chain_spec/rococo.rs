@@ -1,6 +1,6 @@
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
-use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32, Percent};
+use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 use std::str::FromStr;
 
 pub(crate) use acurast_rococo_runtime::{

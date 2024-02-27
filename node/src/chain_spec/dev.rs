@@ -1,10 +1,7 @@
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::{
-	traits::{AccountIdConversion, IdentifyAccount, Verify},
-	Percent,
-};
+use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 
 pub(crate) use acurast_rococo_runtime::{
 	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, AcurastVestingConfig,

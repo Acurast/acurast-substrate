@@ -15,6 +15,7 @@ substrate-bip39 = { version = "0.4.4", optional = true }
 tiny-bip39 = { version = "0.8.2", optional = true }
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
 hex = { version = "0.4", default-features = false }
+base64 = { version = "0.21.7", default-features = false, features = ["alloc"] }
 
 p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, features = ["ecdsa", "sha256"] }
 
@@ -44,6 +45,7 @@ std = [
     "serde",
 	"p256/std",
 	"hex/std",
+	"base64/std",
 	"substrate-bip39",
 	"tiny-bip39",
 ]

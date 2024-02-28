@@ -14,7 +14,7 @@ if [ "${benchmarks}" = "kusama" ] ; then \
 elif [[ -n "${benchmarks}" ]] ; then \
     cargo build --no-default-features --features 'runtime-benchmarks' --release ; \
 elif [ "${chain}" = "kusama" ] ; then \
-	cargo build --no-default-features --features 'acurast-kusama,std' --release ; \
+	cargo build --no-default-features --features 'acurast-kusama,std,allow-faucet' --release ; \
 else \
     cargo build --release ; \
 fi

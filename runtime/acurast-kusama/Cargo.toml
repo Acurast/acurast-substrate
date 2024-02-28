@@ -47,6 +47,7 @@ pallet-author-inherent = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
+frame-support-procedural = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -99,10 +100,6 @@ cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-
-# TODO: remove once tokenomics are ready
-[patch."https://github.com/paritytech/polkadot-sdk"]
-frame-support-procedural = { path = "./frame/support/procedural" }
 
 [features]
 default = [
@@ -168,6 +165,7 @@ std = [
 	"pallet-author-inherent/std",
 	"pallet-parachain-staking/std",
 	"pallet-collator-selection/std",
+	"frame-support-procedural/std",
 ]
 
 runtime-benchmarks = [
@@ -200,3 +198,4 @@ try-runtime = [
 ]
 
 emulation = []
+allow-faucet = ["frame-support-procedural/allow-faucet"]

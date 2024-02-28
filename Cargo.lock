@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "asn1",
  "base64 0.13.1",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-rococo-runtime",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -6847,7 +6847,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -6872,7 +6872,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-assets-manager"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6894,7 +6894,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fee-manager"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6910,7 +6910,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fulfillment-receiver"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6926,7 +6926,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-core-ink",
  "alloy-sol-types",
@@ -6958,7 +6958,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-outgoing"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "acurast-core-ink",
@@ -7009,7 +7009,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-reputation",
  "base64 0.13.1",
@@ -7045,7 +7045,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7072,7 +7072,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",

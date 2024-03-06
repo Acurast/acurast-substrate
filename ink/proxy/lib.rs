@@ -208,12 +208,10 @@ mod proxy {
 	impl ExchangeRatio {
 		fn exchange_price(&self, expected_acurast_amount: u128) -> u128 {
 			// Calculate how many azero is required to cover for the job cost
-			let amount =
-				((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128);
+			let amount = ((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128);
 
-			if ((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128) !=
-				0
-			{
+			// If there is a remainder, increment the amount by 1
+			if ((self.numerator as u128) * expected_acurast_amount) % (self.denominator as u128) != 0 {
 				amount + 1
 			} else {
 				amount

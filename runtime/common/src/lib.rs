@@ -112,7 +112,7 @@ pub mod staking_info {
 }
 
 pub mod utils {
-	use pallet_acurast::Attestation;
+	use pallet_acurast::{Attestation, VerifiedBootState};
 	use sp_std::prelude::*;
 
 	pub fn check_attestation(
@@ -120,6 +120,15 @@ pub mod utils {
 		allowed_package_names: &[&[u8]],
 		allowed_signature_digests: &[&[u8]],
 	) -> bool {
+		let root_of_trust = &attestation.key_description.tee_enforced.root_of_trust;
+		if let Some(root_of_trust) = root_of_trust {
+			if root_of_trust.verified_boot_state != VerifiedBootState::Verified {
+				return false
+			}
+		} else {
+			return false
+		}
+
 		let attestation_application_id =
 			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
 				attestation

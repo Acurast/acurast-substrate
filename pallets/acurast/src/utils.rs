@@ -3,10 +3,7 @@ use codec::Encode;
 use frame_support::{ensure, traits::UnixTime};
 use sp_std::prelude::*;
 
-use crate::{
-	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
-	SerialNumber, StoredAttestation, StoredRevokedCertificate, ValidatingCertIds,
-};
+use crate::{Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName, KeyAttestationBarrier, SerialNumber, StoredAttestation, StoredRevokedCertificate, ValidatingCertIds};
 
 /// Validates and returns an [Attestation] from the provided chain.
 pub fn validate_and_extract_attestation<T: Config>(
@@ -56,6 +53,9 @@ pub fn ensure_source_verified<T: Config>(source: &T::AccountId) -> Result<(), Er
 		<StoredAttestation<T>>::get(source).ok_or(Error::<T>::FulfillSourceNotVerified)?;
 	ensure_not_expired(&attestation)?;
 	ensure_not_revoked(&attestation)?;
+	if !T::KeyAttestationBarrier::accept_attestation_for_origin(source, &attestation) {
+		return Err(Error::<T>::AttestationRejected)
+	}
 	Ok(())
 }
 

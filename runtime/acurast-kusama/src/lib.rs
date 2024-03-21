@@ -52,7 +52,10 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess};
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess,
+};
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -80,6 +83,7 @@ use frame_support::traits::{
 use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::*;
 
+use acurast_runtime_common::utils::check_attestation;
 use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
@@ -94,7 +98,6 @@ use pallet_acurast_marketplace::{
 };
 pub use pallet_acurast_processor_manager;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
-use acurast_runtime_common::utils::check_attestation;
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -844,7 +847,11 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		_origin: &<Runtime as frame_system::Config>::AccountId,
 		attestation: &Attestation,
 	) -> bool {
-		check_attestation(attestation, AcurastProcessorPackageNames::get().as_slice(), AcurastProcessorSignatureDigests::get().as_slice())
+		check_attestation(
+			attestation,
+			AcurastProcessorPackageNames::get().as_slice(),
+			AcurastProcessorSignatureDigests::get().as_slice(),
+		)
 	}
 }
 

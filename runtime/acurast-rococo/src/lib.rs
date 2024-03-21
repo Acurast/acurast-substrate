@@ -13,7 +13,6 @@ pub mod xcm_config;
 pub mod benchmarking;
 
 use core::marker::PhantomData;
-use core::slice::SlicePattern;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::traits::{ConstBool, ConstU128, ConstU32};
@@ -55,7 +54,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess, ensure_root};
+use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess};
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -800,7 +799,7 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	) -> bool {
 		let pallet_account: <Runtime as frame_system::Config>::AccountId =
 			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
-		&pallet_account == origin || ensure_root(&origin).is_ok()
+		&pallet_account == origin
 	}
 }
 

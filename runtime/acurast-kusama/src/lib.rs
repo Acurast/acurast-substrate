@@ -52,7 +52,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess, ensure_root};
+use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSignedBy, EnsureWithSuccess};
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -835,7 +835,7 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	) -> bool {
 		let pallet_account: <Runtime as frame_system::Config>::AccountId =
 			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
-		&pallet_account == origin || ensure_root(&origin).is_ok()
+		&pallet_account == origin
 	}
 }
 

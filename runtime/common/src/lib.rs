@@ -110,3 +110,33 @@ pub mod staking_info {
 		annual: Range { min: Perbill::from_percent(2), ideal: Perbill::from_percent(10) },
 	};
 }
+
+pub mod utils {
+	use pallet_acurast::Attestation;
+
+	pub fn check_attestation(attestation: &Attestation, allowed_package_names: &[&[u8]], allowed_signature_digests: &[&[u8]]) -> bool {
+		let attestation_application_id =
+			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
+				attestation
+					.key_description
+					.software_enforced
+					.attestation_application_id
+					.as_ref(),
+			);
+
+		if let Some(attestation_application_id) = attestation_application_id {
+			let package_names = attestation_application_id
+				.package_infos
+				.iter()
+				.map(|package_info| package_info.package_name.as_slice())
+				.collect::<Vec<_>>();
+			let is_package_name_allowed = package_names.iter().all(|package_name| allowed_package_names.contains(package_name));
+			if is_package_name_allowed {
+				let signature_digests = attestation_application_id.signature_digests.iter().map(|signature_digest| signature_digest.as_slice()).collect::<Vec<_>>();
+				return signature_digests.iter().all(|digest| allowed_signature_digests.contains(digest));
+			}
+		}
+
+		false
+	}
+}

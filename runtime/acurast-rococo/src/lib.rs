@@ -13,6 +13,7 @@ pub mod xcm_config;
 pub mod benchmarking;
 
 use core::marker::PhantomData;
+use core::slice::SlicePattern;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::traits::{ConstBool, ConstU128, ConstU32};
@@ -54,10 +55,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
-};
+use frame_system::{limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess, ensure_root};
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
@@ -99,6 +97,7 @@ pub use pallet_acurast_processor_manager;
 use pallet_acurast_vesting::VestingBalance;
 pub use pallet_acurast_vesting::VestingFor;
 use sp_runtime::traits::{AccountIdConversion, NumberFor};
+use acurast_runtime_common::utils::check_attestation;
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -609,6 +608,7 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
+	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 1] = [hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -800,7 +800,7 @@ impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
 	) -> bool {
 		let pallet_account: <Runtime as frame_system::Config>::AccountId =
 			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
-		&pallet_account == origin
+		&pallet_account == origin || ensure_root(&origin).is_ok()
 	}
 }
 
@@ -809,26 +809,7 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		_origin: &<Runtime as frame_system::Config>::AccountId,
 		attestation: &Attestation,
 	) -> bool {
-		let attestation_application_id =
-			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
-				attestation
-					.key_description
-					.software_enforced
-					.attestation_application_id
-					.as_ref(),
-			);
-
-		if let Some(attestation_application_id) = attestation_application_id {
-			let package_names = attestation_application_id
-				.package_infos
-				.iter()
-				.map(|package_info| package_info.package_name.as_slice())
-				.collect::<Vec<_>>();
-			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
-		}
-
-		false
+		check_attestation(attestation, AcurastProcessorPackageNames::get().as_slice(), AcurastProcessorSignatureDigests::get().as_slice())
 	}
 }
 
@@ -1294,6 +1275,7 @@ construct_runtime!(
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 extern crate frame_benchmarking;
+extern crate core;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {

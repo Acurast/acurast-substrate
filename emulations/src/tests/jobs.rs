@@ -95,7 +95,7 @@ fn register_match_report_job() {
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
-		allow_only_verified_sources: false,
+		allow_only_verified_sources: true,
 		schedule: Schedule {
 			duration: 5000,
 			start_time: 1_671_800_400_000, // 23.12.2022 13:00
@@ -250,7 +250,7 @@ fn register_match_report_job2() {
 	let registration = JobRegistration {
 		script: script(),
 		allowed_sources: None,
-		allow_only_verified_sources: false,
+		allow_only_verified_sources: true,
 		schedule: schedule.clone(),
 		memory: 0u32,
 		network_requests: 0,

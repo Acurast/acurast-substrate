@@ -158,6 +158,6 @@ pub mod utils {
 			}
 		}
 
-		return result;
+		return result
 	}
 }

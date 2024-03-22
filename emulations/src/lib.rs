@@ -27,8 +27,12 @@ mod tests {
 		pallet_acurast, pallet_acurast_marketplace,
 		pallet_acurast_marketplace::ExecutionOperationHash,
 	};
+	use acurast_rococo_runtime::pallet_acurast::{
+		Attestation, AttestationSecurityLevel, AttestationValidity,
+		BoundedAttestationApplicationId, BoundedAttestationPackageInfo, BoundedAuthorizationList,
+		BoundedKeyDescription, BoundedRootOfTrust, PackageInfoSet, VerifiedBootState,
+	};
 	use xcm_simulator::{self, decl_test_network, decl_test_relay_chain};
-	use acurast_rococo_runtime::pallet_acurast::{Attestation, AttestationSecurityLevel, AttestationValidity, BoundedAttestationApplicationId, BoundedAttestationPackageInfo, BoundedAuthorizationList, BoundedKeyDescription, BoundedRootOfTrust, PackageInfoSet, VerifiedBootState};
 
 	mod jobs;
 

@@ -3,7 +3,11 @@ use codec::Encode;
 use frame_support::{ensure, traits::UnixTime};
 use sp_std::prelude::*;
 
-use crate::{Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName, KeyAttestationBarrier, SerialNumber, StoredAttestation, StoredRevokedCertificate, ValidatingCertIds};
+use crate::{
+	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
+	KeyAttestationBarrier, SerialNumber, StoredAttestation, StoredRevokedCertificate,
+	ValidatingCertIds,
+};
 
 /// Validates and returns an [Attestation] from the provided chain.
 pub fn validate_and_extract_attestation<T: Config>(

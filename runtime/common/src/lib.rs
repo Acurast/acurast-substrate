@@ -124,14 +124,16 @@ pub mod utils {
 		let root_of_trust = &attestation.key_description.tee_enforced.root_of_trust;
 		if let Some(root_of_trust) = root_of_trust {
 			if root_of_trust.verified_boot_state == VerifiedBootState::Verified {
-				let attestation_application_id =
-					attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
-						attestation
-							.key_description
-							.software_enforced
-							.attestation_application_id
-							.as_ref(),
-					);
+				let attestation_application_id = attestation
+					.key_description
+					.tee_enforced
+					.attestation_application_id
+					.as_ref()
+					.or(attestation
+						.key_description
+						.software_enforced
+						.attestation_application_id
+						.as_ref());
 
 				if let Some(attestation_application_id) = attestation_application_id {
 					let package_names = attestation_application_id

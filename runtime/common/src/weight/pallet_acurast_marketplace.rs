@@ -145,11 +145,36 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((194_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 403520).saturating_mul(x.into()))
 	}
+	fn propose_execution_matching(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `987 + x * (14900 ±0)`
+		//  Estimated: `6196 + x * (403520 ±0)`
+		// Minimum execution time: 2_223_020_000 picoseconds.
+		Weight::from_parts(2_238_289_000, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			// Standard Error: 11_555_997
+			.saturating_add(Weight::from_parts(2_111_205_690, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads((387_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((194_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 403520).saturating_mul(x.into()))
+	}
 	/// Storage: AcurastMarketplace StoredMatches (r:1 w:1)
 	/// Proof: AcurastMarketplace StoredMatches (max_values: None, max_size: Some(231), added: 2706, mode: MaxEncodedLen)
 	/// Storage: AcurastMarketplace StoredJobStatus (r:1 w:1)
 	/// Proof: AcurastMarketplace StoredJobStatus (max_values: None, max_size: Some(34), added: 2509, mode: MaxEncodedLen)
 	fn acknowledge_match() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `488`
+		//  Estimated: `3696`
+		// Minimum execution time: 36_380_000 picoseconds.
+		Weight::from_parts(37_450_000, 0)
+			.saturating_add(Weight::from_parts(0, 3696))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn acknowledge_execution_match() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `488`
 		//  Estimated: `3696`

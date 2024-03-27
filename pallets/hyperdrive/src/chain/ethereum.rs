@@ -10,7 +10,7 @@ use pallet_acurast::{
 	Schedule, Script,
 };
 use pallet_acurast_marketplace::{
-	JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
+	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
 };
 use rlp::Rlp;
 use scale_info::TypeInfo;
@@ -228,10 +228,10 @@ where
 
 				let extra: T::RegistrationExtra = RegistrationExtra {
 					requirements: JobRequirements {
+						assignment_strategy: AssignmentStrategy::Single(Some(executions)),
 						slots: job_registration.requirements.slots.into(),
 						reward: T::Balance::from(job_registration.requirements.reward),
 						min_reputation: Some(job_registration.requirements.minReputation),
-						instant_match: Some(executions),
 					},
 				}
 				.into();

@@ -174,7 +174,7 @@ where
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer), Acurast::<T>::job_id_sequence());
 	let status = AcurastMarketplace::<T>::stored_job_status(&job_id.0, job_id.1);
-	assert!(status == Some(JobStatus::Matched));
+	assert_eq!(status, Some(JobStatus::Matched));
 	Ok((processor, job, job_id))
 }
 
@@ -265,10 +265,45 @@ benchmarks! {
 		}).collect::<Vec<_>>();
 	}: _(RawOrigin::Signed(caller), matches.try_into().unwrap())
 
+	propose_execution_matching {
+		let x in 1 .. T::MaxProposedExecutionMatches::get();
+		let caller: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, 1_000_000_000_000u64.into());
+		whitelist_account!(caller);
+		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobIdSequence)> = vec![];
+		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get();
+		for i in 0..x {
+			(&mut registered_jobs).push(register_submit_helper::<T>(i, max_slots as u8));
+		}
+
+		let mut current_account_index: u32 = 1;
+
+		let matches: Vec<ExecutionMatchFor<T>> = registered_jobs.into_iter().map(|(account_id, _, job_id)| {
+			let mut processor_ids: Vec<T::AccountId> = vec![];
+			for i in 0..max_slots {
+				let account_index: u32 = current_account_index;
+				current_account_index = current_account_index + 1;
+				let (account_id, _) = advertise_helper::<T>(account_index, true);
+				(&mut processor_ids).push(account_id);
+			}
+			ExecutionMatch {
+				job_id: (MultiOrigin::Acurast(account_id), job_id),
+				sources: processor_ids.into_iter().map(|account_id| PlannedExecution {
+					source: account_id,
+					start_delay: 0
+				}).collect::<Vec<_>>().try_into().unwrap()
+			}
+		}).collect::<Vec<_>>();
+	}: _(RawOrigin::Signed(caller), matches.try_into().unwrap())
+
 	acknowledge_match {
 		let (processor, _, job_id) = acknowledge_match_helper::<T>(None, None)?;
 		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
 	}: _(RawOrigin::Signed(processor), job_id, pub_keys)
+
+	acknowledge_execution_match {
+		let (processor, _, job_id) = acknowledge_match_helper::<T>(None, None)?;
+		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
+	}: _(RawOrigin::Signed(processor), job_id, 0u64, pub_keys)
 
 	finalize_job {
 		let (processor, job, job_id) = acknowledge_match_submit_helper::<T>(None, None)?;

@@ -13,9 +13,9 @@ use pallet_acurast::{
 use reputation::{BetaReputation, ReputationEngine};
 
 use crate::{
-	mock::*, payments::JobBudget, stub::*, AdvertisementRestriction, Assignment, Error,
-	ExecutionResult, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions,
-	PubKeys, SLA,
+	mock::*, payments::JobBudget, stub::*, AdvertisementRestriction, Assignment,
+	AssignmentStrategy, Error, ExecutionResult, ExecutionSpecifier, JobRequirements, JobStatus,
+	Match, PlannedExecution, PlannedExecutions, PubKeys, SLA,
 };
 
 /// Job is not assigned and gets deregistered successfully.
@@ -39,10 +39,10 @@ fn test_valid_deregister() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -128,7 +128,7 @@ fn test_valid_deregister() {
 
 #[test]
 fn test_deregister_on_matched_job() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -148,13 +148,13 @@ fn test_deregister_on_matched_job() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+				PlannedExecution { source: processor_account_id(), start_delay: 0 },
+				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+			])),
 			slots: 2,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: Some(bounded_vec![
-				PlannedExecution { source: processor_account_id(), start_delay: 0 },
-				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
-			]),
 		},
 	};
 
@@ -260,7 +260,7 @@ fn test_deregister_on_matched_job() {
 
 #[test]
 fn test_deregister_on_assigned_job() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -280,13 +280,13 @@ fn test_deregister_on_assigned_job() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+				PlannedExecution { source: processor_account_id(), start_delay: 0 },
+				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+			])),
 			slots: 2,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: Some(bounded_vec![
-				PlannedExecution { source: processor_account_id(), start_delay: 0 },
-				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
-			]),
 		},
 	};
 
@@ -407,6 +407,7 @@ fn test_deregister_on_assigned_job() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5020000,
 						acknowledged: true,
@@ -439,7 +440,7 @@ fn test_deregister_on_assigned_job() {
 
 #[test]
 fn test_match() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -459,10 +460,10 @@ fn test_match() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 	let registration2 = JobRegistrationFor::<Test> {
@@ -481,10 +482,10 @@ fn test_match() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -573,7 +574,7 @@ fn test_match() {
 			Some(60_000),
 			AcurastMarketplace::stored_storage_capacity(processor_account_id())
 		);
-		// matcher got payed out already so job budget decreased
+		// matcher got paid out already so job budget decreased
 		assert_eq!(11804000, AcurastMarketplace::reserved(&job_id1));
 		assert_eq!(11804000, AcurastMarketplace::reserved(&job_id2));
 
@@ -611,6 +612,7 @@ fn test_match() {
 		);
 		assert_eq!(
 			Some(Assignment {
+				execution: ExecutionSpecifier::All,
 				slot: 0,
 				start_delay: 0,
 				fee_per_execution: 5_020_000,
@@ -737,6 +739,7 @@ fn test_match() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,
@@ -763,6 +766,7 @@ fn test_match() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,
@@ -789,6 +793,7 @@ fn test_match() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,
@@ -810,7 +815,7 @@ fn test_match() {
 
 #[test]
 fn test_multi_assignments() {
-	let now = 1_694_790_000_000; // 15.09.2023 16:00
+	let now = 1_694_795_700_000; // 15.09.2023 17:35
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -830,10 +835,10 @@ fn test_multi_assignments() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 4,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -965,6 +970,7 @@ fn test_multi_assignments() {
 		processors.iter().zip(0..processors.len()).for_each(|((processor, _), slot)| {
 			assert_eq!(
 				Some(Assignment {
+					execution: ExecutionSpecifier::All,
 					slot: slot as u8,
 					start_delay: 0,
 					fee_per_execution: 1_020_000,
@@ -981,6 +987,7 @@ fn test_multi_assignments() {
 			));
 			assert_eq!(
 				Some(Assignment {
+					execution: ExecutionSpecifier::All,
 					slot: slot as u8,
 					start_delay: 0,
 					fee_per_execution: 1_020_000,
@@ -1030,7 +1037,7 @@ fn test_multi_assignments() {
 
 #[test]
 fn test_no_match_schedule_overlap() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -1050,10 +1057,10 @@ fn test_no_match_schedule_overlap() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -1073,10 +1080,10 @@ fn test_no_match_schedule_overlap() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -1185,7 +1192,7 @@ fn test_no_match_schedule_overlap() {
 
 #[test]
 fn test_no_match_insufficient_reputation() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -1205,10 +1212,10 @@ fn test_no_match_insufficient_reputation() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: Some(1_000_000),
-			instant_match: None,
 		},
 	};
 
@@ -1233,7 +1240,7 @@ fn test_no_match_insufficient_reputation() {
 			AcurastMarketplace::stored_job_status(&job_id.0, job_id.1)
 		);
 
-		// the job matches except inssufficient reputation
+		// the job matches except insufficient reputation
 		let m = Match {
 			job_id: job_id.clone(),
 			sources: bounded_vec![PlannedExecution {
@@ -1273,7 +1280,7 @@ fn test_no_match_insufficient_reputation() {
 
 #[test]
 fn test_more_reports_than_expected() {
-	let now = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
@@ -1293,10 +1300,10 @@ fn test_more_reports_than_expected() {
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
 			slots: 1,
 			reward: 3_000_000 * 2,
 			min_reputation: None,
-			instant_match: None,
 		},
 	};
 
@@ -1407,6 +1414,7 @@ fn test_more_reports_than_expected() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,
@@ -1433,6 +1441,7 @@ fn test_more_reports_than_expected() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,
@@ -1459,6 +1468,7 @@ fn test_more_reports_than_expected() {
 					processor_account_id(),
 					Assignment {
 						slot: 0,
+						execution: ExecutionSpecifier::All,
 						start_delay: 0,
 						fee_per_execution: 5_020_000,
 						acknowledged: true,

@@ -14,7 +14,8 @@ use reputation::{BetaReputation, ReputationEngine};
 
 use crate::tests::*;
 use acurast_rococo_runtime::{
-	pallet_acurast::Schedule, pallet_acurast_marketplace::JobRequirements,
+	pallet_acurast::Schedule,
+	pallet_acurast_marketplace::{AssignmentStrategy, JobRequirements},
 };
 use frame_support::traits::fungible::Inspect;
 
@@ -43,10 +44,10 @@ fn fund_register_job() {
 		storage: 20_000u32,
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
 				slots: 1,
 				reward: reward_per_execution,
 				min_reputation: Some(500_000),
-				instant_match: None,
 			},
 		},
 	};
@@ -88,7 +89,7 @@ fn register_match_report_job() {
 	let pallet_account: <AcurastRuntime as frame_system::Config>::AccountId =
 		<AcurastRuntime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
 
-	let now: u64 = 1_671_789_600_000; // 23.12.2022 10:00;
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	let ad = advertisement(1000, 1, 100_000, 50_000, 8, SchedulingWindow::Delta(2_628_000_000)); // 1 month scheduling window
 	let reward_per_execution = 10_000_000;
@@ -109,10 +110,12 @@ fn register_match_report_job() {
 		storage: 20_000u32,
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: BOB, start_delay: 0 }
+				])),
 				slots: 1,
 				reward: reward_per_execution,
 				min_reputation: Some(500_000),
-				instant_match: Some(bounded_vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
 		},
 	};
@@ -258,10 +261,12 @@ fn register_match_report_job2() {
 		storage: 0u32,
 		extra: RegistrationExtra {
 			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: BOB, start_delay: 0 }
+				])),
 				slots: 1,
 				reward: reward_per_execution,
 				min_reputation: Some(500_000),
-				instant_match: Some(bounded_vec![PlannedExecution { source: BOB, start_delay: 0 }]),
 			},
 		},
 	};

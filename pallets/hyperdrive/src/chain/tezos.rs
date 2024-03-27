@@ -28,7 +28,7 @@ use pallet_acurast::{
 	MultiOrigin, ParameterBound, Schedule, CU32,
 };
 use pallet_acurast_marketplace::{
-	JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
+	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
 };
 
 use crate::{
@@ -485,7 +485,12 @@ where
 	};
 
 	let extra: Extra = RegistrationExtra {
-		requirements: JobRequirements { slots, reward, min_reputation, instant_match },
+		requirements: JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(instant_match),
+			slots,
+			reward,
+			min_reputation,
+		},
 	}
 	.into();
 	Ok((
@@ -910,16 +915,18 @@ mod tests {
 			required_modules: vec![JobModule::DataEncryption].try_into().unwrap(),
 			extra: RegistrationExtra {
 				requirements: JobRequirements {
+					assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+						PlannedExecution {
+							source: hex![
+								"1111111111111111111111111111111111111111111111111111111111111111"
+							]
+							.into(),
+							start_delay: 0,
+						}
+					])),
 					slots: 1,
 					reward: 1000,
 					min_reputation: None,
-					instant_match: Some(bounded_vec![PlannedExecution {
-						source: hex![
-							"1111111111111111111111111111111111111111111111111111111111111111"
-						]
-						.into(),
-						start_delay: 0,
-					}]),
 				},
 			},
 		};
@@ -991,16 +998,18 @@ mod tests {
 			required_modules: vec![].try_into().unwrap(),
 			extra: RegistrationExtra {
 				requirements: JobRequirements {
+					assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+						PlannedExecution {
+							source: hex![
+								"d80a8b0d800a3320528693947f7317871b2d51e5f3c8f3d0d4e4f7e6938ed68f"
+							]
+							.into(),
+							start_delay: 0,
+						}
+					])),
 					slots: 1,
 					reward: 1000000000000,
 					min_reputation: Some(0),
-					instant_match: Some(bounded_vec![PlannedExecution {
-						source: hex![
-							"d80a8b0d800a3320528693947f7317871b2d51e5f3c8f3d0d4e4f7e6938ed68f"
-						]
-						.into(),
-						start_delay: 0,
-					}]),
 				},
 			},
 		};

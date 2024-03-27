@@ -34,7 +34,7 @@ pub mod p256 {
 		}
 
 		fn sign<M: AsRef<[u8]>>(&self, _key_type: KeyTypeId, _msg: &M) -> Option<Self::Signature> {
-			// NOTE: this method cannot be implemented beacuse we do not have access to the private key. Substrate implements this by accessing the CryptoStore,
+			// NOTE: this method cannot be implemented because we do not have access to the private key. Substrate implements this by accessing the CryptoStore,
 			// we cannot access it and the current implementation does not support P256 keys. Also for our use case this is not really a problem since processors'
 			// P256 private keys are not supposed to be outside the processor device.
 			None

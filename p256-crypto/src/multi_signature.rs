@@ -278,18 +278,22 @@ impl Verify for MultiSignature {
 					.unwrap_or(false),
 			(Self::Ed25519WithPrefix(sig, prefix), _) => {
 				let msig: SPMultiSignature = sig.clone().into();
-				let message = sp_io::hashing::blake2_256(&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat());
+				let message = sp_io::hashing::blake2_256(
+					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
+				);
 				msig.verify(&message[..], signer)
 			},
 			(MultiSignature::K256WithPrefix(sig, prefix), who) => {
-				let message = sp_io::hashing::keccak_256(&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat());
+				let message = sp_io::hashing::keccak_256(
+					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
+				);
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &message) {
 					Ok(pubkey) =>
 						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
 							<dyn AsRef<[u8; 32]>>::as_ref(who),
 					_ => false,
 				}
-			}
+			},
 		}
 	}
 }

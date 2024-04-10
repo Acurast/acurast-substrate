@@ -510,7 +510,7 @@ pub mod pallet {
 		}
 
 		/// Report on completion of fulfillments done on target chain for a previously registered and matched job.
-		/// Reward is payed out to source if timing of this call is within expected interval. More precisely,
+		/// Reward is paid out to source if timing of this call is within expected interval. More precisely,
 		/// the report is accepted if `[now, now + tolerance]` overlaps with an execution of the schedule agreed on.
 		/// `tolerance` is a pallet config value.
 		#[pallet::call_index(4)]
@@ -844,7 +844,7 @@ pub mod pallet {
 					let extra: <T as Config>::RegistrationExtra = registration.extra.clone().into();
 					let requirements: JobRequirementsFor<T> = extra.into();
 
-					// Compute the reward amount to be payed to each assigned processor
+					// Compute the reward amount to be paid to each assigned processor
 					let remaining_reward = Self::reserved(job_id);
 					let reward_per_processor = remaining_reward
 						.checked_div(&(requirements.slots.into()))
@@ -1389,8 +1389,7 @@ pub mod pallet {
 									});
 									Ok(())
 								},
-							}?;
-							Ok(())
+							}?
 						},
 					)?;
 					<AssignedProcessors<T>>::insert(&m.job_id, &planned_execution.source, ());

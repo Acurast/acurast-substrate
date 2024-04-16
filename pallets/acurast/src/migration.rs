@@ -78,8 +78,8 @@ fn migrate_to_v3<T: Config>() -> Weight {
 }
 
 fn migrate_to_v4<T: Config>() -> Weight {
-	StoredAttestation::translate(|account: T::AccountId, attestation: Attestation| {
-		if T::KeyAttestationBarrier::accept_attestation_for_origin(&account, &attestation) { 
+	StoredAttestation::<T>::translate(|account: T::AccountId, attestation: Attestation| {
+		if T::KeyAttestationBarrier::accept_attestation_for_origin(&account, &attestation) {
 			Some(attestation)
 		} else {
 			None

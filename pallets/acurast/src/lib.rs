@@ -205,7 +205,7 @@ pub mod pallet {
 		}
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -268,7 +268,7 @@ pub mod pallet {
 		/// An attestation was successfully stored. [attestation, who]
 		AttestationStored(Attestation, T::AccountId),
 		/// The certificate revocation list has been updated. [who, updates]
-		CertificateRecovationListUpdated(
+		CertificateRevocationListUpdated(
 			T::AccountId,
 			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
 		),
@@ -280,13 +280,13 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Fulfill was executed for a not registered job.
 		JobRegistrationNotFound,
-		/// The source of the fulfill is not allowed for the job.
+		/// The source of fulfill is not allowed for the job.
 		FulfillSourceNotAllowed,
-		/// The source of the fulfill is not verified. The source does not have a valid attestation submitted.
+		/// The source of fulfill is not verified. The source does not have a valid attestation submitted.
 		FulfillSourceNotVerified,
-		/// The allowed soruces list for a registration exeeded the max length.
+		/// The allowed sources list for a registration exceeded the max length.
 		TooManyAllowedSources,
-		/// The allowed soruces list for a registration cannot be empty if provided.
+		/// The allowed sources list for a registration cannot be empty if provided.
 		TooFewAllowedSources,
 		/// The provided script value is not valid. The value needs to be and ipfs:// url.
 		InvalidScriptValue,
@@ -474,7 +474,7 @@ pub mod pallet {
 					},
 				}
 			}
-			Self::deposit_event(Event::CertificateRecovationListUpdated(who, updates));
+			Self::deposit_event(Event::CertificateRevocationListUpdated(who, updates));
 			Ok(().into())
 		}
 
@@ -533,7 +533,7 @@ pub mod pallet {
 		///
 		/// It assumes the caller was already authorized and is intended to be used from
 		/// * The [`Self::register`] extrinsic of this pallet
-		/// * An inter-chain communication protocol like Hyperdrive
+		/// * An interchain communication protocol like Hyperdrive
 		pub fn register_for(
 			job_id: JobId<T::AccountId>,
 			registration: JobRegistrationFor<T>,

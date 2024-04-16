@@ -1389,7 +1389,8 @@ pub mod pallet {
 									});
 									Ok(())
 								},
-							}?
+							}?;
+							Ok(())
 						},
 					)?;
 					<AssignedProcessors<T>>::insert(&m.job_id, &planned_execution.source, ());

@@ -13,7 +13,7 @@ pub mod v1 {
 
 	#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 	pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
-		/// The script to execute. It is a vector of bytes representing a utf8 string. The string needs to be a ipfs url that points to the script.
+		/// The script to execute. It is a vector of bytes representing an utf8 string. The string needs to be an ipfs url that points to the script.
 		pub script: Script,
 		/// An optional array of the [AccountId]s allowed to fulfill the job. If the array is [None], then all sources are allowed.
 		pub allowed_sources: Option<AllowedSources<AccountId, MaxAllowedSources>>,
@@ -33,13 +33,13 @@ pub mod v1 {
 }
 
 pub fn migrate<T: Config>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 2] =
-		[(2, &migrate_to_v2::<T>), (3, &migrate_to_v3::<T>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 3] =
+		[(2, &migrate_to_v2::<T>), (3, &migrate_to_v3::<T>), (4, &migrate_to_v4::<T>)];
 
-	let onchain_version = Pallet::<T>::on_chain_storage_version();
+	let on_chain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
 	for (i, f) in migrations.into_iter() {
-		if onchain_version < StorageVersion::new(i) {
+		if on_chain_version < StorageVersion::new(i) {
 			weight += f();
 		}
 	}
@@ -71,8 +71,21 @@ fn migrate_to_v2<T: Config>() -> Weight {
 
 fn migrate_to_v3<T: Config>() -> Weight {
 	let mut count = 0u32;
-	// we know they are reasonably few items and we can clear them within a single migration
+	// we know they are reasonably few items, and we can clear them within a single migration
 	count += StoredJobRegistration::<T>::clear(10_000, None).loops;
 
 	T::DbWeight::get().writes((count + 1).into())
+}
+
+fn migrate_to_v4<T: Config>() -> Weight {
+	StoredAttestation::translate(|account: T::AccountId, attestation: Attestation| {
+		if T::KeyAttestationBarrier::accept_attestation_for_origin(&account, &attestation) { 
+			Some(attestation)
+		} else {
+			None
+		}
+	});
+
+	let count = StoredAttestation::<T>::iter().count() as u64;
+	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

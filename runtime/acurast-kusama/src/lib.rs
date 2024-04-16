@@ -878,7 +878,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type MaxPairingUpdates = ConstU32<20>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
-	type PairingProofExpirationTime = ConstU128<600000>;
+	type PairingProofExpirationTime = ConstU128<14_400_000>; // 4 hours
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;

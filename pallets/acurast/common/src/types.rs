@@ -243,7 +243,10 @@ impl Schedule {
 	}
 
 	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
-		Some(now.saturating_sub(self.start_time.checked_add(start_delay)?) / self.interval)
+		if now < self.start_time {
+			return Some(0)
+		}
+		Some((now.saturating_sub(self.start_time.checked_add(start_delay)?) / self.interval) + 1)
 	}
 
 	/// Range of a schedule from first execution's start to end of last execution, respecting `start_delay`.

@@ -101,10 +101,6 @@ cumulus-primitives-utility = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
-# TODO: remove once tokenomics are ready
-[patch."https://github.com/paritytech/polkadot-sdk"]
-frame-support-procedural = { path = "./frame/support/procedural" }
-
 [features]
 default = [
 	"std",

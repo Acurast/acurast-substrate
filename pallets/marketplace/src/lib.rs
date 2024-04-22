@@ -41,7 +41,7 @@ pub mod pallet {
 		ensure,
 		pallet_prelude::*,
 		sp_runtime::{
-			traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub},
+			traits::{CheckedAdd, CheckedMul, CheckedSub},
 			FixedPointOperand, FixedU128, Permill, SaturatedConversion,
 		},
 		traits::{tokens::Balance, UnixTime},
@@ -841,26 +841,31 @@ pub mod pallet {
 					// Get the job requirements
 					let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
 						.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
-					let extra: <T as Config>::RegistrationExtra = registration.extra.clone().into();
-					let requirements: JobRequirementsFor<T> = extra.into();
-
-					// Compute the reward amount to be paid to each assigned processor
-					let remaining_reward = Self::reserved(job_id);
-					let reward_per_processor = remaining_reward
-						.checked_div(&(requirements.slots.into()))
-						.ok_or(Error::<T>::UnexpectedCheckedCalculation)?;
+					let now = Self::now()?;
 
 					// Pay reward to the processor and clear matching data
 					for (processor, _) in <AssignedProcessors<T>>::iter_prefix(&job_id) {
 						// find assignment
 						let assignment = <StoredMatches<T>>::get(&processor, &job_id)
 							.ok_or(Error::<T>::JobNotAssigned)?;
+
+						if let ExecutionSpecifier::Index(index) = assignment.execution {
+							let next_execution_index = registration
+								.schedule
+								.next_execution_index(assignment.start_delay, now);
+							if let Some(next_index) = next_execution_index {
+								if index != next_index {
+									continue
+								}
+							}
+						}
+
 						// Compensate processor for acknowledging the job
 						if assignment.acknowledged {
 							match T::ManagerProvider::manager_of(&processor) {
 								Ok(manager) => T::RewardManager::pay_reward(
 									&job_id,
-									reward_per_processor,
+									assignment.fee_per_execution,
 									&manager,
 								),
 								Err(err_result) => Err(err_result.into()),

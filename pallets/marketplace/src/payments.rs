@@ -62,7 +62,7 @@ impl<T: frame_system::Config + Config> RewardManager<T> for () {
 	}
 }
 
-// This trait provives methods for managing the fees.
+// This trait provides methods for managing the fees.
 pub trait FeeManager {
 	fn get_fee_percentage() -> Percent;
 	fn get_matcher_percentage() -> Percent;

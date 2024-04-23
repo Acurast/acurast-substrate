@@ -15,7 +15,7 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::traits::{ConstBool, ConstU128, ConstU32};
+use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
 use implementations::*;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -81,6 +81,7 @@ use frame_support::traits::{
 
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
+use acurast_runtime_common::utils::check_attestation;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
 use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
@@ -609,6 +610,7 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
+	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 1] = [hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -689,8 +691,12 @@ impl pallet_acurast_marketplace::traits::ProcessorLastSeenProvider<Runtime>
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = CU32<100>;
-	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
-	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type Competing = CU32<4>;
+	type MatchingCompetingMinInterval = ConstU64<300_000>; // 5 min
+	type MatchingCompetingDueDelta = ConstU64<120_000>; // 2 min
+	type MaxProposedMatches = ConstU32<10>;
+	type MaxProposedExecutionMatches = ConstU32<10>;
+	type MaxFinalizeJobs = ConstU32<10>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
@@ -809,26 +815,11 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		_origin: &<Runtime as frame_system::Config>::AccountId,
 		attestation: &Attestation,
 	) -> bool {
-		let attestation_application_id =
-			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
-				attestation
-					.key_description
-					.software_enforced
-					.attestation_application_id
-					.as_ref(),
-			);
-
-		if let Some(attestation_application_id) = attestation_application_id {
-			let package_names = attestation_application_id
-				.package_infos
-				.iter()
-				.map(|package_info| package_info.package_name.as_slice())
-				.collect::<Vec<_>>();
-			let allowed = AcurastProcessorPackageNames::get();
-			return package_names.iter().all(|package_name| allowed.contains(package_name))
-		}
-
-		false
+		check_attestation(
+			attestation,
+			AcurastProcessorPackageNames::get().as_slice(),
+			AcurastProcessorSignatureDigests::get().as_slice(),
+		)
 	}
 }
 
@@ -851,7 +842,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type MaxPairingUpdates = ConstU32<20>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
-	type PairingProofExpirationTime = ConstU128<600000>;
+	type PairingProofExpirationTime = ConstU128<14_400_000>; // 4 hours
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
@@ -1294,6 +1285,7 @@ construct_runtime!(
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 extern crate frame_benchmarking;
+extern crate core;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {

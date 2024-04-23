@@ -34,6 +34,9 @@ pub type PartialJobRegistrationForMarketplace<T> = PartialJobRegistration<
 pub type MatchFor<T> =
 	Match<<T as frame_system::Config>::AccountId, <T as pallet_acurast::Config>::MaxSlots>;
 
+pub type ExecutionMatchFor<T> =
+	ExecutionMatch<<T as frame_system::Config>::AccountId, <T as pallet_acurast::Config>::MaxSlots>;
+
 /// Struct defining the extra fields for a `JobRegistration`.
 #[derive(
 	RuntimeDebug,
@@ -57,6 +60,14 @@ impl<Reward, AccountId, MaxSlots: ParameterBound>
 {
 	fn from(extra: RegistrationExtra<Reward, AccountId, MaxSlots>) -> Self {
 		extra.requirements
+	}
+}
+
+impl<Reward, AccountId, MaxSlots: ParameterBound> From<JobRequirements<Reward, AccountId, MaxSlots>>
+	for RegistrationExtra<Reward, AccountId, MaxSlots>
+{
+	fn from(req: JobRequirements<Reward, AccountId, MaxSlots>) -> Self {
+		RegistrationExtra { requirements: req }
 	}
 }
 
@@ -127,6 +138,30 @@ pub struct Pricing<Reward> {
 
 pub type PricingFor<T> = Pricing<<T as Config>::Balance>;
 
+/// Specifier of execution(s) to be assigned in a [`Assignment`].
+///
+/// It is probable that this is further extended with a `Range` variant to save on the number of matching proposals required.
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum ExecutionSpecifier {
+	/// An assignment for all executions of a job. Used for [`AssignmentStrategy::Single`].
+	All,
+	/// An assignment for a specific execution index of a job. Used for [`AssignmentStrategy::Competing`].
+	Index(u64),
+}
+
 /// A proposed [Match] becomes an [Assignment] once it's acknowledged.
 ///
 /// It's intended use is as part of a storage map that includes the job's and source's ID in its key.
@@ -148,6 +183,8 @@ pub struct Assignment<Reward> {
 	pub sla: SLA,
 	/// Processor Pub Keys
 	pub pub_keys: PubKeys,
+	// The execution to assign.
+	pub execution: ExecutionSpecifier,
 }
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
@@ -237,15 +274,43 @@ pub type JobRequirementsFor<T> = JobRequirements<
 	Deserialize,
 )]
 pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
+	/// The type of matching selected by the consumer.
+	pub assignment_strategy: AssignmentStrategy<AccountId, MaxSlots>,
 	/// The number of execution slots to be assigned to distinct sources. Either all or no slot get assigned by matching.
 	pub slots: u8,
 	/// Reward offered for each slot and scheduled execution of the job.
 	pub reward: Reward,
 	/// Minimum reputation required to process job, in parts per million, `r ∈ [0, 1_000_000]`.
 	pub min_reputation: Option<u128>,
-	/// Optional match provided with the job requirements. If provided, it gets processed instantaneously during
-	/// registration call and validation errors lead to abortion of the call.
-	pub instant_match: Option<PlannedExecutions<AccountId, MaxSlots>>,
+}
+
+/// Strategies for matching/assigning a job to single or multiple competing processors.
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentStrategy<AccountId, MaxSlots: ParameterBound> {
+	/// Single distinct processor per slot (and for all the job's executions) gets matched/assigned.
+	Single(
+		/// Optional `instant_match` provided with the job requirements. If provided, it gets processed instantaneously during
+		/// registration call and validation errors lead to abortion of the call.
+		Option<PlannedExecutions<AccountId, MaxSlots>>,
+	),
+	/// Multiple processors are matched per slot (shortly before each execution), for each execution the first processor acknowledging is assigned.
+	/// A processor cannot be matched for two slots of the same execution.
+	///
+	/// `Config<T>::Competing` limits the number of competing processors matched for each execution/slot. If not enough
+	/// processors are available (for the provided reward), less or no processors are matched.
+	Competing,
 }
 
 /// A (one-sided) matching of a job to sources such that the requirements of both sides, consumer and source, are met.
@@ -253,6 +318,32 @@ pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
 pub struct Match<AccountId, MaxSlots: ParameterBound> {
 	/// The job to match.
 	pub job_id: JobId<AccountId>,
+	/// The sources to match each of the job's slots with.
+	pub sources: PlannedExecutions<AccountId, MaxSlots>,
+}
+
+/// A (one-sided) matching of a single job execution to competing sources such that the requirements of both sides, consumer and source, are met.
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionMatch<AccountId, MaxSlots: ParameterBound> {
+	/// The job to match.
+	pub job_id: JobId<AccountId>,
+	/// The index of the job's execution to match.
+	///
+	/// Allows to calculate the earliest start time of the specific execution.
+	/// NOTE: this can not be derived from the time at which this match is proposed since the valid proposal windows might overlap.
+	pub execution_index: u64,
 	/// The sources to match each of the job's slots with.
 	pub sources: PlannedExecutions<AccountId, MaxSlots>,
 }

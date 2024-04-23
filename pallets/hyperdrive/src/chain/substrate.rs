@@ -19,7 +19,7 @@ use pallet_acurast::{
 	Script, CU32,
 };
 use pallet_acurast_marketplace::{
-	JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
+	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
 };
 
 use crate::{traits, MessageIdentifier, ParsedAction};
@@ -173,10 +173,10 @@ where
 
 					let extra: T::RegistrationExtra = RegistrationExtra {
 						requirements: JobRequirements {
+							assignment_strategy: AssignmentStrategy::Single(Some(executions)),
 							slots: payload.slots.into(),
 							reward: T::Balance::from(payload.reward),
 							min_reputation: payload.min_reputation,
-							instant_match: Some(executions),
 						},
 					}
 					.into();

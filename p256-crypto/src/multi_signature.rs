@@ -15,6 +15,8 @@ pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
 pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
 pub type MessagePrefix = BoundedVec<u8, ConstU32<100>>;
 
+const ACURAST_SIGNATURE_PREFIX: &'static [u8] = b"ACURAST TRANSACTION:\n";
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum MultiSignature {
@@ -30,6 +32,8 @@ pub enum MultiSignature {
 	P256WithAuthData(Signature, AuthenticatorData, Option<ClientDataContext>),
 	/// An Ed25519 signature with message prefix.
 	Ed25519WithPrefix(ed25519::Signature, MessagePrefix),
+	/// An ECDSA/SECP256k1 signature with message prefix.
+	K256WithPrefix(ecdsa::Signature, MessagePrefix),
 }
 
 impl From<ed25519::Signature> for MultiSignature {
@@ -274,8 +278,21 @@ impl Verify for MultiSignature {
 					.unwrap_or(false),
 			(Self::Ed25519WithPrefix(sig, prefix), _) => {
 				let msig: SPMultiSignature = sig.clone().into();
-				let message = sp_io::hashing::blake2_256(&[prefix.as_slice(), msg.get()].concat());
+				let message = sp_io::hashing::blake2_256(
+					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
+				);
 				msig.verify(&message[..], signer)
+			},
+			(MultiSignature::K256WithPrefix(sig, prefix), who) => {
+				let message = sp_io::hashing::keccak_256(
+					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
+				);
+				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &message) {
+					Ok(pubkey) =>
+						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
+							<dyn AsRef<[u8; 32]>>::as_ref(who),
+					_ => false,
+				}
 			},
 		}
 	}

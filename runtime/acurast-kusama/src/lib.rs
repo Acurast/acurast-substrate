@@ -14,7 +14,7 @@ pub mod benchmarking;
 use core::{default::Default, marker::PhantomData};
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::traits::{ConstBool, ConstU128, ConstU32};
+use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -186,7 +186,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 11,
+	spec_version: 12,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -727,8 +727,12 @@ impl pallet_acurast_marketplace::traits::ProcessorLastSeenProvider<Runtime>
 impl pallet_acurast_marketplace::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = CU32<100>;
-	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
-	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type Competing = CU32<4>;
+	type MatchingCompetingMinInterval = ConstU64<300_000>; // 5 min
+	type MatchingCompetingDueDelta = ConstU64<120_000>; // 2 min
+	type MaxProposedMatches = ConstU32<10>;
+	type MaxProposedExecutionMatches = ConstU32<10>;
+	type MaxFinalizeJobs = ConstU32<10>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
@@ -874,7 +878,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type MaxPairingUpdates = ConstU32<20>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
-	type PairingProofExpirationTime = ConstU128<600000>;
+	type PairingProofExpirationTime = ConstU128<14_400_000>; // 4 hours
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;

@@ -165,7 +165,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(pallet_account.clone()), updates.clone().try_into().unwrap())
 	verify {
-		assert_last_event::<T>(Event::CertificateRecovationListUpdated(
+		assert_last_event::<T>(Event::CertificateRevocationListUpdated(
 			pallet_account,
 			updates.try_into().unwrap()
 		).into());

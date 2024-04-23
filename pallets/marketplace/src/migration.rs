@@ -4,7 +4,7 @@ use frame_support::{
 	traits::{GetStorageVersion, StorageVersion},
 	weights::Weight,
 };
-use pallet_acurast::JobModules;
+use pallet_acurast::{JobModules, JobRegistration, StoredJobRegistration};
 use sp_core::Get;
 
 use super::*;
@@ -28,9 +28,77 @@ pub mod v1 {
 	}
 }
 
+pub mod v4 {
+	use super::*;
+	use codec::{Decode, Encode, MaxEncodedLen};
+	use frame_support::{pallet_prelude::*, Deserialize, Serialize};
+
+	/// A proposed [Match] becomes an [crate::Assignment] once it's acknowledged.
+	#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+	#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+	pub struct Assignment<Reward> {
+		/// The 0-based slot index assigned to the source.
+		pub slot: u8,
+		/// The start delay for the first execution and all the following executions.
+		pub start_delay: u64,
+		/// The fee owed to source for each execution.
+		pub fee_per_execution: Reward,
+		/// If this assignment was acknowledged.
+		pub acknowledged: bool,
+		/// Keeps track of the SLA.
+		pub sla: SLA,
+		/// Processor Pub Keys
+		pub pub_keys: PubKeys,
+	}
+
+	/// Structure representing a job registration.
+	#[derive(
+		RuntimeDebug,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+		TypeInfo,
+		Clone,
+		Eq,
+		PartialEq,
+		Serialize,
+		Deserialize,
+	)]
+	pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
+		/// The number of execution slots to be assigned to distinct sources. Either all or no slot get assigned by matching.
+		pub slots: u8,
+		/// Reward offered for each slot and scheduled execution of the job.
+		pub reward: Reward,
+		/// Minimum reputation required to process job, in parts per million, `r ∈ [0, 1_000_000]`.
+		pub min_reputation: Option<u128>,
+		/// Optional match provided with the job requirements. If provided, it gets processed instantaneously during
+		/// registration call and validation errors lead to abortion of the call.
+		pub instant_match: Option<PlannedExecutions<AccountId, MaxSlots>>,
+	}
+
+	impl<Reward, AccountId, MaxSlots: ParameterBound>
+		Into<crate::JobRequirements<Reward, AccountId, MaxSlots>>
+		for JobRequirements<Reward, AccountId, MaxSlots>
+	{
+		fn into(self) -> crate::JobRequirements<Reward, AccountId, MaxSlots> {
+			crate::JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(self.instant_match),
+				slots: self.slots,
+				reward: self.reward,
+				min_reputation: self.min_reputation,
+			}
+		}
+	}
+}
+
 pub fn migrate<T: Config>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 3] =
-		[(2, &migrate_to_v2::<T>), (3, &migrate_to_v3::<T>), (4, &migrate_to_v4::<T>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 4] = [
+		(2, &migrate_to_v2::<T>),
+		(3, &migrate_to_v3::<T>),
+		(4, &migrate_to_v4::<T>),
+		(5, &migrate_to_v5::<T>),
+	];
 
 	let onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -77,4 +145,55 @@ fn migrate_to_v3<T: Config>() -> Weight {
 fn migrate_to_v4<T: Config>() -> Weight {
 	// clear again all storages since we want to clear at the same time as pallet acurast for consistent state
 	migrate_to_v3::<T>()
+}
+
+fn migrate_to_v5<T: Config>() -> Weight {
+	let mut count: u64 = 0;
+
+	StoredMatches::<T>::translate_values::<v4::Assignment<<T as Config>::Balance>, _>(|m| {
+		Some(Assignment {
+			slot: m.slot,
+			start_delay: m.start_delay,
+			fee_per_execution: m.fee_per_execution,
+			acknowledged: m.acknowledged,
+			sla: m.sla,
+			pub_keys: m.pub_keys,
+			execution: ExecutionSpecifier::All,
+		})
+	});
+	count += StoredMatches::<T>::iter_values().count() as u64;
+
+	StoredJobRegistration::<T>::translate_values::<
+		JobRegistration<
+			<T as frame_system::Config>::AccountId,
+			<T as pallet_acurast::Config>::MaxAllowedSources,
+			v4::JobRequirements<
+				<T as Config>::Balance,
+				<T as frame_system::Config>::AccountId,
+				<T as pallet_acurast::Config>::MaxSlots,
+			>,
+		>,
+		_,
+	>(|m| {
+		let req: JobRequirements<
+			<T as Config>::Balance,
+			<T as frame_system::Config>::AccountId,
+			<T as pallet_acurast::Config>::MaxSlots,
+		> = m.extra.into();
+		let extra: <T as Config>::RegistrationExtra = req.into();
+		Some(JobRegistration {
+			script: m.script,
+			allowed_sources: m.allowed_sources,
+			allow_only_verified_sources: m.allow_only_verified_sources,
+			schedule: m.schedule,
+			memory: m.memory,
+			network_requests: m.network_requests,
+			storage: m.storage,
+			required_modules: m.required_modules,
+			extra: extra.into(),
+		})
+	});
+	count += StoredJobRegistration::<T>::iter_values().count() as u64;
+
+	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

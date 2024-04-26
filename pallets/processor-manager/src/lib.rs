@@ -162,10 +162,10 @@ pub mod pallet {
 	///
 	/// This is a single version number allowing to switch quickly between supported parachain API versions, within one processor build (without a forced OTA update):
 	/// - The `api_version` should be read out regularly by processors to select the implementation compatible with the current runtime API (and storage structure).
-	///   Thus the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by a Acurast Parachain runtime upgrade.
+	///   Thus, the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by an Acurast Parachain runtime upgrade.
 	/// - The version number must be increased on backwards incompatible changes on a runtime upgrade, **by means of a migration** to make it synchronous with the runtime upgrade.
 	///   **All processors that have not installed a build to support this version will break.**
-	/// - There is an permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
+	/// - There is a permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
 	///   This is only a valid rollback strategy if the storage format did not change backwards incompatibly.
 	#[pallet::storage]
 	#[pallet::getter(fn api_version)]
@@ -230,15 +230,16 @@ pub mod pallet {
 			manager: &T::AccountId,
 			processor: &T::AccountId,
 		) -> Result<T::ManagerId, DispatchError> {
-			let manager_id = T::ManagerIdProvider::manager_id_for(manager)?;
 			let processor_manager_id = Self::manager_id_for_processor(processor)
 				.ok_or(Error::<T>::ProcessorHasNoManager)?;
 
-			if manager_id != processor_manager_id {
+			let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
+
+			if manager != processor_manager {
 				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
 			}
 
-			Ok(manager_id)
+			Ok(processor_manager_id)
 		}
 	}
 

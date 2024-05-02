@@ -235,7 +235,7 @@ pub mod pallet {
 
 			let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
 
-			if manager != processor_manager {
+			if manager != &processor_manager {
 				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
 			}
 

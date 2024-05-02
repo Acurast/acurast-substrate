@@ -225,24 +225,6 @@ pub mod pallet {
 		UnknownProcessorVersion,
 	}
 
-	impl<T: Config> Pallet<T> {
-		fn ensure_managed(
-			manager: &T::AccountId,
-			processor: &T::AccountId,
-		) -> Result<T::ManagerId, DispatchError> {
-			let processor_manager_id = Self::manager_id_for_processor(processor)
-				.ok_or(Error::<T>::ProcessorHasNoManager)?;
-
-			let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
-
-			if manager != &processor_manager {
-				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
-			}
-
-			Ok(processor_manager_id)
-		}
-	}
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -287,7 +269,7 @@ pub mod pallet {
 						<ManagerCounter<T>>::insert(&who, counter);
 					},
 					ListUpdateOperation::Remove =>
-						Self::do_remove_processor_manager_pairing(&update.item.account, manager_id)?,
+						Self::do_remove_processor_manager_pairing(&update.item.account, &who)?,
 				}
 			}
 

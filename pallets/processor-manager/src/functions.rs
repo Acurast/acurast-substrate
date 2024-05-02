@@ -75,8 +75,8 @@ where
 		manager: &T::AccountId,
 		processor: &T::AccountId,
 	) -> Result<T::ManagerId, DispatchError> {
-		let processor_manager_id = Self::manager_id_for_processor(processor)
-			.ok_or(Error::<T>::ProcessorHasNoManager)?;
+		let processor_manager_id =
+			Self::manager_id_for_processor(processor).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
 		let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
 

@@ -5,9 +5,7 @@ use crate::{
 	UpdateInfo, Version,
 };
 use acurast_common::ListUpdateOperation;
-use frame_support::{
-	assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect,
-};
+use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
 
 fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (signer, manager_account) = generate_pair_account();

@@ -20,7 +20,7 @@ use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 
 use pallet_acurast_hyperdrive::instances::{HyperdriveInstance, TezosInstance};
 use parking_lot::Mutex;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	Backend as BackendT, BlockchainEvents, FinalityNotifications, ImportNotifications,
 	StorageEventStream, StorageKey,
@@ -139,12 +139,13 @@ impl MockClient {
 		leaf_indices: Vec<LeafIndex>,
 	) -> MmrBlock {
 		let mut client = self.client.lock();
-		let parent = client.block_hash_from_id(at).unwrap();
-		let mut block_builder = if let Some(parent) = parent {
-			client.new_block_at(parent, Default::default(), false).unwrap()
-		} else {
-			client.new_block(Default::default()).unwrap()
-		};
+		let hash = client.expect_block_hash_from_id(&at).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash)
+			.fetch_parent_block_number(&*client)
+			.unwrap()
+			.build()
+			.unwrap();
 		// Make sure the block has a different hash than its siblings
 		block_builder
 			.push_storage_change(b"name".to_vec(), Some(name.to_vec()))

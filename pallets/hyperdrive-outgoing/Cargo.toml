@@ -13,12 +13,10 @@ repository = "https://github.com/acurast/acurast-core"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+parity-scale-codec = { workspace = true }
+sp-core = { workspace = true }
 jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"], optional = true }
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0", optional = true }
+sp-blockchain = { workspace = true, optional = true }
 
 # Acurast
 pallet-acurast = { path = "../acurast", default-features = false }
@@ -43,33 +41,31 @@ strum_macros = { version = "0.24.1", default-features = false }
 once_cell = { version = "1.17.1", default-features = false }
 
 # Benchmarks
-hex-literal = { version = "0.3", optional = true }
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", optional = true, default-features = false }
+hex-literal = { version = "0.4", optional = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-scale-info = { version = "2.2.0", default-features = false, features = [
-	"derive",
-] }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-io = { workspace = true }
+sp-api = { workspace = true }
 
 # for RPC
 serde = { version = "1.0.188", features = ["derive"], default-features = false }
 thiserror = "1.0"
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # for mmr-gadget
 futures = { version = "0.3", optional = true }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false, optional = true }
-sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false, optional = true }
+sc-client-api = { workspace = true, optional = true }
+sc-offchain = { workspace = true, optional = true }
 
 [dev-dependencies]
-hex-literal = "0.3"
+hex-literal = "0.4"
 serde_json = "1.0.85"
 
 array-bytes = "4.1"
@@ -78,16 +74,16 @@ itertools = "0.10.3"
 
 # for mmr-gadget tests
 parking_lot = "0.12.1"
-sc-block-builder = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+sc-block-builder = { workspace = true }
+sp-consensus = { workspace = true }
+sp-tracing = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = "1.17.0"
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
+	"parity-scale-codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",

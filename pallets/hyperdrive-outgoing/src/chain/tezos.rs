@@ -1,8 +1,8 @@
 use crate::traits::MMRInstance;
 use alloc::string::String;
-use codec::alloc;
 use derive_more::{Display, Error as DError, From};
 use once_cell::race::OnceBox;
+use parity_scale_codec::alloc;
 use sp_core::{RuntimeDebug, H256};
 use sp_runtime::traits::Keccak256;
 use sp_std::{prelude::*, vec};

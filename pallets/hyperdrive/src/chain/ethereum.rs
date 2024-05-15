@@ -1,7 +1,6 @@
 use super::util::evm;
 use crate::{traits, MessageIdentifier, ParsedAction, RawAction};
 use alloy_sol_types::{sol, SolType};
-use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use derive_more::{Display, From};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
@@ -12,6 +11,7 @@ use pallet_acurast::{
 use pallet_acurast_marketplace::{
 	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
 };
+use parity_scale_codec::{Decode, Encode};
 use rlp::Rlp;
 use scale_info::TypeInfo;
 use sp_core::Hasher;

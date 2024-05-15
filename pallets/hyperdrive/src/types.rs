@@ -1,6 +1,6 @@
-use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec};
 use frame_system::pallet_prelude::BlockNumberFor;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash, RuntimeDebug};

@@ -115,7 +115,9 @@ pub struct UpdateInfos {
 
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(
+	RuntimeDebug, parity_scale_codec::Encode, parity_scale_codec::Decode, PartialEq, Eq, TypeInfo,
+)]
 pub enum RuntimeApiError {
 	/// Error when retrieving processor update infos.
 	#[cfg_attr(feature = "std", error("Retrieving processor update infos failed."))]

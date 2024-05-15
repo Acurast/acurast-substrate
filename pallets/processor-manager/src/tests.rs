@@ -244,7 +244,7 @@ fn test_update_processor_pairings_failure_3() {
 fn test_recover_funds_succeed_1() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
-		assert_ok!(Balances::transfer(
+		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			processor_account.clone().into(),
 			10_000_000

@@ -27,7 +27,7 @@ pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
 pub use pallet_acurast_hyperdrive_outgoing_weights::TezosHyperdriveOutgoingWeight;
 pub mod pallet_acurast_vesting;
-pub mod pallet_parachain_staking;
+// pub mod pallet_parachain_staking;
 
 pub use paritydb_weights::constants::ParityDbWeight;
 pub use rocksdb_weights::constants::RocksDbWeight;

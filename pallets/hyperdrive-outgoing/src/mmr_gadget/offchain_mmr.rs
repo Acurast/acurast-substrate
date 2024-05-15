@@ -23,9 +23,9 @@
 
 use std::{collections::VecDeque, marker::PhantomData, sync::Arc};
 
-use codec::Codec;
 use log::{debug, error, info, warn};
 use pallet_acurast_hyperdrive::instances::HyperdriveInstanceName;
+use parity_scale_codec::Codec;
 use sc_client_api::{AuxStore, Backend, FinalityNotification};
 use sc_offchain::OffchainDb;
 use sp_api::ProvideRuntimeApi;

@@ -1,6 +1,6 @@
 use acurast_common::{extract_attestation, validate_certificate_chain, ECDSACurve, PublicKey};
-use codec::Encode;
 use frame_support::{ensure, traits::UnixTime};
+use parity_scale_codec::Encode;
 use sp_std::prelude::*;
 
 use crate::{

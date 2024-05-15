@@ -12,46 +12,44 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+parity-scale-codec = { workspace = true }
+sp-core = { workspace = true }
 
 acurast-common = { path = "../acurast/common", default-features = false }
 
 # Substrate
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", optional = true, default-features = false, tag = "polkadot-v1.1.0" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-hex-literal = { version = "0.3", optional = true }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+frame-benchmarking = { workspace = true, optional = true }
+sp-io = { workspace = true, optional = true }
+pallet-balances = { workspace = true, optional = true }
+pallet-uniques = { workspace = true, optional = true }
+pallet-timestamp = { workspace = true, optional = true }
+hex-literal = { version = "0.4", optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
 
 # for RPC
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0", optional = true }
+sp-blockchain = { workspace = true, optional = true }
 jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"], optional = true }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+sp-api = { workspace = true }
 serde = { version = "1.0.188", features = ["derive"], default-features = false, optional = true }
 thiserror = { version = "1.0", optional = true }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-hex-literal = { version = "0.3" }
+sp-io = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-uniques = { workspace = true, features = ["std"] }
+pallet-timestamp = { workspace = true, features = ["std"] }
+hex-literal = { version = "0.4" }
 serde_json = "1.0.85"
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
+	"parity-scale-codec/std",
 	"scale-info/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -69,7 +67,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"sp-io",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"hex-literal",

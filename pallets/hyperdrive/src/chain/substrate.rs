@@ -2,8 +2,8 @@
 
 use core::marker::PhantomData;
 
-use codec::{Decode, Encode};
 use derive_more::Display;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::{
 	prelude::{format, string::String},
 	TypeInfo,

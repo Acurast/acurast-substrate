@@ -1,4 +1,4 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 
 use crate::application_crypto::p256::{Public, Signature};
 use scale_info::TypeInfo;

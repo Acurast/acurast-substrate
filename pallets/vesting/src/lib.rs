@@ -21,7 +21,6 @@ mod benchmarking;
 pub mod pallet {
 	use core::ops::Div;
 
-	use codec::MaxEncodedLen;
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
@@ -33,8 +32,9 @@ pub mod pallet {
 		ensure_signed,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
+	use parity_scale_codec::MaxEncodedLen;
 	use sp_arithmetic::{traits::EnsureAddAssign, Perbill};
-	use sp_runtime::traits::{CheckedAdd, CheckedMul, CheckedSub};
+	use sp_runtime::traits::{BlockNumberProvider, CheckedAdd, CheckedMul, CheckedSub};
 	use sp_std::prelude::*;
 
 	use crate::*;
@@ -45,10 +45,10 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The the tolerance before a vester can be kicked out after his cooldown ended, as a time delta in milliseconds.
+		/// The tolerance before a vester can be kicked out after his cooldown ended, as a time delta in milliseconds.
 		///
 		/// A valid exit call that claims the full reward has to occur within `[cooldown end, now + DivestTolerance]`.
-		/// Since the `now` timestmap is behind the current time up to the block time, the actual tolerance is sometimes higher than the configured.
+		/// Since the `now` timestamp is behind the current time up to the block time, the actual tolerance is sometimes higher than the configured.
 		type DivestTolerance: Get<<Self as Config<I>>::BlockNumber>;
 		/// The maximum locking period in number of blocks. Vesting powers are linearly raised with [`Vesting`]`::locking_period / MaximumLockingPeriod`.
 		#[pallet::constant]
@@ -57,7 +57,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type BalanceUnit: Get<<Self as Config<I>>::Balance>;
 		type BlockNumber: Parameter
-			+ codec::Codec
+			+ parity_scale_codec::Codec
 			+ MaxEncodedLen
 			+ Ord
 			+ CheckedAdd
@@ -194,7 +194,10 @@ pub mod pallet {
 
 					Self::accrue(state)?;
 
-					state.cooldown_started = Some(<frame_system::Pallet<T>>::block_number().into());
+					let current_block_number =
+						T::BlockNumber::from(<frame_system::Pallet<T>>::current_block_number());
+
+					state.cooldown_started = Some(current_block_number);
 
 					// punish divest with half the power during cooldown
 					state.power /= 2u128.into();
@@ -238,11 +241,12 @@ pub mod pallet {
 						.cooldown_started
 						.ok_or(Error::<T, I>::CannotDivestBeforeCooldownStarted)?;
 
-					let current_block = <frame_system::Pallet<T>>::block_number();
+					let current_block =
+						T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 					if cooldown_started
 						.checked_add(&state.locking_period)
 						.ok_or(Error::<T, I>::CalculationOverflow)? >
-						current_block.into()
+						current_block
 					{
 						Err(Error::<T, I>::CannotDivestBeforeCooldownEnds)?
 					}
@@ -252,7 +256,7 @@ pub mod pallet {
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_add(&<T as Config<I>>::DivestTolerance::get().into())
 						.ok_or(Error::<T, I>::CalculationOverflow)? <
-						current_block.into()
+						current_block
 					{
 						Err(Error::<T, I>::CannotDivestWhenToleranceEnded)?
 					}
@@ -286,13 +290,14 @@ pub mod pallet {
 					let cooldown_started =
 						state.cooldown_started.ok_or(Error::<T, I>::CannotKickoutBeforeCooldown)?;
 
-					let current_block = <frame_system::Pallet<T>>::block_number();
+					let current_block =
+						T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 					if cooldown_started
 						.checked_add(&state.locking_period)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_add(&<T as Config<I>>::DivestTolerance::get().into())
 						.ok_or(Error::<T, I>::CalculationOverflow)? >=
-						current_block.into()
+						current_block
 					{
 						Err(Error::<T, I>::CannotKickoutBeforeCooldownToleranceEnded)?
 					}

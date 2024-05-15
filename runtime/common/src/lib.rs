@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use nimbus_primitives::NimbusId;
 use pallet_acurast_marketplace::RegistrationExtra;
 pub use parachains_common::Balance;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -25,7 +24,6 @@ use pallet_acurast::CU32;
 
 pub mod consensus;
 pub mod constants;
-// TODO: enable this again once we migrate Kusama to PoA -> PoS
 // pub mod migrations;
 pub mod weight;
 pub mod weights;
@@ -85,9 +83,6 @@ pub mod opaque {
 
 /// Stake information
 pub mod staking_info {
-	use pallet_parachain_staking::{inflation::Range, InflationInfoWithoutRound};
-	use sp_runtime::Perbill;
-
 	use crate::{Balance, UNIT};
 
 	/// Minimum collators selected per round, default at genesis and minimum forever after
@@ -104,11 +99,11 @@ pub mod staking_info {
 	pub const MINIMUM_DELEGATION: Balance = 10 * UNIT; // TBD
 	pub const MINIMUM_DELEGATOR_STAKE: Balance = 10 * UNIT; // TBD
 
-	pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
-		ideal_staked: Perbill::from_percent(75),
-		decay_rate: Perbill::from_percent(5),
-		annual: Range { min: Perbill::from_percent(2), ideal: Perbill::from_percent(10) },
-	};
+	// pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
+	// 	ideal_staked: Perbill::from_percent(75),
+	// 	decay_rate: Perbill::from_percent(5),
+	// 	annual: Range { min: Perbill::from_percent(2), ideal: Perbill::from_percent(10) },
+	// };
 }
 
 pub mod utils {

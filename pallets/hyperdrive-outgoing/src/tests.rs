@@ -53,7 +53,7 @@ pub(crate) fn hex(s: &str) -> H256 {
 // type BlockNumber = <Test as frame_system::Config>::BlockNumber;
 
 fn decode_node(v: Vec<u8>) -> NodeOf<Test, ()> {
-	let node: NodeOf<Test, ()> = codec::Decode::decode(&mut &v[..]).unwrap();
+	let node: NodeOf<Test, ()> = parity_scale_codec::Decode::decode(&mut &v[..]).unwrap();
 	node
 }
 

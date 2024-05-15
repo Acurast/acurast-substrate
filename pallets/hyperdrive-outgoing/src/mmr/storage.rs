@@ -17,8 +17,8 @@
 
 //! An MMR storage implementation.
 
-use codec::Encode;
 use mmr_lib::{self, helper};
+use parity_scale_codec::Encode;
 use sp_core::offchain::StorageKind;
 use sp_io::offchain_index;
 #[cfg(not(feature = "std"))]
@@ -86,7 +86,7 @@ where
 		);
 		// Try to retrieve the element from Off-chain DB.
 		if let Some(elem) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key) {
-			return Ok(codec::Decode::decode(&mut &*elem).ok())
+			return Ok(parity_scale_codec::Decode::decode(&mut &*elem).ok())
 		}
 
 		// Fall through to searching node using fork-specific key.
@@ -106,7 +106,7 @@ where
 
 		// Retrieve the element from Off-chain DB.
 		Ok(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &temp_key)
-			.and_then(|v| codec::Decode::decode(&mut &*v).ok()))
+			.and_then(|v| parity_scale_codec::Decode::decode(&mut &*v).ok()))
 	}
 }
 

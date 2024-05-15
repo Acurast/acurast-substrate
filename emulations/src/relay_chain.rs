@@ -60,6 +60,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 	type Nonce = u32;
+	type RuntimeTask = ();
 }
 
 parameter_types! {
@@ -82,6 +83,8 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 	type RuntimeHoldReason = ();
+	
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_uniques::Config for Runtime {

@@ -435,7 +435,9 @@ impl<T: Config> MarketplaceHooks<T> for () {
 
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(
+	RuntimeDebug, parity_scale_codec::Encode, parity_scale_codec::Decode, PartialEq, Eq, TypeInfo,
+)]
 pub enum RuntimeApiError {
 	/// Error when filtering matching sources failed.
 	#[cfg_attr(feature = "std", error("Filtering matching sources failed."))]

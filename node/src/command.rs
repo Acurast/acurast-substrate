@@ -115,7 +115,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/cumulus/issues/new".into()
+		"https://github.com/Acurast/acurast-substrate/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -151,7 +151,7 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/cumulus/issues/new".into()
+		"https://github.com/Acurast/acurast-substrate/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -187,29 +187,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => {
-					construct_async_run! {<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
-				},
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => {
-					construct_async_run! {<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
-				},
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo => {
-					construct_async_run! {<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
+				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				NetworkVariant::Testnet => {
+					construct_async_run! {
+						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
 				},
 				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama => {
-					construct_async_run! {<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
+				NetworkVariant::Canary => {
+					construct_async_run! {
+						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
 				},
 			}
 		},
@@ -217,29 +209,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => {
-					construct_async_run! {<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.database))
-					})}
-				},
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => {
-					construct_async_run! {<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.database))
-					})}
-				},
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo => {
-					construct_async_run! {<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.database))
-					})}
+				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				NetworkVariant::Testnet => {
+					construct_async_run! {
+						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.database))
+						})
+					}
 				},
 				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama => {
-					construct_async_run! {<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.database))
-					})}
+				NetworkVariant::Canary => {
+					construct_async_run! {
+						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.database))
+						})
+					}
 				},
 			}
 		},
@@ -247,29 +231,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => {
-					construct_async_run! {<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.chain_spec))
-					})}
-				},
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => {
-					construct_async_run! {<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.chain_spec))
-					})}
-				},
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo => {
-					construct_async_run! {<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.chain_spec))
-					})}
+				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				NetworkVariant::Testnet => {
+					construct_async_run! {
+						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.chain_spec))
+						})
+					}
 				},
 				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama => {
-					construct_async_run! {<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, config.chain_spec))
-					})}
+				NetworkVariant::Canary => {
+					construct_async_run! {
+						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.chain_spec))
+						})
+					}
 				},
 			}
 		},
@@ -277,29 +253,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => {
-					construct_async_run! {<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
-				},
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => {
-					construct_async_run! {<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
-				},
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo => {
-					construct_async_run! {<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
+				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				NetworkVariant::Testnet => {
+					construct_async_run! {
+						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
 				},
 				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama => {
-					construct_async_run! {<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.import_queue))
-					})}
+				NetworkVariant::Canary => {
+					construct_async_run! {
+						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
 				},
 			}
 		},
@@ -307,29 +275,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => {
-					construct_async_run! {<chain_spec::local::acurast_runtime::RuntimeApi, service::AcurastLocalNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.backend, None))
-					})}
-				},
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => {
-					construct_async_run! {<chain_spec::dev::acurast_runtime::RuntimeApi, service::AcurastDevNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.backend, None))
-					})}
-				},
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo => {
-					construct_async_run! {<chain_spec::rococo::acurast_runtime::RuntimeApi, service::AcurastRococoNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.backend, None))
-					})}
+				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				NetworkVariant::Testnet => {
+					construct_async_run! {
+						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.backend, None))
+						})
+					}
 				},
 				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama => {
-					construct_async_run! {<chain_spec::kusama::acurast_runtime::RuntimeApi, service::AcurastKusamaNativeExecutor>(|components, cli, cmd, config| {
-						Ok(cmd.run(components.client, components.backend, None))
-					})}
+				NetworkVariant::Canary => {
+					construct_async_run! {
+						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.backend, None))
+						})
+					}
 				},
 			}
 		},
@@ -354,40 +314,24 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
+			runner.sync_run(| config| {
 				let chain_spec = &config.chain_spec;
 				match chain_spec.variant() {
-					#[cfg(feature = "acurast-local")]
-					NetworkVariant::Local => {
+					#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+					NetworkVariant::Testnet => {
 						let partials = new_partial::<
-							chain_spec::local::acurast_runtime::RuntimeApi,
-							service::AcurastLocalNativeExecutor,
+							acurast_rococo_runtime::RuntimeApi,
+							service::testnet::AcurastExecutor,
 						>(&config)?;
-						cmd.run(&*config.chain_spec, &*partials.client)
-					},
-					#[cfg(feature = "acurast-dev")]
-					NetworkVariant::Dev => {
-						let partials = new_partial::<
-							chain_spec::dev::acurast_runtime::RuntimeApi,
-							service::AcurastDevNativeExecutor,
-						>(&config)?;
-						cmd.run(&*config.chain_spec, &*partials.client)
-					},
-					#[cfg(feature = "acurast-rococo")]
-					NetworkVariant::Rococo => {
-						let partials = new_partial::<
-							chain_spec::rococo::acurast_runtime::RuntimeApi,
-							service::AcurastRococoNativeExecutor,
-						>(&config)?;
-						cmd.run(&*config.chain_spec, &*partials.client)
+						cmd.run(partials.client)
 					},
 					#[cfg(feature = "acurast-kusama")]
-					NetworkVariant::Kusama => {
+					NetworkVariant::Canary => {
 						let partials = new_partial::<
-							chain_spec::kusama::acurast_runtime::RuntimeApi,
-							service::AcurastKusamaNativeExecutor,
+							acurast_kusama_runtime::RuntimeApi,
+							service::canary::AcurastExecutor,
 						>(&config)?;
-						cmd.run(&*config.chain_spec, &*partials.client)
+						cmd.run(partials.client)
 					},
 				}
 			})
@@ -405,29 +349,9 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						let chain_spec = &runner.config().chain_spec;
-						match chain_spec.variant() {
-							#[cfg(feature = "acurast-local")]
-							NetworkVariant::Local =>
-								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_local_runtime::Block, ()>(config)
-								}),
-							#[cfg(feature = "acurast-dev")]
-							NetworkVariant::Dev =>
-								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_dev_runtime::Block, ()>(config)
-								}),
-							#[cfg(feature = "acurast-rococo")]
-							NetworkVariant::Rococo =>
-								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_rococo_runtime::Block, ()>(config)
-								}),
-							#[cfg(feature = "acurast-kusama")]
-							NetworkVariant::Kusama =>
-								return runner.sync_run(|config| {
-									cmd.run::<service::acurast_kusama_runtime::Block, ()>(config)
-								}),
-						}
+						return runner.sync_run(|config| {
+							cmd.run::<acurast_runtime_common::opaque::Block, ()>(config)
+						})
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
@@ -435,35 +359,19 @@ pub fn run() -> Result<()> {
 					},
 				BenchmarkCmd::Block(cmd) =>
 					runner.sync_run(|config| match config.chain_spec.variant() {
-						#[cfg(feature = "acurast-local")]
-						NetworkVariant::Local => {
+						#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+						NetworkVariant::Testnet => {
 							let partials = new_partial::<
-								chain_spec::local::acurast_runtime::RuntimeApi,
-								service::AcurastLocalNativeExecutor,
-							>(&config)?;
-							cmd.run(partials.client)
-						},
-						#[cfg(feature = "acurast-dev")]
-						NetworkVariant::Dev => {
-							let partials = new_partial::<
-								chain_spec::dev::acurast_runtime::RuntimeApi,
-								service::AcurastDevNativeExecutor,
-							>(&config)?;
-							cmd.run(partials.client)
-						},
-						#[cfg(feature = "acurast-rococo")]
-						NetworkVariant::Rococo => {
-							let partials = new_partial::<
-								chain_spec::rococo::acurast_runtime::RuntimeApi,
-								service::AcurastRococoNativeExecutor,
+								acurast_rococo_runtime::RuntimeApi,
+								service::testnet::AcurastExecutor,
 							>(&config)?;
 							cmd.run(partials.client)
 						},
 						#[cfg(feature = "acurast-kusama")]
-						NetworkVariant::Kusama => {
+						NetworkVariant::Canary => {
 							let partials = new_partial::<
-								chain_spec::kusama::acurast_runtime::RuntimeApi,
-								service::AcurastKusamaNativeExecutor,
+								acurast_kusama_runtime::RuntimeApi,
+								service::canary::AcurastExecutor,
 							>(&config)?;
 							cmd.run(partials.client)
 						},
@@ -478,32 +386,28 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					cfg_if::cfg_if! {
-						if #[cfg(feature = "acurast-local")] {
+					match config.chain_spec.variant() {
+						#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+						NetworkVariant::Testnet => {
 							let partials = new_partial::<
-								chain_spec::local::acurast_runtime::RuntimeApi,
-								service::AcurastLocalNativeExecutor,
+								acurast_rococo_runtime::RuntimeApi,
+								service::testnet::AcurastExecutor,
 							>(&config)?;
-						} else if #[cfg(feature = "acurast-dev")] {
+							let db = partials.backend.expose_db();
+							let storage = partials.backend.expose_storage();
+							cmd.run(config, partials.client.clone(), db, storage)
+						},
+						#[cfg(feature = "acurast-kusama")]
+						NetworkVariant::Canary => {
 							let partials = new_partial::<
-								chain_spec::dev::acurast_runtime::RuntimeApi,
-								service::AcurastDevNativeExecutor,
+								acurast_kusama_runtime::RuntimeApi,
+								service::canary::AcurastExecutor,
 							>(&config)?;
-						} else if #[cfg(feature = "acurast-rococo")] {
-							let partials = new_partial::<
-								chain_spec::rococo::acurast_runtime::RuntimeApi,
-								service::AcurastRococoNativeExecutor,
-							>(&config)?;
-						} else if #[cfg(feature = "acurast-kusama")] {
-							let partials = new_partial::<
-								chain_spec::kusama::acurast_runtime::RuntimeApi,
-								service::AcurastKusamaNativeExecutor,
-							>(&config)?;
-						}
+							let db = partials.backend.expose_db();
+							let storage = partials.backend.expose_storage();
+							cmd.run(config, partials.client.clone(), db, storage)
+						},
 					}
-					let db = partials.backend.expose_db();
-					let storage = partials.backend.expose_storage();
-					cmd.run(config, partials.client.clone(), db, storage)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
@@ -513,54 +417,7 @@ pub fn run() -> Result<()> {
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
-		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-
-			use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
-			type HostFunctionsOf<E> = ExtendedHostFunctions<
-				sp_io::SubstrateHostFunctions,
-				<E as NativeExecutionDispatch>::ExtendHostFunctions,
-			>;
-
-			// grab the task manager.
-			let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
-			let task_manager =
-				sc_service::TaskManager::new(runner.config().tokio_handle.clone(), *registry)
-					.map_err(|e| format!("Error: {:?}", e))?;
-
-			let chain_spec = &runner.config().chain_spec;
-			match chain_spec.variant() {
-				#[cfg(feature = "acurast-local")]
-				NetworkVariant::Local => runner.async_run(|_| {
-					Ok((
-						cmd.run::<Block, HostFunctionsOf<service::AcurastLocalNativeExecutor>>(),
-						task_manager,
-					))
-				}),
-				#[cfg(feature = "acurast-dev")]
-				NetworkVariant::Dev => runner.async_run(|_| {
-					Ok((
-						cmd.run::<Block, HostFunctionsOf<service::AcurastDevNativeExecutor>>(),
-						task_manager,
-					))
-				}),
-				#[cfg(feature = "acurast-rococo")]
-				NetworkVariant::Rococo =>
-					runner.async_run(|_| {
-						Ok((cmd.run::<Block, HostFunctionsOf<service::AcurastRococoNativeExecutor>>(), task_manager))
-					}),
-				#[cfg(feature = "acurast-kusama")]
-				NetworkVariant::Kusama =>
-					runner.async_run(|_| {
-						Ok((cmd.run::<Block, HostFunctionsOf<service::AcurastKusamaNativeExecutor>>(), task_manager))
-					}),
-			}
-		},
-		#[cfg(not(feature = "try-runtime"))]
-		Some(Subcommand::TryRuntime) => Err("Try-runtime was not enabled when building the node. \
-			You can enable it with `--features try-runtime`."
-			.into()),
+		Some(Subcommand::TryRuntime) => Err("The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.".into()),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let collator_options = cli.run.collator_options();
@@ -603,38 +460,22 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match &config.chain_spec.variant() {
-					#[cfg(feature = "acurast-local")]
-					NetworkVariant::Local => crate::service::start_parachain_node::<
-						chain_spec::local::acurast_runtime::RuntimeApi,
-						service::AcurastLocalNativeExecutor,
+					#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+					NetworkVariant::Testnet => service::start_parachain_node::<
+						acurast_rococo_runtime::RuntimeApi,
+						service::testnet::AcurastExecutor,
 					>(config, polkadot_config, collator_options, id, hwbench)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
-					#[cfg(feature = "acurast-dev")]
-					NetworkVariant::Dev => crate::service::start_parachain_node::<
-						chain_spec::dev::acurast_runtime::RuntimeApi,
-						service::AcurastDevNativeExecutor,
-					>(config, polkadot_config, collator_options, id, hwbench)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
-					#[cfg(feature = "acurast-rococo")]
-					NetworkVariant::Rococo => crate::service::start_parachain_node::<
-						chain_spec::rococo::acurast_runtime::RuntimeApi,
-						service::AcurastRococoNativeExecutor,
-					>(config, polkadot_config, collator_options, id, hwbench)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
 					#[cfg(feature = "acurast-kusama")]
-					NetworkVariant::Kusama => crate::service::start_parachain_node::<
-						chain_spec::kusama::acurast_runtime::RuntimeApi,
-						service::AcurastKusamaNativeExecutor,
+					NetworkVariant::Canary => service::start_parachain_node::<
+						acurast_kusama_runtime::RuntimeApi,
+						service::canary::AcurastExecutor,
 					>(config, polkadot_config, collator_options, id, hwbench)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
 				}
 			})
 		},

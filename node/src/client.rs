@@ -18,14 +18,14 @@
 use std::sync::Arc;
 
 use acurast_rococo_runtime::pallet_acurast_marketplace;
-use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, PairsIter};
-use sp_api::{CallApiAt, NumberFor, ProvideRuntimeApi};
+use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, MerkleValue, PairsIter};
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockStatus;
 use sp_core::H256;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT, NumberFor},
 	Justifications,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
@@ -107,7 +107,7 @@ pub trait AbstractClient<Block, Backend>:
 where
 	Block: BlockT,
 	Backend: BackendT<Block>,
-	Backend::State: sp_api::StateBackend<BlakeTwo256>,
+	Backend::State: sc_client_api::backend::StateBackend<BlakeTwo256>,
 {
 }
 
@@ -115,7 +115,7 @@ impl<Block, Backend, Client> AbstractClient<Block, Backend> for Client
 where
 	Block: BlockT,
 	Backend: BackendT<Block>,
-	Backend::State: sp_api::StateBackend<BlakeTwo256>,
+	Backend::State: sc_client_api::backend::StateBackend<BlakeTwo256>,
 	Client: BlockchainEvents<Block>
 		+ ProvideRuntimeApi<Block>
 		+ HeaderBackend<Block>
@@ -134,7 +134,7 @@ where
 /// return them from a function. For returning them from a function there exists
 /// [`ClientVariant`]. However, the problem on how to use this client instance still
 /// exists. This trait "solves" it in a dirty way. It requires a type to
-/// implement this trait and than the [`execute_with_client`](ExecuteWithClient:
+/// implement this trait and then the [`execute_with_client`](ExecuteWithClient:
 /// :execute_with_client) function can be called with any possible client
 /// instance.
 ///
@@ -147,7 +147,7 @@ pub trait ExecuteWithClient {
 	fn execute_with_client<Client, Api, Backend>(self, client: Arc<Client>) -> Self::Output
 	where
 		Backend: sc_client_api::Backend<Block>,
-		Backend::State: sp_api::StateBackend<BlakeTwo256>,
+		Backend::State: sc_client_api::backend::StateBackend<BlakeTwo256>,
 		Client: AbstractClient<Block, Backend, Api = Api> + 'static;
 }
 
@@ -166,147 +166,56 @@ pub trait ClientHandle {
 /// The exhaustive enum of client for each [`service::NetworkVariant`].
 #[derive(Clone)]
 pub enum ClientVariant {
-	#[cfg(feature = "acurast-local")]
-	Local(
-		Arc<
-			ParachainClient<
-				service::acurast_local_runtime::RuntimeApi,
-				service::AcurastLocalNativeExecutor,
-			>,
-		>,
-	),
-	#[cfg(feature = "acurast-dev")]
-	Dev(
-		Arc<
-			ParachainClient<
-				service::acurast_dev_runtime::RuntimeApi,
-				service::AcurastDevNativeExecutor,
-			>,
-		>,
-	),
-	#[cfg(feature = "acurast-rococo")]
-	Rococo(
-		Arc<
-			ParachainClient<
-				service::acurast_rococo_runtime::RuntimeApi,
-				service::AcurastRococoNativeExecutor,
-			>,
-		>,
+	#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+	Testnet(
+		Arc<ParachainClient<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>>,
 	),
 	#[cfg(feature = "acurast-kusama")]
-	Kusama(
-		Arc<
-			ParachainClient<
-				service::acurast_kusama_runtime::RuntimeApi,
-				service::AcurastKusamaNativeExecutor,
-			>,
-		>,
+	Canary(
+		Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>>,
 	),
 }
 
-#[cfg(feature = "acurast-local")]
+#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
 impl
 	From<
-		Arc<
-			ParachainClient<
-				service::acurast_local_runtime::RuntimeApi,
-				service::AcurastLocalNativeExecutor,
-			>,
-		>,
+		Arc<ParachainClient<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>>,
 	> for ClientVariant
 {
 	fn from(
 		client: Arc<
-			ParachainClient<
-				service::acurast_local_runtime::RuntimeApi,
-				service::AcurastLocalNativeExecutor,
-			>,
+			ParachainClient<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>,
 		>,
 	) -> Self {
-		Self::Local(client)
-	}
-}
-
-#[cfg(feature = "acurast-dev")]
-impl
-	From<
-		Arc<
-			ParachainClient<
-				service::acurast_dev_runtime::RuntimeApi,
-				service::AcurastDevNativeExecutor,
-			>,
-		>,
-	> for ClientVariant
-{
-	fn from(
-		client: Arc<
-			ParachainClient<
-				service::acurast_dev_runtime::RuntimeApi,
-				service::AcurastDevNativeExecutor,
-			>,
-		>,
-	) -> Self {
-		Self::Dev(client)
-	}
-}
-
-#[cfg(feature = "acurast-rococo")]
-impl
-	From<
-		Arc<
-			ParachainClient<
-				service::acurast_rococo_runtime::RuntimeApi,
-				service::AcurastRococoNativeExecutor,
-			>,
-		>,
-	> for ClientVariant
-{
-	fn from(
-		client: Arc<
-			ParachainClient<
-				service::acurast_rococo_runtime::RuntimeApi,
-				service::AcurastRococoNativeExecutor,
-			>,
-		>,
-	) -> Self {
-		Self::Rococo(client)
+		Self::Testnet(client)
 	}
 }
 
 #[cfg(feature = "acurast-kusama")]
 impl
-	From<
-		Arc<
-			ParachainClient<
-				service::acurast_kusama_runtime::RuntimeApi,
-				service::AcurastKusamaNativeExecutor,
-			>,
-		>,
-	> for ClientVariant
+	From<Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>>>
+	for ClientVariant
 {
 	fn from(
 		client: Arc<
-			ParachainClient<
-				service::acurast_kusama_runtime::RuntimeApi,
-				service::AcurastKusamaNativeExecutor,
-			>,
+			ParachainClient<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>,
 		>,
 	) -> Self {
-		Self::Kusama(client)
+		Self::Canary(client)
 	}
 }
 
 impl ClientHandle for ClientVariant {
 	fn execute_with<T: ExecuteWithClient>(&self, t: T) -> T::Output {
 		match self {
-			#[cfg(feature = "acurast-local")]
-			Self::Local(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
-			#[cfg(feature = "acurast-dev")]
-			Self::Dev(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
-			#[cfg(feature = "acurast-rococo")]
-			Self::Rococo(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
+			#[cfg(any(
+				feature = "acurast-local",
+				feature = "acurast-dev",
+				feature = "acurast-rococo"
+			))]
+			Self::Testnet(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
 			#[cfg(feature = "acurast-kusama")]
-			Self::Kusama(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
+			Self::Canary(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
 		}
 	}
 }
@@ -314,14 +223,10 @@ impl ClientHandle for ClientVariant {
 macro_rules! match_client {
 	($self:ident, $method:ident($($param:ident),*)) => {
 		match $self {
-			#[cfg(feature = "acurast-local")]
-			Self::Local(client) => client.$method($($param),*),
-			#[cfg(feature = "acurast-dev")]
-			Self::Dev(client) => client.$method($($param),*),
-			#[cfg(feature = "acurast-rococo")]
-			Self::Rococo(client) => client.$method($($param),*),
+			#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+			Self::Testnet(client) => client.$method($($param),*),
 			#[cfg(feature = "acurast-kusama")]
-			Self::Kusama(client) => client.$method($($param),*),
+			Self::Canary(client) => client.$method($($param),*),
 		}
 	};
 }
@@ -458,6 +363,23 @@ impl sc_client_api::StorageProvider<Block, ParachainBackend> for ClientVariant {
 		key: &StorageKey,
 	) -> sp_blockchain::Result<Option<<Block as BlockT>::Hash>> {
 		match_client!(self, child_storage_hash(hash, child_info, key))
+	}
+
+	fn closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		match_client!(self, closest_merkle_value(hash, key))
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		child_info: &ChildInfo,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<<Block as BlockT>::Hash>>> {
+		match_client!(self, child_closest_merkle_value(hash, child_info, key))
 	}
 }
 

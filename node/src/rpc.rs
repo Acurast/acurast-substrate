@@ -19,10 +19,7 @@ use acurast_runtime_common::{
 	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
 	MaxEnvVars, MaxSlots, Nonce,
 };
-use pallet_acurast_hyperdrive_outgoing::{
-	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
-	HyperdriveApi,
-};
+use pallet_acurast_hyperdrive_outgoing::{instances::TezosInstance, HyperdriveApi};
 use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
 
 /// A type representing all RPC extensions.
@@ -77,8 +74,6 @@ where
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	module.merge(Mmr::<TezosInstance, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<EthereumInstance, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<AlephZeroInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }

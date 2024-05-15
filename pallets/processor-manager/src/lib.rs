@@ -22,7 +22,6 @@ mod benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
 use frame_support::BoundedVec;
-pub use functions::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
@@ -44,11 +43,9 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use acurast_common::ListUpdateOperation;
-	use codec::MaxEncodedLen;
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
-		pallet_prelude::{Member, *},
-		sp_runtime,
+		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{Get, UnixTime},
 		Blake2_128, Parameter,
@@ -57,6 +54,7 @@ pub mod pallet {
 		ensure_root, ensure_signed,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
+	use parity_scale_codec::MaxEncodedLen;
 	use sp_std::prelude::*;
 
 	use crate::{
@@ -454,7 +452,7 @@ pub mod pallet {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with Acurast marketplace pallet.
-	pub trait ProcessorManagerRuntimeApi<AccountId: codec::Codec, ManagerId: codec::Codec> {
+	pub trait ProcessorManagerRuntimeApi<AccountId: parity_scale_codec::Codec, ManagerId: parity_scale_codec::Codec> {
 		 fn processor_update_infos(
 			source: AccountId,
 		) -> Result<UpdateInfos, RuntimeApiError>;

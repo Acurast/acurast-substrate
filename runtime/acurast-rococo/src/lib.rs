@@ -15,16 +15,18 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use frame_support::traits::{
+	ConstBool, ConstU128, ConstU32, ConstU64, EnqueueWithOrigin, LinearStoragePrice,
+	TransformOrigin,
+};
 use implementations::*;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero,
-	},
+	traits::{Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError,
 };
@@ -36,15 +38,16 @@ use sp_version::RuntimeVersion;
 
 use derive_more::{From, Into};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::{DispatchClass, DispatchResultWithPostInfo},
+	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types,
 	pallet_prelude::InvalidTransaction,
 	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		AsEnsureOriginWithArg, Currency, Everything, ExistenceRequirement, Imbalance, OnUnbalanced,
+		AsEnsureOriginWithArg, Currency, ExistenceRequirement, Imbalance, OnUnbalanced,
 		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
@@ -60,7 +63,7 @@ use frame_system::{
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -72,12 +75,14 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 pub use xcm::latest::{prelude::BodyId, AssetId, MultiAsset};
-use xcm_executor::XcmExecutor;
 
 use frame_support::traits::{
+	fungible::HoldConsideration,
 	tokens::{Fortitude, Precision, Preservation},
 	EitherOfDiverse,
 };
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
@@ -276,50 +281,19 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
-	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	/// The index type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
-	/// The block type.
-	type Block = Block;
-	/// The type for hashing blocks and tries.
 	type Hash = Hash;
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
-	type RuntimeOrigin = RuntimeOrigin;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+	type Block = Block;
 	type BlockHashCount = BlockHashCount;
-	/// Runtime version.
 	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type PalletInfo = PalletInfo;
-	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
-	/// What to do if a new account is created.
-	type OnNewAccount = ();
-	/// What to do if an account is fully reaped from the system.
-	type OnKilledAccount = ();
-	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
-	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
-	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
-	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
-	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
-	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
-	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
@@ -367,6 +341,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<{ u32::MAX }>;
 	type MaxFreezes = ConstU32<0>;
@@ -408,7 +383,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -494,6 +469,7 @@ impl pallet_transaction_payment::Config for Runtime {
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 /// Runtime configuration for cumulus_pallet_parachain_system.
@@ -502,11 +478,12 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+	type WeightInfo = ();
 }
 
 /// Runtime configuration for parachain_info.
@@ -518,21 +495,39 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 /// Runtime configuration for cumulus_pallet_xcmp_queue.
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type PriceForSiblingDelivery = ();
-	type WeightInfo = weight::cumulus_pallet_xcmp_queue::WeightInfo<Self>;
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type WeightInfo = ();
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = ConstU32<1_000>;
 }
 
-/// Runtime configuration for cumulus_pallet_dmp_queue.
-impl cumulus_pallet_dmp_queue::Config for Runtime {
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor =
+		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
 }
 
 parameter_types! {
@@ -584,15 +579,14 @@ impl pallet_collator_selection::Config for Runtime {
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type PotId = PotId;
 	type MaxCandidates = MaxCandidates;
-	type MinCandidates = MinCandidates;
+	type MinEligibleCollators = MinCandidates;
 	type MaxInvulnerables = MaxInvulnerables;
 	// should be a multiple of session or things will get inconsistent
 	type KickThreshold = Period;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type AccountIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	type WeightInfo = weight::pallet_collator_selection::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 ord_parameter_types! {
@@ -1098,6 +1092,7 @@ parameter_types! {
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
 	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
 	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 /// Runtime configuration for pallet_preimage.
@@ -1106,8 +1101,12 @@ impl pallet_preimage::Config for Runtime {
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = PreimageBaseDeposit;
-	type ByteDeposit = PreimageByteDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 parameter_types! {
@@ -1217,68 +1216,73 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
+impl cumulus_pallet_dmp_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type DmpSink = EnqueueWithOrigin<MessageQueue, RelayOrigin>;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		Timestamp: pallet_timestamp = 2,
+		ParachainInfo: parachain_info = 3,
 		Sudo: pallet_sudo = 4,
 		Scheduler: pallet_scheduler = 5,
 		Preimage: pallet_preimage = 6,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 7,
+		Multisig: pallet_multisig = 7,
 		Utility: pallet_utility = 8,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
 		// (keep comment, just so we know that pallet assets used to be on this pallet index)
 		// Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
 		// (keep comment, just so we know that pallet assets used to be on this pallet index)
 		// AcurastAssets: pallet_acurast_assets_manager::{Pallet, Storage, Event<T>, Config<T>, Call} = 13,
-		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call} = 14,
+		Uniques: pallet_uniques = 14,
 
 		// Governance stuff.
-		Democracy: pallet_democracy::{Pallet, Storage, Config<T>, Event<T>, Call} = 15,
+		Democracy: pallet_democracy = 15,
 
 		// Consensus. The order of these are important and shall not change.
-		AcurastVesting: pallet_acurast_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 17,
+		AcurastVesting: pallet_acurast_vesting = 17,
 		// (keep comment, just so we know that pallet_parachain_staking used to be on this pallet index)
 		// ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 18,
 		// (keep comment, just so we know that pallet_author_inherent used to be on this pallet index)
 		// AuthorInherent: pallet_author_inherent::{Pallet, Call, Storage, Inherent} = 19,
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
+		DmpQueue: cumulus_pallet_dmp_queue = 33,
+		MessageQueue: pallet_message_queue = 34,
 
 		// Acurast pallets
-		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>, Config<T>} = 40,
-		AcurastProcessorManager: pallet_acurast_processor_manager::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
-		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
-		AcurastMarketplace: pallet_acurast_marketplace::{Pallet, Call, Storage, Event<T>} = 43,
-		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
+		Acurast: pallet_acurast = 40,
+		AcurastProcessorManager: pallet_acurast_processor_manager = 41,
+		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1> = 42,
+		AcurastMarketplace: pallet_acurast_marketplace = 43,
+		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2> = 44,
 		// Hyperdrive (one instance for each connected chain)
-		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::<Instance1>::{Pallet, Call, Storage, Event<T>} = 45,
+		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::<Instance1> = 45,
 		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
-		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1>::{Pallet, Call, Storage, Event<T>} = 46,
-		AcurastRewardsTreasury: pallet_acurast_rewards_treasury::{Pallet, Storage, Event<T>} = 47,
-		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2>::{Pallet, Call, Storage, Event<T>} = 48,
-		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2>::{Pallet, Call, Storage, Event<T>} = 49,
-		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3>::{Pallet, Call, Storage, Event<T>} = 50,
-		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3>::{Pallet, Call, Storage, Event<T>} = 51,
+		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1> = 46,
+		AcurastRewardsTreasury: pallet_acurast_rewards_treasury = 47,
+		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2> = 48,
+		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2> = 49,
+		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3> = 50,
+		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3> = 51,
 	}
 );
 
@@ -1623,6 +1627,16 @@ impl_runtime_apis! {
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

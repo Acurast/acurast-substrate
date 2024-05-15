@@ -1,15 +1,12 @@
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
+use sc_telemetry::serde_json;
 use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 use std::str::FromStr;
 
-pub(crate) use acurast_kusama_runtime::{
-	self as acurast_runtime, AcurastConfig, AcurastProcessorManagerConfig, DemocracyConfig,
-	SudoConfig, EXISTENTIAL_DEPOSIT,
-};
+use crate::chain_spec::{accountid_from_str, Extensions, KUSAMA_PARACHAIN_ID, SS58_FORMAT};
+pub(crate) use acurast_kusama_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 use acurast_runtime_common::*;
-
-use crate::chain_spec::{accountid_from_str, processor_manager, Extensions, KUSAMA_PARACHAIN_ID};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec =
@@ -19,7 +16,7 @@ pub type ChainSpec =
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
-const NATIVE_TOKEN_SYMBOL: &str = "ACU";
+const NATIVE_TOKEN_SYMBOL: &str = "cACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 
 /// Generate the session keys from individual elements.
@@ -35,93 +32,64 @@ pub fn acurast_kusama_config() -> ChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), NATIVE_TOKEN_DECIMALS.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("ss58Format".into(), SS58_FORMAT.into());
 
-	ChainSpec::from_genesis(
-		// Name
-		"Acurast Kusama",
-		// ID
-		"acurast-kusama",
-		ChainType::Live,
-		move || {
-			genesis_config(
-				// initial collators.
-				vec![
-					(
-						AccountId32::from_str("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
-							.unwrap(),
-						AuraId::from_string("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh")
-							.unwrap(),
-					),
-					(
-						AccountId32::from_str("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
-							.unwrap(),
-						AuraId::from_string("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw")
-							.unwrap(),
-					),
-					(
-						AccountId32::from_str("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
-							.unwrap(),
-						AuraId::from_string("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH")
-							.unwrap(),
-					),
-					(
-						AccountId32::from_str("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
-							.unwrap(),
-						AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh")
-							.unwrap(),
-					),
-				],
-				vec![
-					(acurast_pallet_account(), NATIVE_MIN_BALANCE),
-					(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-					(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000_000_000),
-				],
-				KUSAMA_PARACHAIN_ID.into(),
-				acurast_sudo_account(),
-				AcurastConfig { attestations: vec![] },
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		Some(properties),
-		Extensions {
-			relay_chain: "kusama".into(), // You MUST set this to the correct network!
-			para_id: KUSAMA_PARACHAIN_ID,
-		},
+	ChainSpec::builder(
+		acurast_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Extensions { relay_chain: "kusama".to_string(), para_id: KUSAMA_PARACHAIN_ID },
 	)
+	.with_name("Acurast Canary")
+	.with_id("acurast-kusama")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(genesis_config(
+		vec![
+			(
+				AccountId32::from_str("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh").unwrap(),
+				AuraId::from_string("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh").unwrap(),
+			),
+			(
+				AccountId32::from_str("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw").unwrap(),
+				AuraId::from_string("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw").unwrap(),
+			),
+			(
+				AccountId32::from_str("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH").unwrap(),
+				AuraId::from_string("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH").unwrap(),
+			),
+			(
+				AccountId32::from_str("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh").unwrap(),
+				AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh").unwrap(),
+			),
+		],
+		vec![
+			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
+		],
+		KUSAMA_PARACHAIN_ID.into(),
+		acurast_sudo_account(),
+	))
+	.build()
 }
 
-/// Returns the testnet [acurast_runtime::RuntimeGenesisConfig].
 fn genesis_config(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
 	sudo_account: AccountId,
-	acurast: AcurastConfig,
-) -> acurast_runtime::RuntimeGenesisConfig {
-	acurast_runtime::RuntimeGenesisConfig {
-		system: acurast_runtime::SystemConfig {
-			code: acurast_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts,
 		},
-		balances: acurast_runtime::BalancesConfig { balances: endowed_accounts },
-		parachain_info: acurast_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
+		"parachainInfo": {
+			"parachainId": id,
 		},
-		collator_selection: acurast_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
-			..Default::default()
+		"collatorSelection": {
+			"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
+			"candidacyBond": EXISTENTIAL_DEPOSIT * 16,
 		},
-		session: acurast_runtime::SessionConfig {
-			keys: invulnerables
-				.clone()
+		"session": {
+			"keys": invulnerables
 				.into_iter()
 				.map(|(acc, session_keys)| {
 					(
@@ -130,22 +98,15 @@ fn genesis_config(
 						acurast_session_keys(session_keys), // session keys
 					)
 				})
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this.
-		aura: Default::default(),
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		polkadot_xcm: acurast_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
+		"polkadotXcm": {
+			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		sudo: SudoConfig { key: Some(sudo_account) },
-		acurast,
-		acurast_processor_manager: acurast_processor_manager_config(),
-		democracy: DemocracyConfig::default(),
-	}
+		"sudo": {
+			"key": Some(sudo_account)
+		}
+	})
 }
 
 /// Returns the pallet_acurast account id.
@@ -160,9 +121,5 @@ pub fn fee_manager_pallet_account() -> AccountId {
 
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5CLiYDEbpsdH8o6bYW6tDMfHi4NdsMWTmQ2WnsdU4H9CzcaL")
-}
-
-fn acurast_processor_manager_config() -> AcurastProcessorManagerConfig {
-	AcurastProcessorManagerConfig { managers: processor_manager() }
+	accountid_from_str("5CMcG3yoHxH6e4RqyZHx2QiTsZz4tTiHLXFQ5SmLiXKGcqgv")
 }

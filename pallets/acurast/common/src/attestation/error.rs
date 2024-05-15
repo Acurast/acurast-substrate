@@ -1,8 +1,8 @@
 #![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
 
 use asn1::ParseError;
-use codec::{Decode, Encode};
 use frame_support::pallet_prelude::RuntimeDebug;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]

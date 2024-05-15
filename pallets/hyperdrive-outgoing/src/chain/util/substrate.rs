@@ -1,5 +1,5 @@
 use crate::{Action, Leaf, LeafEncoder};
-use codec::Encode;
+use parity_scale_codec::Encode;
 use sp_io::hashing::blake2_256;
 use sp_std::vec::Vec;
 

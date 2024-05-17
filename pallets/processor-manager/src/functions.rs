@@ -22,7 +22,7 @@ where
 		<T::ManagerIdProvider as ManagerIdProvider<T>>::owner_for(id).ok()
 	}
 
-	/// Returns the manager id for the given manager account. If a manager id does not exists it is first created.
+	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,
 	) -> Result<(T::ManagerId, bool), DispatchError> {
@@ -63,16 +63,27 @@ where
 	/// with a different manager id.
 	pub fn do_remove_processor_manager_pairing(
 		processor_account: &T::AccountId,
-		manager_id: T::ManagerId,
+		manager: &T::AccountId,
 	) -> DispatchResult {
-		if let Some(id) = Self::manager_id_for_processor(processor_account) {
-			if id != manager_id {
-				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
-			}
-			<ManagedProcessors<T>>::remove(manager_id, &processor_account);
-			<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		let id = Self::ensure_managed(manager, processor_account)?;
+		<ManagedProcessors<T>>::remove(id, &processor_account);
+		<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		Ok(())
+	}
+
+	pub fn ensure_managed(
+		manager: &T::AccountId,
+		processor: &T::AccountId,
+	) -> Result<T::ManagerId, DispatchError> {
+		let processor_manager_id =
+			Self::manager_id_for_processor(processor).ok_or(Error::<T>::ProcessorHasNoManager)?;
+
+		let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
+
+		if manager != &processor_manager {
+			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
 		}
 
-		Ok(())
+		Ok(processor_manager_id)
 	}
 }

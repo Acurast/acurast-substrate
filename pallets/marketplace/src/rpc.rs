@@ -3,7 +3,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use crate::{JobAssignment, MarketplaceRuntimeApi, PartialJobRegistration, RuntimeApiError};
-use codec::Codec;
 use frame_support::sp_runtime::traits::{Block as BlockT, HashingFor, MaybeSerializeDeserialize};
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
@@ -11,6 +10,7 @@ use jsonrpsee::{
 	types::error::{CallError, ErrorObject},
 };
 use pallet_acurast::{Attestation, Environment, JobId, MultiOrigin, ParameterBound};
+use parity_scale_codec::Codec;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 

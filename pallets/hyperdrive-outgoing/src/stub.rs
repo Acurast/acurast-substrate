@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
 use crate::*;
-use codec::alloc::string::String;
 use pallet_acurast_marketplace::PubKey;
+use parity_scale_codec::alloc::string::String;
 use sp_runtime::AccountId32;
 
 #[cfg(feature = "std")]

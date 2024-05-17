@@ -1,7 +1,15 @@
 #![allow(unused_imports)]
 
+use crate::{
+	chain::tezos::TezosParser,
+	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
+	stub::AcurastAccountId,
+	types::RawAction,
+	weights, ActionExecutor, ParsedAction, StateOwner, StateProof, StateProofNode,
+};
 use derive_more::{Display, From, Into};
 use frame_support::{
+	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -10,22 +18,13 @@ use frame_support::{
 use frame_system as system;
 use hex_literal::hex;
 use pallet_acurast::CU32;
-use sp_core::{H256, *};
+use pallet_acurast_marketplace::RegistrationExtra;
+use sp_core::*;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, MultiSignature,
 };
 use sp_std::prelude::*;
-
-use pallet_acurast_marketplace::RegistrationExtra;
-
-use crate::{
-	chain::tezos::TezosParser,
-	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
-	stub::AcurastAccountId,
-	types::RawAction,
-	weights, ActionExecutor, ParsedAction, StateOwner, StateProof, StateProofNode,
-};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -50,30 +49,22 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Block = Block;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+impl frame_system::Config for Test {
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
+	type DbWeight = ();
+	type BlockWeights = ();
+	type BlockLength = ();
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {

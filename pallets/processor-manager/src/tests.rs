@@ -5,9 +5,7 @@ use crate::{
 	UpdateInfo, Version,
 };
 use acurast_common::ListUpdateOperation;
-use frame_support::{
-	assert_err, assert_ok, error::BadOrigin, sp_runtime::DispatchError, traits::fungible::Inspect,
-};
+use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
 
 fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (signer, manager_account) = generate_pair_account();
@@ -246,7 +244,7 @@ fn test_update_processor_pairings_failure_3() {
 fn test_recover_funds_succeed_1() {
 	ExtBuilder::default().build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
-		assert_ok!(Balances::transfer(
+		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			processor_account.clone().into(),
 			10_000_000
@@ -682,7 +680,7 @@ fn set_processor_update_info_failure_3() {
 
         assert_err!(
             AcurastProcessorManager::set_processor_update_info(RuntimeOrigin::signed(alice_account_id()), update_info.clone(), vec![processor_account].try_into().unwrap()),
-            DispatchError::Other("Manager ID not found"),
+			Error::<Test>::ProcessorPairedWithAnotherManager,
         );
     });
 }

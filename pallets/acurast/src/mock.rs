@@ -1,20 +1,21 @@
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, Everything},
-	PalletId,
-};
-use hex_literal::hex;
-use sp_io;
-use sp_runtime::{
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256},
-	AccountId32, BuildStorage,
-};
-
-use acurast_common::{AllowedSources, JobModules, Schedule, CU32};
-
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::BenchmarkHelper;
 use crate::{AttestationChain, JobRegistration, RevocationListUpdateBarrier, Script, SerialNumber};
+use acurast_common::{AllowedSources, JobModules, Schedule, CU32};
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible;
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU16, ConstU32, ConstU64},
+	PalletId,
+};
+use hex_literal::hex;
+use sp_core::H256;
+use sp_io;
+use sp_runtime::{
+	traits::{AccountIdConversion, IdentityLookup},
+	AccountId32, BuildStorage,
+};
 
 pub const SEED: u32 = 1337;
 
@@ -98,30 +99,22 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 }
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u32;
-	type Block = Block;
-	type Hash = sp_core::H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type BlockHashCount = BlockHashCount;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type SS58Prefix = ();
+	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -144,6 +137,7 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type FreezeIdentifier = ();
 	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
 	type MaxHolds = ConstU32<2>;
@@ -158,7 +152,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = ();
 	type MaxAllowedSources = MaxAllowedSources;
-	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
+	type MaxCertificateRevocationListUpdates = ConstU32<10>;
 	type MaxSlots = CU32<64>;
 	type PalletId = AcurastPalletId;
 	type MaxEnvVars = CU32<10>;

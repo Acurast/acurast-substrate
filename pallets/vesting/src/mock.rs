@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	sp_runtime::{
-		traits::{AccountIdLookup, BlakeTwo256},
+		traits::{ConstU16, ConstU32, ConstU64, IdentityLookup},
 		BuildStorage,
 	},
-	traits::Everything,
 };
 use sp_arithmetic::Perbill;
+use sp_core::H256;
 use sp_runtime::DispatchError;
 use sp_std::prelude::*;
 
@@ -42,30 +42,22 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u32;
-	type Block = Block;
-	type Hash = sp_core::H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type BlockHashCount = BlockHashCount;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type SS58Prefix = ();
+	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {

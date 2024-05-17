@@ -17,7 +17,7 @@
 
 //! Merkle Mountain Range utilities.
 
-use codec::Encode;
+use parity_scale_codec::Encode;
 use sp_runtime::traits::Header;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::Vec;

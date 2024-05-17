@@ -18,8 +18,8 @@
 
 //! Schema for MMR-gadget state persisted in the aux-db.
 
-use codec::{Decode, Encode};
 use log::{info, trace};
+use parity_scale_codec::{Decode, Encode};
 use sc_client_api::backend::AuxStore;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_runtime::traits::{Block, NumberFor};

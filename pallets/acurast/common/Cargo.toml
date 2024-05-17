@@ -10,11 +10,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.2.0", features = ["derive"], default-features = false }
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+frame-support = { workspace = true }
+sp-std = { workspace = true }
 # Attestation
 asn1 = { version = "0.15.5", default-features = false, optional = true }
 p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, features = ["ecdsa", "sha256"], optional = true }
@@ -27,14 +27,14 @@ chrono = { version = "^0.4", default-features = false, optional = true }
 
 [dev-dependencies]
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
-hex-literal = "0.3"
+hex-literal = "0.4"
 
 [features]
 default = ["std"]
 std = [
     "frame-support/std",
     "sp-std/std",
-    "codec/std",
+    "parity-scale-codec/std",
     "scale-info/std",
     "asn1?/std",
     "p256?/std",

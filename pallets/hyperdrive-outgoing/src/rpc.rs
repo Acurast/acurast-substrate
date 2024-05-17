@@ -19,12 +19,12 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use codec::Codec;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::error::{CallError, ErrorObject},
 };
 use pallet_acurast_hyperdrive::instances::HyperdriveInstanceName;
+use parity_scale_codec::Codec;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, HashingFor, MaybeSerializeDeserialize};

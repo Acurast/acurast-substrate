@@ -356,7 +356,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let last_block = Self::snapshot_meta(Self::next_snapshot_number().saturating_sub(1))
 				.map(|(_root_hash, last_block, _last_message_excl)| last_block)
 				.unwrap_or(first_block_number);
-			current_block.saturating_sub(last_block) >= T::MaximumBlocksBeforeSnapshot::get().into()
+			current_block.saturating_sub(last_block) >= T::MaximumBlocksBeforeSnapshot::get()
 		} else {
 			false
 		}
@@ -520,7 +520,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
-	pub trait HyperdriveApi<MmrHash: codec::Codec> {
+	pub trait HyperdriveApi<MmrHash: parity_scale_codec::Codec> {
 		/// Return the number of MMR leaves/messages on-chain.
 		fn number_of_leaves(instance: HyperdriveInstance) -> LeafIndex;
 

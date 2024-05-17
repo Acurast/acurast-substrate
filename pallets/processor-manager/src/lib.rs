@@ -22,7 +22,6 @@ mod benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
 use frame_support::BoundedVec;
-pub use functions::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
@@ -44,11 +43,9 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use acurast_common::ListUpdateOperation;
-	use codec::MaxEncodedLen;
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
-		pallet_prelude::{Member, *},
-		sp_runtime,
+		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{Get, UnixTime},
 		Blake2_128, Parameter,
@@ -57,6 +54,7 @@ pub mod pallet {
 		ensure_root, ensure_signed,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
+	use parity_scale_codec::MaxEncodedLen;
 	use sp_std::prelude::*;
 
 	use crate::{
@@ -162,10 +160,10 @@ pub mod pallet {
 	///
 	/// This is a single version number allowing to switch quickly between supported parachain API versions, within one processor build (without a forced OTA update):
 	/// - The `api_version` should be read out regularly by processors to select the implementation compatible with the current runtime API (and storage structure).
-	///   Thus the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by a Acurast Parachain runtime upgrade.
+	///   Thus, the processor must receive a OTA update adding support for future `api_version`(s) yet to be deployed by an Acurast Parachain runtime upgrade.
 	/// - The version number must be increased on backwards incompatible changes on a runtime upgrade, **by means of a migration** to make it synchronous with the runtime upgrade.
 	///   **All processors that have not installed a build to support this version will break.**
-	/// - There is an permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
+	/// - There is a permissioned extrinsic to reduce the `api_version` to react to processors breaking upon a runtime upgrade.
 	///   This is only a valid rollback strategy if the storage format did not change backwards incompatibly.
 	#[pallet::storage]
 	#[pallet::getter(fn api_version)]
@@ -225,23 +223,6 @@ pub mod pallet {
 		UnknownProcessorVersion,
 	}
 
-	impl<T: Config> Pallet<T> {
-		fn ensure_managed(
-			manager: &T::AccountId,
-			processor: &T::AccountId,
-		) -> Result<T::ManagerId, DispatchError> {
-			let manager_id = T::ManagerIdProvider::manager_id_for(manager)?;
-			let processor_manager_id = Self::manager_id_for_processor(processor)
-				.ok_or(Error::<T>::ProcessorHasNoManager)?;
-
-			if manager_id != processor_manager_id {
-				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
-			}
-
-			Ok(manager_id)
-		}
-	}
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -286,7 +267,7 @@ pub mod pallet {
 						<ManagerCounter<T>>::insert(&who, counter);
 					},
 					ListUpdateOperation::Remove =>
-						Self::do_remove_processor_manager_pairing(&update.item.account, manager_id)?,
+						Self::do_remove_processor_manager_pairing(&update.item.account, &who)?,
 				}
 			}
 
@@ -471,7 +452,7 @@ pub mod pallet {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with Acurast marketplace pallet.
-	pub trait ProcessorManagerRuntimeApi<AccountId: codec::Codec, ManagerId: codec::Codec> {
+	pub trait ProcessorManagerRuntimeApi<AccountId: parity_scale_codec::Codec, ManagerId: parity_scale_codec::Codec> {
 		 fn processor_update_infos(
 			source: AccountId,
 		) -> Result<UpdateInfos, RuntimeApiError>;

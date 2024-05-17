@@ -1,9 +1,8 @@
 use core::fmt::Debug;
 
-#[cfg(not(feature = "std"))]
-use codec::alloc::string::String;
 use frame_support::pallet_prelude::*;
-pub use mmr_lib;
+#[cfg(not(feature = "std"))]
+use parity_scale_codec::alloc::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::RuntimeDebug;
@@ -140,8 +139,8 @@ pub trait TargetChainConfig {
 		+ Ord
 		+ Copy
 		+ Default
-		+ codec::Codec
-		+ codec::EncodeLike
+		+ parity_scale_codec::Codec
+		+ parity_scale_codec::EncodeLike
 		+ scale_info::TypeInfo
 		+ MaxEncodedLen;
 
@@ -180,7 +179,15 @@ pub trait LeafEncoder {
 }
 
 /// An MMR proof for a group of leaves.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(
+	parity_scale_codec::Encode,
+	parity_scale_codec::Decode,
+	RuntimeDebug,
+	Clone,
+	PartialEq,
+	Eq,
+	TypeInfo,
+)]
 pub struct Proof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
@@ -192,8 +199,8 @@ pub struct Proof<Hash> {
 
 /// A self-contained MMR proof for a group of leaves, containing messages encoded for target chain.
 #[derive(
-	codec::Encode,
-	codec::Decode,
+	parity_scale_codec::Encode,
+	parity_scale_codec::Decode,
 	RuntimeDebug,
 	Clone,
 	PartialEq,
@@ -215,8 +222,8 @@ pub struct TargetChainProof<Hash> {
 
 /// A leaf of a self-contained MMR [`TargetChainProof`].
 #[derive(
-	codec::Encode,
-	codec::Decode,
+	parity_scale_codec::Encode,
+	parity_scale_codec::Decode,
 	RuntimeDebug,
 	Clone,
 	PartialEq,
@@ -237,7 +244,9 @@ pub struct TargetChainProofLeaf {
 
 /// Merkle Mountain Range operation error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(
+	RuntimeDebug, parity_scale_codec::Encode, parity_scale_codec::Decode, PartialEq, Eq, TypeInfo,
+)]
 pub enum MMRError {
 	/// Error while pushing new node.
 	#[cfg_attr(feature = "std", error("Error pushing new node"))]

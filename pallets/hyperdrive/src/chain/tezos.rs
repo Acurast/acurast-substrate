@@ -1,10 +1,10 @@
 use core::marker::PhantomData;
 
-use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use derive_more::Error as DError;
 use derive_more::{Display, From};
 use once_cell::race::OnceBox;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::{bounded::BoundedVec, RuntimeDebug, H256};
 use sp_runtime::traits::Hash;

@@ -35,10 +35,6 @@ pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-outgoing = { workspace = true }
 pallet-acurast-vesting = { workspace = true }
-pallet-parachain-staking = { workspace = true }
-
-# Nimbus Dependencies
-nimbus-primitives = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -94,7 +90,6 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
 [features]
@@ -138,7 +133,6 @@ std = [
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-outgoing/std",
 	"pallet-acurast-vesting/std",
-	"parachain-info/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -187,7 +181,7 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"frame-executive/try-runtime",
-	"nimbus-primitives/try-runtime",
+#	"nimbus-primitives/try-runtime",
 	"frame-try-runtime",
 ]
 

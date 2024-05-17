@@ -1,21 +1,22 @@
+use crate::{stub::*, *};
 use frame_support::{
+	derive_impl,
 	sp_runtime::{
-		traits::{AccountIdLookup, BlakeTwo256, ConstU128, ConstU32},
+		traits::{ConstU128, ConstU32, IdentityLookup},
 		BuildStorage, MultiSignature,
 	},
 	traits::{
 		fungible::{Inspect, Mutate},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		tokens::{Fortitude, Precision, Preservation},
-		AsEnsureOriginWithArg, Everything,
+		AsEnsureOriginWithArg, ConstU16, ConstU64,
 	},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 #[cfg(feature = "runtime-benchmarks")]
 use sp_core::crypto::UncheckedFrom;
+use sp_core::H256;
 use sp_std::prelude::*;
-
-use crate::{stub::*, *};
 
 pub struct ExtBuilder;
 
@@ -55,30 +56,22 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u32;
-	type Block = Block<Test>;
-	type Hash = sp_core::H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type BlockHashCount = BlockHashCount;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block<Test>;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type SS58Prefix = ();
+	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -95,6 +88,7 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = ();
 	type FreezeIdentifier = ();
+	type RuntimeFreezeReason = ();
 	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
 	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;

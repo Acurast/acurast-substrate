@@ -1,6 +1,6 @@
 [package]
 name = "pallet-acurast"
-description = "FRAME pallet template for defining custom runtime logic."
+description = "Main acurast pallet defining jobs and attestation related extrinsics."
 authors = { workspace = true }
 version = { workspace = true }
 repository = { workspace = true }
@@ -12,39 +12,37 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", features = ["derive"], default-features = false }
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
 acurast-common = { path = "./common", default-features = false, features = ["attestation"] }
 
 # Substrate
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 
 # benchmarks
-hex-literal = { version = "0.3", optional = true }
-parachain-info = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, optional = true, tag = "polkadot-v1.1.0" }
-log = "0.4.20"
+hex-literal = { version = "0.4", optional = true }
+parachain-info = { workspace = true, optional = true }
+pallet-balances = { workspace = true, optional = true }
+pallet-timestamp = { workspace = true, optional = true }
+parachains-common = { workspace = true, optional = true }
+log = { workspace = true }
 
 [dev-dependencies]
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
-hex-literal = "0.3"
+hex-literal = "0.4"
 
-sp-version = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-parachain-info = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
-parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-version = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-timestamp = { workspace = true, features = ["std"] }
+parachain-info = { workspace = true, features = ["std"] }
+parachains-common = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
@@ -54,12 +52,11 @@ runtime-benchmarks = [
   "parachain-info",
   "pallet-balances/runtime-benchmarks",
   "pallet-timestamp/runtime-benchmarks",
-  "pallet-assets/runtime-benchmarks",
   "parachains-common",
 ]
 
 std = [
-  "codec/std",
+  "parity-scale-codec/std",
   "frame-benchmarking/std",
   "frame-support/std",
   "frame-system/std",

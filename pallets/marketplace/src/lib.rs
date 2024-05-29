@@ -583,27 +583,24 @@ pub mod pallet {
 				Error::<T>::ReportOutsideSchedule
 			);
 
-			match T::ManagerProvider::manager_of(&who) {
-				Ok(manager) => {
-					T::RewardManager::pay_reward(
-						&job_id,
-						assignment.fee_per_execution.clone(),
-						&manager,
-					)?;
-
-					match execution_result {
-						ExecutionResult::Success(operation_hash) => Self::deposit_event(
-							Event::ExecutionSuccess(job_id.clone(), operation_hash),
-						),
-						ExecutionResult::Failure(message) =>
-							Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message)),
-					}
-
-					Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
-					Ok(().into())
-				},
-				Err(err_result) => Err(err_result.into()),
+			// the manager might have unpaired the processor in which case reward payment is skipped
+			if let Ok(manager) = T::ManagerProvider::manager_of(&who) {
+				T::RewardManager::pay_reward(
+					&job_id,
+					assignment.fee_per_execution.clone(),
+					&manager,
+				)?;
 			}
+
+			match execution_result {
+				ExecutionResult::Success(operation_hash) =>
+					Self::deposit_event(Event::ExecutionSuccess(job_id.clone(), operation_hash)),
+				ExecutionResult::Failure(message) =>
+					Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message)),
+			}
+
+			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
+			Ok(().into())
 		}
 
 		/// Called by processors when the assigned job can be finalized.
@@ -862,14 +859,14 @@ pub mod pallet {
 
 						// Compensate processor for acknowledging the job
 						if assignment.acknowledged {
-							match T::ManagerProvider::manager_of(&processor) {
-								Ok(manager) => T::RewardManager::pay_reward(
+							// the manager might have unpaired the processor in which case reward payment is skipped
+							if let Ok(manager) = T::ManagerProvider::manager_of(&processor) {
+								T::RewardManager::pay_reward(
 									&job_id,
 									assignment.fee_per_execution,
 									&manager,
-								),
-								Err(err_result) => Err(err_result.into()),
-							}?;
+								)?;
+							};
 						}
 						// Remove match
 						<StoredMatches<T>>::remove(&processor, &job_id);
@@ -1636,116 +1633,119 @@ pub mod pallet {
 			start_delay: u64,
 		) -> Result<(), Error<T>> {
 			for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(&source) {
+				// ignore job registrations not found (shouldn't happen if invariant is kept that assignments are cleared whenever a job is removed)
 				// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
-				let other = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
-					.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
+				if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1) {
+					// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
+					if !schedule
+						.overlaps(
+							start_delay,
+							other
+								.schedule
+								.range(assignment.start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?,
+						)
+						.ok_or(Error::<T>::CalculationOverflow)?
+					{
+						// periods don't overlap so no detail (and expensive) checks are necessary
+						continue
+					}
 
-				// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
-				if !schedule
-					.overlaps(
-						start_delay,
-						other
-							.schedule
-							.range(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					)
-					.ok_or(Error::<T>::CalculationOverflow)?
-				{
-					// periods don't overlap so no detail (and expensive) checks are necessary
-					continue
-				}
+					match (execution_specifier, assignment.execution) {
+						(ExecutionSpecifier::All, ExecutionSpecifier::All) => {
+							let it = schedule
+								.iter(start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?
+								.map(|start| {
+									let end = start.checked_add(schedule.duration)?;
+									Some((start, end))
+								});
 
-				match (execution_specifier, assignment.execution) {
-					(ExecutionSpecifier::All, ExecutionSpecifier::All) => {
-						let it = schedule
-							.iter(start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(schedule.duration)?;
-								Some((start, end))
-							});
+							let other_it = other
+								.schedule
+								.iter(assignment.start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?
+								.map(|start| {
+									let end = start.checked_add(other.schedule.duration)?;
+									Some((start, end))
+								});
 
-						let other_it = other
-							.schedule
-							.iter(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(other.schedule.duration)?;
-								Some((start, end))
-							});
+							it.merge(other_it).try_fold(0u64, |prev_end, bounds| {
+								let (start, end) = bounds.ok_or(Error::<T>::CalculationOverflow)?;
 
-						it.merge(other_it).try_fold(0u64, |prev_end, bounds| {
-							let (start, end) = bounds.ok_or(Error::<T>::CalculationOverflow)?;
+								if prev_end > start {
+									Err(Error::<T>::ScheduleOverlapInMatch)
+								} else {
+									Ok(end)
+								}
+							})?;
+						},
+						(
+							ExecutionSpecifier::All,
+							ExecutionSpecifier::Index(other_execution_index),
+						) => {
+							let other_start = other
+								.schedule
+								.nth_start_time(assignment.start_delay, other_execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_end = other_start
+								.checked_add(other.schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-							if prev_end > start {
-								Err(Error::<T>::ScheduleOverlapInMatch)
-							} else {
-								Ok(end)
+							if schedule
+								.overlaps(start_delay, (other_start, other_end))
+								.ok_or(Error::<T>::CalculationOverflow)?
+							{
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
 							}
-						})?;
-					},
-					(ExecutionSpecifier::All, ExecutionSpecifier::Index(other_execution_index)) => {
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
+						},
+						(ExecutionSpecifier::Index(execution_index), ExecutionSpecifier::All) => {
+							let start = schedule
+								.nth_start_time(start_delay, execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let end = start
+								.checked_add(schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if schedule
-							.overlaps(start_delay, (other_start, other_end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
-					(ExecutionSpecifier::Index(execution_index), ExecutionSpecifier::All) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
+							if other
+								.schedule
+								.overlaps(start_delay, (start, end))
+								.ok_or(Error::<T>::CalculationOverflow)?
+							{
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
+							}
+						},
+						(
+							ExecutionSpecifier::Index(execution_index),
+							ExecutionSpecifier::Index(other_execution_index),
+						) => {
+							let start = schedule
+								.nth_start_time(start_delay, execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let end = start
+								.checked_add(schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_start = other
+								.schedule
+								.nth_start_time(assignment.start_delay, other_execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_end = other_start
+								.checked_add(other.schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if other
-							.schedule
-							.overlaps(start_delay, (start, end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
-					(
-						ExecutionSpecifier::Index(execution_index),
-						ExecutionSpecifier::Index(other_execution_index),
-					) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-
-						// For a collision we need
-						//       ╭overlapping before end
-						// ___■■■■______
-						// ____ ■■■■____ (other)
-						// AND not
-						//     ╭ending before start
-						// _____■■■■______
-						// _■■■■__________ (other)
-						if other_start < end && other_end > start {
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
+							// For a collision we need
+							//       ╭overlapping before end
+							// ___■■■■______
+							// ____ ■■■■____ (other)
+							// AND not
+							//     ╭ending before start
+							// _____■■■■______
+							// _■■■■__________ (other)
+							if other_start < end && other_end > start {
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
+							}
+						},
+					}
 				}
 			}
 

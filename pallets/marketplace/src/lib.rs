@@ -114,7 +114,7 @@ pub mod pallet {
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -807,13 +807,6 @@ pub mod pallet {
 			match job_status {
 				JobStatus::Open => {
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
-
-					<StoredJobStatus<T>>::remove(&job_id.0, &job_id.1);
-					let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-						&job_id,
-						registration.schedule.execution_count() as u32,
-						None,
-					);
 				},
 				JobStatus::Matched => {
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
@@ -824,18 +817,6 @@ pub mod pallet {
 
 						<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
 					}
-
-					let _ = <AssignedProcessors<T>>::clear_prefix(
-						&job_id,
-						<T as pallet_acurast::Config>::MaxSlots::get(),
-						None,
-					);
-					<StoredJobStatus<T>>::remove(&job_id.0, &job_id.1);
-					let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-						&job_id,
-						registration.schedule.execution_count() as u32,
-						None,
-					);
 				},
 				JobStatus::Assigned(_) => {
 					// Get the job requirements
@@ -879,19 +860,11 @@ pub mod pallet {
 					// The job creator will only receive the amount that could not be divided between the acknowledged processors
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
-					let _ = <AssignedProcessors<T>>::clear_prefix(
-						&job_id,
-						<T as pallet_acurast::Config>::MaxSlots::get(),
-						None,
-					);
-					<StoredJobStatus<T>>::remove(&job_id.0, &job_id.1);
-					let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-						&job_id,
-						registration.schedule.execution_count() as u32,
-						None,
-					);
+					Self::clear_job_storage(&job_id);
 				},
 			}
+
+			Self::clear_job_storage(&job_id);
 
 			Ok(().into())
 		}
@@ -1892,33 +1865,55 @@ pub mod pallet {
 					},
 				}
 
+				T::MarketplaceHooks::finalize_job(&job_id, T::RewardManager::refund(&job_id)?)?;
+
 				// removed completed job from remaining storage points
 				for (p, _) in <AssignedProcessors<T>>::iter_prefix(&job_id) {
 					<StoredMatches<T>>::remove(&p, &job_id);
 
 					<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
 				}
-				let _ = <AssignedProcessors<T>>::clear_prefix(
-					&job_id,
-					<T as pallet_acurast::Config>::MaxSlots::get(),
-					None,
-				);
 
-				T::MarketplaceHooks::finalize_job(&job_id, T::RewardManager::refund(&job_id)?)?;
-
-				pallet_acurast::Pallet::<T>::clear_environment_for(&job_id);
-				<StoredJobStatus<T>>::remove(&job_id.0, &job_id.1);
-				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-					&job_id,
-					registration.schedule.execution_count() as u32,
-					None,
-				);
-				<StoredJobRegistration<T>>::remove(&job_id.0, &job_id.1);
+				Self::clear_job_storage(&job_id);
 
 				Self::deposit_event(Event::JobFinalized(job_id.clone()));
 			}
 
 			Ok(().into())
+		}
+
+		/// Clears all job-indexed storage points, excluding [`StoredMatches`].
+		fn clear_job_storage(job_id: &JobId<T::AccountId>) {
+			{
+				let mut cursor: Option<Vec<u8>> = None;
+				loop {
+					cursor = <AssignedProcessors<T>>::clear_prefix(
+						job_id,
+						<T as pallet_acurast::Config>::MaxSlots::get(),
+						cursor.as_deref(),
+					)
+					.maybe_cursor;
+					if cursor.is_none() {
+						break
+					}
+				}
+			}
+
+			{
+				let mut cursor: Option<Vec<u8>> = None;
+				loop {
+					cursor =
+						<StoredJobExecutionStatus<T>>::clear_prefix(job_id, 100, cursor.as_deref())
+							.maybe_cursor;
+					if cursor.is_none() {
+						break
+					}
+				}
+			}
+
+			pallet_acurast::Pallet::<T>::clear_environment_for(&job_id);
+			<StoredJobStatus<T>>::remove(&job_id.0, &job_id.1);
+			<StoredJobRegistration<T>>::remove(&job_id.0, &job_id.1);
 		}
 
 		/// Returns the stored matches for a source.

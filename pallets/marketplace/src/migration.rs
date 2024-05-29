@@ -4,7 +4,7 @@ use frame_support::{
 	traits::{GetStorageVersion, StorageVersion},
 	weights::Weight,
 };
-use pallet_acurast::{JobModules, JobRegistration, StoredJobRegistration};
+use pallet_acurast::StoredJobRegistration;
 use sp_core::Get;
 
 use super::*;
@@ -93,7 +93,7 @@ pub mod v4 {
 }
 
 pub fn migrate<T: Config>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 0] = [];
+	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(5, &migrate_to_v5::<T>)];
 
 	let onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -105,4 +105,19 @@ pub fn migrate<T: Config>() -> Weight {
 
 	STORAGE_VERSION.put::<Pallet<T>>();
 	weight + T::DbWeight::get().writes(1)
+}
+
+fn migrate_to_v5<T: Config>() -> Weight {
+	let mut count: u64 = 0;
+
+	count += AssignedProcessors::<T>::iter_values().count() as u64;
+	AssignedProcessors::<T>::translate::<(), _>(|job_id, _, _| {
+		match <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1) {
+			// Remove since this is a dead assignment
+			None => None,
+			Some(_) => Some(()),
+		}
+	});
+
+	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

@@ -33,8 +33,7 @@ pub mod v1 {
 }
 
 pub fn migrate<T: Config>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 3] =
-		[(2, &migrate_to_v2::<T>), (3, &migrate_to_v3::<T>), (4, &migrate_to_v4::<T>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(5, &migrate_to_v5::<T>)];
 
 	let on_chain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -48,44 +47,17 @@ pub fn migrate<T: Config>() -> Weight {
 	weight + T::DbWeight::get().writes(1)
 }
 
-fn migrate_to_v2<T: Config>() -> Weight {
-	StoredJobRegistration::<T>::translate::<
-		v1::JobRegistration<T::AccountId, T::MaxAllowedSources, T::RegistrationExtra>,
-		_,
-	>(|_k1, _k2, job| {
-		Some(JobRegistration {
-			script: job.script,
-			allowed_sources: job.allowed_sources,
-			allow_only_verified_sources: job.allow_only_verified_sources,
-			schedule: job.schedule,
-			memory: job.memory,
-			network_requests: job.network_requests,
-			storage: job.storage,
-			required_modules: JobModules::default(),
-			extra: job.extra,
-		})
-	});
-	let count = StoredJobRegistration::<T>::iter().count() as u64;
-	T::DbWeight::get().reads_writes(count + 1, count + 1)
-}
+fn migrate_to_v5<T: Config>() -> Weight {
+	let mut count: u64 = 0;
 
-fn migrate_to_v3<T: Config>() -> Weight {
-	let mut count = 0u32;
-	// we know they are reasonably few items, and we can clear them within a single migration
-	count += StoredJobRegistration::<T>::clear(10_000, None).loops;
-
-	T::DbWeight::get().writes((count + 1).into())
-}
-
-fn migrate_to_v4<T: Config>() -> Weight {
-	StoredAttestation::<T>::translate(|account: T::AccountId, attestation: Attestation| {
-		if T::KeyAttestationBarrier::accept_attestation_for_origin(&account, &attestation) {
-			Some(attestation)
-		} else {
-			None
+	count += ExecutionEnvironment::<T>::iter_values().count() as u64;
+	ExecutionEnvironment::<T>::translate::<EnvironmentFor<T>, _>(|job_id, _, env| {
+		match <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1) {
+			// Remove since this is a dead assignment
+			None => None,
+			Some(_) => Some(env),
 		}
 	});
 
-	let count = StoredAttestation::<T>::iter().count() as u64;
 	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

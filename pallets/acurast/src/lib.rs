@@ -205,7 +205,7 @@ pub mod pallet {
 		}
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -576,7 +576,18 @@ pub mod pallet {
 		}
 
 		pub fn clear_environment_for(job_id: &JobId<T::AccountId>) {
-			let _ = <ExecutionEnvironment<T>>::clear_prefix(job_id, T::MaxSlots::get(), None);
+			let mut cursor: Option<Vec<u8>> = None;
+			loop {
+				cursor = <ExecutionEnvironment<T>>::clear_prefix(
+					job_id,
+					T::MaxSlots::get(),
+					cursor.as_deref(),
+				)
+				.maybe_cursor;
+				if cursor.is_none() {
+					break
+				}
+			}
 		}
 	}
 }

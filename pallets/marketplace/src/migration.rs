@@ -93,12 +93,7 @@ pub mod v4 {
 }
 
 pub fn migrate<T: Config>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 4] = [
-		(2, &migrate_to_v2::<T>),
-		(3, &migrate_to_v3::<T>),
-		(4, &migrate_to_v4::<T>),
-		(5, &migrate_to_v5::<T>),
-	];
+	let migrations: [(u16, &dyn Fn() -> Weight); 0] = [];
 
 	let onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -110,90 +105,4 @@ pub fn migrate<T: Config>() -> Weight {
 
 	STORAGE_VERSION.put::<Pallet<T>>();
 	weight + T::DbWeight::get().writes(1)
-}
-
-fn migrate_to_v2<T: Config>() -> Weight {
-	StoredAdvertisementRestriction::<T>::translate_values::<
-		v1::AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
-		_,
-	>(|ad| {
-		Some(AdvertisementRestriction {
-			max_memory: ad.max_memory,
-			network_request_quota: ad.network_request_quota,
-			storage_capacity: ad.storage_capacity,
-			allowed_consumers: ad.allowed_consumers,
-			available_modules: JobModules::default(),
-		})
-	});
-	let count = StoredAdvertisementRestriction::<T>::iter_values().count() as u64;
-	T::DbWeight::get().reads_writes(count + 1, count + 1)
-}
-
-fn migrate_to_v3<T: Config>() -> Weight {
-	let mut count = 0u32;
-	// we know they are reasonably few items and we can clear them within a single migration
-	count += StoredJobStatus::<T>::clear(10_000, None).loops;
-	count += StoredAdvertisementRestriction::<T>::clear(10_000, None).loops;
-	count += StoredAdvertisementPricing::<T>::clear(10_000, None).loops;
-	count += StoredStorageCapacity::<T>::clear(10_000, None).loops;
-	count += StoredReputation::<T>::clear(10_000, None).loops;
-	count += StoredMatches::<T>::clear(10_000, None).loops;
-
-	T::DbWeight::get().writes((count + 1).into())
-}
-
-fn migrate_to_v4<T: Config>() -> Weight {
-	// clear again all storages since we want to clear at the same time as pallet acurast for consistent state
-	migrate_to_v3::<T>()
-}
-
-fn migrate_to_v5<T: Config>() -> Weight {
-	let mut count: u64 = 0;
-
-	StoredMatches::<T>::translate_values::<v4::Assignment<<T as Config>::Balance>, _>(|m| {
-		Some(Assignment {
-			slot: m.slot,
-			start_delay: m.start_delay,
-			fee_per_execution: m.fee_per_execution,
-			acknowledged: m.acknowledged,
-			sla: m.sla,
-			pub_keys: m.pub_keys,
-			execution: ExecutionSpecifier::All,
-		})
-	});
-	count += StoredMatches::<T>::iter_values().count() as u64;
-
-	StoredJobRegistration::<T>::translate_values::<
-		JobRegistration<
-			<T as frame_system::Config>::AccountId,
-			<T as pallet_acurast::Config>::MaxAllowedSources,
-			v4::JobRequirements<
-				<T as Config>::Balance,
-				<T as frame_system::Config>::AccountId,
-				<T as pallet_acurast::Config>::MaxSlots,
-			>,
-		>,
-		_,
-	>(|m| {
-		let req: JobRequirements<
-			<T as Config>::Balance,
-			<T as frame_system::Config>::AccountId,
-			<T as pallet_acurast::Config>::MaxSlots,
-		> = m.extra.into();
-		let extra: <T as Config>::RegistrationExtra = req.into();
-		Some(JobRegistration {
-			script: m.script,
-			allowed_sources: m.allowed_sources,
-			allow_only_verified_sources: m.allow_only_verified_sources,
-			schedule: m.schedule,
-			memory: m.memory,
-			network_requests: m.network_requests,
-			storage: m.storage,
-			required_modules: m.required_modules,
-			extra: extra.into(),
-		})
-	});
-	count += StoredJobRegistration::<T>::iter_values().count() as u64;
-
-	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

@@ -62,8 +62,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_acurast::Config {
 		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as pallet_acurast::Config>::RuntimeEvent>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		+ IsType<<Self as pallet_acurast::Config>::RuntimeEvent>
+		+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The max length of the allowed sources list for a registration.
 		#[pallet::constant]
 		type MaxAllowedConsumers: Get<u32> + ParameterBound;
@@ -86,8 +86,8 @@ pub mod pallet {
 		type MaxFinalizeJobs: Get<u32>;
 		/// Extra structure to include in the registration of a job.
 		type RegistrationExtra: IsType<<Self as pallet_acurast::Config>::RegistrationExtra>
-			+ From<JobRequirementsFor<Self>>
-			+ Into<JobRequirementsFor<Self>>;
+		+ From<JobRequirementsFor<Self>>
+		+ Into<JobRequirementsFor<Self>>;
 		/// The ID for this pallet
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -161,7 +161,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn stored_advertisement_pricing)]
 	pub type StoredAdvertisementPricing<T: Config> =
-		StorageMap<_, Blake2_128, T::AccountId, PricingFor<T>>;
+	StorageMap<_, Blake2_128, T::AccountId, PricingFor<T>>;
 
 	/// The storage for remaining capacity for each source. Can be negative if capacity is reduced beyond the number of jobs currently assigned.
 	#[pallet::storage]
@@ -172,7 +172,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn stored_reputation)]
 	pub type StoredReputation<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BetaParameters<FixedU128>>;
+	StorageMap<_, Blake2_128Concat, T::AccountId, BetaParameters<FixedU128>>;
 
 	/// Number of total jobs assigned.
 	#[pallet::storage]
@@ -214,7 +214,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn job_budgets)]
 	pub type JobBudgets<T: Config> =
-		StorageMap<_, Blake2_128, JobId<T::AccountId>, T::Balance, ValueQuery>;
+	StorageMap<_, Blake2_128, JobId<T::AccountId>, T::Balance, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -542,9 +542,9 @@ pub mod pallet {
 						);
 
 						assignment.sla.met += 1;
-						return Ok(assignment.to_owned())
+						return Ok(assignment.to_owned());
 					} else {
-						return Err(Error::<T>::ReportFromUnassignedSource)
+						return Err(Error::<T>::ReportFromUnassignedSource);
 					}
 				},
 			)?;
@@ -583,27 +583,25 @@ pub mod pallet {
 				Error::<T>::ReportOutsideSchedule
 			);
 
-			match T::ManagerProvider::manager_of(&who) {
-				Ok(manager) => {
-					T::RewardManager::pay_reward(
-						&job_id,
-						assignment.fee_per_execution.clone(),
-						&manager,
-					)?;
-
-					match execution_result {
-						ExecutionResult::Success(operation_hash) => Self::deposit_event(
-							Event::ExecutionSuccess(job_id.clone(), operation_hash),
-						),
-						ExecutionResult::Failure(message) =>
-							Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message)),
-					}
-
-					Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
-					Ok(().into())
-				},
-				Err(err_result) => Err(err_result.into()),
+			// the manager might have unpaired the processor in which case reward payment is skipped
+			if let Ok(manager) = T::ManagerProvider::manager_of(&who) {
+				T::RewardManager::pay_reward(
+					&job_id,
+					assignment.fee_per_execution.clone(),
+					&manager,
+				)?;
 			}
+
+			match execution_result {
+				ExecutionResult::Success(operation_hash) => Self::deposit_event(
+					Event::ExecutionSuccess(job_id.clone(), operation_hash),
+				),
+				ExecutionResult::Failure(message) =>
+					Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message)),
+			}
+
+			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
+			Ok(().into())
 		}
 
 		/// Called by processors when the assigned job can be finalized.
@@ -657,7 +655,7 @@ pub mod pallet {
 						assignment.fee_per_execution,
 						average_reward.into(),
 					)
-					.ok_or(Error::<T>::CalculationOverflow)?;
+						.ok_or(Error::<T>::CalculationOverflow)?;
 
 					let new_average_reward = new_total_rewards
 						.checked_div(total_assigned)
@@ -774,7 +772,7 @@ pub mod pallet {
 							sources,
 						}))?;
 					}
-				},
+				}
 				AssignmentStrategy::Competing => {
 					// ensure the interval is big enough for matchings and acknowledgments to happen
 
@@ -784,7 +782,7 @@ pub mod pallet {
 								T::MatchingCompetingMinInterval::get(),
 						Error::<T>::JobRegistrationIntervalBelowMinimum
 					);
-				},
+				}
 			}
 
 			// - lock only after all other steps succeeded without errors because locking reward is not revertable
@@ -807,7 +805,7 @@ pub mod pallet {
 			match job_status {
 				JobStatus::Open => {
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
-				},
+				}
 				JobStatus::Matched => {
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
@@ -817,7 +815,7 @@ pub mod pallet {
 
 						<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
 					}
-				},
+				}
 				JobStatus::Assigned(_) => {
 					// Get the job requirements
 					let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
@@ -836,21 +834,21 @@ pub mod pallet {
 								.next_execution_index(assignment.start_delay, now);
 							if let Some(next_index) = next_execution_index {
 								if index != next_index {
-									continue
+									continue;
 								}
 							}
 						}
 
 						// Compensate processor for acknowledging the job
 						if assignment.acknowledged {
-							match T::ManagerProvider::manager_of(&processor) {
-								Ok(manager) => T::RewardManager::pay_reward(
+							// the manager might have unpaired the processor in which case reward payment is skipped
+							if let Ok(manager) = T::ManagerProvider::manager_of(&processor) {
+								T::RewardManager::pay_reward(
 									&job_id,
 									assignment.fee_per_execution,
 									&manager,
-								),
-								Err(err_result) => Err(err_result.into()),
-							}?;
+								)?;
+							};
 						}
 						// Remove match
 						<StoredMatches<T>>::remove(&processor, &job_id);
@@ -861,7 +859,7 @@ pub mod pallet {
 					T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
 					Self::clear_job_storage(&job_id);
-				},
+				}
 			}
 
 			Self::clear_job_storage(&job_id);
@@ -902,7 +900,7 @@ pub mod pallet {
 		fn unreserve(job_id: &JobId<T::AccountId>, reward: T::Balance) -> Result<(), ()> {
 			<JobBudgets<T>>::mutate(job_id, |amount| {
 				if reward > *amount {
-					return Err(())
+					return Err(());
 				}
 				*amount = amount.checked_sub(&reward).ok_or(())?;
 				Ok(())
@@ -976,7 +974,7 @@ pub mod pallet {
 		///
 		/// Every other invalidity in a provided [`Match`] fails the entire call.
 		fn process_matching<'a>(
-			matching: impl IntoIterator<Item = &'a MatchFor<T>>,
+			matching: impl IntoIterator<Item=&'a MatchFor<T>>,
 		) -> Result<Vec<(JobId<T::AccountId>, T::Balance)>, DispatchError> {
 			let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
 
@@ -986,7 +984,7 @@ pub mod pallet {
 
 				if job_status != JobStatus::Open {
 					// skip but don't fail this match (another matcher was quicker)
-					continue
+					continue;
 				}
 
 				let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, &m.job_id.1)
@@ -1138,7 +1136,7 @@ pub mod pallet {
 										pub_keys: PubKeys::default(),
 									});
 									Ok(())
-								},
+								}
 							}?;
 							Ok(())
 						},
@@ -1164,11 +1162,11 @@ pub mod pallet {
 				<StoredJobStatus<T>>::insert(&m.job_id.0, &m.job_id.1, JobStatus::Matched);
 				Self::deposit_event(Event::JobRegistrationMatched(m.clone()));
 			}
-			return Ok(remaining_rewards)
+			return Ok(remaining_rewards);
 		}
 
 		fn process_execution_matching<'a>(
-			matching: impl IntoIterator<Item = &'a ExecutionMatchFor<T>>,
+			matching: impl IntoIterator<Item=&'a ExecutionMatchFor<T>>,
 		) -> Result<Vec<(JobId<T::AccountId>, T::Balance)>, DispatchError> {
 			let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
 
@@ -1178,7 +1176,7 @@ pub mod pallet {
 					JobStatus::Open
 				{
 					// skip but don't fail this match (another matcher was quicker)
-					continue
+					continue;
 				}
 
 				let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, &m.job_id.1)
@@ -1335,7 +1333,7 @@ pub mod pallet {
 									if let ExecutionSpecifier::Index(e) = prev_assignment.execution
 									{
 										if e == m.execution_index {
-											return Err(Error::<T>::DuplicateSourceInMatch)
+											return Err(Error::<T>::DuplicateSourceInMatch);
 										}
 									}
 									*s = Some(Assignment {
@@ -1352,7 +1350,7 @@ pub mod pallet {
 										pub_keys: PubKeys::default(),
 									});
 									Ok::<(), Error<T>>(())
-								},
+								}
 								// NOTE: the None case is the "good case", used when there is *no entry yet and thus no duplicate assignment so far*.
 								None => {
 									*s = Some(Assignment {
@@ -1366,7 +1364,7 @@ pub mod pallet {
 										pub_keys: PubKeys::default(),
 									});
 									Ok(())
-								},
+								}
 							}?;
 							Ok(())
 						},
@@ -1401,7 +1399,7 @@ pub mod pallet {
 
 				Self::deposit_event(Event::JobExecutionMatched(m.clone()));
 			}
-			return Ok(remaining_rewards)
+			return Ok(remaining_rewards);
 		}
 
 		fn check_scheduling_window(
@@ -1419,7 +1417,7 @@ pub mod pallet {
 							.ok_or(Error::<T>::CalculationOverflow)?,
 						Error::<T>::SchedulingWindowExceededInMatch
 					);
-				},
+				}
 				SchedulingWindow::Delta(delta) => {
 					ensure!(
 						now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)? >=
@@ -1429,7 +1427,7 @@ pub mod pallet {
 								.ok_or(Error::<T>::CalculationOverflow)?,
 						Error::<T>::SchedulingWindowExceededInMatch
 					);
-				},
+				}
 			}
 
 			Ok(())
@@ -1499,11 +1497,11 @@ pub mod pallet {
 						},
 					Err(e) => {
 						if !e.is_matching_error() {
-							return Err(RuntimeApiError::FilterMatchingSources)
+							return Err(RuntimeApiError::FilterMatchingSources);
 						}
 
 						false
-					},
+					}
 				};
 
 				if valid_match {
@@ -1609,116 +1607,119 @@ pub mod pallet {
 			start_delay: u64,
 		) -> Result<(), Error<T>> {
 			for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(&source) {
+				// ignore job registrations not found (shouldn't happen if invariant is kept that assignments are cleared whenever a job is removed)
 				// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
-				let other = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
-					.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
+				if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1) {
+					// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
+					if !schedule
+						.overlaps(
+							start_delay,
+							other
+								.schedule
+								.range(assignment.start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?,
+						)
+						.ok_or(Error::<T>::CalculationOverflow)?
+					{
+						// periods don't overlap so no detail (and expensive) checks are necessary
+						continue;
+					}
 
-				// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
-				if !schedule
-					.overlaps(
-						start_delay,
-						other
-							.schedule
-							.range(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					)
-					.ok_or(Error::<T>::CalculationOverflow)?
-				{
-					// periods don't overlap so no detail (and expensive) checks are necessary
-					continue
-				}
+					match (execution_specifier, assignment.execution) {
+						(ExecutionSpecifier::All, ExecutionSpecifier::All) => {
+							let it = schedule
+								.iter(start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?
+								.map(|start| {
+									let end = start.checked_add(schedule.duration)?;
+									Some((start, end))
+								});
 
-				match (execution_specifier, assignment.execution) {
-					(ExecutionSpecifier::All, ExecutionSpecifier::All) => {
-						let it = schedule
-							.iter(start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(schedule.duration)?;
-								Some((start, end))
-							});
+							let other_it = other
+								.schedule
+								.iter(assignment.start_delay)
+								.ok_or(Error::<T>::CalculationOverflow)?
+								.map(|start| {
+									let end = start.checked_add(other.schedule.duration)?;
+									Some((start, end))
+								});
 
-						let other_it = other
-							.schedule
-							.iter(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(other.schedule.duration)?;
-								Some((start, end))
-							});
+							it.merge(other_it).try_fold(0u64, |prev_end, bounds| {
+								let (start, end) = bounds.ok_or(Error::<T>::CalculationOverflow)?;
 
-						it.merge(other_it).try_fold(0u64, |prev_end, bounds| {
-							let (start, end) = bounds.ok_or(Error::<T>::CalculationOverflow)?;
+								if prev_end > start {
+									Err(Error::<T>::ScheduleOverlapInMatch)
+								} else {
+									Ok(end)
+								}
+							})?;
+						}
+						(
+							ExecutionSpecifier::All,
+							ExecutionSpecifier::Index(other_execution_index),
+						) => {
+							let other_start = other
+								.schedule
+								.nth_start_time(assignment.start_delay, other_execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_end = other_start
+								.checked_add(other.schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-							if prev_end > start {
-								Err(Error::<T>::ScheduleOverlapInMatch)
-							} else {
-								Ok(end)
+							if schedule
+								.overlaps(start_delay, (other_start, other_end))
+								.ok_or(Error::<T>::CalculationOverflow)?
+							{
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
 							}
-						})?;
-					},
-					(ExecutionSpecifier::All, ExecutionSpecifier::Index(other_execution_index)) => {
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-
-						if schedule
-							.overlaps(start_delay, (other_start, other_end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
 						}
-					},
-					(ExecutionSpecifier::Index(execution_index), ExecutionSpecifier::All) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
+						(ExecutionSpecifier::Index(execution_index), ExecutionSpecifier::All) => {
+							let start = schedule
+								.nth_start_time(start_delay, execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let end = start
+								.checked_add(schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if other
-							.schedule
-							.overlaps(start_delay, (start, end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
+							if other
+								.schedule
+								.overlaps(start_delay, (start, end))
+								.ok_or(Error::<T>::CalculationOverflow)?
+							{
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
+							}
 						}
-					},
-					(
-						ExecutionSpecifier::Index(execution_index),
-						ExecutionSpecifier::Index(other_execution_index),
-					) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
+						(
+							ExecutionSpecifier::Index(execution_index),
+							ExecutionSpecifier::Index(other_execution_index),
+						) => {
+							let start = schedule
+								.nth_start_time(start_delay, execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let end = start
+								.checked_add(schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_start = other
+								.schedule
+								.nth_start_time(assignment.start_delay, other_execution_index)
+								.ok_or(Error::<T>::CalculationOverflow)?;
+							let other_end = other_start
+								.checked_add(other.schedule.duration)
+								.ok_or(Error::<T>::CalculationOverflow)?;
 
-						// For a collision we need
-						//       ╭overlapping before end
-						// ___■■■■______
-						// ____ ■■■■____ (other)
-						// AND not
-						//     ╭ending before start
-						// _____■■■■______
-						// _■■■■__________ (other)
-						if other_start < end && other_end > start {
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
+							// For a collision we need
+							//       ╭overlapping before end
+							// ___■■■■______
+							// ____ ■■■■____ (other)
+							// AND not
+							//     ╭ending before start
+							// _____■■■■______
+							// _■■■■__________ (other)
+							if other_start < end && other_end > start {
+								Err(Error::<T>::ScheduleOverlapInMatch)?;
+							}
 						}
-					},
+					}
 				}
 			}
 
@@ -1801,7 +1802,7 @@ pub mod pallet {
 		///
 		/// If the call proceeds, it cleans up the remaining storage entries related to the finalized jobs.
 		pub fn finalize_jobs_for(
-			job_ids: impl IntoIterator<Item = JobId<T::AccountId>>,
+			job_ids: impl IntoIterator<Item=JobId<T::AccountId>>,
 		) -> DispatchResultWithPostInfo {
 			for job_id in job_ids {
 				let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
@@ -1821,7 +1822,7 @@ pub mod pallet {
 								if !match_overdue {
 									Err(Error::<T>::CannotFinalizeJob(job_status))?;
 								}
-							},
+							}
 							JobStatus::Assigned(_) => {
 								// in the "good case" when all processors finalized their slot we can accept the finalization independent of schedule's latest end
 								let some_assigned =
@@ -1829,9 +1830,9 @@ pub mod pallet {
 								if some_assigned && !Self::schedule_ended(&registration.schedule)? {
 									Err(Error::<T>::CannotFinalizeJob(job_status))?;
 								}
-							},
+							}
 						}
-					},
+					}
 					AssignmentStrategy::Competing => {
 						let last_execution_index =
 							registration.schedule.execution_count().saturating_sub(1);
@@ -1860,9 +1861,9 @@ pub mod pallet {
 								if some_assigned && !Self::schedule_ended(&registration.schedule)? {
 									Err(Error::<T>::CannotFinalizeJob(job_status))?;
 								}
-							},
+							}
 						};
-					},
+					}
 				}
 
 				T::MarketplaceHooks::finalize_job(&job_id, T::RewardManager::refund(&job_id)?)?;
@@ -1892,9 +1893,9 @@ pub mod pallet {
 						<T as pallet_acurast::Config>::MaxSlots::get(),
 						cursor.as_deref(),
 					)
-					.maybe_cursor;
+						.maybe_cursor;
 					if cursor.is_none() {
-						break
+						break;
 					}
 				}
 			}
@@ -1906,7 +1907,7 @@ pub mod pallet {
 						<StoredJobExecutionStatus<T>>::clear_prefix(job_id, 100, cursor.as_deref())
 							.maybe_cursor;
 					if cursor.is_none() {
-						break
+						break;
 					}
 				}
 			}
@@ -1977,7 +1978,7 @@ pub mod pallet {
 								Ok(())
 							},
 						)?;
-					},
+					}
 					ExecutionSpecifier::Index(execution_index) => {
 						let new_status = <StoredJobExecutionStatus<T>>::try_mutate(
 							&job_id,
@@ -1995,7 +1996,7 @@ pub mod pallet {
 						)?;
 						// reflect latest execution's status in StoredJobStatus for completeness
 						<StoredJobStatus<T>>::insert(&job_id.0, &job_id.1, new_status);
-					},
+					}
 				}
 
 				// activate hook so implementing side can react on job assignment

@@ -23,13 +23,30 @@ impl<T: Config> RevocationListUpdateBarrier<T> for () {
 	}
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ProcessorType {
+	StandAlone,
+	Personal,
+}
+
 /// Allows to customize the kind of key attestations that are accepted.
 pub trait KeyAttestationBarrier<T: Config> {
 	fn accept_attestation_for_origin(origin: &T::AccountId, attestation: &Attestation) -> bool;
+	fn check_attestation_is_of_type(
+		attestation: &Attestation,
+		processor_type: ProcessorType,
+	) -> bool;
 }
 
 impl<T: Config> KeyAttestationBarrier<T> for () {
 	fn accept_attestation_for_origin(_origin: &<T>::AccountId, _attestation: &Attestation) -> bool {
+		true
+	}
+
+	fn check_attestation_is_of_type(
+		_attestation: &Attestation,
+		_processor_type: ProcessorType,
+	) -> bool {
 		true
 	}
 }

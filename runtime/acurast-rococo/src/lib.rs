@@ -60,6 +60,7 @@ use frame_system::{
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use utils::check_attestation_signature_digest;
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -84,7 +85,7 @@ use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::utils::check_attestation;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
-use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, ProcessorType, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
@@ -610,7 +611,9 @@ parameter_types! {
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
-	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 1] = [hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice()];
+	pub const AcurastStandAloneProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
+	pub const AcurastPersonalProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 2] = [AcurastStandAloneProcessorSignatureDigest::get(), AcurastPersonalProcessorSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -820,6 +823,24 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 			AcurastProcessorPackageNames::get().as_slice(),
 			AcurastProcessorSignatureDigests::get().as_slice(),
 		)
+	}
+
+	fn check_attestation_is_of_type(
+		attestation: &Attestation,
+		processor_type: ProcessorType,
+	) -> bool {
+		match processor_type {
+			ProcessorType::StandAlone => check_attestation_signature_digest(
+				attestation,
+				AcurastProcessorPackageNames::get().as_slice(),
+				&[AcurastStandAloneProcessorSignatureDigest::get()],
+			),
+			ProcessorType::Personal => check_attestation_signature_digest(
+				attestation,
+				AcurastProcessorPackageNames::get().as_slice(),
+				&[AcurastPersonalProcessorSignatureDigest::get()],
+			),
+		}
 	}
 }
 

@@ -9,6 +9,9 @@ variables:
   KUSAMA_TAG_LATEST: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
   KUSAMA_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
   KUSAMA_TAG_LATEST_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
+  DOCKERHUB_CANARY_BASE: acurast/canary-node
+  DOCKERHUB_CANARY_TAG: $DOCKERHUB_CANARY_BASE:$CI_COMMIT_SHA
+  DOCKERHUB_CANARY_TAG_LATEST: $DOCKERHUB_CANARY_BASE:latest
 
 stages:
   - benchmarking
@@ -68,6 +71,21 @@ publish-prod:
     - docker tag $KUSAMA_TAG $KUSAMA_TAG_LATEST
     - docker push $KUSAMA_TAG
     - docker push $KUSAMA_TAG_LATEST
+
+publish-dockerhub:
+  stage: publish
+  variables:
+    IMAGE_TAG: $DOCKERHUB_CANARY_BASE:$CI_COMMIT_TAG
+  rules:
+    - if: $CI_COMMIT_TAG
+  before_script:
+    - docker login -u "$DOCKERHUB_USER" -p "$DOCKERHUB_PASSWORD"
+  script:
+    # only kusama tag publishing
+    - docker tag $KUSAMA_TAG $IMAGE_TAG
+    - docker tag $KUSAMA_TAG $DOCKERHUB_CANARY_TAG
+    - docker tag $KUSAMA_TAG $DOCKERHUB_CANARY_TAG_LATEST
+    - docker push $DOCKERHUB_CANARY_BASE
 
 .prepare-benchmarking:
   script:

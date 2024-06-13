@@ -610,7 +610,11 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
+	pub const AcurastStandAloneProcessorPackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.testnet";
+	pub const AcurastPersonalProcessorPackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.sbs.testnet";
+	pub const AcurastStandAloneProcessorPackageNameDevnet: &'static [u8] = b"com.acurast.attested.executor.devnet";
+	pub const AcurastPersonalProcessorPackageNameDevnet: &'static [u8] = b"com.acurast.attested.executor.sbs.devnet";
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [AcurastStandAloneProcessorPackageNameDevnet::get(), AcurastPersonalProcessorPackageNameDevnet::get(), AcurastStandAloneProcessorPackageNameTestnet::get(), AcurastPersonalProcessorPackageNameTestnet::get()];
 	pub const AcurastStandAloneProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
 	pub const AcurastPersonalProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
 	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 2] = [AcurastStandAloneProcessorSignatureDigest::get(), AcurastPersonalProcessorSignatureDigest::get()];
@@ -832,12 +836,18 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 		match processor_type {
 			ProcessorType::StandAlone => check_attestation_signature_digest(
 				attestation,
-				AcurastProcessorPackageNames::get().as_slice(),
+				&[
+					AcurastStandAloneProcessorPackageNameTestnet::get(),
+					AcurastStandAloneProcessorPackageNameDevnet::get(),
+				],
 				&[AcurastStandAloneProcessorSignatureDigest::get()],
 			),
 			ProcessorType::Personal => check_attestation_signature_digest(
 				attestation,
-				AcurastProcessorPackageNames::get().as_slice(),
+				&[
+					AcurastPersonalProcessorPackageNameTestnet::get(),
+					AcurastPersonalProcessorPackageNameDevnet::get(),
+				],
 				&[AcurastPersonalProcessorSignatureDigest::get()],
 			),
 		}

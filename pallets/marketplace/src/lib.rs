@@ -53,8 +53,9 @@ pub mod pallet {
 	use sp_std::{iter::once, prelude::*};
 
 	use pallet_acurast::{
-		utils::ensure_source_verified, AllowedSourcesUpdate, JobHooks, JobId, JobIdSequence,
-		JobRegistrationFor, MultiOrigin, ParameterBound, Schedule, StoredJobRegistration,
+		utils::{ensure_source_verified, ensure_source_verified_and_of_type},
+		AllowedSourcesUpdate, JobHooks, JobId, JobIdSequence, JobRegistrationFor, MultiOrigin,
+		ParameterBound, ProcessorType, Schedule, StoredJobRegistration,
 	};
 
 	use crate::{traits::*, types::*, utils::*, JobBudget, RewardManager};
@@ -1047,7 +1048,11 @@ pub mod pallet {
 					// CHECK attestation
 					ensure!(
 						!registration.allow_only_verified_sources ||
-							ensure_source_verified::<T>(&planned_execution.source).is_ok(),
+							ensure_source_verified_and_of_type::<T>(
+								&planned_execution.source,
+								ProcessorType::StandAlone
+							)
+							.is_ok(),
 						Error::<T>::UnverifiedSourceInMatch
 					);
 

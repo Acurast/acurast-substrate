@@ -5,8 +5,8 @@ use sp_std::prelude::*;
 
 use crate::{
 	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
-	KeyAttestationBarrier, SerialNumber, StoredAttestation, StoredRevokedCertificate,
-	ValidatingCertIds,
+	KeyAttestationBarrier, ProcessorType, SerialNumber, StoredAttestation,
+	StoredRevokedCertificate, ValidatingCertIds,
 };
 
 /// Validates and returns an [Attestation] from the provided chain.
@@ -58,6 +58,22 @@ pub fn ensure_source_verified<T: Config>(source: &T::AccountId) -> Result<(), Er
 	ensure_not_expired(&attestation)?;
 	ensure_not_revoked(&attestation)?;
 	if !T::KeyAttestationBarrier::accept_attestation_for_origin(source, &attestation) {
+		return Err(Error::<T>::AttestationRejected)
+	}
+	Ok(())
+}
+
+pub fn ensure_source_verified_and_of_type<T: Config>(
+	source: &T::AccountId,
+	processor_type: ProcessorType,
+) -> Result<(), Error<T>> {
+	let attestation =
+		<StoredAttestation<T>>::get(source).ok_or(Error::<T>::FulfillSourceNotVerified)?;
+	ensure_not_expired(&attestation)?;
+	ensure_not_revoked(&attestation)?;
+	if !T::KeyAttestationBarrier::accept_attestation_for_origin(source, &attestation) ||
+		!T::KeyAttestationBarrier::check_attestation_is_of_type(&attestation, processor_type)
+	{
 		return Err(Error::<T>::AttestationRejected)
 	}
 	Ok(())

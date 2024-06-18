@@ -17,7 +17,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, TypedGet, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -58,6 +58,7 @@ use frame_system::{
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use utils::check_attestation_signature_digest;
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -84,7 +85,7 @@ use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::*;
 
 use acurast_runtime_common::utils::check_attestation;
-use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, ProcessorType, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
@@ -186,7 +187,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 13,
+	spec_version: 14,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -645,8 +646,12 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 1] = [b"com.acurast.attested.executor.canary"];
-	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 1] = [hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice()];
+	pub const AcurastStandAloneProcessorPackageName: &'static [u8] = b"com.acurast.attested.executor.canary";
+	pub const AcurastPersonalProcessorPackageName: &'static [u8] = b"com.acurast.attested.executor.sbs.canary";
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [AcurastStandAloneProcessorPackageName::get(), AcurastPersonalProcessorPackageName::get()];
+	pub const AcurastStandAloneProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
+	pub const AcurastPersonalProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 2] = [AcurastStandAloneProcessorSignatureDigest::get(), AcurastPersonalProcessorSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -856,6 +861,24 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 			AcurastProcessorPackageNames::get().as_slice(),
 			AcurastProcessorSignatureDigests::get().as_slice(),
 		)
+	}
+
+	fn check_attestation_is_of_type(
+		attestation: &Attestation,
+		processor_type: ProcessorType,
+	) -> bool {
+		match processor_type {
+			ProcessorType::StandAlone => check_attestation_signature_digest(
+				attestation,
+				&[AcurastStandAloneProcessorPackageName::get()],
+				&[AcurastStandAloneProcessorSignatureDigest::get()],
+			),
+			ProcessorType::Personal => check_attestation_signature_digest(
+				attestation,
+				&[AcurastPersonalProcessorPackageName::get()],
+				&[AcurastPersonalProcessorSignatureDigest::get()],
+			),
+		}
 	}
 }
 

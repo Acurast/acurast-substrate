@@ -9,7 +9,7 @@ variables:
   KUSAMA_TAG_LATEST: eu.gcr.io/papers-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
   KUSAMA_TAG_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:$CI_COMMIT_SHA
   KUSAMA_TAG_LATEST_DEV: eu.gcr.io/papers-dev-kubernetes/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME-kusama:latest
-  DOCKERHUB_CANARY_BASE: acurast/canary-node
+  DOCKERHUB_CANARY_BASE: acurast/node-canary
   DOCKERHUB_CANARY_TAG: $DOCKERHUB_CANARY_BASE:$CI_COMMIT_SHA
   DOCKERHUB_CANARY_TAG_LATEST: $DOCKERHUB_CANARY_BASE:latest
 

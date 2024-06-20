@@ -196,7 +196,7 @@ pub struct JobAssignment<Reward, AccountId, MaxAllowedSources: Get<u32>, Extra> 
 	pub assignment: Assignment<Reward>,
 }
 
-pub const NUMBER_OF_PUB_KEYS: u32 = 3;
+pub const NUMBER_OF_PUB_KEYS: u32 = 5;
 pub const PUB_KEYS_MAX_LENGTH: u32 = 33;
 
 pub type PubKeyBytes = BoundedVec<u8, ConstU32<PUB_KEYS_MAX_LENGTH>>;
@@ -212,6 +212,8 @@ pub enum PubKey {
 	SECP256r1(PubKeyBytes),
 	SECP256k1(PubKeyBytes),
 	ED25519(PubKeyBytes),
+	SECP256r1Encryption(PubKeyBytes),
+	SECP256k1Encryption(PubKeyBytes),
 }
 
 pub type AssignmentFor<T> = Assignment<<T as Config>::Balance>;

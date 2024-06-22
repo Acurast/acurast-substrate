@@ -113,6 +113,23 @@ pub struct UpdateInfos {
 	pub binary_hash: BinaryHash,
 }
 
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RewardDistributionWindow {
+	pub start_time: u128,
+	pub heartbeats: u32,
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RewardDistributionSettings<Balance> {
+	pub window_length: u128,
+	pub min_heartbeats: u32,
+	pub reward_per_distribution: Balance,
+}
+
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]

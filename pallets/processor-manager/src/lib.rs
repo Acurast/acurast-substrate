@@ -41,8 +41,8 @@ pub type ProcessorList<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
-	#[cfg(feature = "runtime-benchmarks")]
-	use crate::benchmarking::BenchmarkHelper;
+	use core::ops::Div;
+
 	use acurast_common::ListUpdateOperation;
 	use codec::MaxEncodedLen;
 	use frame_support::{
@@ -50,7 +50,7 @@ pub mod pallet {
 		pallet_prelude::{Member, *},
 		sp_runtime,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
-		traits::{Get, UnixTime},
+		traits::{tokens::Balance, Get, UnixTime},
 		Blake2_128, Parameter,
 	};
 	use frame_system::{
@@ -59,9 +59,11 @@ pub mod pallet {
 	};
 	use sp_std::prelude::*;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BinaryHash, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor, UpdateInfo,
-		Version,
+		traits::*, BinaryHash, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
+		RewardDistributionSettings, RewardDistributionWindow, UpdateInfo, Version,
 	};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -79,9 +81,9 @@ pub mod pallet {
 		type PairingProofExpirationTime: Get<u128>;
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
-		/// Timestamp
 		type UnixTime: UnixTime;
-		/// Weight Info for extrinsics.
+		type Balance: Parameter + IsType<u128> + Div + Balance + MaybeSerializeDeserialize;
+		type ProcessorRewardDistributor: ProcessorRewardDistributor<Self>;
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self>;
@@ -180,6 +182,16 @@ pub mod pallet {
 	#[pallet::getter(fn processor_update_info)]
 	pub(super) type ProcessorUpdateInfo<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, UpdateInfo>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn processor_reward_distribution_settings)]
+	pub(super) type ProcessorRewardDistributionSettings<T: Config> =
+		StorageValue<_, RewardDistributionSettings<T::Balance>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn processor_reward_distribution_window)]
+	pub(super) type ProcessorRewardDistributionWindow<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, RewardDistributionWindow>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -385,8 +397,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
-			<ProcessorHeartbeat<T>>::insert(&who, T::UnixTime::now().as_millis());
+			let now = T::UnixTime::now().as_millis();
+
+			<ProcessorHeartbeat<T>>::insert(&who, now);
 			<ProcessorVersion<T>>::insert(&who, version.clone());
+
+			if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
+				let distribution_window = Self::processor_reward_distribution_window(&who);
+			}
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who, version));
 

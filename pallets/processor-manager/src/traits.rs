@@ -31,6 +31,10 @@ impl<T: Config> AdvertisementHandler<T> for () {
 	}
 }
 
+pub trait ProcessorRewardDistributor<T: Config> {
+	fn distribute_reward(processor: &T::AccountId, amount: T::Balance) -> DispatchResult;
+}
+
 /// Weight functions needed for pallet_acurast_processor_manager.
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;

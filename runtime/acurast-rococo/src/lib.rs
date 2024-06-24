@@ -877,6 +877,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type Balance = Balance;
+	type ProcessorRewardDistributor = RewardDistributor<Runtime, Balances>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

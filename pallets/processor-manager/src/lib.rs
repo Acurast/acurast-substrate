@@ -186,7 +186,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn processor_reward_distribution_settings)]
 	pub(super) type ProcessorRewardDistributionSettings<T: Config> =
-		StorageValue<_, RewardDistributionSettings<T::Balance>, OptionQuery>;
+		StorageValue<_, RewardDistributionSettings<T::Balance, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn processor_reward_distribution_window)]
@@ -222,6 +222,8 @@ pub mod pallet {
 		ProcessorUpdateInfoSet(T::AccountId, UpdateInfo),
 		/// Set api version used by processors. [api_version]
 		ApiVersionUpdated(u32),
+		/// Reward has been sent to processor. [processor_account_id, amount]
+		ProcessorRewardSent(T::AccountId, T::Balance),
 	}
 
 	// Errors inform users that something went wrong.
@@ -402,11 +404,11 @@ pub mod pallet {
 			<ProcessorHeartbeat<T>>::insert(&who, now);
 			<ProcessorVersion<T>>::insert(&who, version.clone());
 
-			if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
-				let distribution_window = Self::processor_reward_distribution_window(&who);
-			}
+			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who, version));
+			if let Some(amount) = Self::do_reward_distribution(&who) {
+				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+			}
 
 			Ok(().into())
 		}
@@ -464,6 +466,18 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::<T>::ProcessorUpdateInfoSet(who, update_info));
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
+		pub fn update_reward_distribution_settings(
+			origin: OriginFor<T>,
+			new_settings: Option<RewardDistributionSettings<T::Balance, T::AccountId>>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			<ProcessorRewardDistributionSettings<T>>::set(new_settings);
 
 			Ok(().into())
 		}

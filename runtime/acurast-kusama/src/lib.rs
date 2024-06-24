@@ -17,7 +17,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, TypedGet, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -905,6 +905,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type Balance = Balance;
+	type ProcessorRewardDistributor = RewardDistributor<Runtime, Balances>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

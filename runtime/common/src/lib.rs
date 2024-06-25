@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
+
+use frame_support::traits::{fungible, tokens::Preservation};
 pub use nimbus_primitives::NimbusId;
 use pallet_acurast_marketplace::RegistrationExtra;
 pub use parachains_common::Balance;
@@ -10,6 +13,7 @@ pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	SaturatedConversion,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 #[cfg(not(feature = "std"))]
@@ -21,7 +25,9 @@ pub use xcm::{
 
 use acurast_p256_crypto::MultiSignature;
 pub use pallet_acurast;
-use pallet_acurast::CU32;
+use pallet_acurast::{
+	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
+};
 
 pub mod consensus;
 pub mod constants;
@@ -170,5 +176,36 @@ pub mod utils {
 			}
 		}
 		result
+	}
+}
+
+pub struct RewardDistributor<Runtime, Currency>(PhantomData<(Runtime, Currency)>);
+impl<Runtime, Currency> pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>
+	for RewardDistributor<Runtime, Currency>
+where
+	Currency: fungible::Mutate<Runtime::AccountId>,
+	<Currency as fungible::Inspect<Runtime::AccountId>>::Balance: From<Runtime::Balance>,
+	Runtime: pallet_acurast_processor_manager::Config + pallet_acurast::Config,
+{
+	fn distribute_reward(
+		manager: &Runtime::AccountId,
+		amount: Runtime::Balance,
+		distributor_account: &Runtime::AccountId,
+	) -> frame_support::dispatch::DispatchResult {
+		Currency::transfer(
+			distributor_account,
+			&manager,
+			amount.saturated_into(),
+			Preservation::Preserve,
+		)?;
+		Ok(())
+	}
+
+	fn is_elegible_for_reward(processor: &Runtime::AccountId) -> bool {
+		ensure_source_verified_and_security_level::<Runtime>(
+			processor,
+			&[AttestationSecurityLevel::StrongBox, AttestationSecurityLevel::TrustedEnvironemnt],
+		)
+		.is_ok()
 	}
 }

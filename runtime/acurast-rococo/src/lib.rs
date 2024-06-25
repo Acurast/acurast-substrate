@@ -877,6 +877,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type Balance = Balance;
+	type ProcessorRewardDistributor = RewardDistributor<Runtime, Balances>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -1323,19 +1325,19 @@ mod benches {
 	define_benchmarks!(
 		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
 		// [frame_system, SystemBench::<Runtime>]
-		[pallet_timestamp, Timestamp]
-		[pallet_multisig, Multisig]
-		[pallet_balances, Balances]
-		[pallet_democracy, Democracy]
-		[pallet_collator_selection, CollatorSelection]
-		[pallet_session, SessionBench::<Runtime>]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		// [pallet_timestamp, Timestamp]
+		// [pallet_multisig, Multisig]
+		// [pallet_balances, Balances]
+		// [pallet_democracy, Democracy]
+		// [pallet_collator_selection, CollatorSelection]
+		// [pallet_session, SessionBench::<Runtime>]
+		// [cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast, Acurast]
 		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 		[pallet_acurast_marketplace, AcurastMarketplace]
-		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		// [pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		// [pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 		[pallet_acurast_vesting, AcurastVesting]
 	);
 }

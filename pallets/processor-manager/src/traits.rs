@@ -51,7 +51,7 @@ impl<T: Config> ProcessorRewardDistributor<T> for () {
 	}
 
 	fn is_elegible_for_reward(_processor: &<T>::AccountId) -> bool {
-		false
+		true
 	}
 }
 

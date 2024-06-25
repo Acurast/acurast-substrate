@@ -2,7 +2,7 @@
 
 use crate::{
 	mock::*, stub::*, BinaryLocation, Error, Event, ProcessorPairingFor, ProcessorPairingUpdateFor,
-	UpdateInfo, Version,
+	RewardDistributionSettings, UpdateInfo, Version,
 };
 use acurast_common::ListUpdateOperation;
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
@@ -490,6 +490,98 @@ fn test_heartbeat_with_version_failure() {
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
 		assert!(AcurastProcessorManager::processor_version(&processor_account).is_none());
+	});
+}
+
+#[test]
+fn test_reward_distribution_success() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (_, processor_account) = paired_manager_processor();
+
+		let mut timestamp = 1657363915010u64;
+		let mut block_number = 1;
+		if Timestamp::get() != timestamp {
+			let _ = Timestamp::set_timestamp(timestamp);
+		}
+		System::set_block_number(block_number);
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_none());
+
+		let reward_distribution_settings = RewardDistributionSettings::<
+			<Test as crate::Config>::Balance,
+			<Test as frame_system::Config>::AccountId,
+		> {
+			window_length: 300,
+			tollerance: 25,
+			min_heartbeats: 3,
+			reward_per_distribution: 300_000_000_000,
+			distributor_account: alice_account_id(),
+		};
+
+		assert_ok!(AcurastProcessorManager::update_reward_distribution_settings(
+			RuntimeOrigin::root(),
+			Some(reward_distribution_settings.clone())
+		));
+
+		let version = Version { platform: 0, build_number: 1 };
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version.clone()
+		));
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_some());
+
+		timestamp += 900_000;
+		block_number += 75;
+		let _ = Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version.clone()
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		let _ = Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version.clone()
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		let _ = Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version.clone()
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		let _ = Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version.clone()
+		));
+
+		let last_events = events();
+		assert_eq!(
+			last_events.last(),
+			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorRewardSent(
+				processor_account.clone(),
+				reward_distribution_settings.reward_per_distribution
+			)))
+			.as_ref()
+		);
 	});
 }
 

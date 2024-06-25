@@ -89,7 +89,8 @@ where
 					if progress >= distribution_window.window_length {
 						let buffer = progress.saturating_sub(distribution_window.window_length);
 						if buffer <= distribution_window.tollerance &&
-							distribution_window.heartbeats >= distribution_window.min_heartbeats
+							(distribution_window.heartbeats + 1) >=
+								distribution_window.min_heartbeats
 						{
 							let result = T::ProcessorRewardDistributor::distribute_reward(
 								&manager,

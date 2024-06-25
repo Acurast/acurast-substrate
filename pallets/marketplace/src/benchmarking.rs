@@ -88,6 +88,40 @@ pub fn job_registration_with_reward<T: Config>(
 	}
 }
 
+pub fn competing_job_registration_with_reward<T: Config>(
+	script: Script,
+	slots: u8,
+	duration: u64,
+	reward_value: u128,
+) -> JobRegistrationFor<T> {
+	let reward: <T as Config>::Balance = reward_value.into();
+	let r = JobRequirements {
+		slots,
+		reward,
+		min_reputation: Some(0),
+		assignment_strategy: AssignmentStrategy::Single(None),
+	};
+	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
+	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();
+	JobRegistrationFor::<T> {
+		script,
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration,
+			start_time: 1689332400000, // 30.12.2050 13:00
+			end_time: 1689418800000,   // 31.12.2050 13:00 (one day later)
+			interval: 180000,          // 30min
+			max_start_delay: 5000,
+		},
+		memory: 1_000u32,
+		network_requests: 1,
+		storage: 1_000u32,
+		required_modules: JobModules::default(),
+		extra: r,
+	}
+}
+
 pub fn script() -> Script {
 	SCRIPT_BYTES.to_vec().try_into().unwrap()
 }
@@ -176,6 +210,54 @@ where
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer), Acurast::<T>::job_id_sequence());
 	let status = AcurastMarketplace::<T>::stored_job_status(&job_id.0, job_id.1);
+	assert_eq!(status, Some(JobStatus::Matched));
+	Ok((processor, job, job_id))
+}
+
+fn acknowledge_execution_match_helper<T: Config>(
+	consumer: Option<T::AccountId>,
+	processor: Option<T::AccountId>,
+) -> Result<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>), DispatchError>
+where
+	T: pallet_balances::Config + pallet_timestamp::Config,
+	<T as pallet_timestamp::Config>::Moment: From<u64>,
+{
+	let consumer: T::AccountId =
+		consumer.unwrap_or(<T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into()));
+	let processor: T::AccountId =
+		processor.unwrap_or(<T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into()));
+	let ad = advertisement::<T>(1, 1_000_000);
+	assert_ok!(
+		AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad,)
+	);
+	let job = competing_job_registration_with_reward::<T>(
+		script(),
+		1,
+		100,
+		1_000_000,
+	);
+
+	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 310_000).into());
+
+	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+	let job_id: JobId<T::AccountId> =
+		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
+
+	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 120_000).into());
+
+	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(RawOrigin::Signed(consumer.clone()).into(), vec![
+		ExecutionMatch {
+			job_id: job_id.clone(),
+			execution_index: 0,
+			sources: vec![PlannedExecution {
+				source: processor.clone(),
+				start_delay: 0
+			}].try_into().unwrap()
+		}
+	].try_into().unwrap()));
+
+	let status = AcurastMarketplace::<T>::stored_job_status(&job_id.0, job_id.1);
+	
 	assert_eq!(status, Some(JobStatus::Matched));
 	Ok((processor, job, job_id))
 }
@@ -296,6 +378,7 @@ benchmarks! {
 				}).collect::<Vec<_>>().try_into().unwrap()
 			}
 		}).collect::<Vec<_>>();
+		pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 120_000).into());
 	}: _(RawOrigin::Signed(caller), matches.try_into().unwrap())
 
 	acknowledge_match {
@@ -304,7 +387,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(processor), job_id, pub_keys)
 
 	acknowledge_execution_match {
-		let (processor, _, job_id) = acknowledge_match_helper::<T>(None, None)?;
+		let (processor, _, job_id) = acknowledge_execution_match_helper::<T>(None, None)?;
 		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
 	}: _(RawOrigin::Signed(processor), job_id, 0u64, pub_keys)
 

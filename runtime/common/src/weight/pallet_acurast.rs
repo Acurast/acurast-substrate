@@ -146,4 +146,22 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: Acurast StoredJobRegistration (r:1 w:0)
+	/// Proof: Acurast StoredJobRegistration (max_values: None, max_size: Some(34795), added: 37270, mode: MaxEncodedLen)
+	/// Storage: Acurast ExecutionEnvironment (r:0 w:1)
+	/// Proof: Acurast ExecutionEnvironment (max_values: None, max_size: Some(10743), added: 13218, mode: MaxEncodedLen)
+	/// The range of component `x` is `[1, 10]`.
+	fn set_environments(envs: u32, vars: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `330`
+		//  Estimated: `38260`
+		// Minimum execution time: 27_500_000 picoseconds.
+		Weight::from_parts(28_198_520, 0)
+			.saturating_add(Weight::from_parts(0, 38260))
+			// Standard Error: 4_614
+			.saturating_add(Weight::from_parts(500_209, 0).saturating_mul(vars.into()))
+			.saturating_mul(envs.into())
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

@@ -230,12 +230,7 @@ where
 	assert_ok!(
 		AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad,)
 	);
-	let job = competing_job_registration_with_reward::<T>(
-		script(),
-		1,
-		100,
-		1_000_000,
-	);
+	let job = competing_job_registration_with_reward::<T>(script(), 1, 100, 1_000_000);
 
 	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 310_000).into());
 
@@ -245,19 +240,21 @@ where
 
 	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 120_000).into());
 
-	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(RawOrigin::Signed(consumer.clone()).into(), vec![
-		ExecutionMatch {
+	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
+		RawOrigin::Signed(consumer.clone()).into(),
+		vec![ExecutionMatch {
 			job_id: job_id.clone(),
 			execution_index: 0,
-			sources: vec![PlannedExecution {
-				source: processor.clone(),
-				start_delay: 0
-			}].try_into().unwrap()
-		}
-	].try_into().unwrap()));
+			sources: vec![PlannedExecution { source: processor.clone(), start_delay: 0 }]
+				.try_into()
+				.unwrap()
+		}]
+		.try_into()
+		.unwrap()
+	));
 
 	let status = AcurastMarketplace::<T>::stored_job_status(&job_id.0, job_id.1);
-	
+
 	assert_eq!(status, Some(JobStatus::Matched));
 	Ok((processor, job, job_id))
 }

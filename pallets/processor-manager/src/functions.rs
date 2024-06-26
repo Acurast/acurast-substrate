@@ -2,14 +2,15 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	sp_runtime::{
 		traits::{CheckedAdd, IdentifyAccount, Verify},
-		DispatchError,
+		DispatchError, SaturatedConversion,
 	},
 	traits::IsType,
 };
 
 use crate::{
 	Config, Error, LastManagerId, ManagedProcessors, ManagerIdProvider, Pallet,
-	ProcessorToManagerIdIndex,
+	ProcessorRewardDistributionWindow, ProcessorRewardDistributor, ProcessorToManagerIdIndex,
+	RewardDistributionWindow,
 };
 
 impl<T: Config> Pallet<T>
@@ -22,6 +23,7 @@ where
 		<T::ManagerIdProvider as ManagerIdProvider<T>>::owner_for(id).ok()
 	}
 
+	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,
@@ -69,6 +71,62 @@ where
 		<ManagedProcessors<T>>::remove(id, &processor_account);
 		<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
 		Ok(())
+	}
+
+	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
+		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
+			return None
+		}
+
+		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
+			if let Some(manager) = Self::manager_for_processor(processor) {
+				let current_block_number: u32 =
+					<frame_system::Pallet<T>>::block_number().saturated_into();
+
+				if let Some(distribution_window) =
+					Self::processor_reward_distribution_window(processor)
+				{
+					let progress = current_block_number.saturating_sub(distribution_window.start);
+					if progress >= distribution_window.window_length {
+						let mut distributed_amount: Option<T::Balance> = None;
+						let buffer = progress.saturating_sub(distribution_window.window_length);
+						if buffer <= distribution_window.tollerance &&
+							(distribution_window.heartbeats + 1) >=
+								distribution_window.min_heartbeats
+						{
+							let result = T::ProcessorRewardDistributor::distribute_reward(
+								&manager,
+								distribution_settings.reward_per_distribution,
+								&distribution_settings.distributor_account,
+							);
+							if result.is_ok() {
+								distributed_amount =
+									Some(distribution_settings.reward_per_distribution)
+							}
+						}
+						<ProcessorRewardDistributionWindow<T>>::insert(
+							&processor,
+							RewardDistributionWindow::new(
+								current_block_number,
+								&distribution_settings,
+							),
+						);
+						return distributed_amount
+					} else {
+						<ProcessorRewardDistributionWindow<T>>::insert(
+							&processor,
+							distribution_window.next(),
+						);
+					}
+				} else {
+					<ProcessorRewardDistributionWindow<T>>::insert(
+						&processor,
+						RewardDistributionWindow::new(current_block_number, &distribution_settings),
+					);
+				}
+			}
+		}
+		return None
 	}
 
 	pub fn ensure_managed(

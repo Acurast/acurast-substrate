@@ -1,12 +1,15 @@
-use acurast_common::{extract_attestation, validate_certificate_chain, ECDSACurve, PublicKey};
+use acurast_common::{
+	extract_attestation, validate_certificate_chain, AttestationSecurityLevel, ECDSACurve,
+	PublicKey,
+};
 use frame_support::{ensure, traits::UnixTime};
 use parity_scale_codec::Encode;
 use sp_std::prelude::*;
 
 use crate::{
 	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
-	KeyAttestationBarrier, SerialNumber, StoredAttestation, StoredRevokedCertificate,
-	ValidatingCertIds,
+	KeyAttestationBarrier, ProcessorType, SerialNumber, StoredAttestation,
+	StoredRevokedCertificate, ValidatingCertIds,
 };
 
 /// Validates and returns an [Attestation] from the provided chain.
@@ -53,11 +56,27 @@ pub fn validate_and_extract_attestation<T: Config>(
 
 /// Ensures that the provided account id has a valid (not expired and not revoked) key attestation.
 pub fn ensure_source_verified<T: Config>(source: &T::AccountId) -> Result<(), Error<T>> {
-	let attestation =
-		<StoredAttestation<T>>::get(source).ok_or(Error::<T>::FulfillSourceNotVerified)?;
-	ensure_not_expired(&attestation)?;
-	ensure_not_revoked(&attestation)?;
-	if !T::KeyAttestationBarrier::accept_attestation_for_origin(source, &attestation) {
+	_ = check_attestation(source)?;
+	Ok(())
+}
+
+pub fn ensure_source_verified_and_of_type<T: Config>(
+	source: &T::AccountId,
+	processor_type: ProcessorType,
+) -> Result<(), Error<T>> {
+	let attestation = check_attestation(source)?;
+	if !T::KeyAttestationBarrier::check_attestation_is_of_type(&attestation, processor_type) {
+		return Err(Error::<T>::AttestationRejected)
+	}
+	Ok(())
+}
+
+pub fn ensure_source_verified_and_security_level<T: Config>(
+	account: &T::AccountId,
+	valid_security_levels: &[AttestationSecurityLevel],
+) -> Result<(), Error<T>> {
+	let attestation = check_attestation(account)?;
+	if !valid_security_levels.contains(&attestation.key_description.attestation_security_level) {
 		return Err(Error::<T>::AttestationRejected)
 	}
 	Ok(())
@@ -95,6 +114,17 @@ pub(crate) fn ensure_not_revoked<T: Config>(attestation: &Attestation) -> Result
 		}
 	}
 	Ok(())
+}
+
+fn check_attestation<T: Config>(account: &T::AccountId) -> Result<Attestation, Error<T>> {
+	let attestation =
+		<StoredAttestation<T>>::get(account).ok_or(Error::<T>::FulfillSourceNotVerified)?;
+	ensure_not_expired(&attestation)?;
+	ensure_not_revoked(&attestation)?;
+	if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
+		return Err(Error::<T>::AttestationRejected)
+	}
+	Ok(attestation)
 }
 
 /// Ensures the provided public key correponds to the provided account id.

@@ -130,5 +130,18 @@ benchmarks! {
 		};
 	}: _(RawOrigin::Signed(caller), update_info, processors.try_into().unwrap())
 
+	update_reward_distribution_settings {
+		let settings = RewardDistributionSettings::<
+			<T as crate::Config>::Balance,
+			<T as frame_system::Config>::AccountId,
+		> {
+					window_length: 300,
+					tollerance: 25,
+					min_heartbeats: 3,
+					reward_per_distribution: 300_000_000_000u128.into(),
+					distributor_account: alice_account_id().into(),
+		};
+	}: _(RawOrigin::Root, Some(settings))
+
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder::default().build(), mock::Test);
 }

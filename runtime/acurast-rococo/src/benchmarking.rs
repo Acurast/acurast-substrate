@@ -3,7 +3,7 @@ use frame_benchmarking::account;
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;
 use pallet_acurast_marketplace::{
-	Advertisement, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
+	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
 use sp_std::vec;
@@ -44,7 +44,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 				slots: 1,
 				reward: 2_000_000_000,
 				min_reputation: None,
-				instant_match: if instant_match {
+				assignment_strategy: AssignmentStrategy::Single(if instant_match {
 					Some(
 						vec![PlannedExecution { source: processor, start_delay: 0 }]
 							.try_into()
@@ -52,7 +52,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 					)
 				} else {
 					None
-				},
+				}),
 			},
 		}
 	}

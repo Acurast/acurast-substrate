@@ -4,7 +4,6 @@ use frame_support::{
 	traits::{GetStorageVersion, StorageVersion},
 	weights::Weight,
 };
-use pallet_acurast::{JobModules, JobRegistration, StoredJobRegistration};
 use sp_core::Get;
 
 use super::*;

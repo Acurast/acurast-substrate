@@ -113,6 +113,53 @@ pub struct UpdateInfos {
 	pub binary_hash: BinaryHash,
 }
 
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RewardDistributionWindow {
+	pub start: u32,
+	pub heartbeats: u32,
+	pub window_length: u32,
+	pub tollerance: u32,
+	pub min_heartbeats: u32,
+}
+
+impl RewardDistributionWindow {
+	pub fn new<Balance, AccountId>(
+		start: u32,
+		settings: &RewardDistributionSettings<Balance, AccountId>,
+	) -> Self {
+		Self {
+			start,
+			heartbeats: 0,
+			window_length: settings.window_length,
+			tollerance: settings.tollerance,
+			min_heartbeats: settings.min_heartbeats,
+		}
+	}
+
+	pub fn next(&self) -> Self {
+		Self {
+			start: self.start,
+			heartbeats: self.heartbeats + 1,
+			window_length: self.window_length,
+			tollerance: self.tollerance,
+			min_heartbeats: self.min_heartbeats,
+		}
+	}
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RewardDistributionSettings<Balance, AccountId> {
+	pub window_length: u32,
+	pub tollerance: u32,
+	pub min_heartbeats: u32,
+	pub reward_per_distribution: Balance,
+	pub distributor_account: AccountId,
+}
+
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]

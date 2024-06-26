@@ -2,14 +2,15 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	sp_runtime::{
 		traits::{CheckedAdd, IdentifyAccount, Verify},
-		DispatchError,
+		DispatchError, SaturatedConversion,
 	},
 	traits::IsType,
 };
 
 use crate::{
 	Config, Error, LastManagerId, ManagedProcessors, ManagerIdProvider, Pallet,
-	ProcessorToManagerIdIndex,
+	ProcessorRewardDistributionWindow, ProcessorRewardDistributor, ProcessorToManagerIdIndex,
+	RewardDistributionWindow,
 };
 
 impl<T: Config> Pallet<T>
@@ -22,7 +23,7 @@ where
 		<T::ManagerIdProvider as ManagerIdProvider<T>>::owner_for(id).ok()
 	}
 
-	/// Returns the manager id for the given manager account. If a manager id does not exists it is first created.
+	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,
 	) -> Result<(T::ManagerId, bool), DispatchError> {
@@ -63,16 +64,83 @@ where
 	/// with a different manager id.
 	pub fn do_remove_processor_manager_pairing(
 		processor_account: &T::AccountId,
-		manager_id: T::ManagerId,
+		manager: &T::AccountId,
 	) -> DispatchResult {
-		if let Some(id) = Self::manager_id_for_processor(processor_account) {
-			if id != manager_id {
-				return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
-			}
-			<ManagedProcessors<T>>::remove(manager_id, &processor_account);
-			<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		let id = Self::ensure_managed(manager, processor_account)?;
+		<ManagedProcessors<T>>::remove(id, &processor_account);
+		<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		Ok(())
+	}
+
+	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
+		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
+			return None
 		}
 
-		Ok(())
+		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
+			if let Some(manager) = Self::manager_for_processor(processor) {
+				let current_block_number: u32 =
+					<frame_system::Pallet<T>>::block_number().saturated_into();
+
+				if let Some(distribution_window) =
+					Self::processor_reward_distribution_window(processor)
+				{
+					let progress = current_block_number.saturating_sub(distribution_window.start);
+					if progress >= distribution_window.window_length {
+						let mut distributed_amount: Option<T::Balance> = None;
+						let buffer = progress.saturating_sub(distribution_window.window_length);
+						if buffer <= distribution_window.tollerance &&
+							(distribution_window.heartbeats + 1) >=
+								distribution_window.min_heartbeats
+						{
+							let result = T::ProcessorRewardDistributor::distribute_reward(
+								&manager,
+								distribution_settings.reward_per_distribution,
+								&distribution_settings.distributor_account,
+							);
+							if result.is_ok() {
+								distributed_amount =
+									Some(distribution_settings.reward_per_distribution)
+							}
+						}
+						<ProcessorRewardDistributionWindow<T>>::insert(
+							&processor,
+							RewardDistributionWindow::new(
+								current_block_number,
+								&distribution_settings,
+							),
+						);
+						return distributed_amount
+					} else {
+						<ProcessorRewardDistributionWindow<T>>::insert(
+							&processor,
+							distribution_window.next(),
+						);
+					}
+				} else {
+					<ProcessorRewardDistributionWindow<T>>::insert(
+						&processor,
+						RewardDistributionWindow::new(current_block_number, &distribution_settings),
+					);
+				}
+			}
+		}
+		return None
+	}
+
+	pub fn ensure_managed(
+		manager: &T::AccountId,
+		processor: &T::AccountId,
+	) -> Result<T::ManagerId, DispatchError> {
+		let processor_manager_id =
+			Self::manager_id_for_processor(processor).ok_or(Error::<T>::ProcessorHasNoManager)?;
+
+		let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
+
+		if manager != &processor_manager {
+			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
+		}
+
+		Ok(processor_manager_id)
 	}
 }

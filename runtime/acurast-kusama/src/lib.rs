@@ -17,7 +17,7 @@ use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::traits::{ConstBool, ConstU128, ConstU32, ConstU64};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, TypedGet, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -905,6 +905,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type Balance = Balance;
+	type ProcessorRewardDistributor = RewardDistributor<Runtime, Balances>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -1327,18 +1329,18 @@ mod benches {
 	define_benchmarks!(
 		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
 		// [frame_system, SystemBench::<Runtime>]
-		[pallet_balances, Balances]
-		[pallet_session, SessionBench::<Runtime>]
-		[pallet_timestamp, Timestamp]
-		[pallet_collator_selection, CollatorSelection]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		// [pallet_balances, Balances]
+		// [pallet_session, SessionBench::<Runtime>]
+		// [pallet_timestamp, Timestamp]
+		// [pallet_collator_selection, CollatorSelection]
+		// [cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast, Acurast]
 		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 		[pallet_acurast_marketplace, AcurastMarketplace]
-		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
-		[pallet_acurast_hyperdrive_outgoing, HyperdriveOutgoingEthereum]
+		// [pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		// [pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		// [pallet_acurast_hyperdrive_outgoing, HyperdriveOutgoingEthereum]
 	);
 }
 

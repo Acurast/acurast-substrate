@@ -63,6 +63,7 @@ use frame_system::{
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use utils::check_attestation_signature_digest;
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
@@ -89,7 +90,7 @@ use acurast_p256_crypto::MultiSignature;
 use acurast_runtime_common::utils::check_attestation;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
-use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, ProcessorType, CU32};
 use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
@@ -603,8 +604,14 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [b"com.acurast.attested.executor.testnet", b"com.acurast.attested.executor.devnet"];
-	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 1] = [hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice()];
+	pub const AcurastStandAloneProcessorPackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.testnet";
+	pub const AcurastPersonalProcessorPackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.sbs.testnet";
+	pub const AcurastStandAloneProcessorPackageNameDevnet: &'static [u8] = b"com.acurast.attested.executor.devnet";
+	pub const AcurastPersonalProcessorPackageNameDevnet: &'static [u8] = b"com.acurast.attested.executor.sbs.devnet";
+	pub const AcurastProcessorPackageNames: [&'static [u8]; 4] = [AcurastStandAloneProcessorPackageNameDevnet::get(), AcurastPersonalProcessorPackageNameDevnet::get(), AcurastStandAloneProcessorPackageNameTestnet::get(), AcurastPersonalProcessorPackageNameTestnet::get()];
+	pub const AcurastStandAloneProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
+	pub const AcurastPersonalProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 2] = [AcurastStandAloneProcessorSignatureDigest::get(), AcurastPersonalProcessorSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -815,6 +822,30 @@ impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
 			AcurastProcessorSignatureDigests::get().as_slice(),
 		)
 	}
+
+	fn check_attestation_is_of_type(
+		attestation: &Attestation,
+		processor_type: ProcessorType,
+	) -> bool {
+		match processor_type {
+			ProcessorType::StandAlone => check_attestation_signature_digest(
+				attestation,
+				&[
+					AcurastStandAloneProcessorPackageNameTestnet::get(),
+					AcurastStandAloneProcessorPackageNameDevnet::get(),
+				],
+				&[AcurastStandAloneProcessorSignatureDigest::get()],
+			),
+			ProcessorType::Personal => check_attestation_signature_digest(
+				attestation,
+				&[
+					AcurastPersonalProcessorPackageNameTestnet::get(),
+					AcurastPersonalProcessorPackageNameDevnet::get(),
+				],
+				&[AcurastPersonalProcessorSignatureDigest::get()],
+			),
+		}
+	}
 }
 
 pub struct AdvertisementHandlerImpl;
@@ -840,6 +871,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type Balance = Balance;
+	type ProcessorRewardDistributor = RewardDistributor<Runtime, Balances>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -1296,19 +1329,19 @@ mod benches {
 	define_benchmarks!(
 		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
 		// [frame_system, SystemBench::<Runtime>]
-		[pallet_timestamp, Timestamp]
-		[pallet_multisig, Multisig]
-		[pallet_balances, Balances]
-		[pallet_democracy, Democracy]
-		[pallet_collator_selection, CollatorSelection]
-		[pallet_session, SessionBench::<Runtime>]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		// [pallet_timestamp, Timestamp]
+		// [pallet_multisig, Multisig]
+		// [pallet_balances, Balances]
+		// [pallet_democracy, Democracy]
+		// [pallet_collator_selection, CollatorSelection]
+		// [pallet_session, SessionBench::<Runtime>]
+		// [cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_acurast, Acurast]
 		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 		[pallet_acurast_marketplace, AcurastMarketplace]
-		[pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
-		[pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		// [pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
+		// [pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
 		[pallet_acurast_vesting, AcurastVesting]
 	);
 }

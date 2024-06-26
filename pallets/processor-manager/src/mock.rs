@@ -136,10 +136,15 @@ impl Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type Advertisement = ();
 	type AdvertisementHandler = ();
+
 	type WeightInfo = weights::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+
+	type Balance = Balance;
+
+	type ProcessorRewardDistributor = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]

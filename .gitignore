@@ -19,3 +19,6 @@
 
 zombienet/bin
 !zombienet/bin/acurast-node
+
+# Don't commit ink lock file since we want to use latest and greatest when compiling the contracts
+ink/Cargo.lock

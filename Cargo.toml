@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 authors = [ "Papers AG" ]
 repository = "https://github.com/acurast"
-version = "0.6.0"
+version = "0.6.1"
 
 [workspace.dependencies]
 # build dependencies
@@ -47,6 +47,9 @@ pallet-acurast-processor-manager = { path = "./pallets/processor-manager", defau
 pallet-acurast-hyperdrive = { path = "./pallets/hyperdrive", default-features = false }
 # The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
 pallet-acurast-hyperdrive-outgoing = { path = "./pallets/hyperdrive-outgoing", default-features = false }
+# The Hyperdrive (IBC) pallet enables inter-blockchain-communication (IBC) by bidirectional message passing.
+# It replaces pallet-acurast-hyperdrive and pallet-acurast-hyperdrive-outgoing.
+pallet-acurast-hyperdrive-ibc = { path = "./pallets/hyperdrive-ibc", default-features = false }
 # The Reputation pallet handles the reputation of processors.
 acurast-reputation = { path = "./pallets/marketplace/reputation", default-features = false }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus

@@ -44,6 +44,10 @@ build:
   script:
     - docker build -t $GOOGLE_TAG .
     - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
+  only:
+    - develop
+    - feat/hyperdrive-ibc
+    - main
 
 publish-dev:
   stage: publish
@@ -59,6 +63,11 @@ publish-dev:
     - docker tag $KUSAMA_TAG $KUSAMA_TAG_LATEST_DEV
     - docker push $KUSAMA_TAG_DEV
     - docker push $KUSAMA_TAG_LATEST_DEV
+  only:
+    - develop
+    - feat/hyperdrive-ibc
+    - main
+
 
 publish-prod:
   stage: publish

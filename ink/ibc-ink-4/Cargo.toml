@@ -1,14 +1,17 @@
 [package]
-name = "acurast-consumer-ink"
+name = "acurast-ibc-ink-4"
 version = "0.1.0"
 authors = ["Papers AG"]
 edition = "2021"
 
 [dependencies]
-ink = { version = "5.0.0", default-features = false }
+ink = { version = "4.2.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.3", default-features = false, features = ["derive"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
 
 [lib]
 path = "lib.rs"

@@ -1,0 +1,21 @@
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 465.005494μTZERO
+       Event Contracts ➜ CodeStored
+         code_hash: 0xdc017a49c2e9dc9e8a5a7c66d8ebc59f5af4ffa08e7d931d49b2fae2da2d13ca
+         deposit_held: 1.99372TZERO
+         uploader: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 465.005494μTZERO
+       Event Treasury ➜ Deposit
+         value: 465005494
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 465.005494μTZERO
+         tip: 0TZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 4650005114, proof_size: 3607 }, class: Normal, pays_fee: Yes }
+
+   Code hash "0xdc017a49c2e9dc9e8a5a7c66d8ebc59f5af4ffa08e7d931d49b2fae2da2d13ca"

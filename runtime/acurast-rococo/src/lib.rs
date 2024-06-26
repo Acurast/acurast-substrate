@@ -21,6 +21,7 @@ use frame_support::traits::{
 	TransformOrigin,
 };
 use implementations::*;
+use polkadot_core_primitives::BlakeTwo256;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
@@ -95,6 +96,7 @@ use pallet_acurast_hyperdrive::{
 	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
 	ParsedAction, StateOwner,
 };
+use pallet_acurast_hyperdrive_ibc::{instances::AcurastBidirectionalInstance, MessageBody};
 use pallet_acurast_hyperdrive_outgoing::{
 	chain::tezos::DefaultTezosConfig, Action, LeafIndex, MMRError, SnapshotNumber, TargetChainProof,
 };
@@ -194,7 +196,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 19,
+	spec_version: 26,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -989,6 +991,16 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 	}
 }
 
+pub struct HyperdriveMessageProcessor<T: pallet_acurast::Config>(PhantomData<T>);
+impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
+	for HyperdriveMessageProcessor<Runtime>
+{
+	fn process(_message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
+		// TODO parse pody and invoke AcurastActionExecutor (migrated to new pallet)
+		Ok(().into())
+	}
+}
+
 const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
 	5, 10, 0, 0, 0, 22, 1, 243, 102, 74, 48, 19, 167, 144, 92, 234, 61, 255, 164, 165, 233, 104,
 	130, 42, 7, 133, 23, 0,
@@ -1084,6 +1096,25 @@ impl pallet_acurast_hyperdrive_outgoing::Config<AlephZeroInstance> for Runtime {
 	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
 	type OnNewRoot = ();
 	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
+}
+
+parameter_types! {
+	pub MinTTL: BlockNumber = 20;
+	pub MinDeliveryConfirmationSignatures: u32 = 1;
+	pub MinReceiptConfirmationSignatures: u32 = 1;
+	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::Hyperdrive(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
+}
+
+impl pallet_acurast_hyperdrive_ibc::Config<AcurastBidirectionalInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MinTTL = MinTTL;
+	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
+	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MessageIdHashing = BlakeTwo256;
+	type MessageProcessor = HyperdriveMessageProcessor<Runtime>;
+	type WeightInfo = weights::HyperdriveWeight;
 }
 
 parameter_types! {
@@ -1316,6 +1347,7 @@ construct_runtime!(
 		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2> = 49,
 		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3> = 50,
 		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3> = 51,
+		Hyperdrive: pallet_acurast_hyperdrive_ibc::<Instance1> = 52,
 	}
 );
 

@@ -87,6 +87,7 @@ where
 				{
 					let progress = current_block_number.saturating_sub(distribution_window.start);
 					if progress >= distribution_window.window_length {
+						let mut distributed_amount: Option<T::Balance> = None;
 						let buffer = progress.saturating_sub(distribution_window.window_length);
 						if buffer <= distribution_window.tollerance &&
 							(distribution_window.heartbeats + 1) >=
@@ -98,7 +99,8 @@ where
 								&distribution_settings.distributor_account,
 							);
 							if result.is_ok() {
-								return Some(distribution_settings.reward_per_distribution)
+								distributed_amount =
+									Some(distribution_settings.reward_per_distribution)
 							}
 						}
 						<ProcessorRewardDistributionWindow<T>>::insert(
@@ -108,6 +110,7 @@ where
 								&distribution_settings,
 							),
 						);
+						return distributed_amount
 					} else {
 						<ProcessorRewardDistributionWindow<T>>::insert(
 							&processor,

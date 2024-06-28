@@ -226,7 +226,8 @@ pub mod ibc {
                 Err(Error::DeliveryConfirmationOverdue)?
             };
 
-            self.check_signatures(&message.message, signatures, self.config.min_delivery_signatures)?;
+            let relayer = self.env().caller();
+            self.check_signatures(&message.message, Some(relayer), signatures, self.config.min_delivery_signatures)?;
 
             // https://github.com/use-ink/ink-examples/blob/main/contract-transfer/lib.rs#L29
             if self.env().transfer(message.payer, message.fee).is_err() {
@@ -343,7 +344,7 @@ pub mod ibc {
             let message =
                 Message { id, sender, nonce, recipient, payload };
 
-            self.check_signatures(&message, signatures, self.config.min_receipt_signatures)?;
+            self.check_signatures(&message, None, signatures, self.config.min_receipt_signatures)?;
 
             let message_with_meta =
                 IncomingMessageWithMeta { message, current_block, relayer };
@@ -411,7 +412,7 @@ pub mod ibc {
             self.env().hash_encoded::<Blake2x256, _>(&(sender, nonce))
         }
 
-        fn check_signatures(&mut self, message: &Message, signatures: Signatures, min_signatures: u8) -> Result<(), Error> {
+        fn check_signatures(&mut self, message: &Message, relayer: Option<AccountId>, signatures: Signatures, min_signatures: u8) -> Result<(), Error> {
             if signatures.len() < min_signatures.into() {
                 Err(Error::NotEnoughSignaturesValid)?
             }
@@ -421,8 +422,13 @@ pub mod ibc {
                 |signature| -> Result<(), Error> {
                     ink::env::debug_println!("checking signature: {}", hex::encode(&signature));
 
-                    // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_bytes.html
-                    let message_hash: [u8; 32] = self.env().hash_bytes::<Blake2x256>(&message.encode());
+                    let message_hash: [u8; 32] = if let Some(r) = &relayer {
+                        // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_bytes.html
+                        self.env().hash_bytes::<Blake2x256>(&(message, r).encode())
+                    } else {
+                        // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_bytes.html
+                        self.env().hash_bytes::<Blake2x256>(&message.encode())
+                    };
                     ink::env::debug_println!("message_hash: {}", hex::encode(message_hash));
                     let public: Public = self.env().ecdsa_recover(&signature, &message_hash).map_err(|_|
                         Error::SignatureInvalid

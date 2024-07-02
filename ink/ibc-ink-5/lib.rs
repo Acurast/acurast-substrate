@@ -10,11 +10,10 @@ pub mod ibc {
     use ink::prelude::string::String;
     use ink::prelude::vec::Vec;
     use scale::{Decode, Encode};
-    use ink::storage::Mapping;
-    use ink::storage::Lazy;
-    use ink_env::hash::Blake2x256;
+    use ink::storage::{Mapping, Lazy};
     use ink::{prelude::collections::BTreeSet};
     use scale_info::prelude::vec;
+    use ink::env::{hash::{Blake2x256}, call::{build_call, Selector, ExecutionInput}, DefaultEnvironment};
 
     pub type PubKey = [u8; 32];
     pub type MessageIndex = u64;
@@ -23,17 +22,25 @@ pub mod ibc {
     pub type FunctionName = String;
     pub type Payload = Vec<u8>;
     pub type Contract = AccountId;
-    pub type Signature = [u8; 64];
-    pub type Public = [u8; 32];
-    pub type Signatures = Vec<(Signature, Public)>;
+    pub type Signature = [u8; 65];
+    pub type Public = Vec<u8>;
+    pub type Signatures = Vec<Signature>;
 
     #[ink(storage)]
     pub struct Ibc {
         config: Config,
-        outgoing_messages: Mapping<MessageId, OutgoingMessageWithMeta>,
-        incoming_messages: Mapping<MessageId, IncomingMessageWithMeta>,
+        /// outgoing messages
+        outgoing: Mapping<MessageId, OutgoingMessageWithMeta>,
+        /// iterable index of outgoing messages needed for discovery by relayer
+        outgoing_index: Lazy<Vec<MessageId>>,
+        /// incoming messages 
+        incoming: Mapping<MessageId, IncomingMessageWithMeta>,
+        /// iterable index of incoming messages needed for discovery by relayer
+        incoming_index:  Lazy<Vec<MessageId>>,
         message_counter: u128,
-        oracle_public_keys: Lazy<BTreeSet<Public>>,
+        // because [`ink::storage::traits::StorageLayout`] is not implemented for [u8; 33], we use Vec<u8>
+        // see https://substrate.stackexchange.com/questions/5786/ink-smart-contract-struct-field-issues
+        oracle_public_keys: Mapping<Public, ()>,
     }
 
     /// Contract configurations are contained in this structure
@@ -50,24 +57,31 @@ pub mod ibc {
         min_delivery_signatures: u8,
         min_receipt_signatures: u8,
         min_ttl: BlockNumber,
+        /// ttl for incoming message before removed from ids index (to limit length of vector when reading `incoming_index`)
+        incoming_ttl: BlockNumber,
     }
 
     impl Ibc {
         #[ink(constructor)]
         pub fn default() -> Self {
-            Self {
+            let mut d = Self {
                 config: Config {
-                    owner: AccountId::from([0x0; 32]),
+                    owner: AccountId::from([24,90,139,95,146,236,211,72,237,155,18,160,71,202,43,40,72,139,19,152,6,90,141,255,141,207,136,98,69,249,40,11]),
                     paused: false,
                     min_delivery_signatures: 1,
                     min_receipt_signatures: 1,
                     min_ttl: 20,
+                    incoming_ttl: 30,
                 },
-                outgoing_messages: Default::default(),
-                incoming_messages: Default::default(),
+                outgoing: Default::default(),
+                outgoing_index: Default::default(),
+                incoming: Default::default(),
+                incoming_index: Default::default(),
                 message_counter: 0,
                 oracle_public_keys: Default::default(),
-            }
+            };
+            d.oracle_public_keys.insert(vec![3,165,118,76,57,181,62,211,167,24,6,116,158,212,202,14,15,197,104,143,109,3,235,177,22,180,132,216,84,109,107,213,199], &());
+            d
         }
 
         #[ink(message)]
@@ -76,12 +90,14 @@ pub mod ibc {
 
             for action in actions {
                 match action {
-                    ConfigureArgument::SetOwner(address) => self.config.owner = address,
-                    ConfigureArgument::SetPaused(paused) => self.config.paused = paused,
-                    ConfigureArgument::SetCode(code_hash) => self.set_code(code_hash),
+                    ConfigureArgument::Owner(address) => self.config.owner = address,
+                    ConfigureArgument::Paused(paused) => self.config.paused = paused,
+                    ConfigureArgument::Code(code_hash) => self.set_code(code_hash),
+                    ConfigureArgument::OraclePublicKeys(oracle_updates) => self.update_oracles(oracle_updates),
                     ConfigureArgument::MinDeliverySignatures(min_delivery_signatures) => self.config.min_delivery_signatures = min_delivery_signatures,
                     ConfigureArgument::MinReceiptSignatures(min_receipt_signatures) => self.config.min_receipt_signatures = min_receipt_signatures,
                     ConfigureArgument::MinTTL(min_ttl) => self.config.min_ttl = min_ttl,
+                    ConfigureArgument::IncomingTTL(incoming_ttl) => self.config.incoming_ttl = incoming_ttl,
                 }
             }
 
@@ -89,25 +105,51 @@ pub mod ibc {
         }
 
         #[ink(message)]
-        pub fn update_oracles(&mut self, updates: Vec<OracleUpdate>) -> Result<(), Error> {
-            self.ensure_owner()?;
+        pub fn config(&self) -> Config {
+            self.config.clone()
+        }
 
+        #[ink(message)]
+        pub fn message_count(&self) -> u128 {
+            self.message_counter
+        }
+
+        #[ink(message)]
+        pub fn outgoing_message(&self, message_id: MessageId) -> Option<OutgoingMessageWithMeta> {
+            self.outgoing.get(message_id)
+        }
+       
+        #[ink(message)]
+        pub fn outgoing_index(&self) -> Vec<MessageId> {
+            self.outgoing_index.get_or_default()
+        }
+        
+        #[ink(message)]
+        pub fn incoming_message(&self, message_id: MessageId) -> Option<IncomingMessageWithMeta> {
+            self.incoming.get(message_id)
+        }
+       
+        #[ink(message)]
+        pub fn incoming_index(&self) -> Vec<MessageId> {
+            self.incoming_index.get_or_default()
+        }
+
+        #[ink(message)]
+        pub fn oracles(&self, public: Public) -> bool {
+            self.oracle_public_keys.get(public).is_some()
+        }
+
+        fn update_oracles(&mut self, updates: Vec<OracleUpdate>) {
             // Process actions
             let (added, removed) =
                 updates.into_iter().fold((vec![], vec![]), |acc, action| {
-                    let (mut added, mut removed) = acc;
+                    let (added, removed) = acc;
                     match action {
                         OracleUpdate::Add(public) => {
-                            if !self.oracle_public_keys.get_or_default().contains(&public) {
-                                self.oracle_public_keys.get_or_default().insert(public.clone());
-                                added.push(public)
-                            }
+                            self.oracle_public_keys.insert(&public, &());
                         },
                         OracleUpdate::Remove(public) => {
-                            if self.oracle_public_keys.get_or_default().contains(&public) {
-                                self.oracle_public_keys.get_or_default().remove(&public);
-                                removed.push(public)
-                            }
+                            self.oracle_public_keys.remove(&public);
                         },
                     }
                     (added, removed)
@@ -117,24 +159,21 @@ pub mod ibc {
                 added,
                 removed,
             });
-
-            Ok(())
         }
 
         /// Modifies the code which is used to execute calls to this contract.
         fn set_code(&mut self, code_hash: Hash) {
-            ink::env::set_code_hash::<Environment>(&code_hash).unwrap_or_else(|err| {
+            ink::env::set_code_hash::<DefaultEnvironment>(&code_hash).unwrap_or_else(|err| {
                 panic!("Failed to `set_code_hash` to {:?} due to {:?}", code_hash, err)
             });
             ink::env::debug_println!("Switched code hash to {:?}.", code_hash);
         }
 
-        /// Sends a message with sender being the calling address of this message.
+        /// Sends a (test) message with the origin of the extrinsic call as the payload.
         #[ink(message, payable)]
         pub fn send_message(
             &mut self,
             recipient: Subject,
-            payload: Payload,
             ttl: BlockNumber,
         ) -> Result<(), Error> {
             self.ensure_unpaused()?;
@@ -146,11 +185,12 @@ pub mod ibc {
             self.message_counter = count + 1;
 
             let message = self.do_send_message(
-                Subject::Acurast(Layer::Contract(self.env().caller())),
+                Subject::AlephZero(Layer::Contract(ContractCall {contract: self.env().account_id(), selector: Some(ink::selector_bytes!("send_message"))})),
                 self.env().caller(),
                 self.env().hash_encoded::<Blake2x256, _>(&count),
                 recipient,
-                payload,
+                // the test message payload is just the sender of the message
+                self.env().caller().encode(),
                 ttl,
                 fee,
             )?;
@@ -178,7 +218,7 @@ pub mod ibc {
             // https://use.ink/basics/contract-debugging/
             ink::env::debug_println!("Confirm message delivery of {}", hex::encode(id));
 
-            let message = self.outgoing_messages.get(&id).ok_or(Error::MessageNotFound)?;
+            let message = self.outgoing.get(&id).ok_or(Error::MessageNotFound)?;
 
             let current_block = self.env().block_number();
 
@@ -186,7 +226,8 @@ pub mod ibc {
                 Err(Error::DeliveryConfirmationOverdue)?
             };
 
-            self.check_signatures(&message.message, signatures, self.config.min_delivery_signatures)?;
+            let relayer = self.env().caller();
+            self.check_signatures(&message.message, Some(relayer), signatures, self.config.min_delivery_signatures)?;
 
             // https://github.com/use-ink/ink-examples/blob/main/contract-transfer/lib.rs#L29
             if self.env().transfer(message.payer, message.fee).is_err() {
@@ -196,6 +237,12 @@ pub mod ibc {
                      contract's balance below minimum balance."
                 )
             }
+
+            self.outgoing.remove(&id);
+
+            let mut index = self.outgoing_index.get_or_default();
+            index.retain(|&i| i != id);
+            self.outgoing_index.set(&index);
 
             Self::env().emit_event(MessageDelivered { id });
 
@@ -230,7 +277,7 @@ pub mod ibc {
             ink::env::debug_println!("Send message {}", hex::encode(id));
 
             // look for duplicates
-            if let Some(message) = self.outgoing_messages.get(&id) {
+            if let Some(message) = self.outgoing.get(&id) {
                 // potential duplicate found: check for ttl
                 if message.ttl_block >= current_block {
                     Err(Error::MessageWithSameNoncePending)?;
@@ -252,7 +299,12 @@ pub mod ibc {
                 fee,
                 payer: payer.clone(),
             };
-            self.outgoing_messages.insert(&id, &message_with_meta);
+            
+            self.outgoing.insert(&id, &message_with_meta);
+
+            let mut index = self.outgoing_index.get_or_default();
+            index.push(id);
+            self.outgoing_index.set(&index);
 
             Ok(message_with_meta)
         }
@@ -269,9 +321,9 @@ pub mod ibc {
         ) -> Result<(), Error> {
             self.ensure_unpaused()?;
 
-            if let Subject::Acurast(multi) = &recipient {
-                if let Layer::Contract(_) = multi {
-                    Ok(())
+            let contract_call = if let Subject::AlephZero(layer) = recipient.clone() {
+                if let Layer::Contract(contract_call) = layer {
+                    Ok(contract_call)
                 } else {
                     Err(Error::IncorrectRecipient)
                 }
@@ -279,50 +331,121 @@ pub mod ibc {
                 Err(Error::IncorrectRecipient)
             }?;
 
-            let id = self.message_id(&recipient, nonce);
+            let id = self.message_id(&sender, nonce);
             // https://use.ink/basics/contract-debugging/
             ink::env::debug_println!("Receive message {}", hex::encode(id));
-            if self.incoming_messages.get(&id).is_some() {
+            if self.incoming.get(&id).is_some() {
                 Err(Error::MessageAlreadyReceived)?
             }
 
             let current_block = self.env().block_number();
+            let relayer = self.env().caller();
 
             let message =
                 Message { id, sender, nonce, recipient, payload };
 
-            self.check_signatures(&message, signatures, self.config.min_receipt_signatures)?;
+            self.check_signatures(&message, None, signatures, self.config.min_receipt_signatures)?;
 
             let message_with_meta =
-                IncomingMessageWithMeta { message, current_block };
+                IncomingMessageWithMeta { message, current_block, relayer };
 
-            self.incoming_messages.insert(&id, &message_with_meta);
+            self.incoming.insert(&id, &message_with_meta);
 
-            Self::env().emit_event(MessageProcessed { id });
+            if let Some(selector) = contract_call.selector {
+                match build_call::<DefaultEnvironment>()
+                    .call(contract_call.contract)
+                    .ref_time_limit(0)
+                    .proof_size_limit(0)
+                    .storage_deposit_limit(0)
+                    .transferred_value(0)
+                    .exec_input(
+                        ExecutionInput::new(Selector::new(selector))
+                            .push_arg(message_with_meta.message.payload)
+                    )
+                    .returns::<()>()
+                    .try_invoke() {
+                    Ok(_) => {
+                        Self::env().emit_event(MessageProcessed { id });
+                    }
+                    Err(_) => {
+                        // swallow error to make storing message persistent
+                        Self::env().emit_event(MessageProcessedWithErrors { id });
+                    }
+                }
+            } else {
+                Self::env().emit_event(MessageProcessed { id });
+            }
 
             Ok(())
         }
 
-        fn message_id(&mut self, subject: &Subject, nonce: MessageNonce) -> MessageId {
-            // https://docs.rs/ink_env/5.0.0/ink_env/fn.hash_encoded.html
-            self.env().hash_encoded::<Blake2x256, _>(&(subject, nonce))
+        /// Used by a relayer to clean incoming index from messages older than `Config::incoming_ttl`. Currently it does not clean the actual message store `incoming`, so duplicates are still detected.
+        #[ink(message)]
+        pub fn clean_incoming_index(
+            &mut self,
+        ) -> Result<(), Error> {
+            self.ensure_unpaused()?;
+
+            let current_block = self.env().block_number();
+
+            let mut index = self.incoming_index.get_or_default();
+            index.retain(|&i| {
+                let retain = if let Some(message) = self.incoming.get(&i) {
+                    current_block < self.config.incoming_ttl || message.current_block > current_block - self.config.incoming_ttl
+                } else {
+                    // if message store does not have this message, delete it from index
+                    false
+                };
+                
+                if !retain {
+                    // https://use.ink/basics/contract-debugging/
+                    ink::env::debug_println!("Clear message from index: {}", hex::encode(i));
+                }
+
+                retain
+            });
+            self.incoming_index.set(&index);
+
+            Ok(())
         }
 
-        fn check_signatures(&mut self, message: &Message, signatures: Signatures, min_signatures: u8) -> Result<(), Error> {
+        fn message_id(&mut self, sender: &Subject, nonce: MessageNonce) -> MessageId {
+            // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_encoded.html
+            self.env().hash_encoded::<Blake2x256, _>(&(sender, nonce))
+        }
+
+        fn check_signatures(&mut self, message: &Message, relayer: Option<AccountId>, signatures: Signatures, min_signatures: u8) -> Result<(), Error> {
             if signatures.len() < min_signatures.into() {
                 Err(Error::NotEnoughSignaturesValid)?
             }
 
+            let mut seen: BTreeSet<Vec<u8>> = Default::default();
             signatures.into_iter().try_for_each(
-                |(signature, public)| -> Result<(), Error> {
-                    self.oracle_public_keys.get_or_default().get(&public).ok_or(
+                |signature| -> Result<(), Error> {
+                    ink::env::debug_println!("checking signature: {}", hex::encode(&signature));
+
+                    let message_hash: [u8; 32] = if let Some(r) = &relayer {
+                        // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_bytes.html
+                        self.env().hash_bytes::<Blake2x256>(&(message, r).encode())
+                    } else {
+                        // https://docs.rs/ink_env/4.2.0/ink_env/fn.hash_bytes.html
+                        self.env().hash_bytes::<Blake2x256>(&message.encode())
+                    };
+                    ink::env::debug_println!("message_hash: {}", hex::encode(message_hash));
+                    let public: Public = self.env().ecdsa_recover(&signature, &message_hash).map_err(|_|
+                        Error::SignatureInvalid
+                    )?.to_vec();
+
+                    ink::env::debug_println!("recovered public key: {}", hex::encode(&public));
+
+                    self.oracle_public_keys.get(&public).ok_or(
                         Error::PublicKeyUnknown
                     )?;
 
-                    // https://docs.rs/ink_env/5.0.0/ink_env/fn.sr25519_verify.html
-                    self.env().sr25519_verify(&signature, &message.encode(), &public).map_err(|_|
-                        Error::SignatureInvalid
-                    )?;
+                    if seen.contains(&public) {
+                        Err(Error::DuplicateSignature)?
+                    }
+                    seen.insert(public);
 
                     Ok(())
                 },
@@ -354,12 +477,14 @@ pub mod ibc {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub enum ConfigureArgument {
-        SetOwner(AccountId),
-        SetPaused(bool),
-        SetCode(Hash),
+        Owner(AccountId),
+        Paused(bool),
+        Code(Hash),
+        OraclePublicKeys(Vec<OracleUpdate>),
         MinDeliverySignatures(u8),
         MinReceiptSignatures(u8),
         MinTTL(BlockNumber),
+        IncomingTTL(BlockNumber),
     }
 
     #[derive(Clone, Eq, PartialEq, Encode, Decode)]
@@ -373,6 +498,7 @@ pub mod ibc {
         IncorrectRecipient,
         MessageAlreadyReceived,
         PublicKeyUnknown,
+        DuplicateSignature,
         SignatureInvalid,
         NotEnoughSignaturesValid,
         MessageWithSameNoncePending,
@@ -403,7 +529,17 @@ pub mod ibc {
     }
 
     #[ink(event)]
+    pub struct MessageStored {
+        id: MessageId,
+    }
+
+    #[ink(event)]
     pub struct MessageProcessed {
+        id: MessageId,
+    }
+
+    #[ink(event)]
+    pub struct MessageProcessedWithErrors {
         id: MessageId,
     }
 
@@ -439,6 +575,7 @@ pub mod ibc {
     pub struct IncomingMessageWithMeta {
         pub message: Message,
         pub current_block: BlockNumber,
+        pub relayer: AccountId,
     }
 
     #[derive(Clone, Eq, PartialEq, Encode, Decode)]
@@ -489,23 +626,22 @@ pub mod ibc {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub enum Layer {
-        Extrinsic(RawOrigin),
-        Contract(Contract),
+        /// A sender/recipient extrinsic. In case of a sender, it should hold the pallet_account of either this pallet
+        /// if `hyperdrive_ibc::send_message`-extrinsic sent the message or the (internal) caller of `hyperdrive_ibc::do_send_message`.
+        Extrinsic(AccountId),
+        Contract(ContractCall),
     }
 
+    /// https://use.ink/4.x/basics/cross-contract-calling#callbuilder
     #[derive(Clone, Eq, PartialEq, Encode, Decode)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
-    pub enum RawOrigin {
-        /// The system itself ordained this dispatch to happen: this is the highest privilege level.
-        Root,
-        /// It is signed by some public key and we provide the `AccountId`.
-        Signed(AccountId),
-        /// It is signed by nobody, can be either:
-        /// * included and agreed upon by the validators anyway,
-        /// * or unsigned transaction validated by a pallet.
-        None,
+    pub struct ContractCall {
+        pub contract: Contract,
+        /// Selector for the message of `contract` to send payload to,
+        /// as the only argument.
+        pub selector: Option<[u8; 4]>,
     }
 }

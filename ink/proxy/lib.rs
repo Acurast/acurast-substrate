@@ -4,19 +4,21 @@
 #[ink::contract]
 mod proxy {
 	use ink::{
-		codegen::EmitEvent,
 		env::{
 			call::{build_call, ExecutionInput},
-			hash, DefaultEnvironment,
+			hash::{Blake2x256}, DefaultEnvironment,
 		},
 		prelude::{
 			format,
 			string::{String, ToString},
 			vec::Vec,
 		},
-		storage::{traits::StorageLayout, Mapping},
-		LangError,
+		storage::Mapping,
 	};
+    use acurast_ibc_ink::ibc::{Subject, Layer};
+	#[cfg(feature = "std")]
+	use ink::storage::traits::StorageLayout;
+
 	use scale::{Decode, Encode};
 
 	use acurast_core_ink::types::{
@@ -24,7 +26,6 @@ mod proxy {
 		RegisterJobPayloadV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1, Version,
 		VersionedIncomingActionPayload,
 	};
-	use acurast_validator_ink::validator::{LeafProof, MerkleProof};
 
 	pub type OuterError<T> = Result<Result<T, ink::LangError>, ink::env::Error>;
 
@@ -157,15 +158,13 @@ mod proxy {
 	#[derive(Encode, Decode)]
 	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum ConfigureArgument {
-		SetOwner(AccountId),
-		SetMerkleAggregator(AccountId),
-		SetProofValidator(AccountId),
-		SetPaused(bool),
-		SetPayloadVersion(u16),
-		SetJobInfoVersion(u16),
-		SetMaxMessageBytes(u16),
-		SetExchangeRatio(ExchangeRatio),
-		SetCode([u8; 32]),
+		Owner(AccountId),
+		IBCContract(AccountId),
+		Paused(bool),
+		PayloadVersion(u16),
+		MaxMessageBytes(u16),
+		ExchangeRatio(ExchangeRatio),
+		Code(Hash),
 	}
 
 	#[ink(event)]
@@ -174,29 +173,23 @@ mod proxy {
 	}
 
 	/// Errors returned by the contract's methods.
-	#[derive(Debug, PartialEq, Eq, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+	#[derive(scale_info::TypeInfo, Debug, PartialEq, Eq, Encode, Decode)]
 	pub enum Error {
 		UnknownJobVersion(u16),
-		UnknownIncomingActionVersion(u16),
 		JobAlreadyFinished,
 		NotJobProcessor,
 		UnknownJob,
-		InvalidProof,
 		ContractPaused,
 		NotOwner,
 		NotJobCreator,
 		CannotFinalizeJob,
 		OutgoingActionTooBig,
 		Verbose(String),
-		UnknownActionIndex(u64),
 		InvalidIncomingAction(String),
-		InvalidOutgoingAction(String),
 		/// Error wrappers
-		StateAggregatorError(acurast_state_ink::Error),
-		ValidatorError(acurast_validator_ink::Error),
+		IBCError(acurast_ibc_ink::Error),
 		ConsumerError(String),
-		LangError(LangError),
+		LangError(String),
 	}
 
 	#[derive(Debug, Encode, Decode)]
@@ -228,16 +221,12 @@ mod proxy {
 	pub struct Config {
 		/// Address allowed to manage the contract
 		owner: AccountId,
-		/// The state aggregator
-		merkle_aggregator: AccountId,
-		/// The Merkle Mountain Range proof validator
-		proof_validator: AccountId,
+		/// The IBC contract
+		ibc: AccountId,
 		/// Flag that states if the contract is paused or not
 		paused: bool,
 		/// Payload versioning
 		payload_version: u16,
-		/// Job information versioning
-		job_info_version: u16,
 		/// Maximum size per action
 		max_message_bytes: u16,
 		/// Exchange ratio ( AZERO / ACU )
@@ -248,20 +237,17 @@ mod proxy {
 	pub struct Proxy {
 		config: Config,
 		next_outgoing_action_id: u64,
-		processed_incoming_actions: Mapping<u64, ()>,
 		next_job_id: u128,
-		actions: Mapping<u64, (u64, u128, Vec<u8>)>,
 		job_info: Mapping<u128, (u16, Vec<u8>)>,
 	}
 
 	impl Proxy {
 		#[ink(constructor)]
-		pub fn new(owner: AccountId, state: AccountId, validator: AccountId) -> Self {
+		pub fn new(owner: AccountId, ibc: AccountId) -> Self {
 			let mut contract = Self::default();
 
 			contract.config.owner = owner;
-			contract.config.merkle_aggregator = state;
-			contract.config.proof_validator = validator;
+			contract.config.ibc = ibc;
 			contract
 		}
 
@@ -270,18 +256,14 @@ mod proxy {
 			Self {
 				config: Config {
 					owner: AccountId::from([0x0; 32]),
-					merkle_aggregator: AccountId::from([0x0; 32]),
-					proof_validator: AccountId::from([0x0; 32]),
+					ibc: AccountId::from([0x0; 32]),
 					paused: false,
 					payload_version: 1,
-					job_info_version: 1,
 					max_message_bytes: 2048,
 					exchange_ratio: ExchangeRatio { numerator: 1, denominator: 10 },
 				},
 				next_outgoing_action_id: 1,
-				processed_incoming_actions: Mapping::new(),
 				next_job_id: 1,
-				actions: Mapping::new(),
 				job_info: Mapping::new(),
 			}
 		}
@@ -294,19 +276,12 @@ mod proxy {
 			}
 		}
 
-		fn fail_if_paused(&self) -> Result<(), Error> {
+		fn ensure_unpaused(&self) -> Result<(), Error> {
 			if self.config.paused {
 				Err(Error::ContractPaused)
 			} else {
 				Ok(())
 			}
-		}
-
-		fn blake2b_hash(data: &Vec<u8>) -> [u8; 32] {
-			let mut output = <hash::Blake2x256 as hash::HashOutput>::Type::default();
-			ink::env::hash_bytes::<hash::Blake2x256>(&data, &mut output);
-
-			output
 		}
 
 		fn get_job(&self, job_id: u128) -> Result<(Version, Vec<u8>), Error> {
@@ -321,8 +296,8 @@ mod proxy {
 		}
 
 		/// Modifies the code which is used to execute calls to this contract.
-		pub fn set_code(&mut self, code_hash: [u8; 32]) {
-			ink::env::set_code_hash(&code_hash).unwrap_or_else(|err| {
+		pub fn set_code(&mut self, code_hash: Hash) {
+			ink::env::set_code_hash::<DefaultEnvironment>(&code_hash).unwrap_or_else(|err| {
 				panic!("Failed to `set_code_hash` to {:?} due to {:?}", code_hash, err)
 			});
 			ink::env::debug_println!("Switched code hash to {:?}.", code_hash);
@@ -334,22 +309,18 @@ mod proxy {
 
 			for action in actions {
 				match action {
-					ConfigureArgument::SetOwner(address) => self.config.owner = address,
-					ConfigureArgument::SetMerkleAggregator(address) =>
-						self.config.merkle_aggregator = address,
-					ConfigureArgument::SetProofValidator(address) =>
-						self.config.proof_validator = address,
-					ConfigureArgument::SetPaused(paused) => self.config.paused = paused,
-					ConfigureArgument::SetPayloadVersion(version) =>
+					ConfigureArgument::Owner(address) => self.config.owner = address,
+					ConfigureArgument::IBCContract(address) =>
+						self.config.ibc = address,
+					ConfigureArgument::Paused(paused) => self.config.paused = paused,
+					ConfigureArgument::PayloadVersion(version) =>
 						self.config.payload_version = version,
-					ConfigureArgument::SetJobInfoVersion(version) =>
-						self.config.job_info_version = version,
-					ConfigureArgument::SetMaxMessageBytes(max_size) =>
+					ConfigureArgument::MaxMessageBytes(max_size) =>
 						self.config.max_message_bytes = max_size,
 
-					ConfigureArgument::SetExchangeRatio(ratio) =>
+					ConfigureArgument::ExchangeRatio(ratio) =>
 						self.config.exchange_ratio = ratio,
-					ConfigureArgument::SetCode(code_hash) => self.set_code(code_hash),
+					ConfigureArgument::Code(code_hash) => self.set_code(code_hash),
 				}
 			}
 
@@ -360,7 +331,7 @@ mod proxy {
 		#[ink(message)]
 		pub fn send_actions(&mut self, actions: Vec<UserAction>) -> Result<(), Error> {
 			// The contract should not be paused
-			self.fail_if_paused()?;
+			self.ensure_unpaused()?;
 
 			let caller = self.env().caller();
 
@@ -473,7 +444,7 @@ mod proxy {
 
 									// Verify if job can be finalized
 									let is_expired =
-										(job.end_time / 1000) < self.env().block_timestamp().into();
+										(job.end_time / 1000) < self.env().block_timestamp();
 									if !is_expired {
 										return Err(Error::CannotFinalizeJob)
 									}
@@ -508,12 +479,13 @@ mod proxy {
 					UserAction::Noop => OutgoingActionPayloadV1::Noop,
 				};
 
-				let encoded_action = RawOutgoingAction {
+                let action = RawOutgoingAction {
 					id: self.next_outgoing_action_id,
 					origin: caller,
 					payload_version: self.config.payload_version,
 					payload: outgoing_action.encode(),
-				}
+				};
+				let encoded_action = action
 				.encode();
 
 				// Verify that the encoded action size is less than `max_message_bytes`
@@ -521,12 +493,26 @@ mod proxy {
 					return Err(Error::OutgoingActionTooBig)
 				}
 
-				let call_result: OuterError<acurast_state_ink::InsertReturn> =
+				let call_result: OuterError<acurast_ibc_ink::SendMessageResult> =
 					build_call::<DefaultEnvironment>()
-						.call(self.config.merkle_aggregator)
+						.call(self.config.ibc)
+						.call_v1()
 						.exec_input(
-							ExecutionInput::new(acurast_state_ink::INSERT_SELECTOR)
-								.push_arg(Self::blake2b_hash(&encoded_action)),
+							ExecutionInput::new(acurast_ibc_ink::SEND_MESSAGE_SELECTOR)
+								// nonce
+								.push_arg(self.env().hash_encoded::<Blake2x256, _>(&action.id.to_ne_bytes().to_vec()))
+								// recipient
+								.push_arg(&Subject::Acurast(Layer::Extrinsic(
+									AccountId::from([
+										24, 90, 139, 95, 146, 236, 211, 72, 237, 155, 18, 160, 71,
+										202, 43, 40, 72, 139, 19, 152, 6, 90, 141, 255, 141, 207,
+										136, 98, 69, 249, 40, 11,
+									]),
+								)))
+								// payload
+								.push_arg(&encoded_action)
+								//ttl
+								.push_arg(100),
 						)
 						.transferred_value(0)
 						.returns()
@@ -536,17 +522,11 @@ mod proxy {
 					// Errors from the underlying execution environment (e.g the Contracts pallet)
 					Err(error) => Err(Error::Verbose(format!("{:?}", error))),
 					// Errors from the programming language
-					Ok(Err(error)) => Err(Error::LangError(error)),
+					Ok(Err(error)) => Err(Error::LangError(format!("{:?}", error))),
 					// Errors emitted by the contract being called
-					Ok(Ok(Err(error))) => Err(Error::StateAggregatorError(error)),
+					Ok(Ok(Err(error))) => Err(Error::IBCError(error)),
 					// Successful call result
-					Ok(Ok(Ok((leaf_index, snapshot)))) => {
-						// Store encoded action
-						self.actions.insert(
-							self.next_outgoing_action_id,
-							&(leaf_index, snapshot, encoded_action),
-						);
-
+					Ok(Ok(Ok(()))) => {
 						// Increment action id
 						self.next_outgoing_action_id += 1;
 
@@ -558,142 +538,90 @@ mod proxy {
 			Ok(())
 		}
 
-		/// This method purpose is to receive provable messages from the acurast protocol
+		/// This method purpose is to receive messages from the acurast protocol.
 		#[ink(message)]
-		pub fn receive_actions(
-			&mut self,
-			snapshot: u128,
-			proof: MerkleProof<[u8; 32]>,
-		) -> Result<(), Error> {
+		pub fn receive_actions(&mut self, payload: Vec<u8>) -> Result<(), Error> {
 			// The contract cannot be paused
-			self.fail_if_paused()?;
+			self.ensure_unpaused()?;
 
-			let mut actions: Vec<IncomingAction> = proof
-				.leaves
-				.iter()
-				.map(|leaf| decode_incoming_action(&leaf.data))
-				.collect::<Result<Vec<IncomingAction>, Error>>()?;
+			let action: IncomingAction = decode_incoming_action(&payload)?;
 
-			// Sort actions
-			actions.sort();
+			// Process action
+			match action.payload {
+				VersionedIncomingActionPayload::V1(
+					IncomingActionPayloadV1::AssignJobProcessor(payload),
+				) => {
+					match JobInformation::decode(self, payload.job_id)? {
+						JobInformation::V1(mut job) => {
+							let processor_address = AccountId::from(payload.processor);
+							// Update the processor list for the given job
+							job.processors.push(processor_address);
 
-			// Validate proof
-			let call_result: OuterError<acurast_validator_ink::VerifyProofReturn> =
-				build_call::<DefaultEnvironment>()
-					.call(self.config.proof_validator)
-					.exec_input(
-						ExecutionInput::new(acurast_validator_ink::VERIFY_PROOF_SELECTOR)
-							.push_arg(snapshot)
-							.push_arg(proof),
-					)
-					.transferred_value(0)
-					.returns()
-					.try_invoke();
+							// Send initial fees to the processor (the processor may need a reveal)
+							let initial_fee = job.expected_fulfillment_fee;
+							job.remaining_fee -= initial_fee;
+							// Transfer
+							self.env()
+								.transfer(processor_address, initial_fee)
+								.expect("COULD_NOT_TRANSFER");
 
-			match call_result {
-				// Errors from the underlying execution environment (e.g the Contracts pallet)
-				Err(error) => Err(Error::Verbose(format!("{:?}", error))),
-				// Errors from the programming language
-				Ok(Err(error)) => Err(Error::LangError(error)),
-				// Errors emitted by the contract being called
-				Ok(Ok(Err(error))) => Err(Error::ValidatorError(error)),
-				// Proof is not valid
-				Ok(Ok(Ok(is_valid))) if !is_valid => Err(Error::InvalidProof),
-				// Proof is valid
-				Ok(Ok(Ok(_))) => {
-					// The proof is valid
-					for action in actions {
-						// Verify if message was already processed and fail if it was
-						assert!(
-							!self.processed_incoming_actions.contains(action.id),
-							"INVALID_INCOMING_ACTION_ID"
-						);
-						self.processed_incoming_actions.insert(action.id, &());
+							if job.processors.len() == (job.slots as usize) {
+								job.status = StatusKind::Assigned;
+							}
 
-						// Process action
-						match action.payload {
-							VersionedIncomingActionPayload::V1(
-								IncomingActionPayloadV1::AssignJobProcessor(payload),
-							) => {
-								match JobInformation::decode(self, payload.job_id)? {
-									JobInformation::V1(mut job) => {
-										let processor_address = AccountId::from(payload.processor);
-										// Update the processor list for the given job
-										job.processors.push(processor_address);
+							// Save changes
+							self.job_info
+								.insert(payload.job_id, &(Version::V1 as u16, job.encode()));
 
-										// Send initial fees to the processor (the processor may need a reveal)
-										let initial_fee = job.expected_fulfillment_fee;
-										job.remaining_fee = job.remaining_fee - initial_fee;
-										// Transfer
-										self.env()
-											.transfer(processor_address, initial_fee)
-											.expect("COULD_NOT_TRANSFER");
-
-										if job.processors.len() == (job.slots as usize) {
-											job.status = StatusKind::Assigned;
-										}
-
-										// Save changes
-										self.job_info.insert(
-											payload.job_id,
-											&(Version::V1 as u16, job.encode()),
-										);
-
-										Ok(())
-									},
-								}
-							},
-							VersionedIncomingActionPayload::V1(
-								IncomingActionPayloadV1::FinalizeJob(payload),
-							) => {
-								match JobInformation::decode(self, payload.job_id)? {
-									JobInformation::V1(mut job) => {
-										// Update job status
-										job.status = StatusKind::FinalizedOrCancelled;
-
-										assert!(
-											payload.unused_reward <= job.maximum_reward,
-											"ABOVE_MAXIMUM_REWARD"
-										);
-
-										let refund = job.remaining_fee + payload.unused_reward;
-										if refund > 0 {
-											self.env()
-												.transfer(job.creator, refund)
-												.expect("COULD_NOT_TRANSFER");
-										}
-
-										// Save changes
-										self.job_info.insert(
-											payload.job_id,
-											&(Version::V1 as u16, job.encode()),
-										);
-
-										Ok(())
-									},
-								}
-							},
-							VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::Noop) => {
-								// Intentionally do nothing
-								Ok(())
-							},
-						}?;
-
-						// Emit event informing that a given incoming message has been processed
-						EmitEvent::<Self>::emit_event(
-							self.env(),
-							IncomingActionProcessed { action_id: action.id },
-						);
+							Ok(())
+						},
 					}
+				},
+				VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::FinalizeJob(
+					payload,
+				)) => {
+					match JobInformation::decode(self, payload.job_id)? {
+						JobInformation::V1(mut job) => {
+							// Update job status
+							job.status = StatusKind::FinalizedOrCancelled;
 
+							assert!(
+								payload.unused_reward <= job.maximum_reward,
+								"ABOVE_MAXIMUM_REWARD"
+							);
+
+							let refund = job.remaining_fee + payload.unused_reward;
+							if refund > 0 {
+								self.env()
+									.transfer(job.creator, refund)
+									.expect("COULD_NOT_TRANSFER");
+							}
+
+							// Save changes
+							self.job_info
+								.insert(payload.job_id, &(Version::V1 as u16, job.encode()));
+
+							Ok(())
+						},
+					}
+				},
+				VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::Noop) => {
+					// Intentionally do nothing
 					Ok(())
 				},
-			}
+			}?;
+
+			// Emit event informing that a given incoming message has been processed
+			Self::env().emit_event(
+				IncomingActionProcessed { action_id: action.id },
+			);
+
+            Ok(())
 		}
 
 		#[ink(message)]
 		pub fn fulfill(&mut self, job_id: u128, payload: Vec<u8>) -> Result<(), Error> {
-			self.fail_if_paused()?;
+			self.ensure_unpaused()?;
 
 			match JobInformation::decode(self, job_id)? {
 				JobInformation::V1(mut job) => {
@@ -722,6 +650,7 @@ mod proxy {
 					let call_result: OuterError<acurast_consumer_ink::FulfillReturn> =
 						build_call::<DefaultEnvironment>()
 							.call(job.destination)
+							.call_v1()
 							.exec_input(
 								ExecutionInput::new(acurast_consumer_ink::FULFILL_SELECTOR)
 									.push_arg(job_id)
@@ -735,7 +664,7 @@ mod proxy {
 						// Errors from the underlying execution environment (e.g the Contracts pallet)
 						Err(error) => Err(Error::Verbose(format!("{:?}", error))),
 						// Errors from the programming language
-						Ok(Err(error)) => Err(Error::LangError(error)),
+						Ok(Err(error)) => Err(Error::LangError(format!("{:?}", error))),
 						// Errors emitted by the contract being called
 						Ok(Ok(Err(error))) => Err(Error::ConsumerError(error)),
 						// Successful call result
@@ -746,81 +675,6 @@ mod proxy {
 							Ok(())
 						},
 					}
-				},
-			}
-		}
-
-		//
-		// Views
-		//
-
-		#[ink(message)]
-		pub fn action_info(&self, action_id: u64) -> Option<(u64, u128, Vec<u8>)> {
-			self.actions.get(action_id)
-		}
-
-		#[ink(message)]
-		pub fn is_action_processed(&self, action_id: u64) -> bool {
-			self.processed_incoming_actions.contains(action_id)
-		}
-
-		/// The purpose of this method is to generate proofs for outgoing actions
-		#[ink(message)]
-		pub fn generate_proof(&self, from: u64, to: u64) -> Result<MerkleProof<[u8; 32]>, Error> {
-			// Validate arguments
-			if from == 0 || to == 0 {
-				return Err(Error::Verbose("`from/to` cannot be zero".to_string()))
-			}
-			if to >= self.next_outgoing_action_id {
-				return Err(Error::Verbose("`to` should be less then `next_action_id`".to_string()))
-			}
-
-			// Normalize leaf position: leafs start on position 0, but actions id's start from 1
-			let from_id = from;
-			let to_id = to;
-
-			// Prepare a range of actions for generating the proof
-			let positions: Vec<u64> = (from_id..=to_id).collect();
-			let leaf_index: Vec<u64> = positions
-				.iter()
-				.map(|action_id| match self.actions.get(action_id) {
-					None => Err(Error::UnknownActionIndex(*action_id)),
-					Some((leaf_index, _, _)) => Ok(leaf_index),
-				})
-				.collect::<Result<Vec<u64>, Error>>()?;
-
-			// Generate proof
-			let call_result: OuterError<acurast_state_ink::GenerateProofReturn> =
-				build_call::<DefaultEnvironment>()
-					.call(self.config.merkle_aggregator)
-					.exec_input(
-						ExecutionInput::new(acurast_state_ink::GENERATE_PROOF_SELECTOR)
-							.push_arg(leaf_index.clone()),
-					)
-					.transferred_value(0)
-					.returns()
-					.try_invoke();
-
-			match call_result {
-				// Errors from the underlying execution environment (e.g the Contracts pallet)
-				Err(error) => Err(Error::Verbose(format!("{:?}", error))),
-				// Errors from the programming language
-				Ok(Err(error)) => Err(Error::LangError(error)),
-				// Errors emitted by the contract being called
-				Ok(Ok(Err(error))) => Err(Error::StateAggregatorError(error)),
-				// Successful call result
-				Ok(Ok(Ok(proof))) => {
-					let leaves: Vec<LeafProof> = positions
-						.iter()
-						.map(|action_id| match self.actions.get(action_id) {
-							None => Err(Error::UnknownActionIndex(*action_id)),
-							Some((leaf_index, _snapshot, data)) =>
-								Ok(LeafProof { leaf_index, data }),
-						})
-						.collect::<Result<Vec<LeafProof>, Error>>()?;
-
-					// Prepare result
-					Ok(MerkleProof { mmr_size: proof.mmr_size, proof: proof.proof, leaves })
 				},
 			}
 		}

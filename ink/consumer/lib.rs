@@ -22,7 +22,8 @@ mod client {
 
 	impl Client {
 		#[ink(constructor)]
-		pub fn new() -> Self {
+        #[allow(clippy::should_implement_trait)]
+		pub fn default() -> Self {
 			Self {}
 		}
 

@@ -4,7 +4,7 @@ use alloc::{format, vec::Vec};
 use scale::{Decode, Encode};
 use scale_info::prelude::cmp::Ordering;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 pub enum Version {
 	V1 = 1,
 }
@@ -17,13 +17,7 @@ pub struct IncomingAction {
 
 impl Ord for IncomingAction {
 	fn cmp(&self, other: &Self) -> Ordering {
-		if self.id < other.id {
-			Ordering::Less
-		} else if self.id > other.id {
-			Ordering::Greater
-		} else {
-			Ordering::Equal
-		}
+		self.id.cmp(&other.id)
 	}
 }
 

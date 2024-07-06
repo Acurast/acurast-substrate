@@ -4,8 +4,7 @@ members = [
     "state",
     "validator",
     "consumer",
-    "ibc-ink-4",
-    "ibc-ink-5"
+    "ibc-ink"
 ]
 resolver ="1"
 

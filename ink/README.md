@@ -11,15 +11,25 @@ Consumer:
 
 [Docs](https://use.ink/getting-started/deploy-your-contract/)
 
+```
+cargo install --force --locked --version 4.1.1 cargo-contract
+```
+Validate with `cargo +stable contract --version`.
+
+Build all contracts:
+```
+./build-all.sh
+````
+
 Dry run with
 ```sh
-cargo +stable contract upload --manifest-path ibc-ink-4/Cargo.toml --url wss://ws.test.azero.dev/ --suri "<MNEMONIC>"
+cargo +stable contract upload --manifest-path ibc-ink/Cargo.toml --url wss://ws.test.azero.dev/ --suri "<MNEMONIC>"
 ```
 
 Execute with
 ```sh
-cargo +stable contract upload --manifest-path ibc-ink-4/Cargo.toml --url wss://ws.test.azero.dev/ --suri "<MNEMONIC>" -x > contract
-cargo +stable contract instantiate --manifest-path ibc-ink-4/Cargo.toml --url wss://ws.test.azero.dev/ --constructor default --suri "<MNEMONIC>" -x --skip-confirm > instantiaten
+cargo +stable contract upload --manifest-path ibc-ink/Cargo.toml --url wss://ws.test.azero.dev/ --suri "<MNEMONIC>" -x > contract
+cargo +stable contract instantiate --manifest-path ibc-ink/Cargo.toml --url wss://ws.test.azero.dev/ --constructor default --suri "<MNEMONIC>" -x --skip-confirm > instantiaten
 ```
 
 See [contracts.md](contracts.md).

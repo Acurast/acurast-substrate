@@ -1,0 +1,42 @@
+ Dry-running default (skip with --skip-dry-run)
+    Success! Gas required estimated at Weight(ref_time: 297879671, proof_size: 16982)
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 767.326037μTZERO
+       Event System ➜ NewAccount
+         account: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+       Event Balances ➜ Endowed
+         account: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+         free_balance: 0.50nTZERO
+       Event Balances ➜ Transfer
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+         amount: 0.50nTZERO
+       Event Contracts ➜ Instantiated
+         deployer: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         contract: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+         amount: 568.072mTZERO
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ
+         amount: 4.92mTZERO
+       Event Balances ➜ Deposit
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 838.153nTZERO
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 766.487884μTZERO
+       Event Treasury ➜ Deposit
+         value: 766487884
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 766.487884μTZERO
+         tip: 0TZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 7664832018, proof_size: 9390 }, class: Normal, pays_fee: Yes }
+
+    Contract 5D9vVdjB9ujHDt3oUqFhjECE3cp19gpx5aUgyJpx33t6VuiQ

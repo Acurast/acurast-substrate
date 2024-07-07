@@ -3,10 +3,14 @@
 
 #[ink::contract]
 mod proxy {
+	use acurast_ibc_ink::ibc::{Layer, Subject};
+	#[cfg(feature = "std")]
+	use ink::storage::traits::StorageLayout;
 	use ink::{
 		env::{
 			call::{build_call, ExecutionInput},
-			hash::{Blake2x256}, DefaultEnvironment,
+			hash::Blake2x256,
+			DefaultEnvironment,
 		},
 		prelude::{
 			format,
@@ -15,16 +19,11 @@ mod proxy {
 		},
 		storage::Mapping,
 	};
-    use acurast_ibc_ink::ibc::{Subject, Layer};
-	#[cfg(feature = "std")]
-	use ink::storage::traits::StorageLayout;
 
 	use scale::{Decode, Encode};
 
 	use acurast_core_ink::types::{
-		IncomingAction, IncomingActionPayloadV1, OutgoingActionPayloadV1, RegisterJobMatchV1,
-		RegisterJobPayloadV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1, Version,
-		VersionedIncomingActionPayload,
+		IncomingAction, IncomingActionPayloadV1, JobRegistrationV1, OutgoingActionPayloadV1, RegisterJobPayloadV1, ScheduleV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1, Version, VersionedIncomingActionPayload
 	};
 
 	pub type OuterError<T> = Result<Result<T, ink::LangError>, ink::env::Error>;
@@ -38,7 +37,7 @@ mod proxy {
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-	pub struct UserPayloadSetJobEnvironmentAction {
+	pub struct SetJobEnvironmentUserInput {
 		pub job_id: u128,
 		pub public_key: Vec<u8>,
 		pub processors: Vec<SetJobEnvironmentProcessor>,
@@ -46,42 +45,19 @@ mod proxy {
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-	pub struct RegisterJobMatch {
-		pub source: AccountId,
-		pub start_delay: u64,
-	}
-
-	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-	pub struct UserPayloadRegisterJob {
-		allowed_sources: Vec<AccountId>,
-		allow_only_verified_sources: bool,
+	pub struct RegisterJobUserInput {
+        job_registration: JobRegistrationV1,
 		destination: AccountId,
-		required_modules: Vec<u16>,
-		script: Vec<u8>,
-		duration: u64,
-		start_time: u64,
-		end_time: u64,
-		interval: u64,
-		max_start_delay: u64,
-		memory: u32,
-		network_requests: u32,
-		storage: u32,
-		// Extra,
-		slots: u8,
-		reward: u128,
-		min_reputation: Option<u128>,
-		instant_match: Vec<RegisterJobMatch>,
 		expected_fulfillment_fee: u128,
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum UserAction {
-		RegisterJob(UserPayloadRegisterJob),
+		RegisterJob(RegisterJobUserInput),
 		DeregisterJob(u128),
 		FinalizeJob(Vec<u128>),
-		SetJobEnvironment(UserPayloadSetJobEnvironmentAction),
+		SetJobEnvironment(SetJobEnvironmentUserInput),
 		Noop,
 	}
 
@@ -108,7 +84,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-	pub enum StatusKind {
+	pub enum JobStatus {
 		/// Status after a job got registered.
 		Open = 0,
 		/// Status after a valid match for a job got submitted.
@@ -121,18 +97,15 @@ mod proxy {
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	pub struct JobInformationV1 {
+        schedule: ScheduleV1,
 		creator: AccountId,
 		destination: AccountId,
 		processors: Vec<AccountId>,
 		expected_fulfillment_fee: u128,
 		remaining_fee: u128,
 		maximum_reward: u128,
+		status: JobStatus,
 		slots: u8,
-		status: StatusKind,
-		start_time: u64,
-		end_time: u64,
-		interval: u64,
-		abstract_data: Vec<u8>, // Abstract data, this field can be used to add new parameters to the job information structure after the contract has been deployed.
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
@@ -310,16 +283,14 @@ mod proxy {
 			for action in actions {
 				match action {
 					ConfigureArgument::Owner(address) => self.config.owner = address,
-					ConfigureArgument::IBCContract(address) =>
-						self.config.ibc = address,
+					ConfigureArgument::IBCContract(address) => self.config.ibc = address,
 					ConfigureArgument::Paused(paused) => self.config.paused = paused,
 					ConfigureArgument::PayloadVersion(version) =>
 						self.config.payload_version = version,
 					ConfigureArgument::MaxMessageBytes(max_size) =>
 						self.config.max_message_bytes = max_size,
 
-					ConfigureArgument::ExchangeRatio(ratio) =>
-						self.config.exchange_ratio = ratio,
+					ConfigureArgument::ExchangeRatio(ratio) => self.config.exchange_ratio = ratio,
 					ConfigureArgument::Code(code_hash) => self.set_code(code_hash),
 				}
 			}
@@ -343,22 +314,22 @@ mod proxy {
 						self.next_job_id += 1;
 
 						// Calculate the number of executions that fit the job schedule
-						let start_time = payload.start_time;
-						let end_time = payload.end_time;
-						let interval = payload.interval;
+						let start_time = payload.job_registration.schedule.start_time;
+						let end_time = payload.job_registration.schedule.end_time;
+						let interval = payload.job_registration.schedule.interval;
 						if interval == 0 {
 							return Err(Error::Verbose("INTERVAL_CANNNOT_BE_ZERO".to_string()))
 						}
 						let execution_count = (end_time - start_time) / interval;
 
 						// Calculate the fee required for all job executions
-						let slots = payload.slots;
+						let slots = payload.job_registration.extra.slots;
 						let expected_fulfillment_fee = payload.expected_fulfillment_fee;
 						let expected_fee =
 							((slots as u128) * execution_count as u128) * expected_fulfillment_fee;
 
 						// Calculate the total reward required to pay all executions
-						let reward_per_execution = payload.reward;
+						let reward_per_execution = payload.job_registration.extra.reward;
 						let maximum_reward =
 							(slots as u128) * (execution_count as u128) * reward_per_execution;
 
@@ -369,8 +340,9 @@ mod proxy {
 						if self.env().transferred_value() != expected_fee + cost {
 							return Err(Error::Verbose("AMOUNT_CANNOT_COVER_JOB_COSTS".to_string()))
 						}
-
+                        
 						let info = JobInformationV1 {
+                            status: JobStatus::Open,
 							creator: self.env().caller(),
 							destination: payload.destination,
 							processors: Vec::new(),
@@ -378,11 +350,7 @@ mod proxy {
 							remaining_fee: expected_fee,
 							maximum_reward,
 							slots,
-							status: StatusKind::Open,
-							start_time,
-							end_time,
-							interval,
-							abstract_data: Vec::new(),
+							schedule: payload.job_registration.schedule,
 						};
 
 						self.job_info
@@ -390,36 +358,7 @@ mod proxy {
 
 						OutgoingActionPayloadV1::RegisterJob(RegisterJobPayloadV1 {
 							job_id,
-							allowed_sources: payload
-								.allowed_sources
-								.iter()
-								.map(|source| *source.as_ref())
-								.collect(),
-							allow_only_verified_sources: payload.allow_only_verified_sources,
-							destination: *payload.destination.as_ref(),
-							required_modules: payload.required_modules,
-							script: payload.script,
-							duration: payload.duration,
-							start_time: payload.start_time,
-							end_time: payload.end_time,
-							interval: payload.interval,
-							max_start_delay: payload.max_start_delay,
-							memory: payload.memory,
-							network_requests: payload.network_requests,
-							storage: payload.storage,
-							// Extra
-							slots: payload.slots,
-							reward: payload.reward,
-							min_reputation: payload.min_reputation,
-							instant_match: payload
-								.instant_match
-								.iter()
-								.map(|m| RegisterJobMatchV1 {
-									source: *m.source.as_ref(),
-									start_delay: m.start_delay,
-								})
-								.collect(),
-							expected_fulfillment_fee: payload.expected_fulfillment_fee,
+							job_registration: payload.job_registration,
 						})
 					},
 					UserAction::DeregisterJob(job_id) => {
@@ -444,7 +383,7 @@ mod proxy {
 
 									// Verify if job can be finalized
 									let is_expired =
-										(job.end_time / 1000) < self.env().block_timestamp();
+										(job.schedule.end_time / 1000) < self.env().block_timestamp();
 									if !is_expired {
 										return Err(Error::CannotFinalizeJob)
 									}
@@ -479,14 +418,13 @@ mod proxy {
 					UserAction::Noop => OutgoingActionPayloadV1::Noop,
 				};
 
-                let action = RawOutgoingAction {
+				let action = RawOutgoingAction {
 					id: self.next_outgoing_action_id,
 					origin: caller,
 					payload_version: self.config.payload_version,
 					payload: outgoing_action.encode(),
 				};
-				let encoded_action = action
-				.encode();
+				let encoded_action = action.encode();
 
 				// Verify that the encoded action size is less than `max_message_bytes`
 				if !encoded_action.len().lt(&(self.config.max_message_bytes as usize)) {
@@ -500,15 +438,15 @@ mod proxy {
 						.exec_input(
 							ExecutionInput::new(acurast_ibc_ink::SEND_MESSAGE_SELECTOR)
 								// nonce
-								.push_arg(self.env().hash_encoded::<Blake2x256, _>(&action.id.to_ne_bytes().to_vec()))
+								.push_arg(self.env().hash_encoded::<Blake2x256, _>(
+									&action.id.to_ne_bytes().to_vec(),
+								))
 								// recipient
-								.push_arg(&Subject::Acurast(Layer::Extrinsic(
-									AccountId::from([
-										24, 90, 139, 95, 146, 236, 211, 72, 237, 155, 18, 160, 71,
-										202, 43, 40, 72, 139, 19, 152, 6, 90, 141, 255, 141, 207,
-										136, 98, 69, 249, 40, 11,
-									]),
-								)))
+								.push_arg(&Subject::Acurast(Layer::Extrinsic(AccountId::from([
+									24, 90, 139, 95, 146, 236, 211, 72, 237, 155, 18, 160, 71, 202,
+									43, 40, 72, 139, 19, 152, 6, 90, 141, 255, 141, 207, 136, 98,
+									69, 249, 40, 11,
+								]))))
 								// payload
 								.push_arg(&encoded_action)
 								//ttl
@@ -540,7 +478,7 @@ mod proxy {
 
 		/// This method purpose is to receive messages from the acurast protocol.
 		#[ink(message)]
-		pub fn receive_actions(&mut self, payload: Vec<u8>) -> Result<(), Error> {
+		pub fn receive_action(&mut self, payload: Vec<u8>) -> Result<(), Error> {
 			// The contract cannot be paused
 			self.ensure_unpaused()?;
 
@@ -566,7 +504,7 @@ mod proxy {
 								.expect("COULD_NOT_TRANSFER");
 
 							if job.processors.len() == (job.slots as usize) {
-								job.status = StatusKind::Assigned;
+								job.status = JobStatus::Assigned;
 							}
 
 							// Save changes
@@ -583,7 +521,7 @@ mod proxy {
 					match JobInformation::decode(self, payload.job_id)? {
 						JobInformation::V1(mut job) => {
 							// Update job status
-							job.status = StatusKind::FinalizedOrCancelled;
+							job.status = JobStatus::FinalizedOrCancelled;
 
 							assert!(
 								payload.unused_reward <= job.maximum_reward,
@@ -612,11 +550,9 @@ mod proxy {
 			}?;
 
 			// Emit event informing that a given incoming message has been processed
-			Self::env().emit_event(
-				IncomingActionProcessed { action_id: action.id },
-			);
+			Self::env().emit_event(IncomingActionProcessed { action_id: action.id });
 
-            Ok(())
+			Ok(())
 		}
 
 		#[ink(message)]
@@ -631,7 +567,7 @@ mod proxy {
 					}
 
 					// Verify that the job has not been finalized
-					if job.status != StatusKind::Assigned {
+					if job.status != JobStatus::Assigned {
 						return Err(Error::JobAlreadyFinished)
 					}
 

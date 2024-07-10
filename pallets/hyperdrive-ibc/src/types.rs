@@ -45,6 +45,9 @@ pub type IncomingMessageWithMetaFor<T> = IncomingMessageWithMeta<
 pub type SubjectFor<T> =
 	Subject<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId>;
 
+pub type LayerFor<T> =
+	Layer<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId>;
+
 pub const PAYLOAD_MAX_LENGTH: u32 = 1024;
 
 pub type Payload = BoundedVec<u8, ConstU32<PAYLOAD_MAX_LENGTH>>;

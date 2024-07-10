@@ -52,7 +52,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	/// Proof: AcurastHyperdriveTezos StateTransmitter (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
 	/// Storage: AcurastHyperdriveTezos StateMerkleRootCount (r:1 w:1)
 	/// Proof: AcurastHyperdriveTezos StateMerkleRootCount (max_values: None, max_size: Some(2098), added: 4573, mode: MaxEncodedLen)
-	fn send_message() -> Weight {
+	fn send_test_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `125`
 		//  Estimated: `10545`
@@ -62,8 +62,8 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: AcurastHyperdriveTezos CurrentTargetChainOwner (r:1 w:0)
-	/// Proof: AcurastHyperdriveTezos CurrentTargetChainOwner (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
+	/// Storage: AcurastHyperdriveTezos CurrentAlephZeroContract (r:1 w:0)
+	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
 	/// Storage: AcurastHyperdriveTezos StateMerkleRootCount (r:1 w:0)
 	/// Proof: AcurastHyperdriveTezos StateMerkleRootCount (max_values: None, max_size: Some(2098), added: 4573, mode: MaxEncodedLen)
 	fn confirm_message_delivery() -> Weight {
@@ -84,8 +84,8 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 7114))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
-	/// Storage: AcurastHyperdriveTezos CurrentTargetChainOwner (r:0 w:1)
-	/// Proof: AcurastHyperdriveTezos CurrentTargetChainOwner (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
+	/// Storage: AcurastHyperdriveTezos CurrentAlephZeroContract (r:0 w:1)
+	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
 	fn receive_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

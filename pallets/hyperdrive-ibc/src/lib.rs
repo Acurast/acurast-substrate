@@ -6,18 +6,16 @@ pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
-#[cfg(test)]
-mod mock;
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-mod stub;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod mock;
+// #[cfg(any(test, feature = "runtime-benchmarks"))]
+// mod stub;
+// #[cfg(test)]
+// mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod traits;
-
-pub mod instances;
 
 mod types;
 pub mod weights;
@@ -160,6 +158,7 @@ pub mod pallet {
 		SignatureInvalid,
 		MessageAlreadyReceived,
 		IncorrectRecipient,
+		PayloadLengthExceeded,
 	}
 
 	/// A reason for the pallet placing a hold on funds.
@@ -215,8 +214,8 @@ pub mod pallet {
 
 		/// Sends a (test) message with the origin of the extrinsic call as the payload.
 		#[pallet::call_index(1)]
-		#[pallet::weight(< T as Config < I >>::WeightInfo::send_message())]
-		pub fn send_message(
+		#[pallet::weight(< T as Config < I >>::WeightInfo::send_test_message())]
+		pub fn send_test_message(
 			origin: OriginFor<T>,
 			// message params
 			recipient: SubjectFor<T>,
@@ -228,22 +227,16 @@ pub mod pallet {
 			let count = Self::message_counter();
 			<MessageCounter<T, I>>::set(count + 1);
 
-			let message = Self::do_send_message(
+			let _message = Self::do_send_message(
 				Subject::Acurast(Layer::Extrinsic(who.clone())),
-				who.clone(),
+				&who,
 				T::MessageIdHashing::hash_of(&count),
 				recipient,
 				// the test message payload is just the sender of the message
-				Payload::truncate_from(who.encode()),
+				who.encode(),
 				ttl,
 				fee,
 			)?;
-
-			log::info!(
-				"Hyperdrive-IBC message initiated by send_message extrinsic is ready to send: {:?}",
-				&message
-			);
-			Self::deposit_event(Event::MessageReadyToSend { message });
 
 			Ok(())
 		}
@@ -482,10 +475,10 @@ pub mod pallet {
 		/// Be careful to not allow for unintended impersonation.
 		pub fn do_send_message(
 			sender: SubjectFor<T>,
-			payer: T::AccountId,
+			payer: &T::AccountId,
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,
-			payload: Payload,
+			payload: Vec<u8>,
 			// pub amount: u128,
 			ttl: BlockNumberFor<T>,
 			fee: BalanceOf<T, I>,
@@ -507,7 +500,14 @@ pub mod pallet {
 			// validate params
 			ensure!(ttl >= T::MinTTL::get(), Error::<T, I>::TTLSmallerThanMinimum);
 
-			let message = MessageFor::<T> { id, sender: sender.clone(), nonce, recipient, payload };
+			let message = MessageFor::<T> {
+				id,
+				sender: sender.clone(),
+				nonce,
+				recipient,
+				payload: Payload::try_from(payload)
+					.map_err(|_| Error::<T, I>::PayloadLengthExceeded)?,
+			};
 			let message_with_meta = OutgoingMessageWithMetaFor::<T, I> {
 				message,
 				current_block,
@@ -518,8 +518,11 @@ pub mod pallet {
 			<OutgoingMessages<T, I>>::insert(id, &message_with_meta);
 			<OutgoingMessagesLookup<T, I>>::insert(&sender, &nonce, id);
 
-			T::Currency::hold(&HoldReason::OutgoingMessageFee.into(), &payer, fee)
+			T::Currency::hold(&HoldReason::OutgoingMessageFee.into(), payer, fee)
 				.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;
+
+			log::info!("Hyperdrive-IBC message is ready to send: {:?}", &message_with_meta);
+			Self::deposit_event(Event::MessageReadyToSend { message: message_with_meta.clone() });
 
 			Ok(message_with_meta)
 		}

@@ -25,7 +25,6 @@ pallet-acurast-marketplace = { workspace = true, features = ["std"] }
 acurast-runtime-common = { workspace = true, features = ["std"] }
 acurast-rococo-runtime = { workspace = true, features = ["std"] }
 acurast-kusama-runtime = { workspace = true, features = ["std"] }
-pallet-acurast-hyperdrive-outgoing = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }

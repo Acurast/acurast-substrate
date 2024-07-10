@@ -22,7 +22,6 @@ use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, MerkleValue
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockStatus;
-use sp_core::H256;
 use sp_runtime::{
 	generic::SignedBlock,
 	traits::{BlakeTwo256, Block as BlockT, NumberFor},
@@ -54,7 +53,6 @@ pub trait RuntimeApiCollection:
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
-	+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
 		Block,
 		Balance,
@@ -78,7 +76,6 @@ impl<Api> RuntimeApiCollection for Api where
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
-		+ pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256>
 		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
 			Block,
 			Balance,

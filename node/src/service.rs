@@ -16,7 +16,6 @@ use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
-use pallet_acurast_hyperdrive_outgoing::{mmr_gadget::MmrGadget, traits::MMRInstance};
 use sc_chain_spec::ChainSpec;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
@@ -34,9 +33,6 @@ use substrate_prometheus_endpoint::Registry;
 
 use crate::client::RuntimeApiCollection;
 use acurast_runtime_common::{opaque::Block, Hash};
-use pallet_acurast_hyperdrive_outgoing::instances::{
-	AlephZeroInstance, EthereumInstance, TezosInstance,
-};
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]
@@ -199,41 +195,6 @@ where
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
 	)?;
-
-	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-
-	if is_offchain_indexing_enabled {
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-tez-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<TezosInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				TezosInstance::INDEXING_PREFIX.to_vec(),
-				TezosInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-eth-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<EthereumInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				EthereumInstance::INDEXING_PREFIX.to_vec(),
-				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-alephzero-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<AlephZeroInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				AlephZeroInstance::INDEXING_PREFIX.to_vec(),
-				AlephZeroInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-	}
 
 	Ok(PartialComponents {
 		backend,

@@ -33,52 +33,9 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_acurast_hyperdrive`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_acurast_hyperdrive::WeightInfo for WeightInfo<T> {
-	/// Storage: AcurastHyperdriveTezos StateTransmitter (r:0 w:1)
-	/// Proof: AcurastHyperdriveTezos StateTransmitter (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// The range of component `l` is `[0, 50]`.
-	fn update_state_transmitters(l: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 11_770_000 picoseconds.
-		Weight::from_parts(14_512_144, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 2_530
-			.saturating_add(Weight::from_parts(1_840_404, 0).saturating_mul(l.into()))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: AcurastHyperdriveTezos CurrentSnapshot (r:1 w:1)
-	/// Proof: AcurastHyperdriveTezos CurrentSnapshot (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-	/// Storage: AcurastHyperdriveTezos StateTransmitter (r:1 w:0)
-	/// Proof: AcurastHyperdriveTezos StateTransmitter (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: AcurastHyperdriveTezos StateMerkleRootCount (r:1 w:1)
-	/// Proof: AcurastHyperdriveTezos StateMerkleRootCount (max_values: None, max_size: Some(2098), added: 4573, mode: MaxEncodedLen)
-	fn submit_state_merkle_root() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `158`
-		//  Estimated: `5563`
-		// Minimum execution time: 33_660_000 picoseconds.
-		Weight::from_parts(34_450_000, 0)
-			.saturating_add(Weight::from_parts(0, 5563))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// Storage: AcurastHyperdriveTezos CurrentTargetChainOwner (r:1 w:0)
-	/// Proof: AcurastHyperdriveTezos CurrentTargetChainOwner (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
-	/// Storage: AcurastHyperdriveTezos StateMerkleRootCount (r:1 w:0)
-	/// Proof: AcurastHyperdriveTezos StateMerkleRootCount (max_values: None, max_size: Some(2098), added: 4573, mode: MaxEncodedLen)
-	fn submit_message() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `328`
-		//  Estimated: `5563`
-		// Minimum execution time: 34_140_000 picoseconds.
-		Weight::from_parts(35_100_000, 0)
-			.saturating_add(Weight::from_parts(0, 5563))
-			.saturating_add(T::DbWeight::get().reads(2))
-	}
-	/// Storage: AcurastHyperdriveTezos CurrentTargetChainOwner (r:0 w:1)
-	/// Proof: AcurastHyperdriveTezos CurrentTargetChainOwner (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
-	fn update_target_chain_owner() -> Weight {
+	/// Storage: AcurastHyperdriveTezos CurrentAlephZeroContract (r:0 w:1)
+	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
+	fn update_aleph_zero_contract() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -86,8 +43,5 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive::WeightInfo for WeightIn
 		Weight::from_parts(14_410_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	fn update_current_snapshot() -> Weight {
-		Weight::from_parts(9_000_000, 0)
 	}
 }

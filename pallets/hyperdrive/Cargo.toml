@@ -1,6 +1,6 @@
 [package]
 name = "pallet-acurast-hyperdrive"
-description = "Acurast Hyperdrive is a building block allowing for general bidirectional message passing"
+description = "The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy."
 authors = { workspace = true }
 version = { workspace = true }
 repository = { workspace = true }
@@ -22,9 +22,9 @@ hex-literal = { version = "0.4", default-features = false }
 # Acurast
 pallet-acurast = { path = "../acurast", default-features = false }
 pallet-acurast-marketplace = { path = "../marketplace", default-features = false}
+pallet-acurast-hyperdrive-ibc = { workspace = true }
 
 acurast-core-ink = { path = "../../ink/core", default-features = false }
-ckb-merkle-mountain-range = { version = "0.6.0", default-features = false }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -46,13 +46,12 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 scale-info = { workspace = true }
 sp-std = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-#sp-core = { workspace = true }
 pallet-timestamp = { workspace = true }
 log = { workspace = true }
 
@@ -69,6 +68,7 @@ std = [
 	"frame-system/std",
 	"pallet-acurast/std",
 	"pallet-acurast-marketplace/std",
+	"pallet-acurast-hyperdrive-ibc/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -83,6 +83,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
-	"pallet-acurast-marketplace/runtime-benchmarks"
+	"pallet-acurast-marketplace/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks"
 ]
 try-runtime = ["frame-support/try-runtime"]

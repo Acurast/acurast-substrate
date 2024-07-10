@@ -21,13 +21,12 @@ use frame_support::traits::{
 	TransformOrigin,
 };
 use implementations::*;
-use polkadot_core_primitives::BlakeTwo256;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero},
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError,
 };
@@ -42,6 +41,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::{DispatchClass, DispatchResultWithPostInfo},
 	genesis_builder_helper::{build_config, create_default_config},
+	instances::Instance1,
 	ord_parameter_types,
 	pallet_prelude::InvalidTransaction,
 	parameter_types,
@@ -92,14 +92,8 @@ use acurast_runtime_common::utils::check_attestation;
 pub use acurast_runtime_common::*;
 pub use pallet_acurast;
 use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, ProcessorType, CU32};
-use pallet_acurast_hyperdrive::{
-	instances::{AlephZeroInstance, EthereumInstance, HyperdriveInstance, TezosInstance},
-	ParsedAction, StateOwner,
-};
-use pallet_acurast_hyperdrive_ibc::{instances::AcurastBidirectionalInstance, MessageBody};
-use pallet_acurast_hyperdrive_outgoing::{
-	chain::tezos::DefaultTezosConfig, Action, LeafIndex, MMRError, SnapshotNumber, TargetChainProof,
-};
+use pallet_acurast_hyperdrive::{IncomingAction, ParsedAction, ProxyChain};
+use pallet_acurast_hyperdrive_ibc::{LayerFor, MessageBody, SubjectFor};
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
 	JobAssignmentFor, MarketplaceHooks, PartialJobRegistration, PubKey, PubKeys, RuntimeApiError,
@@ -107,7 +101,7 @@ use pallet_acurast_marketplace::{
 pub use pallet_acurast_processor_manager;
 use pallet_acurast_vesting::VestingBalance;
 pub use pallet_acurast_vesting::VestingFor;
-use sp_runtime::traits::{AccountIdConversion, NumberFor};
+use sp_runtime::traits::AccountIdConversion;
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -603,6 +597,7 @@ pub type InternalAssetId = u32;
 parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
+	pub const HyperdriveIbcFeePalletId: PalletId = PalletId(*b"hyibcfee");
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
@@ -719,7 +714,7 @@ pub struct HyperdriveOutgoingMarketplaceHooks;
 
 impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 	fn assign_job(job_id: &JobId<AccountId32>, pub_keys: &PubKeys) -> DispatchResultWithPostInfo {
-		// inspect which hyperdrive-outgoing instance to be used
+		// inspect which hyperdrive proxy chain to send action to
 		let (origin, job_id_seq) = job_id;
 
 		// depending on the origin=target chain to send message to, we search for a supported
@@ -727,34 +722,40 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		match origin {
 			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
 			MultiOrigin::Tezos(_) => {
-				let key = pub_keys
-					.iter()
-					.find(|key| match key {
-						PubKey::SECP256r1(_) => true,
-						_ => false,
-					})
-					.ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
+				// TODO: reenable
+				// let key = pub_keys
+				// 	.iter()
+				// 	.find(|key| match key {
+				// 		PubKey::SECP256r1(_) => true,
+				// 		_ => false,
+				// 	})
+				// 	.ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
 
-				AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
-					job_id_seq.clone(),
-					key.clone(),
-				))
-				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
+				// AcurastHyperdriveOutgoingTezos::send_message(Action::AssignJob(
+				// 	job_id_seq.clone(),
+				// 	key.clone(),
+				// ))
+				// .map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
+
+				Ok(().into())
 			},
 			MultiOrigin::Ethereum(_) => {
-				let key = pub_keys
-					.iter()
-					.find(|key| match key {
-						PubKey::SECP256k1(_) => true,
-						_ => false,
-					})
-					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+				// TODO: reenable
+				// let key = pub_keys
+				// 	.iter()
+				// 	.find(|key| match key {
+				// 		PubKey::SECP256k1(_) => true,
+				// 		_ => false,
+				// 	})
+				// 	.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
 
-				HyperdriveOutgoingEthereum::send_message(Action::AssignJob(
-					job_id_seq.clone(),
-					key.clone(),
-				))
-				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+				// HyperdriveOutgoingEthereum::send_message(Action::AssignJob(
+				// 	job_id_seq.clone(),
+				// 	key.clone(),
+				// ))
+				// .map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+
+				Ok(().into())
 			},
 			MultiOrigin::AlephZero(_) => {
 				let key = pub_keys
@@ -765,11 +766,13 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 					})
 					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
 
-				HyperdriveOutgoingAlephZero::send_message(Action::AssignJob(
-					job_id_seq.clone(),
-					key.clone(),
-				))
-				.map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
+				AcurastHyperdrive::send_to_proxy(
+					ProxyChain::AlephZero,
+					IncomingAction::AssignJob(job_id_seq.clone(), key.clone()),
+					&HyperdriveIbcFeePalletAccount::get(),
+				)?;
+
+				Ok(().into())
 			},
 		}
 	}
@@ -778,23 +781,39 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		job_id: &JobId<AccountId>,
 		refund: <Runtime as pallet_acurast_marketplace::Config>::Balance,
 	) -> DispatchResultWithPostInfo {
-		// inspect which hyperdrive-outgoing instance to be used
+		// inspect which hyperdrive proxy chain to send action to
 		let (origin, job_id_seq) = job_id;
 
 		match origin {
 			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
-			MultiOrigin::Tezos(_) => AcurastHyperdriveOutgoingTezos::send_message(
-				Action::FinalizeJob(job_id_seq.clone(), refund),
-			)
-			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into()),
-			MultiOrigin::Ethereum(_) => HyperdriveOutgoingEthereum::send_message(
-				Action::FinalizeJob(job_id_seq.clone(), refund),
-			)
-			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into()),
-			MultiOrigin::AlephZero(_) => HyperdriveOutgoingAlephZero::send_message(
-				Action::FinalizeJob(job_id_seq.clone(), refund),
-			)
-			.map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to AlephZero").into()),
+			MultiOrigin::Tezos(_) => {
+				// TODO: reenable
+				// AcurastHyperdriveOutgoingTezos::send_message(Action::FinalizeJob(
+				// 	job_id_seq.clone(),
+				// 	refund,
+				// ))
+				// .map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into())
+
+				Ok(().into())
+			},
+			MultiOrigin::Ethereum(_) => {
+				// TODO: reenable
+				// HyperdriveOutgoingEthereum::send_message(
+				//     Action::FinalizeJob(job_id_seq.clone(), refund),
+				// )
+				// .map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into())
+
+				Ok(().into())
+			},
+			MultiOrigin::AlephZero(_) => {
+				AcurastHyperdrive::send_to_proxy(
+					ProxyChain::AlephZero,
+					IncomingAction::FinalizeJob(job_id_seq.clone(), refund),
+					&HyperdriveIbcFeePalletAccount::get(),
+				)?;
+
+				Ok(().into())
+			},
 		}
 	}
 }
@@ -954,18 +973,6 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 	}
 }
 
-parameter_types! {
-	pub const TransmissionQuorum: u8 = 1;
-	pub const TransmissionRate: u64 = 1;
-
-	pub const EthereumSnapshotRate: u64 = 10;
-	pub const AlephZeroSnapshotRate: u64 = 1;
-
-	pub const MaximumBlocksBeforeSnapshot: u32 = 2;
-
-	pub const TezosNativeAssetId: u128 = 5000;
-}
-
 pub struct AcurastActionExecutor<T: pallet_acurast::Config>(PhantomData<T>);
 impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecutor<Runtime> {
 	fn execute(action: ParsedAction<Runtime>) -> DispatchResultWithPostInfo {
@@ -991,121 +998,53 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 	}
 }
 
+/// Controls routing for incoming HyperdriveIBC messages.
+///
+/// Currently only forwards messages with recipient [`ACURAST_PALLET_ACCOUNT`] to AcurastHyperdrive pallet.
 pub struct HyperdriveMessageProcessor<T: pallet_acurast::Config>(PhantomData<T>);
 impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
 	for HyperdriveMessageProcessor<Runtime>
 {
-	fn process(_message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
-		// TODO parse pody and invoke AcurastActionExecutor (migrated to new pallet)
-		Ok(().into())
+	fn process(message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
+		if SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
+			AcurastPalletAccount::get(),
+		)) == message.recipient
+		{
+			AcurastHyperdrive::process(message)
+		} else {
+			// TODO fail this?
+			Ok(().into())
+		}
 	}
 }
 
-const INITIAL_TEZOS_HYPERDRIVE_CONTRACT: [u8; 28] = [
-	5, 10, 0, 0, 0, 22, 1, 243, 102, 74, 48, 19, 167, 144, 92, 234, 61, 255, 164, 165, 233, 104,
-	130, 42, 7, 133, 23, 0,
-];
-
 parameter_types! {
-	/// The initial Tezos Hyperdrive address:
-	///
-	/// Corresponds to `KT1Wofhobpo6jmHcyMQSNAAaxKqs7Du4kHTh`, packed: `0x050a0000001601f3c3482a66f2edb071d211a1c68c0732705f446f00`
-	pub TezosContract: StateOwner = INITIAL_TEZOS_HYPERDRIVE_CONTRACT.to_vec().try_into().unwrap();
-	/// The acurast gateway on the ethereum network
-	pub EthereumAcurastGateway: StateOwner = hex_literal::hex!("6a34E1f07B57eD968e72895690f3df41b11487eb").to_vec().try_into().unwrap();
-	/// The acurast gateway on the aleph zero network (Not necessary)
-	pub AlephZeroAcurastGateway: StateOwner = vec![].try_into().unwrap();
+	/// The acurast contract on the aleph zero network
+	pub AlephZeroAcurastContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
+	pub AlephZeroAcurastContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
+	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 }
 
-impl pallet_acurast_hyperdrive::Config<TezosInstance> for Runtime {
+impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TezosContract;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
-	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = sp_runtime::traits::Keccak256;
-	type TransmissionRate = TransmissionRate;
-	type TransmissionQuorum = TransmissionQuorum;
 	type ActionExecutor = AcurastActionExecutor<Runtime>;
-	type Proof = pallet_acurast_hyperdrive::chain::tezos::TezosProof<
-		AcurastAccountId,
-		<Self as frame_system::Config>::AccountId,
-	>;
-	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
-}
-
-impl pallet_acurast_hyperdrive::Config<EthereumInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
+	type Sender = AcurastPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = EthereumAcurastGateway;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
+	type AlephZeroContract = AlephZeroAcurastContract;
+	type AlephZeroContractSelector = AlephZeroAcurastContractSelector;
 	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = sp_runtime::traits::Keccak256;
-	type TransmissionRate = EthereumSnapshotRate;
-	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor<Runtime>;
-	type Proof = pallet_acurast_hyperdrive::chain::ethereum::EthereumProof<Self, AcurastAccountId>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
-}
-
-impl pallet_acurast_hyperdrive::Config<AlephZeroInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = AlephZeroAcurastGateway;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
-	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = sp_runtime::traits::Keccak256;
-	type TransmissionRate = AlephZeroSnapshotRate;
-	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = AcurastActionExecutor<Runtime>;
-	type Proof = pallet_acurast_hyperdrive::chain::substrate::SubstrateProof<
-		AcurastAccountId,
-		<Self as frame_system::Config>::AccountId,
-	>;
-	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
-}
-
-impl pallet_acurast_hyperdrive_outgoing::Config<TezosInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type MMRInfo = TezosInstance;
-	type TargetChainConfig = DefaultTezosConfig;
-	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
-	type OnNewRoot = ();
-	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
-}
-
-impl pallet_acurast_hyperdrive_outgoing::Config<EthereumInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type MMRInfo = EthereumInstance;
-	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::ethereum::EthereumConfig;
-	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
-	type OnNewRoot = ();
-	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
-}
-
-impl pallet_acurast_hyperdrive_outgoing::Config<AlephZeroInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type MMRInfo = AlephZeroInstance;
-	type TargetChainConfig = pallet_acurast_hyperdrive_outgoing::chain::alephzero::AlephZeroConfig;
-	type MaximumBlocksBeforeSnapshot = MaximumBlocksBeforeSnapshot;
-	type OnNewRoot = ();
-	type WeightInfo = weights::TezosHyperdriveOutgoingWeight;
 }
 
 parameter_types! {
 	pub MinTTL: BlockNumber = 20;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
-	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::Hyperdrive(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
+	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::AcurastHyperdriveIbc(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
 }
 
-impl pallet_acurast_hyperdrive_ibc::Config<AcurastBidirectionalInstance> for Runtime {
+impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
@@ -1338,16 +1277,14 @@ construct_runtime!(
 		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1> = 42,
 		AcurastMarketplace: pallet_acurast_marketplace = 43,
 		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2> = 44,
-		// Hyperdrive (one instance for each connected chain)
-		AcurastHyperdriveTezos: pallet_acurast_hyperdrive::<Instance1> = 45,
-		// The instance here has to correspond to `pallet_acurast_hyperdrive_outgoing::instances::tezos::TargetChainTezos` (we can't use a reference there...)
-		AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1> = 46,
+		AcurastHyperdrive: pallet_acurast_hyperdrive::<Instance1> = 45,
+		// AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1> = 46,
 		AcurastRewardsTreasury: pallet_acurast_rewards_treasury = 47,
-		HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2> = 48,
-		HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2> = 49,
-		HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3> = 50,
-		HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3> = 51,
-		Hyperdrive: pallet_acurast_hyperdrive_ibc::<Instance1> = 52,
+		// HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2> = 48,
+		// HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2> = 49,
+		// HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3> = 50,
+		// HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3> = 51,
+		AcurastHyperdriveIbc: pallet_acurast_hyperdrive_ibc::<Instance1> = 52,
 	}
 );
 
@@ -1372,8 +1309,7 @@ mod benches {
 		[pallet_acurast_processor_manager, AcurastProcessorManager]
 		[pallet_acurast_fee_manager, AcurastFeeManager]
 		[pallet_acurast_marketplace, AcurastMarketplace]
-		// [pallet_acurast_hyperdrive, AcurastHyperdriveTezos]
-		// [pallet_acurast_hyperdrive_outgoing, AcurastHyperdriveOutgoingTezos]
+		// [pallet_acurast_hyperdrive, AcurastHyperdrive]
 		[pallet_acurast_vesting, AcurastVesting]
 	);
 }
@@ -1513,69 +1449,6 @@ impl_runtime_apis! {
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
-		}
-	}
-
-	impl pallet_acurast_hyperdrive_outgoing::HyperdriveApi<Block, H256> for Runtime {
-		fn number_of_leaves(instance: HyperdriveInstance) -> LeafIndex {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::number_of_leaves(),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::number_of_leaves(),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::number_of_leaves(),
-			}
-		}
-
-		fn first_mmr_block_number(instance: HyperdriveInstance) -> Option<NumberFor<Block>> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::first_mmr_block_number(),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::first_mmr_block_number(),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::first_mmr_block_number(),
-			}
-		}
-
-		fn leaf_meta(instance: HyperdriveInstance, leaf_index: LeafIndex) -> Option<(<Block as BlockT>::Hash, H256)> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::leaf_meta(leaf_index),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::leaf_meta(leaf_index),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::leaf_meta(leaf_index),
-			}
-		}
-
-		fn last_message_excl_by_block(instance: HyperdriveInstance, block_number: NumberFor<Block>) -> Option<LeafIndex> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::block_leaf_index(block_number),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::block_leaf_index(block_number),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::block_leaf_index(block_number),
-			}
-		}
-
-		fn snapshot_roots(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Vec<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).collect(),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).collect(),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).collect(),
-			}
-		}
-
-		fn snapshot_root(instance: HyperdriveInstance, next_expected_snapshot_number: SnapshotNumber) -> Result<Option<(SnapshotNumber, <Block as BlockT>::Hash)>, MMRError> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::snapshot_roots(next_expected_snapshot_number).next().transpose(),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::snapshot_roots(next_expected_snapshot_number).next().transpose(),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::snapshot_roots(next_expected_snapshot_number).next().transpose(),
-			}
-		}
-
-		fn generate_target_chain_proof(
-			instance: HyperdriveInstance,
-			next_message_number: LeafIndex,
-			maximum_messages: Option<u64>,
-			latest_known_snapshot_number: SnapshotNumber,
-		) -> Result<Option<TargetChainProof<H256>>, MMRError> {
-			match instance {
-				HyperdriveInstance::Tezos => AcurastHyperdriveOutgoingTezos::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
-				HyperdriveInstance::Ethereum => HyperdriveOutgoingEthereum::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
-				HyperdriveInstance::AlephZero => HyperdriveOutgoingAlephZero::generate_target_chain_proof(next_message_number, maximum_messages, latest_known_snapshot_number),
-			}
 		}
 	}
 

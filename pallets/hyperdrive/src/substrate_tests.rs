@@ -1,8 +1,7 @@
 #![cfg(test)]
 
 use crate::{
-	chain::substrate::{MMRProofItems, ProofLeaf, SubstrateProof},
-	instances::AlephZeroInstance,
+	chain::substrate::{MMRProofItems, ProofLeaf, SubstrateMessageDecoder},
 	mock::*,
 	stub::*,
 	types::{ActivityWindow, StateTransmitterUpdate, *},
@@ -19,7 +18,7 @@ fn test_send_noop_message() {
 
 	test.execute_with(|| {
         let seq_id_before = 0;
-        <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
+        <crate::MessageSequenceId::<Test, Instance1>>::set(seq_id_before);
 
         let actions = vec![
             StateTransmitterUpdate::Add(
@@ -73,7 +72,7 @@ fn test_send_noop_message() {
                 }
         ];
 
-        let proof = SubstrateProof::<AcurastAccountId, AccountId32> {
+        let proof = SubstrateMessageDecoder::<AcurastAccountId, AccountId32> {
             mmr_size: 1,
             proof,
             leaves,
@@ -96,7 +95,7 @@ fn test_send_noop_message2() {
 
 	test.execute_with(|| {
         let seq_id_before = 10;
-        <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
+        <crate::MessageSequenceId::<Test, Instance1>>::set(seq_id_before);
 
         let actions = vec![
             StateTransmitterUpdate::Add(
@@ -152,7 +151,7 @@ fn test_send_noop_message2() {
             }
         ];
 
-        let proof = SubstrateProof::<AcurastAccountId, AccountId32> {
+        let proof = SubstrateMessageDecoder::<AcurastAccountId, AccountId32> {
             mmr_size: 19,
             proof,
             leaves,
@@ -175,7 +174,7 @@ fn test_send_noop_message3() {
 
 	test.execute_with(|| {
         let seq_id_before = 29;
-        <crate::MessageSequenceId::<Test, AlephZeroInstance>>::set(seq_id_before);
+        <crate::MessageSequenceId::<Test, Instance1>>::set(seq_id_before);
 
         let actions = vec![
             StateTransmitterUpdate::Add(
@@ -233,7 +232,7 @@ fn test_send_noop_message3() {
                 }
         ];
 
-        let proof = SubstrateProof::<AcurastAccountId, AccountId32> {
+        let proof = SubstrateMessageDecoder::<AcurastAccountId, AccountId32> {
             mmr_size: 19,
             proof,
             leaves,

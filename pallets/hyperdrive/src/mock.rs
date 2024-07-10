@@ -1,15 +1,13 @@
 #![allow(unused_imports)]
 
 use crate::{
-	chain::tezos::TezosParser,
-	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
-	stub::AcurastAccountId,
-	types::RawAction,
-	weights, ActionExecutor, ParsedAction, StateOwner, StateProof, StateProofNode,
+	chain::tezos::TezosParser, stub::AcurastAccountId, types::RawIncomingAction, weights,
+	ActionExecutor, ParsedAction, ProxyAddress, StateProof, StateProofNode,
 };
 use derive_more::{Display, From, Into};
 use frame_support::{
 	derive_impl,
+	instances::Instance1,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -29,7 +27,7 @@ use sp_std::prelude::*;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 parameter_types! {
-	pub TargetChainStateOwner: StateOwner = StateOwner::try_from(hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec()).unwrap();
+	pub TargetChainProxyAddress: ProxyAddress = ProxyAddress::try_from(hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec()).unwrap();
 	pub const TransmissionRate: u64 = 5;
 	pub const TransmissionQuorum: u8 = 2;
 
@@ -100,7 +98,7 @@ impl pallet_acurast::Config for Test {
 impl crate::Config<TezosInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
+	type AlephZeroContract = TargetChainProxyAddress;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
@@ -119,7 +117,7 @@ impl crate::Config<TezosInstance> for Test {
 impl crate::Config<EthereumInstance> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
+	type AlephZeroContract = TargetChainProxyAddress;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
@@ -132,10 +130,10 @@ impl crate::Config<EthereumInstance> for Test {
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 
-impl crate::Config<AlephZeroInstance> for Test {
+impl crate::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
+	type AlephZeroContract = TargetChainProxyAddress;
 	type TargetChainHash = H256;
 	type TargetChainBlockNumber = u64;
 	type Balance = Balance;
@@ -144,7 +142,7 @@ impl crate::Config<AlephZeroInstance> for Test {
 	type TransmissionRate = TransmissionRate;
 	type TransmissionQuorum = TransmissionQuorum;
 	type ActionExecutor = ();
-	type Proof = crate::chain::substrate::SubstrateProof<
+	type Proof = crate::chain::substrate::SubstrateMessageDecoder<
 		Self::ParsableAccountId,
 		<Self as frame_system::Config>::AccountId,
 	>;

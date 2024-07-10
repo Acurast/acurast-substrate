@@ -11,6 +11,7 @@ use frame_system as system;
 use frame_system::pallet_prelude::BlockNumberFor;
 use hex_literal::hex;
 use pallet_acurast::CU32;
+use pallet_balances::Instance1;
 use sp_core::{H256, *};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -19,7 +20,6 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use crate::{
-	instances::AcurastBidirectionalInstance,
 	stub::{Balance, EXISTENTIAL_DEPOSIT},
 	weights, MessageBody, MessageProcessor,
 };
@@ -105,7 +105,7 @@ parameter_types! {
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 }
 
-impl crate::Config<AcurastBidirectionalInstance> for Test {
+impl crate::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;

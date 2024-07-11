@@ -23,7 +23,9 @@ mod proxy {
 	use scale::{Decode, Encode};
 
 	use acurast_core_ink::types::{
-		IncomingAction, IncomingActionPayloadV1, JobRegistrationV1, OutgoingActionPayloadV1, RegisterJobPayloadV1, ScheduleV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1, Version, VersionedIncomingActionPayload
+		IncomingAction, IncomingActionPayloadV1, JobRegistrationV1, OutgoingActionPayloadV1,
+		RegisterJobPayloadV1, ScheduleV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1,
+		Version, VersionedIncomingActionPayload,
 	};
 
 	pub type OuterError<T> = Result<Result<T, ink::LangError>, ink::env::Error>;
@@ -46,7 +48,7 @@ mod proxy {
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub struct RegisterJobUserInput {
-        job_registration: JobRegistrationV1,
+		job_registration: JobRegistrationV1,
 		destination: AccountId,
 		expected_fulfillment_fee: u128,
 	}
@@ -97,7 +99,7 @@ mod proxy {
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 	pub struct JobInformationV1 {
-        schedule: ScheduleV1,
+		schedule: ScheduleV1,
 		creator: AccountId,
 		destination: AccountId,
 		processors: Vec<AccountId>,
@@ -133,6 +135,7 @@ mod proxy {
 	pub enum ConfigureArgument {
 		Owner(AccountId),
 		IBCContract(AccountId),
+		AcurastPalletAccount(AccountId),
 		Paused(bool),
 		PayloadVersion(u16),
 		MaxMessageBytes(u16),
@@ -165,8 +168,8 @@ mod proxy {
 		LangError(String),
 	}
 
-	#[derive(Debug, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
+	#[derive(Debug, Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
 	pub struct ExchangeRatio {
 		pub numerator: u16,
 		pub denominator: u16,
@@ -189,13 +192,15 @@ mod proxy {
 	}
 
 	/// Contract configurations are contained in this structure
-	#[ink::storage_item]
-	#[derive(Debug)]
+	#[derive(Debug, Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
 	pub struct Config {
 		/// Address allowed to manage the contract
 		owner: AccountId,
 		/// The IBC contract
 		ibc: AccountId,
+        /// the recipient on Acurast parachain (a pallet account derived from a constant AcurastPalletId)
+		acurast_pallet_account: AccountId,
 		/// Flag that states if the contract is paused or not
 		paused: bool,
 		/// Payload versioning
@@ -228,8 +233,18 @@ mod proxy {
 		pub fn default() -> Self {
 			Self {
 				config: Config {
-					owner: AccountId::from([0x0; 32]),
-					ibc: AccountId::from([0x0; 32]),
+					owner: AccountId::from([
+						24, 90, 139, 95, 146, 236, 211, 72, 237, 155, 18, 160, 71, 202, 43, 40, 72,
+						139, 19, 152, 6, 90, 141, 255, 141, 207, 136, 98, 69, 249, 40, 11,
+					]),
+					ibc: AccountId::from([
+						146, 15, 1, 125, 16, 39, 253, 47, 52, 101, 2, 241, 255, 64, 21, 83, 68,
+						237, 21, 89, 222, 247, 41, 10, 166, 15, 9, 128, 31, 76, 228, 26,
+					]),
+					acurast_pallet_account: AccountId::from([
+						109, 111, 100, 108, 97, 99, 114, 115, 116, 112, 105, 100, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					]),
 					paused: false,
 					payload_version: 1,
 					max_message_bytes: 2048,
@@ -284,6 +299,7 @@ mod proxy {
 				match action {
 					ConfigureArgument::Owner(address) => self.config.owner = address,
 					ConfigureArgument::IBCContract(address) => self.config.ibc = address,
+					ConfigureArgument::AcurastPalletAccount(address) => self.config.acurast_pallet_account = address,
 					ConfigureArgument::Paused(paused) => self.config.paused = paused,
 					ConfigureArgument::PayloadVersion(version) =>
 						self.config.payload_version = version,
@@ -298,8 +314,13 @@ mod proxy {
 			Ok(())
 		}
 
+        #[ink(message)]
+		pub fn config(&self) -> Config {
+			self.config.clone()
+		}
+
 		/// This method is called by users to interact with the acurast protocol
-		#[ink(message)]
+		#[ink(message, payable)]
 		pub fn send_actions(&mut self, actions: Vec<UserAction>) -> Result<(), Error> {
 			// The contract should not be paused
 			self.ensure_unpaused()?;
@@ -337,12 +358,12 @@ mod proxy {
 						let cost: u128 = self.config.exchange_ratio.exchange_price(maximum_reward);
 
 						// Validate job registration payment
-						if self.env().transferred_value() != expected_fee + cost {
+						if self.env().transferred_value() < expected_fee + cost {
 							return Err(Error::Verbose("AMOUNT_CANNOT_COVER_JOB_COSTS".to_string()))
 						}
-                        
+
 						let info = JobInformationV1 {
-                            status: JobStatus::Open,
+							status: JobStatus::Open,
 							creator: self.env().caller(),
 							destination: payload.destination,
 							processors: Vec::new(),
@@ -382,8 +403,8 @@ mod proxy {
 									}
 
 									// Verify if job can be finalized
-									let is_expired =
-										(job.schedule.end_time / 1000) < self.env().block_timestamp();
+									let is_expired = (job.schedule.end_time / 1000) <
+										self.env().block_timestamp();
 									if !is_expired {
 										return Err(Error::CannotFinalizeJob)
 									}
@@ -442,11 +463,7 @@ mod proxy {
 									&action.id.to_ne_bytes().to_vec(),
 								))
 								// recipient
-								.push_arg(&Subject::Acurast(Layer::Extrinsic(AccountId::from([
-									24, 90, 139, 95, 146, 236, 211, 72, 237, 155, 18, 160, 71, 202,
-									43, 40, 72, 139, 19, 152, 6, 90, 141, 255, 141, 207, 136, 98,
-									69, 249, 40, 11,
-								]))))
+								.push_arg(&Subject::Acurast(Layer::Extrinsic(self.config.acurast_pallet_account)))
 								// payload
 								.push_arg(&encoded_action)
 								//ttl

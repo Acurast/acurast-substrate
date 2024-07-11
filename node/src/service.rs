@@ -217,6 +217,7 @@ async fn start_node_impl<RuntimeApi, Executor>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
 where
@@ -385,6 +386,7 @@ where
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
+			block_authoring_duration,
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
@@ -454,6 +456,7 @@ fn start_consensus<RuntimeApi, Executor>(
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -504,8 +507,7 @@ where
 		relay_chain_slot_duration,
 		proposer,
 		collator_service,
-		// Very limited proposal time.
-		authoring_duration: Duration::from_millis(500),
+		authoring_duration: block_authoring_duration,
 		collation_request_receiver: None,
 	};
 
@@ -525,6 +527,7 @@ pub async fn start_parachain_node<RuntimeApi, Executor>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	// rpc_config: RpcConfig,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
@@ -539,6 +542,7 @@ where
 		polkadot_config,
 		collator_options,
 		para_id,
+		block_authoring_duration,
 		// rpc_config
 		hwbench,
 	)

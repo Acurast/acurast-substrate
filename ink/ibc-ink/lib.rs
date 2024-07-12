@@ -397,6 +397,10 @@ pub mod ibc {
 
 			self.incoming.insert(id, &message_with_meta);
 
+            let mut index = self.incoming_index.get_or_default();
+			index.push(id);
+			self.incoming_index.set(&index);
+
 			if let Some(selector) = contract_call.selector {
 				match build_call::<DefaultEnvironment>()
 					.call(contract_call.contract)
@@ -426,6 +430,37 @@ pub mod ibc {
 			Ok(())
 		}
 
+		/// Used by a relayer to clean outgoing index from messages older with a TTL past current block. Currently it does not clean the actual message store `outgoing`, so duplicates are still detected.
+		#[ink(message)]
+		pub fn clean_outgoing_index(&mut self) -> Result<(), Error> {
+			self.ensure_unpaused()?;
+
+			let current_block = self.env().block_number();
+
+			let mut index = self.outgoing_index.get_or_default();
+			index.retain(|&i| {
+				let retain = if let Some(message) = self.outgoing.get(i) {
+					current_block < message.ttl_block
+				} else {
+					// if message store does not have this message, delete it from index
+					false
+				};
+
+				if !retain {
+					// https://use.ink/basics/contract-debugging/
+					ink::env::debug_println!(
+						"Clear message from outgoing index: {}",
+						hex::encode(i)
+					);
+				}
+
+				retain
+			});
+			self.outgoing_index.set(&index);
+
+			Ok(())
+		}
+
 		/// Used by a relayer to clean incoming index from messages older than `Config::incoming_ttl`. Currently it does not clean the actual message store `incoming`, so duplicates are still detected.
 		#[ink(message)]
 		pub fn clean_incoming_index(&mut self) -> Result<(), Error> {
@@ -436,9 +471,7 @@ pub mod ibc {
 			let mut index = self.incoming_index.get_or_default();
 			index.retain(|&i| {
 				let retain = if let Some(message) = self.incoming.get(i) {
-					current_block < self.config.incoming_ttl ||
-						message.current_block >
-							current_block.saturating_sub(self.config.incoming_ttl)
+					message.current_block > current_block.saturating_sub(self.config.incoming_ttl)
 				} else {
 					// if message store does not have this message, delete it from index
 					false
@@ -446,7 +479,10 @@ pub mod ibc {
 
 				if !retain {
 					// https://use.ink/basics/contract-debugging/
-					ink::env::debug_println!("Clear message from index: {}", hex::encode(i));
+					ink::env::debug_println!(
+						"Clear message from incoming index: {}",
+						hex::encode(i)
+					);
 				}
 
 				retain

@@ -126,6 +126,7 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-uniques/std",
+	"pallet-multisig/std",
 	"pallet-acurast/std",
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",

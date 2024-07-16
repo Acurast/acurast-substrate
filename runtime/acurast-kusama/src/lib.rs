@@ -15,17 +15,26 @@ use core::{default::Default, marker::PhantomData};
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use frame_support::traits::{
-	ConstBool, ConstU128, ConstU32, ConstU64, EnqueueWithOrigin, LinearStoragePrice,
-	TransformOrigin,
+use frame_support::{
+	dispatch::DispatchInfo,
+	pallet_prelude::{TransactionLongevity, ValidTransaction},
+	traits::{
+		ConstBool, ConstU128, ConstU32, ConstU64, EnqueueWithOrigin, LinearStoragePrice,
+		TransformOrigin,
+	},
 };
 use pallet_acurast_hyperdrive_ibc::{Instance1, LayerFor, MessageBody, SubjectFor};
+use parity_scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{Block as BlockT, DispatchInfoOf, PostDispatchInfoOf, Zero},
+	traits::{
+		Block as BlockT, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SignedExtension,
+		Zero,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError,
 };
@@ -128,7 +137,7 @@ pub type SignedExtra = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
+	CheckNonce,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
@@ -374,6 +383,140 @@ impl Default for LiquidityInfo {
 	}
 }
 
+fn get_fee_payer(
+	who: &<Runtime as frame_system::Config>::AccountId,
+	call: &<Runtime as frame_system::Config>::RuntimeCall,
+) -> <Runtime as frame_system::Config>::AccountId {
+	let mut manager = AcurastProcessorManager::manager_for_processor(who);
+
+	if manager.is_none() {
+		if let RuntimeCall::AcurastProcessorManager(
+			pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
+		) = call
+		{
+			if pairing.validate_timestamp::<Runtime>() {
+				let counter = AcurastProcessorManager::counter_for_manager(&pairing.account)
+					.unwrap_or(0)
+					.checked_add(1);
+				if let Some(counter) = counter {
+					if pairing.validate_signature::<Runtime>(&pairing.account, counter) {
+						manager = Some(pairing.account.clone());
+					}
+				}
+			}
+		}
+	}
+
+	manager.unwrap_or(who.clone())
+}
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckNonce(#[codec(compact)] pub <Runtime as frame_system::Config>::Nonce);
+
+impl CheckNonce {
+	/// utility constructor. Used only in client/factory code.
+	pub fn from(nonce: <Runtime as frame_system::Config>::Nonce) -> Self {
+		Self(nonce)
+	}
+}
+
+impl sp_std::fmt::Debug for CheckNonce {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		write!(f, "CheckNonce({})", self.0)
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		Ok(())
+	}
+}
+
+impl SignedExtension for CheckNonce
+where
+	<Runtime as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+{
+	type AccountId = <Runtime as frame_system::Config>::AccountId;
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = ();
+	const IDENTIFIER: &'static str = "CheckNonce";
+
+	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<(), TransactionValidityError> {
+		let fee_payer = get_fee_payer(who, call);
+		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
+		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
+		let mut account = if &fee_payer != who {
+			frame_system::Account::<Runtime>::get(who)
+		} else {
+			fee_payer_account
+		};
+		if self.0 != account.nonce {
+			return Err(if self.0 < account.nonce {
+				InvalidTransaction::Stale
+			} else {
+				InvalidTransaction::Future
+			}
+			.into())
+		}
+		account.nonce += <Runtime as frame_system::Config>::Nonce::one();
+		frame_system::Account::<Runtime>::insert(who, account);
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		let fee_payer = get_fee_payer(who, call);
+		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
+		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return InvalidTransaction::Payment.into()
+		}
+		let account = if &fee_payer != who {
+			frame_system::Account::<Runtime>::get(who)
+		} else {
+			fee_payer_account
+		};
+		if self.0 < account.nonce {
+			return InvalidTransaction::Stale.into()
+		}
+
+		let provides = vec![Encode::encode(&(who, self.0))];
+		let requires = if account.nonce < self.0 {
+			vec![Encode::encode(&(who, self.0 - <Runtime as frame_system::Config>::Nonce::one()))]
+		} else {
+			vec![]
+		};
+
+		Ok(ValidTransaction {
+			priority: 0,
+			requires,
+			provides,
+			longevity: TransactionLongevity::max_value(),
+			propagate: true,
+		})
+	}
+}
+
 pub struct TransactionCharger<OU>(PhantomData<OU>);
 impl<OU> pallet_transaction_payment::OnChargeTransaction<Runtime> for TransactionCharger<OU>
 where
@@ -399,27 +542,7 @@ where
 			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
 		};
 
-		let mut manager = AcurastProcessorManager::manager_for_processor(who);
-
-		if manager.is_none() {
-			if let RuntimeCall::AcurastProcessorManager(
-				pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
-			) = call
-			{
-				if pairing.validate_timestamp::<Runtime>() {
-					let counter = AcurastProcessorManager::counter_for_manager(&pairing.account)
-						.unwrap_or(0)
-						.checked_add(1);
-					if let Some(counter) = counter {
-						if pairing.validate_signature::<Runtime>(&pairing.account, counter) {
-							manager = Some(pairing.account.clone());
-						}
-					}
-				}
-			}
-		}
-
-		let fee_payer = manager.unwrap_or(who.clone());
+		let fee_payer = get_fee_payer(who, call);
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{

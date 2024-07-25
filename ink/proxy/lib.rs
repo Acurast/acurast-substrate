@@ -86,6 +86,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum JobStatus {
 		/// Status after a job got registered.
 		Open = 0,
@@ -98,6 +99,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub struct JobInformationV1 {
 		schedule: ScheduleV1,
 		creator: AccountId,
@@ -111,6 +113,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum JobInformation {
 		V1(JobInformationV1),
 	}
@@ -178,15 +181,13 @@ mod proxy {
 	impl ExchangeRatio {
 		fn exchange_price(&self, expected_acurast_amount: u128) -> u128 {
 			// Calculate how many azero is required to cover for the job cost
-			let amount =
-				((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128);
+            let n = (self.numerator as u128) * expected_acurast_amount;
+            let d = self.denominator as u128;
 
-			if ((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128) !=
-				0
-			{
-				amount + 1
+			if n % d == 0 {
+				n / d
 			} else {
-				amount
+				n / d + 1
 			}
 		}
 	}
@@ -199,7 +200,7 @@ mod proxy {
 		owner: AccountId,
 		/// The IBC contract
 		ibc: AccountId,
-        /// the recipient on Acurast parachain (a pallet account derived from a constant AcurastPalletId)
+		/// the recipient on Acurast parachain (a pallet account derived from a constant AcurastPalletId)
 		acurast_pallet_account: AccountId,
 		/// Flag that states if the contract is paused or not
 		paused: bool,
@@ -299,7 +300,8 @@ mod proxy {
 				match action {
 					ConfigureArgument::Owner(address) => self.config.owner = address,
 					ConfigureArgument::IBCContract(address) => self.config.ibc = address,
-					ConfigureArgument::AcurastPalletAccount(address) => self.config.acurast_pallet_account = address,
+					ConfigureArgument::AcurastPalletAccount(address) =>
+						self.config.acurast_pallet_account = address,
 					ConfigureArgument::Paused(paused) => self.config.paused = paused,
 					ConfigureArgument::PayloadVersion(version) =>
 						self.config.payload_version = version,
@@ -314,7 +316,7 @@ mod proxy {
 			Ok(())
 		}
 
-        #[ink(message)]
+		#[ink(message)]
 		pub fn config(&self) -> Config {
 			self.config.clone()
 		}
@@ -341,7 +343,7 @@ mod proxy {
 						if interval == 0 {
 							return Err(Error::Verbose("INTERVAL_CANNNOT_BE_ZERO".to_string()))
 						}
-						let execution_count = (end_time - start_time) / interval;
+						let execution_count = ((end_time - start_time - 1) / interval) + 1;
 
 						// Calculate the fee required for all job executions
 						let slots = payload.job_registration.extra.slots;
@@ -463,7 +465,9 @@ mod proxy {
 									&action.id.to_ne_bytes().to_vec(),
 								))
 								// recipient
-								.push_arg(&Subject::Acurast(Layer::Extrinsic(self.config.acurast_pallet_account)))
+								.push_arg(&Subject::Acurast(Layer::Extrinsic(
+									self.config.acurast_pallet_account,
+								)))
 								// payload
 								.push_arg(&encoded_action)
 								//ttl
@@ -520,9 +524,7 @@ mod proxy {
 								.transfer(processor_address, initial_fee)
 								.expect("COULD_NOT_TRANSFER");
 
-							if job.processors.len() == (job.slots as usize) {
-								job.status = JobStatus::Assigned;
-							}
+							job.status = JobStatus::Assigned;
 
 							// Save changes
 							self.job_info
@@ -631,6 +633,11 @@ mod proxy {
 				},
 			}
 		}
+
+        #[ink(message)]
+        pub fn job(&self, job_id: u128) -> Result<JobInformation, Error> {
+            JobInformation::decode(self, job_id)
+        }
 	}
 
 	#[cfg(test)]

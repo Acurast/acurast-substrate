@@ -16,8 +16,9 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 use acurast_runtime_common::{
 	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
-	MaxEnvVars, MaxSlots, Nonce,
+	MaxEnvVars, MaxSlots, MaxVersions, Nonce,
 };
+use pallet_acurast::Version;
 use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
 
 /// A type representing all RPC extensions.
@@ -52,7 +53,7 @@ where
 		Block,
 		Balance,
 		AccountId,
-		RegistrationExtra<Balance, AccountId, MaxSlots>,
+		RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
 		MaxAllowedSources,
 		MaxEnvVars,
 		EnvKeyMaxSize,

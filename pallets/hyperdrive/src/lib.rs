@@ -183,7 +183,15 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static>
 		pallet_acurast_hyperdrive_ibc::MessageProcessor<T::AccountId, T::AccountId> for Pallet<T, I>
 	where
-		T::RegistrationExtra: From<RegistrationExtra<T::Balance, T::AccountId, T::MaxSlots>>,
+		<T as pallet_acurast::Config>::RegistrationExtra: From<
+			RegistrationExtra<
+				<T as pallet::Config<I>>::Balance,
+				<T as frame_system::Config>::AccountId,
+				<T as pallet_acurast::Config>::MaxSlots,
+				<T as pallet_acurast::Config>::ProcessorVersion,
+				<T as pallet_acurast::Config>::MaxVersions,
+			>,
+		>,
 	{
 		fn process(message: MessageBody<T::AccountId, T::AccountId>) -> DispatchResultWithPostInfo {
 			match message.sender {

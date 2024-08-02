@@ -1,4 +1,4 @@
-use acurast_common::ListUpdate;
+use acurast_common::{ListUpdate, Version};
 use core::fmt::Debug;
 use frame_support::{
 	pallet_prelude::*,
@@ -83,16 +83,6 @@ where
 
 pub type ProcessorPairingUpdate<AccountId, Signature> =
 	ListUpdate<ProcessorPairing<AccountId, Signature>>;
-
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct Version {
-	/// Number representing the device's platform:
-	/// 0: Android
-	pub platform: u32,
-	pub build_number: u32,
-}
 
 pub type BinaryHash = H256;
 pub(crate) const MAX_LOCATION_LENGTH: u32 = 200;

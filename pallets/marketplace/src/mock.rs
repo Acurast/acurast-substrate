@@ -176,6 +176,8 @@ impl pallet_acurast::Config for Test {
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = Pallet<Test>;
+	type ProcessorVersion = u32;
+	type MaxVersions = pallet_acurast::CU32<1>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
@@ -193,6 +195,8 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 			slots: 1,
 			reward: 1,
 			min_reputation: None,
+			processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
+			min_cpu_score: Some(1),
 		}
 	}
 
@@ -216,9 +220,15 @@ impl ManagerProvider<Test> for ManagerOf {
 
 pub struct ProcessorLastSeenProvider;
 
-impl crate::traits::ProcessorLastSeenProvider<Test> for ProcessorLastSeenProvider {
+impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
 		Some(AcurastMarketplace::now().unwrap().into())
+	}
+
+	fn processor_version(
+		processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as pallet_acurast::Config>::ProcessorVersion> {
+		Some(1)
 	}
 }
 
@@ -238,7 +248,7 @@ impl Config for Test {
 	type Balance = Balance;
 	type ManagerProvider = ManagerOf;
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>>;
-	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
+	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = ();
 	type WeightInfo = weights::WeightInfo<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -294,5 +304,6 @@ pub fn advertisement(
 		max_memory,
 		network_request_quota,
 		available_modules: JobModules::default(),
+		cpu_score: 1,
 	}
 }

@@ -57,10 +57,19 @@ pub type MaxAllowedSources = pallet_acurast::CU32<1000>;
 pub type MaxAllowedSourcesFor<T> = <T as pallet_acurast::Config>::MaxAllowedSources;
 pub type MaxSlots = CU32<64>;
 pub type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;
+pub type ProcessorVersionFor<T> = <T as pallet_acurast::Config>::ProcessorVersion;
+pub type MaxVersions = CU32<2>;
+pub type MaxVersionsFor<T> = <T as pallet_acurast::Config>::MaxVersions;
 pub type MaxEnvVars = CU32<10>;
 pub type EnvKeyMaxSize = CU32<32>;
 pub type EnvValueMaxSize = CU32<1024>;
-pub type ExtraFor<T> = RegistrationExtra<Balance, AccountId, MaxSlotsFor<T>>;
+pub type ExtraFor<T> = RegistrationExtra<
+	Balance,
+	AccountId,
+	MaxSlotsFor<T>,
+	ProcessorVersionFor<T>,
+	MaxVersionsFor<T>,
+>;
 
 // the base number of indivisible units for balances
 pub const PICOUNIT: Balance = 1;

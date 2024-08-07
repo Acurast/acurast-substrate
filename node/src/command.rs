@@ -464,7 +464,7 @@ pub fn run() -> Result<()> {
 					NetworkVariant::Testnet => service::start_parachain_node::<
 						acurast_rococo_runtime::RuntimeApi,
 						service::testnet::AcurastExecutor,
-					>(config, polkadot_config, collator_options, id, hwbench)
+					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
@@ -472,7 +472,7 @@ pub fn run() -> Result<()> {
 					NetworkVariant::Canary => service::start_parachain_node::<
 						acurast_kusama_runtime::RuntimeApi,
 						service::canary::AcurastExecutor,
-					>(config, polkadot_config, collator_options, id, hwbench)
+					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),

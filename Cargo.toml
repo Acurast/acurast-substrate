@@ -5,7 +5,7 @@ panic = "unwind"
 resolver = "2"
 members = [
 	"node",
-#	"emulations",
+	#	"emulations",
 	"pallets/*",
 	"pallets/acurast/common",
 	"pallets/marketplace/reputation",
@@ -13,20 +13,26 @@ members = [
 ]
 
 [workspace.package]
-authors = [ "Papers AG" ]
+authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.6.0"
+version = "0.7.0"
 
 [workspace.dependencies]
 # build dependencies
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.6.0" }
 
 clap = { version = "4.0.29", features = ["derive"] }
-parity-scale-codec = { version = "3.6.9", default-features = false, features = ["derive", "max-encoded-len"] }
+clap-num = "1.1.1"
+parity-scale-codec = { version = "3.6.9", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
 hex = "0.4"
 hex-literal = { version = "0.4" }
 log = { version = "^0.4.21", default-features = false }
-scale-info = { version = "2.11.2", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.2", default-features = false, features = [
+	"derive",
+] }
 smallvec = "1.10.0"
 derive_more = "0.99.17"
 serde = { version = "1.0.195", features = ["derive"] }
@@ -43,10 +49,10 @@ pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features 
 pallet-acurast-fee-manager = { path = "./pallets/fee-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { path = "./pallets/processor-manager", default-features = false }
-# The Hyperdrive pallet is responsible to aggregate data and generate proofs of messages being sent to other chains.
+# The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy.
 pallet-acurast-hyperdrive = { path = "./pallets/hyperdrive", default-features = false }
-# The Hyperdrive Outgoing pallet is responsible for aggregating data and generating proofs of messages being sent to other chains.
-pallet-acurast-hyperdrive-outgoing = { path = "./pallets/hyperdrive-outgoing", default-features = false }
+# The Hyperdrive (IBC) pallet enables inter-blockchain-communication (IBC) by bidirectional message passing.
+pallet-acurast-hyperdrive-ibc = { path = "./pallets/hyperdrive-ibc", default-features = false }
 # The Reputation pallet handles the reputation of processors.
 acurast-reputation = { path = "./pallets/marketplace/reputation", default-features = false }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus
@@ -172,15 +178,15 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot-sdk", tag 
 polkadot-service = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.6.0", default-features = false }
 
 # Cumulus
-cumulus-pallet-aura-ext = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-pallet-session-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-pallet-xcm = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-primitives-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-primitives-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
-cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false,  tag = "polkadot-v1.6.0" }
+cumulus-pallet-aura-ext = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-pallet-dmp-queue = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-pallet-session-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-pallet-xcm = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-primitives-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-primitives-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
+cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
 parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
 parachain-info = { package = "staging-parachain-info", git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
 

@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use clap_num;
+use std::{path::PathBuf, time::Duration};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -112,6 +113,14 @@ pub struct RunCmd {
 	/// Id of the parachain this collator collates for.
 	#[clap(long)]
 	pub parachain_id: Option<u32>,
+
+	/// Maximum duration in milliseconds to produce a block
+	#[clap(long, default_value = "500", value_parser=block_authoring_duration_parser)]
+	pub block_authoring_duration: Duration,
+}
+
+fn block_authoring_duration_parser(s: &str) -> Result<Duration, String> {
+	Ok(Duration::from_millis(clap_num::number_range(s, 250, 2_000)?))
 }
 
 impl std::ops::Deref for RunCmd {

@@ -16,7 +16,6 @@ use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 // Substrate Imports
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
-use pallet_acurast_hyperdrive_outgoing::{mmr_gadget::MmrGadget, traits::MMRInstance};
 use sc_chain_spec::ChainSpec;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
@@ -34,9 +33,6 @@ use substrate_prometheus_endpoint::Registry;
 
 use crate::client::RuntimeApiCollection;
 use acurast_runtime_common::{opaque::Block, Hash};
-use pallet_acurast_hyperdrive_outgoing::instances::{
-	AlephZeroInstance, EthereumInstance, TezosInstance,
-};
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]
@@ -200,41 +196,6 @@ where
 		&task_manager,
 	)?;
 
-	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-
-	if is_offchain_indexing_enabled {
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-tez-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<TezosInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				TezosInstance::INDEXING_PREFIX.to_vec(),
-				TezosInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-eth-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<EthereumInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				EthereumInstance::INDEXING_PREFIX.to_vec(),
-				EthereumInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-		task_manager.spawn_handle().spawn_blocking(
-			"mmr-alephzero-gadget",
-			Some("mmr-gadget"),
-			MmrGadget::<AlephZeroInstance, _, _, _, _>::start(
-				client.clone(),
-				backend.clone(),
-				AlephZeroInstance::INDEXING_PREFIX.to_vec(),
-				AlephZeroInstance::TEMP_INDEXING_PREFIX.to_vec(),
-			),
-		);
-	}
-
 	Ok(PartialComponents {
 		backend,
 		client,
@@ -256,6 +217,7 @@ async fn start_node_impl<RuntimeApi, Executor>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
 where
@@ -424,6 +386,7 @@ where
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
+			block_authoring_duration,
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
@@ -493,6 +456,7 @@ fn start_consensus<RuntimeApi, Executor>(
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -543,8 +507,7 @@ where
 		relay_chain_slot_duration,
 		proposer,
 		collator_service,
-		// Very limited proposal time.
-		authoring_duration: Duration::from_millis(500),
+		authoring_duration: block_authoring_duration,
 		collation_request_receiver: None,
 	};
 
@@ -564,6 +527,7 @@ pub async fn start_parachain_node<RuntimeApi, Executor>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	block_authoring_duration: Duration,
 	// rpc_config: RpcConfig,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
@@ -578,6 +542,7 @@ where
 		polkadot_config,
 		collator_options,
 		para_id,
+		block_authoring_duration,
 		// rpc_config
 		hwbench,
 	)

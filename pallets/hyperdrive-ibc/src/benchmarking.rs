@@ -23,7 +23,7 @@ fn assert_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::Runti
 fn update_state_transmitters_helper<T: Config<I>, I: 'static>(
 	l: usize,
 	submit: bool,
-) -> (T::AccountId, StateTransmitterUpdates<T>)
+) -> (T::AccountId, OracleUpdates<T>)
 where
 	T::AccountId: From<AccountId32>,
 	BlockNumberFor<T>: From<u32>,
@@ -31,13 +31,13 @@ where
 	let caller: T::AccountId = whitelisted_caller();
 	whitelist_account!(caller);
 
-	let actions = StateTransmitterUpdates::<T>::try_from(
-		iter::repeat(StateTransmitterUpdate::Add(
+	let actions = OracleUpdates::<T>::try_from(
+		iter::repeat(OracleUpdate::Add(
 			caller.clone(),
 			ActivityWindow { start_block: 0.into(), end_block: 100.into() },
 		))
 		.take(l)
-		.collect::<Vec<StateTransmitterUpdateFor<T>>>(),
+		.collect::<Vec<OracleUpdateFor<T>>>(),
 	)
 	.unwrap();
 
@@ -63,7 +63,7 @@ benchmarks_instance_pallet! {
 		<T as Config<I>>::TargetChainHash: From<H256>,
 	}
 	update_state_transmitters {
-		let l in 0 .. STATE_TRANSMITTER_UPDATES_MAX_LENGTH;
+		let l in 0 .. ORACLE_UPDATES_MAX_LENGTH;
 
 		// just create the data, do not submit the actual call (it gets executed by the benchmark call)
 		let (account, actions) = update_state_transmitters_helper::<T, I>(l as usize, false);
@@ -97,7 +97,7 @@ benchmarks_instance_pallet! {
 	}
 
 	submit_message {
-		<MessageSequenceId::<T, I>>::set(74);
+		<MessageCounter::<T, I>>::set(74);
 		let (caller, _) = update_state_transmitters_helper::<T, I>(1, true);
 		let proof_items: StateProof<H256> = vec![].try_into().unwrap();
 		let key = StateKey::try_from(hex!("05008b01").to_vec()).unwrap();

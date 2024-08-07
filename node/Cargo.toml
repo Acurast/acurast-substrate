@@ -10,6 +10,7 @@ build = "build.rs"
 
 [dependencies]
 clap = { version = "4.0.29", features = ["derive"] }
+clap-num = { workspace = true }
 log = { workspace = true }
 parity-scale-codec = { workspace = true }
 serde = { workspace = true }
@@ -25,7 +26,6 @@ pallet-acurast-marketplace = { workspace = true, features = ["std"] }
 acurast-runtime-common = { workspace = true, features = ["std"] }
 acurast-rococo-runtime = { workspace = true, features = ["std"] }
 acurast-kusama-runtime = { workspace = true, features = ["std"] }
-pallet-acurast-hyperdrive-outgoing = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }

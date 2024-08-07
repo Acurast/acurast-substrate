@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "asn1",
  "base64 0.13.1",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -69,7 +69,7 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
- "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
@@ -118,22 +118,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "acurast-merkle-mountain-range"
-version = "0.5.2"
-source = "git+https://github.com/Acurast/merkle-mountain-range#ddab28054ff10e323f198803cbc13e1aeb52c51a"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "acurast-node"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-rococo-runtime",
  "acurast-runtime-common",
  "async-trait",
  "clap 4.4.18",
+ "clap-num",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -154,7 +147,6 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "log",
- "pallet-acurast-hyperdrive-outgoing",
  "pallet-acurast-marketplace",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -204,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -237,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -263,7 +255,7 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
- "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
@@ -314,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -339,7 +331,7 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
- "pallet-acurast-hyperdrive-outgoing",
+ "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-vesting",
@@ -1853,15 +1845,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d15193decfa1e0b151ce19e42d118db048459a27720fb3de7d3103c30adccb12"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "clang-sys"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1891,6 +1874,15 @@ checksum = "1e578d6ec4194633722ccf9544794b71b1385c3c027efe0c55db226fc880865c"
 dependencies = [
  "clap_builder",
  "clap_derive",
+]
+
+[[package]]
+name = "clap-num"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e063d263364859dc54fb064cedb7c122740cd4733644b14b176c097f51e8ab7"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -3629,19 +3621,6 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
-name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
@@ -3876,7 +3855,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84f2e425d9790201ba4af4630191feac6dcc98765b118d4d18e91d23c2353866"
 dependencies = [
- "env_logger 0.10.2",
+ "env_logger",
  "log",
 ]
 
@@ -6833,7 +6812,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -6857,7 +6836,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fee-manager"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6873,7 +6852,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fulfillment-receiver"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -6889,11 +6868,10 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-core-ink",
  "alloy-sol-types",
- "ckb-merkle-mountain-range 0.6.0",
  "derive_more",
  "frame-benchmarking",
  "frame-support",
@@ -6903,6 +6881,7 @@ dependencies = [
  "log",
  "once_cell",
  "pallet-acurast",
+ "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -6920,59 +6899,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-acurast-hyperdrive-outgoing"
-version = "0.6.0"
+name = "pallet-acurast-hyperdrive-ibc"
+version = "0.7.0"
 dependencies = [
- "acurast-common",
- "acurast-core-ink",
- "acurast-merkle-mountain-range",
- "alloy-primitives",
  "alloy-sol-types",
- "array-bytes 4.2.0",
  "derive_more",
- "env_logger 0.9.3",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "futures",
- "hex-literal 0.4.1",
- "itertools 0.10.5",
- "jsonrpsee",
+ "hex",
+ "hex-literal 0.3.4",
  "log",
  "once_cell",
  "pallet-acurast",
- "pallet-acurast-hyperdrive",
- "pallet-acurast-marketplace",
+ "pallet-balances",
+ "pallet-timestamp",
  "parity-scale-codec",
- "parking_lot 0.12.1",
  "rlp",
- "sc-block-builder",
- "sc-client-api",
- "sc-offchain",
  "scale-info",
- "serde",
- "serde_json",
- "sp-api",
  "sp-arithmetic",
- "sp-blockchain",
- "sp-consensus",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
- "sp-tracing 10.0.0",
  "strum 0.24.1",
  "strum_macros 0.24.3",
- "substrate-test-runtime-client",
  "tezos-core",
  "tezos-michelson",
- "thiserror",
- "tokio",
 ]
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-reputation",
  "base64 0.13.1",
@@ -7008,7 +6966,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7034,7 +6992,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -13096,7 +13054,7 @@ name = "sp-mmr-primitives"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
 dependencies = [
- "ckb-merkle-mountain-range 0.5.2",
+ "ckb-merkle-mountain-range",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -13822,91 +13780,6 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "trie-db",
-]
-
-[[package]]
-name = "substrate-test-client"
-version = "2.0.1"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "array-bytes 6.2.2",
- "async-trait",
- "futures",
- "parity-scale-codec",
- "sc-client-api",
- "sc-client-db",
- "sc-consensus",
- "sc-executor",
- "sc-offchain",
- "sc-service",
- "serde",
- "serde_json",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-keyring",
- "sp-keystore",
- "sp-runtime",
- "sp-state-machine",
-]
-
-[[package]]
-name = "substrate-test-runtime"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "array-bytes 6.2.2",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-babe",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "sc-service",
- "scale-info",
- "sp-api",
- "sp-application-crypto",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-babe",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-externalities 0.19.0",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-state-machine",
- "sp-std 8.0.0",
- "sp-transaction-pool",
- "sp-trie",
- "sp-version",
- "substrate-wasm-builder",
- "trie-db",
-]
-
-[[package]]
-name = "substrate-test-runtime-client"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "futures",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sp-api",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-runtime",
- "substrate-test-client",
- "substrate-test-runtime",
 ]
 
 [[package]]

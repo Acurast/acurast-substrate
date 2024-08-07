@@ -25,6 +25,7 @@ fi
 FROM docker.io/library/ubuntu:22.04
 
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
+COPY --from=builder /code/chain-specs /chain-specs
 
 RUN useradd -m -u 1000 -U -s /bin/sh -d /app app && \
 	mkdir -p /data /app/.local/share && \

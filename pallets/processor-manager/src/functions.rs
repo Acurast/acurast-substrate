@@ -24,6 +24,7 @@ where
 	}
 
 	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
+	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,
 	) -> Result<(T::ManagerId, bool), DispatchError> {

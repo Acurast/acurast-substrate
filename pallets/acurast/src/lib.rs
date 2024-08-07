@@ -38,8 +38,8 @@ pub mod pallet {
 	use acurast_common::*;
 	use core::ops::AddAssign;
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo, ensure, pallet_prelude::*, sp_runtime,
-		traits::UnixTime, Blake2_128Concat, PalletId,
+		dispatch::DispatchResultWithPostInfo, ensure, pallet_prelude::*, traits::UnixTime,
+		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;

@@ -13,15 +13,10 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_core::H256;
 
 use acurast_runtime_common::{
 	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
 	MaxEnvVars, MaxSlots, Nonce,
-};
-use pallet_acurast_hyperdrive_outgoing::{
-	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
-	HyperdriveApi,
 };
 use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
 
@@ -53,7 +48,6 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: HyperdriveApi<Block, H256>,
 	C::Api: MarketplaceRuntimeApi<
 		Block,
 		Balance,
@@ -66,7 +60,6 @@ where
 	>,
 	P: TransactionPool + Sync + Send + 'static,
 {
-	use pallet_acurast_hyperdrive_outgoing::rpc::{Mmr, MmrApiServer};
 	use pallet_acurast_marketplace::rpc::{Marketplace, MarketplaceApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -76,9 +69,6 @@ where
 
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<TezosInstance, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<EthereumInstance, _, _>::new(client.clone()).into_rpc())?;
-	module.merge(Mmr::<AlephZeroInstance, _, _>::new(client.clone()).into_rpc())?;
 	module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }

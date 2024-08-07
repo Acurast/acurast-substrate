@@ -1,6 +1,5 @@
-use std::path::PathBuf;
-
-use clap::Parser;
+use clap_num;
+use std::{path::PathBuf, time::Duration};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -27,7 +26,8 @@ pub enum Subcommand {
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
 
 	/// Export the genesis state of the parachain.
-	ExportGenesisState(cumulus_client_cli::ExportGenesisStateCommand),
+	#[command(alias = "export-genesis-state")]
+	ExportGenesisState(cumulus_client_cli::ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(cumulus_client_cli::ExportGenesisWasmCommand),
@@ -37,14 +37,24 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try some testing command against a specified runtime state.
-	#[cfg(feature = "try-runtime")]
-	TryRuntime(try_runtime_cli::TryRuntimeCmd),
-
-	/// Errors since the binary was not build with `--features try-runtime`.
-	#[cfg(not(feature = "try-runtime"))]
+	/// Try-runtime has migrated to a standalone
+	/// [CLI](<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
+	/// deprecation notice. It will be removed entirely some time after Janurary 2024.
 	TryRuntime,
 }
+
+const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
+	r#"<bold><underline>Examples:</></>
+   <bold>acurast-node build-spec --disable-default-bootnode > plain-parachain-chainspec.json</>
+           Export a chainspec for a local testnet in json format.
+   <bold>acurast-node --chain plain-parachain-chainspec.json --tmp -- --chain rococo-local</>
+           Launch a full node with chain specification loaded from plain-parachain-chainspec.json.
+   <bold>acurast-node</>
+           Launch a full node with default parachain <italic>acurast-local</> and relay chain <italic>rococo-local</>.
+   <bold>acurast-node --collator</>
+           Launch a collator with default parachain <italic>acurast-local</> and relay chain <italic>rococo-local</>.
+ "#
+);
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -52,6 +62,7 @@ pub enum Subcommand {
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true
 )]
+#[clap(after_help = AFTER_HELP_EXAMPLE)]
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
@@ -74,11 +85,14 @@ pub struct Cli {
 	pub relay_chain_args: Vec<String>,
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, clap::Parser)]
 #[group(skip)]
 pub struct RunCmd {
-	#[clap(flatten)]
-	pub base: cumulus_client_cli::RunCmd,
+	#[command(subcommand)]
+	pub subcommand: Option<Subcommand>,
+
+	#[command(flatten)]
+	pub run: cumulus_client_cli::RunCmd,
 
 	/// Use Acurast Local runtime.
 	#[clap(long = "local-runtime")]
@@ -99,13 +113,21 @@ pub struct RunCmd {
 	/// Id of the parachain this collator collates for.
 	#[clap(long)]
 	pub parachain_id: Option<u32>,
+
+	/// Maximum duration in milliseconds to produce a block
+	#[clap(long, default_value = "500", value_parser=block_authoring_duration_parser)]
+	pub block_authoring_duration: Duration,
+}
+
+fn block_authoring_duration_parser(s: &str) -> Result<Duration, String> {
+	Ok(Duration::from_millis(clap_num::number_range(s, 250, 2_000)?))
 }
 
 impl std::ops::Deref for RunCmd {
 	type Target = cumulus_client_cli::RunCmd;
 
 	fn deref(&self) -> &Self::Target {
-		&self.base
+		&self.run
 	}
 }
 

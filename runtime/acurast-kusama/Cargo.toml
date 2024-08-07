@@ -32,16 +32,16 @@ pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
-pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
-pallet-parachain-staking = { workspace = true }
+#pallet-parachain-staking = { workspace = true }
 pallet-collator-selection = { workspace = true }
 
 acurast-runtime-common = { workspace = true }
 
 # Nimbus Dependencies
-nimbus-primitives = { workspace = true }
-pallet-author-inherent = { workspace = true }
+#nimbus-primitives = { workspace = true }
+#pallet-author-inherent = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -76,8 +76,10 @@ sp-session = { workspace = true }
 sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+sp-genesis-builder = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-preimage = { workspace = true }
+pallet-message-queue = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -98,8 +100,8 @@ cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
-parachain-info = { workspace = true }
 parachains-common = { workspace = true }
+parachain-info = { workspace = true }
 
 [features]
 default = [
@@ -141,9 +143,8 @@ std = [
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-hyperdrive/std",
-	"pallet-acurast-hyperdrive-outgoing/std",
+	"pallet-acurast-hyperdrive-ibc/std",
 	"acurast-runtime-common/std",
-	"parachain-info/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -161,9 +162,9 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 	"acurast-p256-crypto/std",
-	"nimbus-primitives/std",
-	"pallet-author-inherent/std",
-	"pallet-parachain-staking/std",
+#	"nimbus-primitives/std",
+#	"pallet-author-inherent/std",
+#	"pallet-parachain-staking/std",
 	"pallet-collator-selection/std",
 	"frame-support-procedural/std",
 ]
@@ -182,7 +183,7 @@ runtime-benchmarks = [
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
-	"pallet-acurast-hyperdrive-outgoing/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

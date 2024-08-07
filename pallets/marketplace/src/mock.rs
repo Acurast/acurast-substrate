@@ -1,10 +1,11 @@
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	sp_runtime::{
-		traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256},
+		traits::{AccountIdConversion, IdentityLookup},
 		BuildStorage, DispatchError, Percent,
 	},
-	traits::Everything,
 	PalletId,
 };
 use sp_core::*;
@@ -114,30 +115,22 @@ parameter_types! {
 	pub const ReportTolerance: u64 = 12000;
 }
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u32;
-	type Block = Block;
-	type Hash = sp_core::H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type BlockHashCount = BlockHashCount;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
-	type SS58Prefix = ();
+	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -161,6 +154,7 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
 	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
@@ -194,7 +188,12 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	fn registration_extra(
 		_instant_match: bool,
 	) -> <Test as pallet_acurast::Config>::RegistrationExtra {
-		JobRequirements { slots: 1, reward: 1, min_reputation: None, instant_match: None }
+		JobRequirements {
+			assignment_strategy: AssignmentStrategy::Single(None),
+			slots: 1,
+			reward: 1,
+			min_reputation: None,
+		}
 	}
 
 	fn funded_account(index: u32) -> AccountId {

@@ -1,4 +1,4 @@
-ZOMBINET_VERSION := v1.3.53
+ZOMBINET_VERSION := v1.3.91
 
 UNAME_S := $(shell uname -s)
 

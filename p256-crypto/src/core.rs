@@ -1,7 +1,7 @@
 pub mod p256 {
 	#[cfg(feature = "std")]
 	use bip39::{Language, Mnemonic, MnemonicType};
-	use codec::{Decode, Encode, MaxEncodedLen};
+	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 
 	use p256::{
 		ecdsa::{recoverable, signature::Signer, SigningKey, VerifyingKey},

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-acurast-hyperdrive"
-description = "Acurast Hyperdrive is a building block allowing for general bidirectional message passing"
+description = "The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy."
 authors = { workspace = true }
 version = { workspace = true }
 repository = { workspace = true }
@@ -13,20 +13,18 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = { version = "0.4", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+log = { workspace = true }
+parity-scale-codec = { workspace = true }
+sp-core = { workspace = true }
 hex = { version = "0.4", default-features = false }
-hex-literal = { version = "0.3", default-features = false }
+hex-literal = { version = "0.4", default-features = false }
 
 # Acurast
 pallet-acurast = { path = "../acurast", default-features = false }
 pallet-acurast-marketplace = { path = "../marketplace", default-features = false}
+pallet-acurast-hyperdrive-ibc = { workspace = true }
 
 acurast-core-ink = { path = "../../ink/core", default-features = false }
-ckb-merkle-mountain-range = { version = "0.6.0", default-features = false }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -41,31 +39,28 @@ rlp = { version = "0.5.2", default-features = false }
 alloy-sol-types = { version = "0.3.1", default-features = false }
 
 # Benchmarks
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", optional = true, default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-scale-info = { version = "2.2.0", default-features = false, features = [
-	"derive",
-] }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
-log = "0.4.20"
+sp-runtime = { workspace = true }
+pallet-timestamp = { workspace = true }
+log = { workspace = true }
 
 
 [features]
 default = ["std"]
 std = [
 	"alloy-sol-types/std",
-	"codec/std",
+	"parity-scale-codec/std",
 	"hex/std",
 	"rlp/std",
 	"frame-benchmarking/std",
@@ -73,6 +68,7 @@ std = [
 	"frame-system/std",
 	"pallet-acurast/std",
 	"pallet-acurast-marketplace/std",
+	"pallet-acurast-hyperdrive-ibc/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -87,6 +83,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
-	"pallet-acurast-marketplace/runtime-benchmarks"
+	"pallet-acurast-marketplace/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks"
 ]
 try-runtime = ["frame-support/try-runtime"]

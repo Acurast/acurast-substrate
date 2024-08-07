@@ -1,9 +1,6 @@
 #[cfg(test)]
 pub mod relay_chain;
-
 pub use acurast_rococo_runtime as acurast_runtime;
-
-pub use xcm_simulator;
 
 extern crate core;
 
@@ -16,8 +13,6 @@ mod tests {
 		traits::{AccountIdConversion, ConstU32},
 		AccountId32, BoundedVec, BuildStorage,
 	};
-	use xcm_simulator::{decl_test_parachain, ParaId, TestExt};
-
 	use crate::acurast_runtime::{
 		pallet_acurast_marketplace::{Advertisement, FeeManager, Pricing, SchedulingWindow},
 		AccountId, Balance, FeeManagement,
@@ -32,7 +27,7 @@ mod tests {
 		BoundedAttestationApplicationId, BoundedAttestationPackageInfo, BoundedAuthorizationList,
 		BoundedKeyDescription, BoundedRootOfTrust, PackageInfoSet, VerifiedBootState,
 	};
-	use xcm_simulator::{self, decl_test_network, decl_test_relay_chain};
+	use xcm_simulator::{decl_test_parachain, decl_test_network, decl_test_relay_chain, ParaId, TestExt};
 
 	mod jobs;
 
@@ -51,8 +46,8 @@ mod tests {
 	decl_test_parachain! {
 		pub struct AcurastParachain {
 			Runtime = acurast_runtime::Runtime,
-			XcmpMessageHandler = acurast_runtime::XcmpQueue,
-			DmpMessageHandler = acurast_runtime::DmpQueue,
+			XcmpMessageHandler = acurast_runtime::MessageQueue,
+			DmpMessageHandler = acurast_runtime::MessageQueue,
 			new_ext = acurast_ext(ACURAST_CHAIN_ID),
 		}
 	}
@@ -107,7 +102,7 @@ mod tests {
 		.unwrap();
 
 		pallet_xcm::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-		acurast_runtime::pallet_acurast::GenesisConfig::<Runtime> {
+		pallet_acurast::GenesisConfig::<Runtime> {
 			attestations: vec![(BOB, Some(Attestation {
 				cert_ids: vec![
 					(

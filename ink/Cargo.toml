@@ -3,7 +3,8 @@ members = [
     "proxy",
     "state",
     "validator",
-    "consumer"
+    "consumer",
+    "ibc-ink"
 ]
 resolver ="1"
 

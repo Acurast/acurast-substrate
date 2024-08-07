@@ -113,12 +113,12 @@ benchmarks_instance_pallet! {
 			"8303857bb23c1b072d9b52409fffe7cf6de57c33b2776c7de170ec94d01f02fc"
 		));
 		assert_ok!(AcurastHyperdrive::<T, I>::submit_state_merkle_root(RawOrigin::Signed(caller.clone()).into(), 1.into(), snapshot_root_1.into()));
-		let state_owner = StateOwner::try_from(hex!("050a000000160199651cbe1a155a5c8e5af7d6ea5c3f48eebb8c9c00").to_vec()).unwrap();
-		assert_ok!(AcurastHyperdrive::<T, I>::update_target_chain_owner(RawOrigin::Root.into(), state_owner));
+		let proxy_address = ProxyAddress::try_from(hex!("050a000000160199651cbe1a155a5c8e5af7d6ea5c3f48eebb8c9c00").to_vec()).unwrap();
+		assert_ok!(AcurastHyperdrive::<T, I>::update_aleph_zero_contract(RawOrigin::Root.into(), proxy_address));
 	}: _(RawOrigin::Signed(caller), 1u8.into(), proof)
 
-	update_target_chain_owner {
-		let owner: StateOwner = state_owner();
+	update_aleph_zero_contract {
+		let owner: ProxyAddress = proxy_address();
 	}: _(RawOrigin::Root, owner)
 
 	impl_benchmark_test_suite!(AcurastHyperdrive, crate::mock::new_test_ext(), mock::Test);

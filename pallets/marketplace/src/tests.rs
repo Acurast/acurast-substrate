@@ -2,7 +2,7 @@
 
 use frame_support::{
 	assert_err, assert_ok,
-	sp_runtime::{bounded_vec, MultiAddress, Permill},
+	sp_runtime::{bounded_vec, Permill},
 	traits::{Hooks, TypedGet},
 };
 
@@ -297,11 +297,7 @@ fn test_deregister_on_assigned_job() {
 		// pretend current time
 		later(now);
 
-		let _ = Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			MultiAddress::Id(alice_account_id()),
-			100_000_000,
-		);
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 100_000_000);
 
 		let consumer_initial_balance = 100_000_000u128;
 		let processor_initial_balance = 10_000_000u128;
@@ -504,11 +500,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 		// pretend current time
 		later(now);
 
-		let _ = Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			MultiAddress::Id(alice_account_id()),
-			100_000_000,
-		);
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 100_000_000);
 
 		let consumer_initial_balance = 100_000_000u128;
 		let processor_initial_balance = 10_000_000u128;
@@ -763,11 +755,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		// pretend current time
 		later(now);
 
-		let _ = Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			MultiAddress::Id(alice_account_id()),
-			100_000_000,
-		);
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 100_000_000);
 
 		let consumer_initial_balance = 100_000_000u128;
 		let processor_initial_balance = 10_000_000u128;
@@ -1438,11 +1426,8 @@ fn test_multi_assignments() {
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			MultiAddress::Id(alice_account_id()),
-			1000_000_000,
-		);
+		let _ =
+			Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 1000_000_000);
 
 		let initial_job_id = Acurast::job_id_sequence();
 

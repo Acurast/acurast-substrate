@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use functions::*;
 pub use pallet::*;
 pub use payments::*;
 pub use traits::*;
@@ -2032,7 +2031,7 @@ pub mod pallet {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with Acurast marketplace pallet.
-	pub trait MarketplaceRuntimeApi<Reward: codec::Codec, AccountId: codec::Codec, Extra: codec::Codec, MaxAllowedSources: ParameterBound, MaxEnvVars: ParameterBound, EnvKeyMaxSize: ParameterBound, EnvValueMaxSize: ParameterBound> {
+	pub trait MarketplaceRuntimeApi<Reward: parity_scale_codec::Codec, AccountId: parity_scale_codec::Codec, Extra: parity_scale_codec::Codec, MaxAllowedSources: ParameterBound, MaxEnvVars: ParameterBound, EnvKeyMaxSize: ParameterBound, EnvValueMaxSize: ParameterBound> {
 		 fn filter_matching_sources(
 			registration: PartialJobRegistration<Reward, AccountId, MaxAllowedSources>,
 			sources: Vec<AccountId>,

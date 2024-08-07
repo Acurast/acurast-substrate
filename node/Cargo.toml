@@ -10,26 +10,22 @@ build = "build.rs"
 
 [dependencies]
 clap = { version = "4.0.29", features = ["derive"] }
+clap-num = { workspace = true }
 log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.188", features = ["derive"] }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+parity-scale-codec = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+jsonrpsee = { workspace = true }
 async-trait = { workspace = true }
-cfg-if = { workspace = true }
 futures = { workspace = true }
 
 # RPC
-pallet-acurast-marketplace = { workspace = true }
+pallet-acurast-marketplace = { workspace = true, features = ["std"] }
 
 # Local
-acurast-runtime-common = { workspace = true }
-acurast-rococo-runtime = { workspace = true }
-acurast-kusama-runtime = { workspace = true }
-pallet-acurast-hyperdrive-outgoing = { workspace = true }
-
-# Nimbus
-nimbus-consensus = { workspace = true }
-nimbus-primitives = { workspace = true }
+acurast-runtime-common = { workspace = true, features = ["std"] }
+acurast-rococo-runtime = { workspace = true, features = ["std"] }
+acurast-kusama-runtime = { workspace = true, features = ["std"] }
 
 # Substrate
 frame-benchmarking = { workspace = true }
@@ -80,9 +76,11 @@ polkadot-service = { workspace = true }
 xcm = { workspace = true }
 
 # Cumulus
+cumulus-client-collator = { workspace = true }
 cumulus-client-cli = { workspace = true }
 cumulus-client-consensus-aura = { workspace = true }
 cumulus-client-consensus-common = { workspace = true }
+cumulus-client-consensus-proposer = { workspace = true }
 cumulus-client-network = { workspace = true }
 cumulus-client-service = { workspace = true }
 cumulus-primitives-core = { workspace = true }
@@ -92,11 +90,13 @@ cumulus-relay-chain-interface = { workspace = true }
 cumulus-relay-chain-rpc-interface = { workspace = true }
 cumulus-relay-chain-minimal-node = { workspace = true }
 
+color-print = "0.3.4"
+
 [dev-dependencies]
-hex = "0.4"
+hex = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.6.0" }
 
 [features]
 default = ["acurast-local", "acurast-dev", "acurast-rococo"]

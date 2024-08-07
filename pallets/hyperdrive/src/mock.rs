@@ -1,7 +1,13 @@
 #![allow(unused_imports)]
 
+use crate::{
+	chain::tezos::TezosParser, stub::AcurastAccountId, types::RawIncomingAction, weights,
+	ActionExecutor, ParsedAction, ProxyAddress, StateProof, StateProofNode,
+};
 use derive_more::{Display, From, Into};
 use frame_support::{
+	derive_impl,
+	instances::Instance1,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -10,32 +16,33 @@ use frame_support::{
 use frame_system as system;
 use hex_literal::hex;
 use pallet_acurast::CU32;
-use sp_core::{H256, *};
+use pallet_acurast_marketplace::RegistrationExtra;
+use sp_core::*;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, MultiSignature,
 };
 use sp_std::prelude::*;
 
-use pallet_acurast_marketplace::RegistrationExtra;
-
-use crate::{
-	chain::tezos::TezosParser,
-	instances::{AlephZeroInstance, EthereumInstance, TezosInstance},
-	stub::AcurastAccountId,
-	types::RawAction,
-	weights, ActionExecutor, ParsedAction, StateOwner, StateProof, StateProofNode,
-};
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
 parameter_types! {
-	pub TargetChainStateOwner: StateOwner = StateOwner::try_from(hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec()).unwrap();
 	pub const TransmissionRate: u64 = 5;
 	pub const TransmissionQuorum: u8 = 2;
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const MinimumPeriod: u64 = 2000;
+
+    /// The acurast contract on the aleph zero network
+	pub AlephZeroAcurastContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
+	pub AlephZeroAcurastContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
+	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
+
+    pub MinTTL: BlockNumber = 20;
+	pub MinDeliveryConfirmationSignatures: u32 = 1;
+	pub MinReceiptConfirmationSignatures: u32 = 1;
+	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::AcurastHyperdriveIbc(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
 }
 
 // Configure a mock runtime to test the pallet.
@@ -44,36 +51,27 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>},
-		TezosHyperdrive: crate::<Instance1>,
-		EthereumHyperdrive: crate::<Instance2>,
-		AlephZeroHyperdrive: crate::<Instance3>,
+		AcurastHyperdrive: crate::{Pallet, Call, Storage, Event<T>},
+        AcurastHyperdriveIbc: pallet_acurast_hyperdrive_ibc::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
-impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Block = Block;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+impl frame_system::Config for Test {
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
+	type Nonce = u64;
+	type Hash = H256;
+	type Block = Block;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
+	type DbWeight = ();
+	type BlockWeights = ();
+	type BlockLength = ();
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -106,57 +104,26 @@ impl pallet_acurast::Config for Test {
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }
 
-impl crate::Config<TezosInstance> for Test {
+impl crate::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
+    type ActionExecutor = ();
+	type Sender = AcurastPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
+	type AlephZeroContract = AlephZeroAcurastContract;
+	type AlephZeroContractSelector = AlephZeroAcurastContractSelector;
 	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = Keccak256;
-	type TransmissionRate = TransmissionRate;
-	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = ();
-	type Proof = crate::chain::tezos::TezosProof<
-		Self::ParsableAccountId,
-		<Self as frame_system::Config>::AccountId,
-	>;
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 
-impl crate::Config<EthereumInstance> for Test {
+impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
-	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = Keccak256;
-	type TransmissionRate = TransmissionRate;
-	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = ();
-	type Proof = crate::chain::ethereum::EthereumProof<Self, AcurastAccountId>;
-	type WeightInfo = weights::WeightInfo<Test>;
-}
-
-impl crate::Config<AlephZeroInstance> for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParsableAccountId = AcurastAccountId;
-	type TargetChainOwner = TargetChainStateOwner;
-	type TargetChainHash = H256;
-	type TargetChainBlockNumber = u64;
-	type Balance = Balance;
-	type MaxTransmittersPerSnapshot = CU32<64>;
-	type TargetChainHashing = Keccak256;
-	type TransmissionRate = TransmissionRate;
-	type TransmissionQuorum = TransmissionQuorum;
-	type ActionExecutor = ();
-	type Proof = crate::chain::substrate::SubstrateProof<
-		Self::ParsableAccountId,
-		<Self as frame_system::Config>::AccountId,
-	>;
+    type MinTTL = MinTTL;
+	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
+	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MessageIdHashing = BlakeTwo256;
+	type MessageProcessor = HyperdriveMessageProcessor<Runtime>;
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 

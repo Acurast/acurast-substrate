@@ -1,74 +1,45 @@
 #![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
 
 use core::marker::PhantomData;
-
-use codec::{Decode, Encode};
 use derive_more::Display;
-use scale_info::{
-	prelude::{format, string::String},
-	TypeInfo,
-};
-use sp_core::{bounded::BoundedVec, RuntimeDebug, H256};
-use sp_runtime::traits::Hash;
-use sp_std::{prelude::*, vec};
+use frame_support::pallet_prelude::*;
+use parity_scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
+use sp_io::hashing::blake2_256;
 
-use ckb_merkle_mountain_range::{Error as MMRError, Merge, MerkleProof as MMRMerkleProof};
+use sp_core::{bounded::BoundedVec, RuntimeDebug};
+use sp_std::prelude::*;
 
 use pallet_acurast::{
 	AllowedSources, Environment, JobModule, JobModules, JobRegistration, MultiOrigin, Schedule,
-	Script, CU32,
+	Script,
 };
 use pallet_acurast_marketplace::{
-	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, RegistrationExtra,
+	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, PubKey, PubKeyBytes,
+	RegistrationExtra,
 };
 
-use crate::{traits, MessageIdentifier, ParsedAction};
+use crate::{IncomingAction, Message, MessageDecoder, MessageEncoder, ParsedAction};
 use acurast_core_ink::types::{
-	OutgoingAction as HyperdriveAction, OutgoingActionPayloadV1 as ActionPayloadV1,
-	VersionedOutgoingActionPayload as HyperdriveVersionedActionPauload,
+	AssignProcessorPayloadV1, AssignmentStrategyV1, FinalizeJobPayloadV1,
+	IncomingAction as IncomingActionOnProxy, IncomingActionPayloadV1, OutgoingAction,
+	OutgoingActionPayloadV1 as ActionPayloadV1, PlannedExecutionV1, VersionedIncomingActionPayload,
+	VersionedOutgoingActionPayload,
 };
-
-struct MergeKeccak;
-
-impl Merge for MergeKeccak {
-	type Item = [u8; 32];
-	fn merge(lhs: &Self::Item, rhs: &Self::Item) -> Result<Self::Item, MMRError> {
-		let mut concat = vec![];
-		concat.extend(lhs);
-		concat.extend(rhs);
-
-		let hash = sp_runtime::traits::Keccak256::hash(&concat);
-
-		Ok(hash.try_into().expect("INVALID_HASH_LENGTH"))
-	}
-}
-
-pub type MMRProofItems = BoundedVec<H256, CU32<128>>;
-
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
-pub struct ProofLeaf {
-	pub leaf_index: u64,
-	pub data: Vec<u8>,
-}
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
 #[scale_info(skip_type_params(AccountConverter))]
-pub struct SubstrateProof<AccountConverter, AccountId> {
-	pub mmr_size: u64,
-	pub proof: MMRProofItems,
-	pub leaves: Vec<ProofLeaf>,
+pub struct SubstrateMessageDecoder<I, AccountConverter, AccountId> {
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub marker: PhantomData<(AccountConverter, AccountId)>,
+	pub marker: PhantomData<(I, AccountConverter, AccountId)>,
 	#[cfg(not(any(test, feature = "runtime-benchmarks")))]
-	marker: PhantomData<(AccountConverter, AccountId)>,
+	marker: PhantomData<(I, AccountConverter, AccountId)>,
 }
 
 /// Errors returned by this crate.
-#[derive(RuntimeDebug, Display)]
-pub enum SubstrateValidationError {
-	ProofInvalid(String),
-	InvalidMessage,
-	CouldNotDecodeAction(String),
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
+pub enum SubstrateMessageDecoderError {
+	CouldNotDecodeAction,
 	TooManyPlannedExecutions,
 	TooManyAllowedSources,
 	InvalidJobModule,
@@ -76,65 +47,18 @@ pub enum SubstrateValidationError {
 	CouldNotConvertAccountId,
 }
 
-impl<T, I: 'static, AccountConverter> traits::Proof<T, I>
-	for SubstrateProof<AccountConverter, T::AccountId>
+impl<T, I: 'static, AccountConverter> MessageDecoder<T>
+	for SubstrateMessageDecoder<I, AccountConverter, T::AccountId>
 where
 	T: crate::pallet::Config<I>,
 	T::RegistrationExtra: From<RegistrationExtra<T::Balance, T::AccountId, T::MaxSlots>>,
 	AccountConverter: TryFrom<Vec<u8>> + Into<T::AccountId>,
 {
-	type Error = SubstrateValidationError;
+	type Error = SubstrateMessageDecoderError;
 
-	fn calculate_root(self: &Self) -> Result<[u8; 32], Self::Error> {
-		// Prepare proof instance
-		let mmr_proof = MMRMerkleProof::<[u8; 32], MergeKeccak>::new(
-			self.mmr_size,
-			self.proof.iter().map(|h| h.0).collect(),
-		);
-
-		// Derive root from proof and leaves
-		let hashed_leaves: Vec<(u64, [u8; 32])> = self
-			.leaves
-			.iter()
-			.map(|item| {
-				let hash = sp_runtime::traits::BlakeTwo256::hash(&item.data);
-
-				match <[u8; 32]>::try_from(hash) {
-					Ok(h) => Ok((item.leaf_index, h)),
-					Err(err) => Err(Self::Error::ProofInvalid(format!("{:?}", err))),
-				}
-			})
-			.collect::<Result<Vec<(u64, [u8; 32])>, Self::Error>>()?;
-
-		mmr_proof
-			.calculate_root(hashed_leaves)
-			.map_err(|err| Self::Error::ProofInvalid(format!("{:?}", err)))
-	}
-
-	fn message_id(self: &Self) -> Result<MessageIdentifier, Self::Error> {
-		// TODO: Process multiple messages (currently we only process the first leaf from the proof)
-		let message_bytes = self
-			.leaves
-			.get(0)
-			.map(|leaf| leaf.data.clone())
-			.ok_or(Self::Error::InvalidMessage)?;
-
-		let action = HyperdriveAction::decode(&message_bytes)
-			.map_err(|err| Self::Error::CouldNotDecodeAction(format!("{:?}", err)))?;
-
-		Ok(MessageIdentifier::from(action.id))
-	}
-
-	fn message(self: &Self) -> Result<ParsedAction<T>, Self::Error> {
-		// TODO: Process multiple messages (currently we only process the first leaf from the proof)
-		let message_bytes = self
-			.leaves
-			.get(0)
-			.map(|leaf| leaf.data.clone())
-			.ok_or(Self::Error::InvalidMessage)?;
-
-		let action = HyperdriveAction::decode(&message_bytes)
-			.map_err(|err| Self::Error::CouldNotDecodeAction(format!("{:?}", err)))?;
+	fn decode(encoded: &[u8]) -> Result<ParsedAction<T>, Self::Error> {
+		let action =
+			OutgoingAction::decode(encoded).map_err(|_err| Self::Error::CouldNotDecodeAction)?;
 
 		let origin = MultiOrigin::AlephZero(convert_account_id::<T::AccountId, AccountConverter>(
 			&action.origin,
@@ -142,72 +66,85 @@ where
 
 		fn convert_account_id<Account, AccountConverter: TryFrom<Vec<u8>> + Into<Account>>(
 			bytes: &[u8; 32],
-		) -> Result<Account, SubstrateValidationError> {
+		) -> Result<Account, SubstrateMessageDecoderError> {
 			let parsed: AccountConverter = bytes
 				.to_vec()
 				.try_into()
-				.map_err(|_| SubstrateValidationError::CouldNotConvertAccountId)?;
+				.map_err(|_| SubstrateMessageDecoderError::CouldNotConvertAccountId)?;
 			Ok(parsed.into())
 		}
 
 		let parsed_action: ParsedAction<T> = match action.payload {
-			HyperdriveVersionedActionPauload::V1(action) => match action {
-				ActionPayloadV1::RegisterJob(payload) => {
-					let executions: PlannedExecutions<T::AccountId, T::MaxSlots> =
-						PlannedExecutions::try_from(
-							payload
-								.instant_match
-								.into_iter()
-								.map(|m| {
-									Ok(PlannedExecution {
-										source: convert_account_id::<T::AccountId, AccountConverter>(
-											&m.source,
-										)?,
-										start_delay: m.start_delay,
-									})
-								})
-								.collect::<Result<Vec<PlannedExecution<T::AccountId>>, Self::Error>>(
-								)?,
-						)
-						.map_err(|_| Self::Error::TooManyPlannedExecutions)?;
+			VersionedOutgoingActionPayload::V1(action) => match action {
+				ActionPayloadV1::RegisterJob(job_payload) => {
+					let j = job_payload.job_registration;
 
+					let assignment_strategy = match j.extra.assignment_strategy {
+						AssignmentStrategyV1::Single(executions) =>
+							AssignmentStrategy::Single(if let Some(e) = executions {
+								Some(
+									PlannedExecutions::try_from(
+										e.into_iter()
+											.map(|m: PlannedExecutionV1| {
+												Ok(PlannedExecution {
+													source: convert_account_id::<
+														T::AccountId,
+														AccountConverter,
+													>(&m.source)?,
+													start_delay: m.start_delay,
+												})
+											})
+											.collect::<Result<
+												Vec<PlannedExecution<T::AccountId>>,
+												Self::Error,
+											>>()?,
+									)
+									.map_err(|_| Self::Error::TooManyPlannedExecutions)?,
+								)
+							} else {
+								None
+							}),
+						AssignmentStrategyV1::Competing => AssignmentStrategy::Competing,
+					};
 					let extra: T::RegistrationExtra = RegistrationExtra {
 						requirements: JobRequirements {
-							assignment_strategy: AssignmentStrategy::Single(Some(executions)),
-							slots: payload.slots.into(),
-							reward: T::Balance::from(payload.reward),
-							min_reputation: payload.min_reputation,
+							assignment_strategy,
+							slots: j.extra.slots.into(),
+							reward: T::Balance::from(j.extra.reward),
+							min_reputation: j.extra.min_reputation,
 						},
 					}
 					.into();
-					let registration = JobRegistration {
-						script: Script::truncate_from(payload.script),
-						allowed_sources: Some(
+					let allowed_sources = if let Some(a) = j.allowed_sources {
+						Some(
 							AllowedSources::try_from(
-								payload
-									.allowed_sources
-									.iter()
+								a.iter()
 									.map(|s| {
-										convert_account_id::<T::AccountId, AccountConverter>(&s)
+										convert_account_id::<T::AccountId, AccountConverter>(s)
 									})
 									.collect::<Result<Vec<T::AccountId>, Self::Error>>()?,
 							)
 							.map_err(|_| Self::Error::TooManyAllowedSources)?,
-						),
-						allow_only_verified_sources: payload.allow_only_verified_sources,
+						)
+					} else {
+						None
+					};
+					let registration = JobRegistration {
+						script: Script::truncate_from(j.script),
+						allowed_sources,
+						allow_only_verified_sources: j.allow_only_verified_sources,
 						schedule: Schedule {
-							duration: payload.duration,
-							start_time: payload.start_time,
-							end_time: payload.end_time,
-							interval: payload.interval,
-							max_start_delay: payload.max_start_delay,
+							duration: j.schedule.duration,
+							start_time: j.schedule.start_time,
+							end_time: j.schedule.end_time,
+							interval: j.schedule.interval,
+							max_start_delay: j.schedule.max_start_delay,
 						},
-						memory: payload.memory,
-						network_requests: payload.network_requests,
-						storage: payload.storage,
+						memory: j.memory,
+						network_requests: j.network_requests,
+						storage: j.storage,
 						required_modules: JobModules::try_from(
-							payload
-								.required_modules
+							j.required_modules
 								.iter()
 								.map(|item| {
 									Ok(JobModule::try_from(*item as u32)
@@ -219,7 +156,7 @@ where
 						extra,
 					};
 
-					let job_id = (origin, payload.job_id as u128);
+					let job_id = (origin, job_payload.job_id);
 
 					ParsedAction::RegisterJob(job_id, registration)
 				},
@@ -267,4 +204,51 @@ where
 
 		Ok(parsed_action)
 	}
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
+pub enum SubstrateMessageEncoderError {
+	UnexpectedPublicKey,
+}
+
+pub struct SubstrateMessageEncoder;
+
+impl MessageEncoder for SubstrateMessageEncoder {
+	type Error = SubstrateMessageEncoderError;
+
+	/// Encodes the given message for Substrate.
+	fn encode(message: &Message) -> Result<Vec<u8>, Self::Error> {
+		let payload = match &message.action {
+			IncomingAction::AssignJob(job_id, processor_public_key) => {
+				let address_bytes = match processor_public_key {
+					PubKey::SECP256k1(pk) => public_key_to_address_bytes(pk),
+					_ => Err(Self::Error::UnexpectedPublicKey)?,
+				};
+
+				let payload =
+					AssignProcessorPayloadV1 { job_id: *job_id, processor: address_bytes };
+				IncomingActionPayloadV1::AssignJobProcessor(payload)
+			},
+			IncomingAction::FinalizeJob(job_id, refund_amount) => {
+				let payload =
+					FinalizeJobPayloadV1 { job_id: *job_id, unused_reward: *refund_amount };
+
+				IncomingActionPayloadV1::FinalizeJob(payload)
+			},
+			IncomingAction::Noop => IncomingActionPayloadV1::Noop,
+		};
+		let message = IncomingActionOnProxy {
+			id: message.id,
+			payload: VersionedIncomingActionPayload::V1(payload),
+		};
+
+		Ok(message.encode())
+	}
+}
+
+/// Helper function to covert the BoundedVec [`PubKeyBytes`] to an Substrate address.
+pub fn public_key_to_address_bytes(pub_key: &PubKeyBytes) -> [u8; 32] {
+	let account_id_bytes = blake2_256(pub_key);
+
+	account_id_bytes
 }

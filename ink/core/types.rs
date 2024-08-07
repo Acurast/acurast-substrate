@@ -4,7 +4,7 @@ use alloc::{format, vec::Vec};
 use scale::{Decode, Encode};
 use scale_info::prelude::cmp::Ordering;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode)]
 pub enum Version {
 	V1 = 1,
 }
@@ -17,13 +17,7 @@ pub struct IncomingAction {
 
 impl Ord for IncomingAction {
 	fn cmp(&self, other: &Self) -> Ordering {
-		if self.id < other.id {
-			Ordering::Less
-		} else if self.id > other.id {
-			Ordering::Greater
-		} else {
-			Ordering::Equal
-		}
+		self.id.cmp(&other.id)
 	}
 }
 
@@ -73,8 +67,8 @@ pub struct OutgoingAction {
 }
 
 impl OutgoingAction {
-	pub fn decode(payload: &Vec<u8>) -> Result<OutgoingAction, scale::Error> {
-		match RawOutgoingAction::decode(&mut payload.as_slice()) {
+	pub fn decode(mut payload: &[u8]) -> Result<OutgoingAction, scale::Error> {
+		match RawOutgoingAction::decode(&mut payload) {
 			Err(err) => Err(err),
 			Ok(action) => Ok(OutgoingAction {
 				id: action.id,
@@ -117,7 +111,7 @@ pub enum OutgoingActionPayloadV1 {
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub struct RegisterJobMatchV1 {
+pub struct PlannedExecutionV1 {
 	pub source: [u8; 32], // AccountId
 	pub start_delay: u64,
 }
@@ -126,25 +120,47 @@ pub struct RegisterJobMatchV1 {
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub struct RegisterJobPayloadV1 {
 	pub job_id: u128,
-	pub allowed_sources: Vec<[u8; 32]>, // Vec<AccountId>
-	pub allow_only_verified_sources: bool,
-	pub destination: [u8; 32], // AccountId
-	pub required_modules: Vec<u16>,
+	pub job_registration: JobRegistrationV1,
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct JobRegistrationV1 {
 	pub script: Vec<u8>,
+	pub allowed_sources: Option<Vec<[u8; 32]>>, // Vec<AccountId>
+	pub allow_only_verified_sources: bool,
+	pub schedule: ScheduleV1,
+	pub memory: u32,
+	pub network_requests: u32,
+	pub storage: u32,
+	pub required_modules: Vec<u16>,
+	pub extra: JobRequirementsV1,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct ScheduleV1 {
 	pub duration: u64,
 	pub start_time: u64,
 	pub end_time: u64,
 	pub interval: u64,
 	pub max_start_delay: u64,
-	pub memory: u32,
-	pub network_requests: u32,
-	pub storage: u32,
-	// Extra,
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct JobRequirementsV1 {
+	pub assignment_strategy: AssignmentStrategyV1,
 	pub slots: u8,
 	pub reward: u128,
 	pub min_reputation: Option<u128>,
-	pub instant_match: Vec<RegisterJobMatchV1>,
-	pub expected_fulfillment_fee: u128,
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum AssignmentStrategyV1 {
+	Single(Option<Vec<PlannedExecutionV1>>),
+	Competing,
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode)]

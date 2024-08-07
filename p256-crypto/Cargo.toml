@@ -9,10 +9,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
-substrate-bip39 = { version = "0.4.4", optional = true }
-tiny-bip39 = { version = "0.8.2", optional = true }
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
+substrate-bip39 = { version = "0.6.0", optional = true }
+tiny-bip39 = { version = "1.0.0", optional = true }
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
 hex = { version = "0.4", default-features = false }
 base64 = { version = "0.21.7", default-features = false, features = ["alloc"] }
@@ -20,15 +20,15 @@ base64 = { version = "0.21.7", default-features = false, features = ["alloc"] }
 p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, features = ["ecdsa", "sha256"] }
 
 # Substrate
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-runtime-interface = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
-sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.1.0" }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-application-crypto = { workspace = true }
 
 [dev-dependencies]
-hex-literal = "0.3"
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]
@@ -40,7 +40,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-io/std",
 	"sp-core/std",
-	"codec/std",
+	"parity-scale-codec/std",
 	"scale-info/std",
     "serde",
 	"p256/std",

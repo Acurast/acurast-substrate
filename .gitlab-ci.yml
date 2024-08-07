@@ -23,8 +23,9 @@ stages:
   image: rust:latest
   before_script:
     - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
-    - rustup update nightly-2023-08-31 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-08-31
-    - rustup component add rustfmt --toolchain nightly-2023-08-31
+    - rustup update nightly-2023-10-31 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-10-31
+    - rustup component add rustfmt --toolchain nightly-2023-10-31
+    - rustup component add rust-src
 
 format-check:
   stage: checks

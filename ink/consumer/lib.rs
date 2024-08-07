@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use ink::env::call::Selector;
 
@@ -21,7 +22,8 @@ mod client {
 
 	impl Client {
 		#[ink(constructor)]
-		pub fn new() -> Self {
+        #[allow(clippy::should_implement_trait)]
+		pub fn default() -> Self {
 			Self {}
 		}
 

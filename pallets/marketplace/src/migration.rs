@@ -29,8 +29,8 @@ pub mod v1 {
 
 pub mod v4 {
 	use super::*;
-	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::{pallet_prelude::*, Deserialize, Serialize};
+	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 
 	/// A proposed [Match] becomes an [crate::Assignment] once it's acknowledged.
 	#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]

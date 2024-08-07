@@ -8,7 +8,7 @@ use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
-use crate::{StateKey, StateOwner, StateProof, StateProofNode, StateValue};
+use crate::{ProxyAddress, StateKey, StateProof, StateProofNode, StateValue};
 
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
 pub struct AcurastAccountId(AccountId32);
@@ -33,9 +33,11 @@ pub const HASH: H256 =
 pub const ROOT_HASH: H256 =
 	H256(hex!("fd5f82b627a0b2c5ac0022a95422d435b204c4c1071d5dbda84ae8708d0110fd"));
 
-pub fn state_owner() -> StateOwner {
-	StateOwner::try_from(hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec())
-		.unwrap()
+pub fn proxy_address() -> ProxyAddress {
+	ProxyAddress::try_from(
+		hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec(),
+	)
+	.unwrap()
 }
 
 pub fn key() -> StateKey {

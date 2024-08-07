@@ -33,12 +33,8 @@ pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
-pallet-acurast-hyperdrive-outgoing = { workspace = true }
+pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-vesting = { workspace = true }
-pallet-parachain-staking = { workspace = true }
-
-# Nimbus Dependencies
-nimbus-primitives = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -94,7 +90,6 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
 [features]
@@ -131,14 +126,14 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-uniques/std",
+	"pallet-multisig/std",
 	"pallet-acurast/std",
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-hyperdrive/std",
-	"pallet-acurast-hyperdrive-outgoing/std",
+	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-vesting/std",
-	"parachain-info/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -174,7 +169,7 @@ runtime-benchmarks = [
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
-	"pallet-acurast-hyperdrive-outgoing/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-vesting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -187,7 +182,7 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"frame-executive/try-runtime",
-	"nimbus-primitives/try-runtime",
+#	"nimbus-primitives/try-runtime",
 	"frame-try-runtime",
 ]
 

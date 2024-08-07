@@ -262,7 +262,7 @@ fn submit_state_merkle_root() {
 fn test_verify_proof() {
 	let mut test = new_test_ext();
 
-	let owner = StateOwner::try_from(
+	let owner = ProxyAddress::try_from(
 		hex!("050a0000001600009f7f36d0241d3e6a82254216d7de5780aa67d8f9").to_vec(),
 	)
 	.unwrap();
@@ -299,8 +299,8 @@ fn test_send_message_value_parsing_fails() {
             ),
         ];
 
-        let tezos_contract = StateOwner::try_from(hex!("050a00000016011ba8a95352a4d7f3c753ca700e10ab46cbf963f400").to_vec()).unwrap();
-        assert_ok!(TezosHyperdrive::update_target_chain_owner(
+        let tezos_contract = ProxyAddress::try_from(hex!("050a00000016011ba8a95352a4d7f3c753ca700e10ab46cbf963f400").to_vec()).unwrap();
+        assert_ok!(TezosHyperdrive::update_aleph_zero_contract(
             RuntimeOrigin::root().into(),
             tezos_contract.clone()
         ));
@@ -390,8 +390,8 @@ fn test_send_message() {
             ),
         ];
 
-        let tezos_contract = StateOwner::try_from(hex!("050a000000160199651cbe1a155a5c8e5af7d6ea5c3f48eebb8c9c00").to_vec()).unwrap();
-        assert_ok!(TezosHyperdrive::update_target_chain_owner(
+        let tezos_contract = ProxyAddress::try_from(hex!("050a000000160199651cbe1a155a5c8e5af7d6ea5c3f48eebb8c9c00").to_vec()).unwrap();
+        assert_ok!(TezosHyperdrive::update_aleph_zero_contract(
             RuntimeOrigin::root().into(),
             tezos_contract.clone()
         ));

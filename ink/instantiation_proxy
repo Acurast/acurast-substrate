@@ -1,0 +1,42 @@
+ Dry-running default (skip with --skip-dry-run)
+    Success! Gas required estimated at Weight(ref_time: 169253450, proof_size: 16689)
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 701.643461μTZERO
+       Event System ➜ NewAccount
+         account: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+       Event Balances ➜ Endowed
+         account: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+         free_balance: 0.50nTZERO
+       Event Balances ➜ Transfer
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+         amount: 0.50nTZERO
+       Event Contracts ➜ Instantiated
+         deployer: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         contract: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+         amount: 513.148mTZERO
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo
+         amount: 6.44mTZERO
+       Event Balances ➜ Deposit
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 826.385nTZERO
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 700.817076μTZERO
+       Event Treasury ➜ Deposit
+         value: 700817076
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 700.817076μTZERO
+         tip: 0TZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 7008128515, proof_size: 9097 }, class: Normal, pays_fee: Yes }
+
+    Contract 5Df6i9Ccy9R3bgBDvoWhYp8bTonxEWRqQMYqHisFpEtFUkpo

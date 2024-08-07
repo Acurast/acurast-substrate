@@ -18,12 +18,12 @@ fn test_single_vest_no_rewards() {
 		assert_ok!(Balances::mint_into(&bob_account_id(), 20 * UNIT));
 		assert_eq!(Balances::free_balance(alice_account_id()), 10 * UNIT);
 		assert_eq!(Balances::free_balance(bob_account_id()), 20 * UNIT);
-		assert_ok!(Balances::transfer(
+		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			Treasury::get().clone().into(),
 			1 * UNIT
 		));
-		assert_ok!(Balances::transfer(
+		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			Treasury::get().clone().into(),
 			3 * UNIT
@@ -46,7 +46,7 @@ fn test_single_vest_no_rewards() {
 
 		assert_eq!(RewardsTreasury::penultimate_balance(), 4 * UNIT - ExistentialDeposit::get());
 
-		assert_ok!(Balances::transfer(
+		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			Treasury::get().clone().into(),
 			3 * UNIT

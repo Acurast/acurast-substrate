@@ -638,6 +638,11 @@ mod proxy {
         pub fn job(&self, job_id: u128) -> Result<JobInformation, Error> {
             JobInformation::decode(self, job_id)
         }
+
+        #[ink(message)]
+		pub fn next_job_id(&self) -> u128 {
+			self.next_job_id
+		}
 	}
 
 	#[cfg(test)]

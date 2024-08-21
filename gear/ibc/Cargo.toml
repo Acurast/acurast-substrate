@@ -17,3 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.6", default-features = fa
 scale-info = { version = "2.11", default-features = false, features = [
 	"derive",
 ] }
+libsecp256k1 = { version = "0.7", default-features = false, features = [
+	"static-context",
+] }
+blake2b_simd = { version = "1.0.2", default-features = false }

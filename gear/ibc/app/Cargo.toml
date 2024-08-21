@@ -9,3 +9,5 @@ gstd.workspace = true
 sails-rs.workspace = true
 scale-info.workspace = true
 codec.workspace = true
+libsecp256k1.workspace = true
+blake2b_simd.workspace = true

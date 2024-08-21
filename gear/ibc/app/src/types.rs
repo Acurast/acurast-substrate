@@ -88,4 +88,3 @@ pub struct IncomingMessageWithMeta {
 	pub current_block: BlockNumber,
 	pub relayer: AccountId,
 }
-

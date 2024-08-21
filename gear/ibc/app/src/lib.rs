@@ -150,27 +150,20 @@ impl Ibc {
 		let mut seen: BTreeSet<Vec<u8>> = Default::default();
 		signatures.into_iter().try_for_each(|signature| -> Result<(), IbcError> {
 			let message_hash: [u8; 32] = if let Some(r) = &relayer {
-				// self.env().hash_bytes::<Blake2x256>(&(message, r).encode())
-				// TODO: find a way to hash
-				[0; 32]
+				blake2_256((message, r).encode().as_slice())
 			} else {
-				// self.env().hash_bytes::<Blake2x256>(&message.encode())
-				[0; 32]
+				blake2_256(message.encode().as_slice())
 			};
 
-			// TODO: validate signature
-			//let public: Public = self
-			//	.env()
-			//	.ecdsa_recover(&signature, &message_hash)
-			//	.map_err(|_| Error::SignatureInvalid)?
-			//	.to_vec();
+			let public: Public =
+				secp256k1_ecdsa_recover_compressed(&signature, &message_hash)?.to_vec();
 
-			// self.oracle_public_keys.get(&public).ok_or(Error::PublicKeyUnknown)?;
+			Storage::oracle_public_keys().get(&public).ok_or(IbcError::PublicKeyUnknown)?;
 
-			// if seen.contains(&public) {
-			//	Err(Error::DuplicateSignature)?
-			// }
-			// seen.insert(public);
+			if seen.contains(&public) {
+				Err(IbcError::DuplicateSignature)?
+			}
+			seen.insert(public);
 
 			Ok(())
 		})?;

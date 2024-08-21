@@ -512,7 +512,7 @@ mod proxy {
 				) => {
 					match JobInformation::decode(self, payload.job_id)? {
 						JobInformation::V1(mut job) => {
-							let processor_address = AccountId::from(payload.processor);
+							let processor_address = AccountId::from(self.env().hash_bytes::<Blake2x256>(&payload.processor));
 							// Update the processor list for the given job
 							job.processors.push(processor_address);
 

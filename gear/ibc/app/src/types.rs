@@ -1,13 +1,9 @@
 use gstd::BlockNumber;
 use sails_rs::prelude::{scale_codec::*, *};
 
-pub type PubKey = [u8; 32];
-pub type MessageIndex = u64;
 pub type MsgId = [u8; 32];
 pub type MessageNonce = [u8; 32];
-pub type FunctionName = String;
 pub type Payload = Vec<u8>;
-pub type Contract = ActorId;
 pub type Signature = [u8; 65];
 pub type Public = Vec<u8>;
 pub type Signatures = Vec<Signature>;

@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+
+members = ["app", "wasm"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0"
+
+[workspace.dependencies]
+gstd = "*"
+gear-wasm-builder = "*"
+sails-idl-gen = "*"
+sails-rs = "*"
+codec = { package = "parity-scale-codec", version = "3.6", default-features = false }
+scale-info = { version = "2.11", default-features = false, features = [
+	"derive",
+] }

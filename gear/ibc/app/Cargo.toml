@@ -1,0 +1,11 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+gstd.workspace = true
+sails-rs.workspace = true
+scale-info.workspace = true
+codec.workspace = true

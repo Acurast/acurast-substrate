@@ -4,8 +4,6 @@
 #[ink::contract]
 mod proxy {
 	use acurast_ibc_ink::ibc::{Layer, Subject};
-	#[cfg(feature = "std")]
-	use ink::storage::traits::StorageLayout;
 	use ink::{
 		env::{
 			call::{build_call, ExecutionInput},

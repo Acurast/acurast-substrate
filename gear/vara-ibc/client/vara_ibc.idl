@@ -50,10 +50,10 @@ type OutgoingMessageWithMeta = struct {
 };
 
 constructor {
-  New : ();
+  New : (owner: actor_id);
 };
 
-service Ibc {
+service VaraIbc {
   Configure : (actions: vec ConfigureArgument) -> null;
   ConfirmMessageDelivery : (id: [u8, 32], signatures: vec [u8, 65]) -> null;
   SendMessage : (nonce: [u8, 32], recipient: Subject, payload: vec u8, ttl: u32) -> null;

@@ -7,13 +7,14 @@ use crate::types::*;
 use crate::utils::*;
 
 #[derive(Default)]
-pub struct Ibc();
+pub struct VaraIbcService();
 
-impl Ibc {
-	pub fn init() -> Self {
+impl VaraIbcService {
+	pub fn init(owner: ActorId) -> Self {
 		unsafe {
 			STORAGE = Some(Storage::default());
 		}
+		Storage::config().owner = owner;
 		Self()
 	}
 
@@ -171,8 +172,8 @@ impl Ibc {
 	}
 }
 
-#[service(events = Event)]
-impl Ibc {
+#[sails_rs::service(events = Event)]
+impl VaraIbcService {
 	pub fn new() -> Self {
 		Self()
 	}

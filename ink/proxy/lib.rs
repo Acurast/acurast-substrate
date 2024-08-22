@@ -375,7 +375,7 @@ mod proxy {
 						};
 
 						self.job_info
-							.insert(self.next_job_id, &(Version::V1 as u16, info.encode()));
+							.insert(job_id, &(Version::V1 as u16, info.encode()));
 
 						OutgoingActionPayloadV1::RegisterJob(RegisterJobPayloadV1 {
 							job_id,

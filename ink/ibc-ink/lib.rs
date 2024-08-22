@@ -165,11 +165,11 @@ pub mod ibc {
 				match action {
 					OracleUpdate::Add(public) => {
 						self.oracle_public_keys.insert(&public, &());
-                        added.push(public.clone());
+						added.push(public.clone());
 					},
 					OracleUpdate::Remove(public) => {
 						self.oracle_public_keys.remove(&public);
-                        removed.push(public.clone());
+						removed.push(public.clone());
 					},
 				}
 				(added, removed)
@@ -399,7 +399,7 @@ pub mod ibc {
 
 			self.incoming.insert(id, &message_with_meta);
 
-            let mut index = self.incoming_index.get_or_default();
+			let mut index = self.incoming_index.get_or_default();
 			index.push(id);
 			self.incoming_index.set(&index);
 

@@ -578,7 +578,7 @@ mod proxy {
 
 			match JobInformation::decode(self, job_id)? {
 				JobInformation::V1(mut job) => {
-                    let processor_address = self.env().caller();
+					let processor_address = self.env().caller();
 
 					// Verify if sender is assigned to the job
 					if !job.processors.contains(&processor_address) {

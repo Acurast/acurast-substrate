@@ -1,5 +1,9 @@
-use gstd::{exec, msg, BlockNumber};
+use gstd::{exec, msg};
+use sails_rs::calls::Call;
+use sails_rs::gstd::calls::GStdRemoting;
 use sails_rs::prelude::*;
+use vara_ibc_client::traits::VaraIbc;
+use vara_ibc_client::Subject;
 
 use crate::storage::*;
 use crate::types::*;
@@ -36,7 +40,7 @@ impl VaraProxyService {
 		}
 	}
 
-	pub fn do_send_actions(actions: Vec<UserAction>) -> Result<(), ProxyError> {
+	async fn do_send_actions(actions: Vec<UserAction>) -> Result<(), ProxyError> {
 		let caller = msg::source();
 
 		for action in actions {
@@ -72,7 +76,9 @@ impl VaraProxyService {
 					// Validate job registration payment
 					let amount = msg::value();
 					if amount < expected_fee + cost {
-						return Err(Error::Verbose("AMOUNT_CANNOT_COVER_JOB_COSTS".to_string()));
+						return Err(ProxyError::Verbose(
+							"AMOUNT_CANNOT_COVER_JOB_COSTS".to_string(),
+						));
 					}
 
 					let info = JobInformationV1 {
@@ -87,7 +93,7 @@ impl VaraProxyService {
 						schedule: payload.job_registration.schedule,
 					};
 
-					Storage::job_info().insert(job_id, &(Version::V1 as u16, info.encode()));
+					Storage::job_info().insert(job_id, (Version::V1 as u16, info.encode()));
 
 					OutgoingActionPayloadV1::RegisterJob(RegisterJobPayloadV1 {
 						job_id,
@@ -95,7 +101,7 @@ impl VaraProxyService {
 					})
 				},
 				UserAction::DeregisterJob(job_id) => {
-					match JobInformation::from(job_id)? {
+					match JobInformation::from_id(job_id)? {
 						JobInformation::V1(job) => {
 							// Only the job creator can deregister the job
 							if job.creator != caller {
@@ -107,7 +113,7 @@ impl VaraProxyService {
 				},
 				UserAction::FinalizeJob(ids) => {
 					for id in ids.clone() {
-						match JobInformation::from(id)? {
+						match JobInformation::from_id(id)? {
 							JobInformation::V1(job) => {
 								// Only the job creator can finalize the job
 								if job.creator != caller {
@@ -127,7 +133,7 @@ impl VaraProxyService {
 					OutgoingActionPayloadV1::FinalizeJob(ids)
 				},
 				UserAction::SetJobEnvironment(payload) => {
-					match JobInformation::from(payload.job_id)? {
+					match JobInformation::from_id(payload.job_id)? {
 						JobInformation::V1(job) => {
 							// Only the job creator can set environment variables
 							if job.creator != caller {
@@ -142,7 +148,7 @@ impl VaraProxyService {
 							.processors
 							.iter()
 							.map(|processor| SetProcessorJobEnvironmentV1 {
-								address: *processor.address.as_ref(),
+								address: processor.address.into(),
 								variables: processor.variables.clone(),
 							})
 							.collect(),
@@ -160,51 +166,128 @@ impl VaraProxyService {
 			let encoded_action = action.encode();
 
 			// Verify that the encoded action size is less than `max_message_bytes`
-			if !encoded_action.len().lt(&(self.config.max_message_bytes as usize)) {
-				return Err(Error::OutgoingActionTooBig);
+			if !encoded_action.len().lt(&(Storage::config().max_message_bytes as usize)) {
+				return Err(ProxyError::OutgoingActionTooBig);
 			}
 
-			let call_result: OuterError<acurast_ibc_ink::SendMessageResult> = build_call::<
-				DefaultEnvironment,
-			>()
-			.call(self.config.ibc)
-			.call_v1()
-			.exec_input(
-				ExecutionInput::new(acurast_ibc_ink::SEND_MESSAGE_SELECTOR)
-					// nonce
-					.push_arg(
-						self.env().hash_encoded::<Blake2x256, _>(&action.id.to_ne_bytes().to_vec()),
-					)
-					// recipient
-					.push_arg(&Subject::Acurast(Layer::Extrinsic(
-						self.config.acurast_pallet_account,
-					)))
-					// payload
-					.push_arg(&encoded_action)
-					//ttl
-					.push_arg(100),
+			let mut ibc = vara_ibc_client::VaraIbc::new(GStdRemoting);
+			ibc.send_message(
+				blake2_256(action.id.to_ne_bytes().as_slice()),
+				Subject::Acurast(Storage::config().acurast_pallet_account),
+				encoded_action,
+				100,
 			)
-			.transferred_value(0)
-			.returns()
-			.try_invoke();
+			.send(Storage::config().ibc)
+			.await
+			.map_err(|_| ProxyError::IbcFailed)?;
 
-			match call_result {
-				// Errors from the underlying execution environment (e.g the Contracts pallet)
-				Err(error) => Err(Error::Verbose(format!("{:?}", error))),
-				// Errors from the programming language
-				Ok(Err(error)) => Err(Error::LangError(format!("{:?}", error))),
-				// Errors emitted by the contract being called
-				Ok(Ok(Err(error))) => Err(Error::IBCError(error)),
-				// Successful call result
-				Ok(Ok(Ok(()))) => {
-					// Increment action id
-					self.next_outgoing_action_id += 1;
-
-					Ok(())
-				},
-			}?;
+			let _ = Storage::get_and_increase_next_outgoing_action_id();
 		}
 
+		Ok(())
+	}
+
+	fn decode_incoming_action(payload: &Vec<u8>) -> Result<IncomingAction, ProxyError> {
+		match IncomingAction::decode(&mut payload.as_slice()) {
+			Err(err) => Err(ProxyError::InvalidIncomingAction(format!("{:?}", err))),
+			Ok(action) => Ok(action),
+		}
+	}
+
+	fn do_receive_action(payload: Vec<u8>) -> Result<(), ProxyError> {
+		let action: IncomingAction = Self::decode_incoming_action(&payload)?;
+
+		// Process action
+		match action.payload {
+			VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::AssignJobProcessor(
+				payload,
+			)) => {
+				match JobInformation::from_id(payload.job_id)? {
+					JobInformation::V1(mut job) => {
+						let processor_address = AccountId::from(payload.processor);
+						// Update the processor list for the given job
+						job.processors.push(processor_address);
+
+						// Send initial fees to the processor (the processor may need a reveal)
+						let initial_fee = job.expected_fulfillment_fee;
+						job.remaining_fee -= initial_fee;
+						// Transfer
+						msg::send(processor_address, (), initial_fee).expect("COULD_NOT_TRANSFER");
+
+						job.status = JobStatus::Assigned;
+
+						// Save changes
+						Storage::job_info()
+							.insert(payload.job_id, (Version::V1 as u16, job.encode()));
+
+						Ok(())
+					},
+				}
+			},
+			VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::FinalizeJob(payload)) => {
+				match JobInformation::from_id(payload.job_id)? {
+					JobInformation::V1(mut job) => {
+						// Update job status
+						job.status = JobStatus::FinalizedOrCancelled;
+
+						assert!(
+							payload.unused_reward <= job.maximum_reward,
+							"ABOVE_MAXIMUM_REWARD"
+						);
+
+						let refund = job.remaining_fee + payload.unused_reward;
+						if refund > 0 {
+							msg::send(job.creator, (), refund).expect("COULD_NOT_TRANSFER");
+						}
+
+						// Save changes
+						Storage::job_info()
+							.insert(payload.job_id, (Version::V1 as u16, job.encode()));
+
+						Ok(())
+					},
+				}
+			},
+			VersionedIncomingActionPayload::V1(IncomingActionPayloadV1::Noop) => {
+				// Intentionally do nothing
+				Ok(())
+			},
+		}?;
+
+		Ok(())
+	}
+
+	fn do_fulfill(job_id: u128, payload: Vec<u8>) -> Result<(), ProxyError> {
+		match JobInformation::from_id(job_id)? {
+			JobInformation::V1(mut job) => {
+				let processor_address = msg::source();
+
+				// Verify if sender is assigned to the job
+				if !job.processors.contains(&processor_address) {
+					return Err(ProxyError::NotJobProcessor);
+				}
+
+				// Verify that the job has not been finalized
+				if job.status != JobStatus::Assigned {
+					return Err(ProxyError::JobAlreadyFinished);
+				}
+
+				// Re-fill processor fees
+				// Forbidden to credit 0 to a contract without code.
+				let has_funds = job.remaining_fee >= job.expected_fulfillment_fee;
+				if has_funds && job.expected_fulfillment_fee > 0 {
+					job.remaining_fee -= job.expected_fulfillment_fee;
+					// Transfer
+					msg::send(processor_address, (), job.expected_fulfillment_fee)
+						.expect("COULD_NOT_TRANSFER");
+					// Save changes
+					Storage::job_info().insert(job_id, (Version::V1 as u16, job.encode()));
+				}
+
+				msg::send(job.destination, payload, 0)
+					.map_err(|error| ProxyError::ConsumerError(format!("{:?}", error)))?;
+			},
+		}
 		Ok(())
 	}
 }
@@ -239,7 +322,31 @@ impl VaraProxyService {
 		Storage::config()
 	}
 
-	pub fn send_actions() {
+	pub async fn send_actions(actions: Vec<UserAction>) {
 		panicking(Self::ensure_unpaused);
+
+		let result = Self::do_send_actions(actions).await;
+
+		panicking(|| result);
+	}
+
+	pub fn receive_action(payload: Vec<u8>) {
+		panicking(Self::ensure_unpaused);
+
+		panicking(|| Self::do_receive_action(payload));
+	}
+
+	pub fn fulfill(job_id: u128, payload: Vec<u8>) {
+		panicking(Self::ensure_unpaused);
+
+		panicking(|| Self::do_fulfill(job_id, payload));
+	}
+
+	pub fn job(job_id: u128) -> JobInformation {
+		panicking(|| JobInformation::from_id(job_id))
+	}
+
+	pub fn next_job_id() -> u128 {
+		Storage::next_job_id()
 	}
 }

@@ -13,6 +13,8 @@ scale-info = { version = "2.11", default-features = false, features = [
 	"derive",
 ] }
 acurast-hyperdrive-substrate-core = { path = "../../substrate-core", default-features = false }
+vara-ibc-client = { path = "../vara-ibc/client" }
+blake2b_simd = { version = "1.0.2", default-features = false }
 
 [build-dependencies]
 sails-rs = { version = "0.3.0", features = ["wasm-builder"] }

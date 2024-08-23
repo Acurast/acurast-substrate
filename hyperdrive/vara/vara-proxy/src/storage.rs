@@ -48,7 +48,7 @@ impl Storage {
 		result
 	}
 
-	pub fn job_info() -> &'static HashMap<u128, (u16, Vec<u8>)> {
+	pub fn job_info() -> &'static mut HashMap<u128, (u16, Vec<u8>)> {
 		let storage = Self::get_mut();
 		&mut storage.job_info
 	}

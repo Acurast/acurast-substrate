@@ -81,7 +81,7 @@ pub enum JobInformation {
 }
 
 impl JobInformation {
-	fn from(job_id: u128) -> Result<Self, ProxyError> {
+	pub fn from_id(job_id: u128) -> Result<Self, ProxyError> {
 		match Storage::get_job(job_id)? {
 			(Version::V1, job_bytes) => {
 				let job = JobInformationV1::decode(&mut job_bytes.as_slice()).map_err(|err| {

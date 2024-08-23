@@ -7080,15 +7080,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
+name = "vara-ibc"
+version = "0.1.0"
+dependencies = [
+ "blake2b_simd",
+ "gstd",
+ "libsecp256k1",
+ "parity-scale-codec",
+ "sails-rs",
+ "scale-info",
+]
+
+[[package]]
+name = "vara-ibc-client"
+version = "0.1.0"
+dependencies = [
+ "sails-client-gen",
+ "sails-idl-gen",
+ "sails-rs",
+ "vara-ibc",
+]
+
+[[package]]
 name = "vara-proxy"
 version = "0.1.0"
 dependencies = [
  "acurast-hyperdrive-substrate-core",
+ "blake2b_simd",
  "gstd",
  "parity-scale-codec",
  "sails-rs",
  "scale-info",
  "tokio",
+ "vara-ibc-client",
  "vara-proxy",
  "vara-proxy-client",
 ]

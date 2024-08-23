@@ -1,5 +1,5 @@
 [package]
-name = "acurast-core-ink"
+name = "acurast-hyperdrive-substrate-core"
 version = "0.1.0"
 authors = ["Papers AG"]
 edition = "2021"

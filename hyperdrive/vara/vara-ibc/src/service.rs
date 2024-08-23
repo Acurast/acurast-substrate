@@ -98,8 +98,6 @@ impl VaraIbcService {
 		ttl: BlockNumber,
 		fee: Balance,
 	) -> Result<OutgoingMessageWithMeta, IbcError> {
-		Self::ensure_unpaused()?;
-
 		let current_block = exec::block_height();
 
 		let id = Self::msg_id(&sender, nonce);

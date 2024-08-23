@@ -1,0 +1,34 @@
+type ConfigureArgument = enum {
+  Owner: actor_id,
+  IBCContract: actor_id,
+  AcurastPalletAccount: actor_id,
+  Paused: bool,
+  PayloadVersion: u16,
+  MaxMessageBytes: u16,
+  ExchangeRatio: ExchangeRatio,
+};
+
+type ExchangeRatio = struct {
+  numerator: u16,
+  denominator: u16,
+};
+
+type Config = struct {
+  owner: actor_id,
+  ibc: actor_id,
+  acurast_pallet_account: actor_id,
+  paused: bool,
+  payload_version: u16,
+  max_message_bytes: u16,
+  exchange_ratio: ExchangeRatio,
+};
+
+constructor {
+  New : (owner: actor_id, ibc: actor_id);
+};
+
+service VaraProxy {
+  Configure : (actions: vec ConfigureArgument) -> null;
+  query Config : () -> Config;
+};
+

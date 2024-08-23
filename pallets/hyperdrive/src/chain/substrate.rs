@@ -20,7 +20,7 @@ use pallet_acurast_marketplace::{
 };
 
 use crate::{IncomingAction, Message, MessageDecoder, MessageEncoder, ParsedAction};
-use acurast_core_ink::types::{
+use acurast_hyperdrive_substrate_core::types::{
 	AssignProcessorPayloadV1, AssignmentStrategyV1, FinalizeJobPayloadV1,
 	IncomingAction as IncomingActionOnProxy, IncomingActionPayloadV1, OutgoingAction,
 	OutgoingActionPayloadV1 as ActionPayloadV1, PlannedExecutionV1, VersionedIncomingActionPayload,

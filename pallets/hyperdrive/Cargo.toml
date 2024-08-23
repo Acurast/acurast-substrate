@@ -24,7 +24,7 @@ pallet-acurast = { path = "../acurast", default-features = false }
 pallet-acurast-marketplace = { path = "../marketplace", default-features = false}
 pallet-acurast-hyperdrive-ibc = { workspace = true }
 
-acurast-core-ink = { path = "../../ink/core", default-features = false }
+acurast-hyperdrive-substrate-core = { path = "../../hyperdrive/substrate-core", default-features = false }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -77,7 +77,7 @@ std = [
 	"strum/std",
 	"tezos-core/std",
 	"tezos-michelson/std",
-	"acurast-core-ink/std"
+	"acurast-hyperdrive-substrate-core/std"
 ]
 
 runtime-benchmarks = [

@@ -15,7 +15,7 @@ scale-info = { version = "2.6", default-features = false, features = ["derive"] 
 
 derive_more = { version = "0.99.17", default-features = false }
 
-acurast-core-ink = { path = "../core", default-features = false }
+acurast-hyperdrive-substrate-core = { path = "../../substrate-core", default-features = false }
 acurast-consumer-ink = { path = "../consumer", default-features = false, features = ["ink-as-dependency"] }
 acurast-ibc-ink = { path = "../ibc-ink", default-features = false, features = ["ink-as-dependency"] }
 
@@ -31,7 +31,7 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
-    "acurast-core-ink/std",
+    "acurast-hyperdrive-substrate-core/std",
     "acurast-consumer-ink/std"
 ]
 ink-as-dependency = []

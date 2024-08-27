@@ -5,11 +5,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
-use sp_core::{
-	crypto::AccountId32,
-	sr25519::{Public, Signature},
-	ConstU32, H256,
+pub use sp_core::ecdsa::{
+	Public, Signature, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 };
+use sp_core::{crypto::AccountId32, ConstU32, H256};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 

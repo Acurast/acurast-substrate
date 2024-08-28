@@ -497,12 +497,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who);
 			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-			Self::set_environment_for(&job_id, &source, environment)?;
+			Self::set_environment_for(
+				job_id.clone(),
+				BoundedVec::truncate_from(vec![(source.clone(), environment)]),
+			)?;
 
-            // TODO remove deprecated event once clients are migrated
-			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id.clone(), source.clone()));
-
-            Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, vec![source]));
+			// TODO remove deprecated event once clients are migrated
+			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id, source));
 
 			Ok(().into())
 		}
@@ -521,12 +522,7 @@ pub mod pallet {
 
 			let multi_origin = MultiOrigin::Acurast(who.clone());
 			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-			let sources = environments.into_iter().map(|(source, env)| {
-				Self::set_environment_for(&job_id, &source, env)?;
-				Ok(source)
-			}).collect::<Result<Vec<T::AccountId>, Error::<T>>>()?;
-
-			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, sources));
+			Self::set_environment_for(job_id, environments)?;
 
 			Ok(().into())
 		}
@@ -577,13 +573,20 @@ pub mod pallet {
 		}
 
 		pub fn set_environment_for(
-			job_id: &JobId<T::AccountId>,
-			source: &T::AccountId,
-			environment: EnvironmentFor<T>,
+			job_id: JobId<T::AccountId>,
+			environments: BoundedVec<(T::AccountId, EnvironmentFor<T>), T::MaxSlots>,
 		) -> Result<(), Error<T>> {
-			let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
-				.ok_or(Error::<T>::JobRegistrationNotFound)?;
-			<ExecutionEnvironment<T>>::insert(job_id, source.clone(), environment);
+			let sources = environments
+				.into_iter()
+				.map(|(source, env)| {
+					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+						.ok_or(Error::<T>::JobRegistrationNotFound)?;
+					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
+					Ok(source)
+				})
+				.collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
+
+			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, sources));
 
 			Ok(())
 		}

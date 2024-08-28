@@ -575,6 +575,10 @@ fn test_set_environment() {
 					registration.clone(),
 					job_id.clone()
 				)),
+				RuntimeEvent::Acurast(crate::Event::ExecutionEnvironmentsUpdated(
+					job_id.clone(),
+					vec![bob_account_id()]
+				)),
 				RuntimeEvent::Acurast(crate::Event::ExecutionEnvironmentUpdated(
 					job_id.clone(),
 					bob_account_id()

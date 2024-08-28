@@ -1137,7 +1137,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
 				for (source, env) in environments {
-					Acurast::set_environment_for(job_id.clone(), source, env)?;
+					Acurast::set_environment_for(&job_id, &source, env)?;
 				}
 				Ok(().into())
 			},

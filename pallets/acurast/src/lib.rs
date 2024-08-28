@@ -273,7 +273,12 @@ pub mod pallet {
 			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
 		),
 		/// The execution environment has been updated. [job_id, source]
+		#[deprecated(
+			since = "0.7.1",
+			note = "This event is deprecated, use `ExecutionEnvironmentsUpdated` instead"
+		)]
 		ExecutionEnvironmentUpdated(JobId<T::AccountId>, T::AccountId),
+		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -492,8 +497,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who);
 			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-			Self::set_environment_for(job_id.clone(), source.clone(), environment)?;
-			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id, source));
+			Self::set_environment_for(&job_id, &source, environment)?;
+
+            // TODO remove deprecated event once clients are migrated
+			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id.clone(), source.clone()));
+
+            Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, vec![source]));
 
 			Ok(().into())
 		}
@@ -510,11 +519,14 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			for (source, env) in environments {
-				let multi_origin = MultiOrigin::Acurast(who.clone());
-				let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-				Self::set_environment_for(job_id, source, env)?;
-			}
+			let multi_origin = MultiOrigin::Acurast(who.clone());
+			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
+			let sources = environments.into_iter().map(|(source, env)| {
+				Self::set_environment_for(&job_id, &source, env)?;
+				Ok(source)
+			}).collect::<Result<Vec<T::AccountId>, Error::<T>>>()?;
+
+			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, sources));
 
 			Ok(().into())
 		}
@@ -565,14 +577,15 @@ pub mod pallet {
 		}
 
 		pub fn set_environment_for(
-			job_id: JobId<T::AccountId>,
-			source: T::AccountId,
+			job_id: &JobId<T::AccountId>,
+			source: &T::AccountId,
 			environment: EnvironmentFor<T>,
-		) -> DispatchResultWithPostInfo {
+		) -> Result<(), Error<T>> {
 			let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
 				.ok_or(Error::<T>::JobRegistrationNotFound)?;
-			<ExecutionEnvironment<T>>::insert(&job_id, source.clone(), environment);
-			Ok(().into())
+			<ExecutionEnvironment<T>>::insert(job_id, source.clone(), environment);
+
+			Ok(())
 		}
 
 		pub fn clear_environment_for(job_id: &JobId<T::AccountId>) {

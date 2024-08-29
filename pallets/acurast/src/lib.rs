@@ -272,8 +272,8 @@ pub mod pallet {
 			T::AccountId,
 			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
 		),
-		/// The execution environment has been updated. [job_id, source]
-		ExecutionEnvironmentUpdated(JobId<T::AccountId>, T::AccountId),
+		/// The execution environment has been updated. [job_id, sources]
+		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -492,8 +492,10 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who);
 			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-			Self::set_environment_for(job_id.clone(), source.clone(), environment)?;
-			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id, source));
+			Self::set_environment_for(
+				job_id.clone(),
+				BoundedVec::truncate_from(vec![(source.clone(), environment)]),
+			)?;
 
 			Ok(().into())
 		}
@@ -510,11 +512,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			for (source, env) in environments {
-				let multi_origin = MultiOrigin::Acurast(who.clone());
-				let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
-				Self::set_environment_for(job_id, source, env)?;
-			}
+			let multi_origin = MultiOrigin::Acurast(who.clone());
+			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
+			Self::set_environment_for(job_id, environments)?;
 
 			Ok(().into())
 		}
@@ -566,13 +566,21 @@ pub mod pallet {
 
 		pub fn set_environment_for(
 			job_id: JobId<T::AccountId>,
-			source: T::AccountId,
-			environment: EnvironmentFor<T>,
-		) -> DispatchResultWithPostInfo {
-			let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
-				.ok_or(Error::<T>::JobRegistrationNotFound)?;
-			<ExecutionEnvironment<T>>::insert(&job_id, source.clone(), environment);
-			Ok(().into())
+			environments: BoundedVec<(T::AccountId, EnvironmentFor<T>), T::MaxSlots>,
+		) -> Result<(), Error<T>> {
+			let sources = environments
+				.into_iter()
+				.map(|(source, env)| {
+					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+						.ok_or(Error::<T>::JobRegistrationNotFound)?;
+					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
+					Ok(source)
+				})
+				.collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
+
+			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, sources));
+
+			Ok(())
 		}
 
 		pub fn clear_environment_for(job_id: &JobId<T::AccountId>) {

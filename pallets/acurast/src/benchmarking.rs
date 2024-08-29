@@ -187,8 +187,8 @@ benchmarks! {
 		let local_job_id = 1;
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, account("processor", 0, SEED), env.clone())
 	verify {
-		assert_last_event::<T>(Event::ExecutionEnvironmentUpdated(
-			(MultiOrigin::Acurast(caller), 1), account("processor", 0, SEED)
+		assert_last_event::<T>(Event::ExecutionEnvironmentsUpdated(
+			(MultiOrigin::Acurast(caller), 1), vec![account("processor", 0, SEED)]
 		).into());
 	}
 

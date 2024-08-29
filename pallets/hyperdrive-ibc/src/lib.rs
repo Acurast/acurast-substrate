@@ -37,7 +37,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::traits::{Saturating, Zero};
-	use sp_core::sr25519::Public;
 	use sp_runtime::traits::{Hash, Verify};
 	use sp_std::{prelude::*, vec};
 
@@ -391,8 +390,14 @@ pub mod pallet {
 
 			// we always deny invalid signatures but skip signatures for unknown public keys or known public keys outside activity window
 			// this allows for some flexibility while deprecating relayer oracles
-			let mut not_found: Vec<([u8; 64], [u8; 32])> = Default::default();
-			let mut outside_activity_window: Vec<([u8; 64], [u8; 32])> = Default::default();
+			let mut not_found: Vec<(
+				[u8; SIGNATURE_SERIALIZED_SIZE],
+				[u8; PUBLIC_KEY_SERIALIZED_SIZE],
+			)> = Default::default();
+			let mut outside_activity_window: Vec<(
+				[u8; SIGNATURE_SERIALIZED_SIZE],
+				[u8; PUBLIC_KEY_SERIALIZED_SIZE],
+			)> = Default::default();
 			let mut valid = 0;
 			signatures.into_iter().try_for_each(
 				|(signature, public)| -> Result<(), Error<T, I>> {

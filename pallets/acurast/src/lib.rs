@@ -272,12 +272,7 @@ pub mod pallet {
 			T::AccountId,
 			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
 		),
-		/// The execution environment has been updated. [job_id, source]
-		#[deprecated(
-			since = "0.7.1",
-			note = "This event is deprecated, use `ExecutionEnvironmentsUpdated` instead"
-		)]
-		ExecutionEnvironmentUpdated(JobId<T::AccountId>, T::AccountId),
+		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
 	}
 
@@ -501,9 +496,6 @@ pub mod pallet {
 				job_id.clone(),
 				BoundedVec::truncate_from(vec![(source.clone(), environment)]),
 			)?;
-
-			// TODO remove deprecated event once clients are migrated
-			Self::deposit_event(Event::ExecutionEnvironmentUpdated(job_id, source));
 
 			Ok(().into())
 		}

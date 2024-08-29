@@ -4,8 +4,6 @@
 #[ink::contract]
 mod proxy {
 	use acurast_ibc_ink::ibc::{Layer, Subject};
-	#[cfg(feature = "std")]
-	use ink::storage::traits::StorageLayout;
 	use ink::{
 		env::{
 			call::{build_call, ExecutionInput},
@@ -86,6 +84,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum JobStatus {
 		/// Status after a job got registered.
 		Open = 0,
@@ -98,6 +97,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub struct JobInformationV1 {
 		schedule: ScheduleV1,
 		creator: AccountId,
@@ -111,6 +111,7 @@ mod proxy {
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 	pub enum JobInformation {
 		V1(JobInformationV1),
 	}
@@ -178,15 +179,13 @@ mod proxy {
 	impl ExchangeRatio {
 		fn exchange_price(&self, expected_acurast_amount: u128) -> u128 {
 			// Calculate how many azero is required to cover for the job cost
-			let amount =
-				((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128);
+			let n = (self.numerator as u128) * expected_acurast_amount;
+			let d = self.denominator as u128;
 
-			if ((self.numerator as u128) * expected_acurast_amount) / (self.denominator as u128) !=
-				0
-			{
-				amount + 1
+			if n % d == 0 {
+				n / d
 			} else {
-				amount
+				n / d + 1
 			}
 		}
 	}
@@ -199,7 +198,7 @@ mod proxy {
 		owner: AccountId,
 		/// The IBC contract
 		ibc: AccountId,
-        /// the recipient on Acurast parachain (a pallet account derived from a constant AcurastPalletId)
+		/// the recipient on Acurast parachain (a pallet account derived from a constant AcurastPalletId)
 		acurast_pallet_account: AccountId,
 		/// Flag that states if the contract is paused or not
 		paused: bool,
@@ -299,7 +298,8 @@ mod proxy {
 				match action {
 					ConfigureArgument::Owner(address) => self.config.owner = address,
 					ConfigureArgument::IBCContract(address) => self.config.ibc = address,
-					ConfigureArgument::AcurastPalletAccount(address) => self.config.acurast_pallet_account = address,
+					ConfigureArgument::AcurastPalletAccount(address) =>
+						self.config.acurast_pallet_account = address,
 					ConfigureArgument::Paused(paused) => self.config.paused = paused,
 					ConfigureArgument::PayloadVersion(version) =>
 						self.config.payload_version = version,
@@ -314,7 +314,7 @@ mod proxy {
 			Ok(())
 		}
 
-        #[ink(message)]
+		#[ink(message)]
 		pub fn config(&self) -> Config {
 			self.config.clone()
 		}
@@ -341,7 +341,7 @@ mod proxy {
 						if interval == 0 {
 							return Err(Error::Verbose("INTERVAL_CANNNOT_BE_ZERO".to_string()))
 						}
-						let execution_count = (end_time - start_time) / interval;
+						let execution_count = ((end_time - start_time - 1) / interval) + 1;
 
 						// Calculate the fee required for all job executions
 						let slots = payload.job_registration.extra.slots;
@@ -375,7 +375,7 @@ mod proxy {
 						};
 
 						self.job_info
-							.insert(self.next_job_id, &(Version::V1 as u16, info.encode()));
+							.insert(job_id, &(Version::V1 as u16, info.encode()));
 
 						OutgoingActionPayloadV1::RegisterJob(RegisterJobPayloadV1 {
 							job_id,
@@ -463,7 +463,9 @@ mod proxy {
 									&action.id.to_ne_bytes().to_vec(),
 								))
 								// recipient
-								.push_arg(&Subject::Acurast(Layer::Extrinsic(self.config.acurast_pallet_account)))
+								.push_arg(&Subject::Acurast(Layer::Extrinsic(
+									self.config.acurast_pallet_account,
+								)))
 								// payload
 								.push_arg(&encoded_action)
 								//ttl
@@ -520,9 +522,7 @@ mod proxy {
 								.transfer(processor_address, initial_fee)
 								.expect("COULD_NOT_TRANSFER");
 
-							if job.processors.len() == (job.slots as usize) {
-								job.status = JobStatus::Assigned;
-							}
+							job.status = JobStatus::Assigned;
 
 							// Save changes
 							self.job_info
@@ -578,8 +578,10 @@ mod proxy {
 
 			match JobInformation::decode(self, job_id)? {
 				JobInformation::V1(mut job) => {
+					let processor_address = self.env().caller();
+
 					// Verify if sender is assigned to the job
-					if !job.processors.contains(&self.env().caller()) {
+					if !job.processors.contains(&processor_address) {
 						return Err(Error::NotJobProcessor)
 					}
 
@@ -589,27 +591,31 @@ mod proxy {
 					}
 
 					// Re-fill processor fees
-					// Forbidden to credit 0ꜩ to a contract without code.
+					// Forbidden to credit 0 to a contract without code.
 					let has_funds = job.remaining_fee >= job.expected_fulfillment_fee;
-					let next_execution_fee = if has_funds && job.expected_fulfillment_fee > 0 {
+					if has_funds && job.expected_fulfillment_fee > 0 {
 						job.remaining_fee -= job.expected_fulfillment_fee;
+						// Transfer
+						self.env()
+							.transfer(processor_address, job.expected_fulfillment_fee)
+							.expect("COULD_NOT_TRANSFER");
 
-						job.expected_fulfillment_fee
-					} else {
-						0
-					};
+						// Save changes
+						self.job_info.insert(job_id, &(Version::V1 as u16, job.encode()));
+					}
 
 					// Pass the fulfillment to the destination contract
 					let call_result: OuterError<acurast_consumer_ink::FulfillReturn> =
 						build_call::<DefaultEnvironment>()
 							.call(job.destination)
 							.call_v1()
+							.gas_limit(0)
+							.transferred_value(0)
 							.exec_input(
 								ExecutionInput::new(acurast_consumer_ink::FULFILL_SELECTOR)
-									.push_arg(job_id)
+									.push_arg(job_id as u64)
 									.push_arg(payload),
 							)
-							.transferred_value(next_execution_fee)
 							.returns()
 							.try_invoke();
 
@@ -630,6 +636,16 @@ mod proxy {
 					}
 				},
 			}
+		}
+
+		#[ink(message)]
+		pub fn job(&self, job_id: u128) -> Result<JobInformation, Error> {
+			JobInformation::decode(self, job_id)
+		}
+
+		#[ink(message)]
+		pub fn next_job_id(&self) -> u128 {
+			self.next_job_id
 		}
 	}
 

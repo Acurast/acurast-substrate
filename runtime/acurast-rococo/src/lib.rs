@@ -199,7 +199,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 28,
+	spec_version: 32,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -1106,9 +1106,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
-				for (source, env) in environments {
-					Acurast::set_environment_for(job_id.clone(), source, env)?;
-				}
+				Acurast::set_environment_for(job_id, environments)?;
 				Ok(().into())
 			},
 			ParsedAction::Noop => {

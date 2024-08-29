@@ -10,6 +10,7 @@ members = [
 	"pallets/acurast/common",
 	"pallets/marketplace/reputation",
 	"p256-crypto",
+	"runtime/*",
 ]
 
 [workspace.package]
@@ -72,6 +73,7 @@ pallet-acurast-vesting = { path = "./pallets/vesting", default-features = false 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }
 acurast-kusama-runtime = { path = "runtime/acurast-kusama", default-features = false }
+acurast-mainnet-runtime = { path = "runtime/acurast-mainnet", default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.6.0" }
@@ -207,10 +209,6 @@ cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/polkad
 inherits = "release"
 lto = true
 codegen-units = 1
-
-# TODO: Temporary workaround (https://substrate.stackexchange.com/questions/9870)
-#[patch.crates-io]
-#parity-scale-codec = { git = "https://github.com/paritytech/parity-scale-codec.git", tag = "v3.6.5" }
 
 # TODO: remove once tokenomics are ready
 [patch."https://github.com/paritytech/polkadot-sdk"]

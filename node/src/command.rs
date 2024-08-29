@@ -203,6 +203,14 @@ pub fn run() -> Result<()> {
 						})
 					}
 				},
+				#[cfg(feature = "acurast-mainnet")]
+				NetworkVariant::Mainnet => {
+					construct_async_run! {
+						<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
+				},
 			}
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
@@ -221,6 +229,14 @@ pub fn run() -> Result<()> {
 				NetworkVariant::Canary => {
 					construct_async_run! {
 						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.database))
+						})
+					}
+				},
+				#[cfg(feature = "acurast-mainnet")]
+				NetworkVariant::Mainnet => {
+					construct_async_run! {
+						<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -247,6 +263,14 @@ pub fn run() -> Result<()> {
 						})
 					}
 				},
+				#[cfg(feature = "acurast-mainnet")]
+				NetworkVariant::Mainnet => {
+					construct_async_run! {
+						<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, config.chain_spec))
+						})
+					}
+				},
 			}
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
@@ -269,6 +293,14 @@ pub fn run() -> Result<()> {
 						})
 					}
 				},
+				#[cfg(feature = "acurast-mainnet")]
+				NetworkVariant::Mainnet => {
+					construct_async_run! {
+						<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.import_queue))
+						})
+					}
+				},
 			}
 		},
 		Some(Subcommand::Revert(cmd)) => {
@@ -287,6 +319,14 @@ pub fn run() -> Result<()> {
 				NetworkVariant::Canary => {
 					construct_async_run! {
 						<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>(|components, cli, cmd, config| {
+							Ok(cmd.run(components.client, components.backend, None))
+						})
+					}
+				},
+				#[cfg(feature = "acurast-mainnet")]
+				NetworkVariant::Mainnet => {
+					construct_async_run! {
+						<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -333,6 +373,14 @@ pub fn run() -> Result<()> {
 						>(&config)?;
 						cmd.run(partials.client)
 					},
+					#[cfg(feature = "acurast-mainnet")]
+					NetworkVariant::Mainnet => {
+						let partials = new_partial::<
+							acurast_mainnet_runtime::RuntimeApi,
+							service::mainnet::AcurastExecutor,
+						>(&config)?;
+						cmd.run(partials.client)
+					},
 				}
 			})
 		},
@@ -375,6 +423,14 @@ pub fn run() -> Result<()> {
 							>(&config)?;
 							cmd.run(partials.client)
 						},
+						#[cfg(feature = "acurast-mainnet")]
+						NetworkVariant::Mainnet => {
+							let partials = new_partial::<
+								acurast_mainnet_runtime::RuntimeApi,
+								service::mainnet::AcurastExecutor,
+							>(&config)?;
+							cmd.run(partials.client)
+						},
 					}),
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				BenchmarkCmd::Storage(_) =>
@@ -402,6 +458,16 @@ pub fn run() -> Result<()> {
 							let partials = new_partial::<
 								acurast_kusama_runtime::RuntimeApi,
 								service::canary::AcurastExecutor,
+							>(&config)?;
+							let db = partials.backend.expose_db();
+							let storage = partials.backend.expose_storage();
+							cmd.run(config, partials.client.clone(), db, storage)
+						},
+						#[cfg(feature = "acurast-mainnet")]
+						NetworkVariant::Mainnet => {
+							let partials = new_partial::<
+								acurast_mainnet_runtime::RuntimeApi,
+								service::mainnet::AcurastExecutor,
 							>(&config)?;
 							let db = partials.backend.expose_db();
 							let storage = partials.backend.expose_storage();
@@ -472,6 +538,14 @@ pub fn run() -> Result<()> {
 					NetworkVariant::Canary => service::start_parachain_node::<
 						acurast_kusama_runtime::RuntimeApi,
 						service::canary::AcurastExecutor,
+					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+					#[cfg(feature = "acurast-mainnet")]
+					NetworkVariant::Mainnet => service::start_parachain_node::<
+						acurast_mainnet_runtime::RuntimeApi,
+						service::mainnet::AcurastExecutor,
 					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
 						.await
 						.map(|r| r.0)

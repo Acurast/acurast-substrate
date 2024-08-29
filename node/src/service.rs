@@ -41,6 +41,8 @@ pub enum NetworkVariant {
 	Testnet,
 	#[cfg(feature = "acurast-kusama")]
 	Canary,
+	#[cfg(feature = "acurast-mainnet")]
+	Mainnet,
 }
 
 /// Can be called for a `Configuration` to check if it is a configuration for
@@ -63,6 +65,25 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 			#[cfg(feature = "acurast-kusama")]
 			id if id.contains("kusama") => NetworkVariant::Canary,
 			_ => panic!("invalid chain spec"),
+		}
+	}
+}
+
+#[cfg(feature = "acurast-mainnet")]
+pub mod mainnet {
+	use sc_executor::NativeVersion;
+
+	pub struct AcurastExecutor;
+
+	impl sc_executor::NativeExecutionDispatch for AcurastExecutor {
+		type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+			acurast_mainnet_runtime::api::dispatch(method, data)
+		}
+
+		fn native_version() -> NativeVersion {
+			acurast_mainnet_runtime::native_version()
 		}
 	}
 }

@@ -16,7 +16,7 @@ pub type ChainSpec =
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
-const NATIVE_TOKEN_SYMBOL: &str = "cACU";
+const NATIVE_TOKEN_SYMBOL: &str = "ACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 
 /// Generate the session keys from individual elements.
@@ -63,7 +63,7 @@ pub fn acurast_config() -> ChainSpec {
 		vec![
 			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 9_000_000),
+			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
 		],
 		MAINNET_PARACHAIN_ID.into(),
 		acurast_sudo_account(),

@@ -12,7 +12,7 @@ const ROCOCO_PARACHAIN_ID: u32 = 2239;
 #[cfg(feature = "acurast-kusama")]
 const KUSAMA_PARACHAIN_ID: u32 = 2239;
 #[cfg(feature = "acurast-mainnet")]
-const MAINNET_PARACHAIN_ID: u32 = 2239;
+const MAINNET_PARACHAIN_ID: u32 = 3396;
 
 #[cfg(feature = "acurast-dev")]
 pub mod dev;

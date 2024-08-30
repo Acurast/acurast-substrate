@@ -5,18 +5,17 @@ panic = "unwind"
 resolver = "2"
 members = [
 	"node",
-	#	"emulations",
+	"runtime/*",
 	"pallets/*",
 	"pallets/acurast/common",
 	"pallets/marketplace/reputation",
 	"p256-crypto",
-	"runtime/*",
 ]
 
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.7.1"
+version = "0.8.0"
 
 [workspace.dependencies]
 # build dependencies

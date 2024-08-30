@@ -26,7 +26,7 @@ pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
 }
 
-/// Returns the kusama [ChainSpec].
+/// Returns the mainnet [ChainSpec].
 pub fn acurast_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -36,7 +36,7 @@ pub fn acurast_config() -> ChainSpec {
 
 	ChainSpec::builder(
 		acurast_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "kusama".to_string(), para_id: MAINNET_PARACHAIN_ID },
+		Extensions { relay_chain: "polkadot".to_string(), para_id: MAINNET_PARACHAIN_ID },
 	)
 	.with_name("Acurast Mainnet")
 	.with_id("acurast-mainnet")

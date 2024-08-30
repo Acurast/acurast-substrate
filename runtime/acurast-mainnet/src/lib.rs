@@ -172,7 +172,7 @@ pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		// in Kusama, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
+		// Extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
 		// for acurast, we map to 1/10 of that, or 1/10 MILLIUNIT
 		let p = MILLIUNIT / 10;
 		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
@@ -196,7 +196,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 16,
+	spec_version: 1,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -285,8 +285,8 @@ parameter_types! {
 // Configure FRAME pallets to include in runtime.
 
 /// Extrinsic Call Filter
-pub struct KusamaCallFilter;
-impl frame_support::traits::Contains<RuntimeCall> for KusamaCallFilter {
+pub struct CallFilter;
+impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(c: &RuntimeCall) -> bool {
 		match c {
 			// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
@@ -308,7 +308,7 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type BaseCallFilter = KusamaCallFilter;
+	type BaseCallFilter = CallFilter;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
@@ -1136,9 +1136,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 			ParsedAction::FinalizeJob(job_ids) =>
 				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter()),
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
-				for (source, env) in environments {
-					Acurast::set_environment_for(job_id.clone(), source, env)?;
-				}
+				Acurast::set_environment_for(job_id, environments)?;
 				Ok(().into())
 			},
 			ParsedAction::Noop => {

@@ -110,6 +110,10 @@ pub struct RunCmd {
 	#[clap(long = "kusama-runtime")]
 	pub use_kusama: bool,
 
+	/// Use Acurast Mainnet runtime.
+	#[clap(long = "mainnet-runtime")]
+	pub use_mainnet: bool,
+
 	/// Id of the parachain this collator collates for.
 	#[clap(long)]
 	pub parachain_id: Option<u32>,

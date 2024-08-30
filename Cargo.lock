@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-mainnet-runtime"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",

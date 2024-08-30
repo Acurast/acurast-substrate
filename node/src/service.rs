@@ -64,6 +64,8 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 				NetworkVariant::Testnet,
 			#[cfg(feature = "acurast-kusama")]
 			id if id.contains("kusama") => NetworkVariant::Canary,
+			#[cfg(feature = "acurast-mainnet")]
+			id if id.contains("mainnet") => NetworkVariant::Mainnet,
 			_ => panic!("invalid chain spec"),
 		}
 	}

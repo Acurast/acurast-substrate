@@ -26,6 +26,8 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 		"acurast-rococo" => Box::new(chain_spec::rococo::acurast_rococo_config()),
 		#[cfg(feature = "acurast-kusama")]
 		"acurast-kusama" => Box::new(chain_spec::kusama::acurast_kusama_config()),
+		#[cfg(feature = "acurast-mainnet")]
+		"acurast-mainnet" => Box::new(chain_spec::mainnet::acurast_config()),
 
 		// Specs provided as json use the dev runtime by default but flags can be used to specify which runtime to use
 		path => {
@@ -51,6 +53,12 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 			if run_cmd.use_kusama {
 				#[rustfmt::skip]
 				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
+			}
+
+			#[cfg(feature = "acurast-mainnet")]
+			if run_cmd.use_mainnet {
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::mainnet::ChainSpec::from_json_file(path)?));
 			}
 
 			// fallback to guessing runtime from provided chain_spec's file name

@@ -208,6 +208,23 @@ impl
 	}
 }
 
+#[cfg(feature = "acurast-mainnet")]
+impl
+	From<
+		Arc<
+			ParachainClient<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>,
+		>,
+	> for ClientVariant
+{
+	fn from(
+		client: Arc<
+			ParachainClient<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>,
+		>,
+	) -> Self {
+		Self::Mainnet(client)
+	}
+}
+
 impl ClientHandle for ClientVariant {
 	fn execute_with<T: ExecuteWithClient>(&self, t: T) -> T::Output {
 		match self {

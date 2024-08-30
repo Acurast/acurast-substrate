@@ -5,7 +5,7 @@ use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32
 use std::str::FromStr;
 
 use crate::chain_spec::{accountid_from_str, Extensions, MAINNET_PARACHAIN_ID, SS58_FORMAT};
-pub(crate) use acurast_kusama_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
+pub(crate) use acurast_mainnet_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 use acurast_runtime_common::*;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
@@ -27,7 +27,7 @@ pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 }
 
 /// Returns the kusama [ChainSpec].
-pub fn acurast_kusama_config() -> ChainSpec {
+pub fn acurast_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
@@ -44,26 +44,26 @@ pub fn acurast_kusama_config() -> ChainSpec {
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(
-				AccountId32::from_str("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh").unwrap(),
-				AuraId::from_string("5GsS2ABbr46mMNRiikVB28SL7Uixv5rnGPzQQJNwXVjnDmBh").unwrap(),
+				AccountId32::from_str("5DV9mD4yrswRtrXfH2QxAg5vF23r6FPipxTifkqx6pEnqCRA").unwrap(),
+				AuraId::from_string("5DV9mD4yrswRtrXfH2QxAg5vF23r6FPipxTifkqx6pEnqCRA").unwrap(),
 			),
 			(
-				AccountId32::from_str("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw").unwrap(),
-				AuraId::from_string("5HWM3CmrNvXTKCaZ53xXuxBtHCMHbXXR8fhaL1QeVMaVdGSw").unwrap(),
+				AccountId32::from_str("5DNpDKA9AhsNZn32kd7VgL5kC7h1r5TTQjrHfbgKe4Ck78Z9").unwrap(),
+				AuraId::from_string("5DNpDKA9AhsNZn32kd7VgL5kC7h1r5TTQjrHfbgKe4Ck78Z9").unwrap(),
 			),
 			(
-				AccountId32::from_str("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH").unwrap(),
-				AuraId::from_string("5F7hAMcLn4TKku3jYK9orGCB76GujbMPXN8XAYaAbWwNf8JH").unwrap(),
+				AccountId32::from_str("5G6zzYZZrokByrohZt1UBY4cYziQHGWQvMQYXXEDh9LSkhRZ").unwrap(),
+				AuraId::from_string("5G6zzYZZrokByrohZt1UBY4cYziQHGWQvMQYXXEDh9LSkhRZ").unwrap(),
 			),
 			(
-				AccountId32::from_str("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh").unwrap(),
-				AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh").unwrap(),
+				AccountId32::from_str("5E5EdKrMArKtXnBW9QZF5MB6uGKVcvJYxbYyAkacdsNgdn7k").unwrap(),
+				AuraId::from_string("5E5EdKrMArKtXnBW9QZF5MB6uGKVcvJYxbYyAkacdsNgdn7k").unwrap(),
 			),
 		],
 		vec![
 			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
+			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000_000_000),
 		],
 		MAINNET_PARACHAIN_ID.into(),
 		acurast_sudo_account(),
@@ -121,5 +121,5 @@ pub fn fee_manager_pallet_account() -> AccountId {
 
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5CMcG3yoHxH6e4RqyZHx2QiTsZz4tTiHLXFQ5SmLiXKGcqgv")
+	accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC")
 }

@@ -63,7 +63,7 @@ pub fn acurast_config() -> ChainSpec {
 		vec![
 			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000_000_000),
+			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 9_000_000),
 		],
 		MAINNET_PARACHAIN_ID.into(),
 		acurast_sudo_account(),

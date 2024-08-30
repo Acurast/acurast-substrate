@@ -92,6 +92,12 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
 				#[cfg(not(feature = "acurast-kusama"))]
 				panic!("guessed runtime from file name as 'acurast-kusama' but feature 'acurast-kusama' was not included when building the node");
+			} else if starts_with("acurast-mainnet") {
+				#[cfg(feature = "acurast-mainnet")]
+				#[rustfmt::skip]
+				return Ok(Box::new(chain_spec::mainnet::ChainSpec::from_json_file(path)?));
+				#[cfg(not(feature = "acurast-mainnet"))]
+				panic!("guessed runtime from file name as 'acurast-mainnet' but feature 'acurast-mainnet' was not included when building the node");
 			} else {
 				panic!("could not derive chain spec: non of the --rococo-runtime --kusama-runtime flags was used and the runtime was not clear from the file name");
 			}

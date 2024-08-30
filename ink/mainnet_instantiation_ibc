@@ -1,0 +1,42 @@
+ Dry-running default (skip with --skip-dry-run)
+    Success! Gas required estimated at Weight(ref_time: 297879671, proof_size: 16982)
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 784.959614μAZERO
+       Event System ➜ NewAccount
+         account: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+       Event Balances ➜ Endowed
+         account: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+         free_balance: 0.50nAZERO
+       Event Balances ➜ Transfer
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+         amount: 0.50nAZERO
+       Event Contracts ➜ Instantiated
+         deployer: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         contract: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+         amount: 586.408mAZERO
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3
+         amount: 4.92mAZERO
+       Event Balances ➜ Deposit
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 838.152nAZERO
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 784.121462μAZERO
+       Event Treasury ➜ Deposit
+         value: 784121462
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 784.121462μAZERO
+         tip: 0AZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 7841166274, proof_size: 9390 }, class: Normal, pays_fee: Yes }
+
+    Contract 5FqzsDsd3zJCt24Qd78CYqgSgBX6nAf3xqfin1HSwZSbHMX3

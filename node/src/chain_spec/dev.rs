@@ -68,6 +68,7 @@ pub fn acurast_development_config() -> ChainSpec {
 	.with_name("Acurast Devnet")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
+	.with_properties(properties)
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(

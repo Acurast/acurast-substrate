@@ -45,6 +45,7 @@ pub fn acurast_rococo_config() -> ChainSpec {
 	.with_name("Acurast Testnet")
 	.with_id("acurast-rococo")
 	.with_chain_type(ChainType::Live)
+	.with_properties(properties)
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(

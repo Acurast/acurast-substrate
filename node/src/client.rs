@@ -171,6 +171,12 @@ pub enum ClientVariant {
 	Canary(
 		Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi, service::canary::AcurastExecutor>>,
 	),
+	#[cfg(feature = "acurast-mainnet")]
+	Mainnet(
+		Arc<
+			ParachainClient<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>,
+		>,
+	),
 }
 
 #[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
@@ -202,6 +208,23 @@ impl
 	}
 }
 
+#[cfg(feature = "acurast-mainnet")]
+impl
+	From<
+		Arc<
+			ParachainClient<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>,
+		>,
+	> for ClientVariant
+{
+	fn from(
+		client: Arc<
+			ParachainClient<acurast_mainnet_runtime::RuntimeApi, service::mainnet::AcurastExecutor>,
+		>,
+	) -> Self {
+		Self::Mainnet(client)
+	}
+}
+
 impl ClientHandle for ClientVariant {
 	fn execute_with<T: ExecuteWithClient>(&self, t: T) -> T::Output {
 		match self {
@@ -213,6 +236,8 @@ impl ClientHandle for ClientVariant {
 			Self::Testnet(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
 			#[cfg(feature = "acurast-kusama")]
 			Self::Canary(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
+			#[cfg(feature = "acurast-mainnet")]
+			Self::Mainnet(client) => T::execute_with_client::<_, _, ParachainBackend>(t, client.clone()),
 		}
 	}
 }
@@ -224,6 +249,8 @@ macro_rules! match_client {
 			Self::Testnet(client) => client.$method($($param),*),
 			#[cfg(feature = "acurast-kusama")]
 			Self::Canary(client) => client.$method($($param),*),
+			#[cfg(feature = "acurast-mainnet")]
+			Self::Mainnet(client) => client.$method($($param),*),
 		}
 	};
 }

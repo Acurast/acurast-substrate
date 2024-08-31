@@ -1,13 +1,12 @@
 use cumulus_primitives_core::ParaId;
-use jsonrpsee::core::__reexports::serde_json;
 use sc_service::ChainType;
+use sc_telemetry::serde_json;
 use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 use std::str::FromStr;
 
-pub(crate) use acurast_rococo_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
+use crate::chain_spec::{accountid_from_str, Extensions, MAINNET_PARACHAIN_ID, SS58_FORMAT};
+pub(crate) use acurast_mainnet_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 use acurast_runtime_common::*;
-
-use crate::chain_spec::{accountid_from_str, Extensions, ROCOCO_PARACHAIN_ID, SS58_FORMAT};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec =
@@ -17,11 +16,8 @@ pub type ChainSpec =
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
-const NATIVE_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
-const NATIVE_TOKEN_SYMBOL: &str = "tACU";
+const NATIVE_TOKEN_SYMBOL: &str = "ACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
-
-const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 
 /// Generate the session keys from individual elements.
 ///
@@ -30,8 +26,8 @@ pub fn acurast_session_keys(keys: AuraId) -> acurast_runtime::SessionKeys {
 	acurast_runtime::SessionKeys { aura: keys }
 }
 
-/// Returns the rococo [ChainSpec].
-pub fn acurast_rococo_config() -> ChainSpec {
+/// Returns the mainnet [ChainSpec].
+pub fn acurast_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), NATIVE_TOKEN_SYMBOL.into());
@@ -40,30 +36,37 @@ pub fn acurast_rococo_config() -> ChainSpec {
 
 	ChainSpec::builder(
 		acurast_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo".to_string(), para_id: ROCOCO_PARACHAIN_ID },
+		Extensions { relay_chain: "polkadot".to_string(), para_id: MAINNET_PARACHAIN_ID },
 	)
-	.with_name("Acurast Testnet")
-	.with_id("acurast-rococo")
+	.with_name("Acurast Mainnet")
+	.with_id("acurast-mainnet")
 	.with_chain_type(ChainType::Live)
 	.with_properties(properties)
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(
-				AccountId32::from_str("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f").unwrap(),
-				AuraId::from_string("5D592NKdEvudZ34Tad9Psb4fhTUA8gRnHZ9aZMWS9HjR754f").unwrap(),
+				AccountId32::from_str("5DV9mD4yrswRtrXfH2QxAg5vF23r6FPipxTifkqx6pEnqCRA").unwrap(),
+				AuraId::from_string("5DV9mD4yrswRtrXfH2QxAg5vF23r6FPipxTifkqx6pEnqCRA").unwrap(),
 			),
 			(
-				AccountId32::from_str("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58").unwrap(),
-				AuraId::from_string("5CyfKHo81NTwbpbLVXCBN3dc7s9LVCdz59NW44LnzhkwvS58").unwrap(),
+				AccountId32::from_str("5DNpDKA9AhsNZn32kd7VgL5kC7h1r5TTQjrHfbgKe4Ck78Z9").unwrap(),
+				AuraId::from_string("5DNpDKA9AhsNZn32kd7VgL5kC7h1r5TTQjrHfbgKe4Ck78Z9").unwrap(),
+			),
+			(
+				AccountId32::from_str("5G6zzYZZrokByrohZt1UBY4cYziQHGWQvMQYXXEDh9LSkhRZ").unwrap(),
+				AuraId::from_string("5G6zzYZZrokByrohZt1UBY4cYziQHGWQvMQYXXEDh9LSkhRZ").unwrap(),
+			),
+			(
+				AccountId32::from_str("5E5EdKrMArKtXnBW9QZF5MB6uGKVcvJYxbYyAkacdsNgdn7k").unwrap(),
+				AuraId::from_string("5E5EdKrMArKtXnBW9QZF5MB6uGKVcvJYxbYyAkacdsNgdn7k").unwrap(),
 			),
 		],
 		vec![
 			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_sudo_account(), NATIVE_INITIAL_BALANCE),
-			(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
+			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
 		],
-		ROCOCO_PARACHAIN_ID.into(),
+		MAINNET_PARACHAIN_ID.into(),
 		acurast_sudo_account(),
 	))
 	.build()
@@ -119,10 +122,5 @@ pub fn fee_manager_pallet_account() -> AccountId {
 
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5HR6EucTtxg4oFg8ZpCRXnPrwMAVVyBi2ByAYJ5ke1A8QXai")
-}
-
-/// returns the faucet account id.
-pub fn acurast_faucet_account() -> AccountId {
-	accountid_from_str("5EyaQQEQzzXdfsvFfscDaQUFiGBk5hX4B38j1x3rH7Zko2QJ")
+	accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC")
 }

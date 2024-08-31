@@ -1,6 +1,6 @@
 include:
-  - project: 'papers/papers-internal/internal'
-    file: '/.base-gitlab-ci.yml'
+  - project: "papers/papers-internal/internal"
+    file: "/.base-gitlab-ci.yml"
 
 variables:
   KUSAMA: kusama

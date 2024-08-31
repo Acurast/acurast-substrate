@@ -68,6 +68,7 @@ pub fn acurast_local_config(relay_chain: &str) -> ChainSpec {
 	.with_name("Acurast Local")
 	.with_id("acurast-local")
 	.with_chain_type(ChainType::Local)
+	.with_properties(properties)
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(

@@ -41,6 +41,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 	.with_name("Acurast Canary")
 	.with_id("acurast-kusama")
 	.with_chain_type(ChainType::Live)
+	.with_properties(properties)
 	.with_genesis_config_patch(genesis_config(
 		vec![
 			(

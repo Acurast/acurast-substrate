@@ -1,0 +1,42 @@
+ Dry-running default (skip with --skip-dry-run)
+    Success! Gas required estimated at Weight(ref_time: 145418046, proof_size: 16689)
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 403.943644μAZERO
+       Event System ➜ NewAccount
+         account: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+       Event Balances ➜ Endowed
+         account: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+         free_balance: 0.50nAZERO
+       Event Balances ➜ Transfer
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+         amount: 0.50nAZERO
+       Event Contracts ➜ Instantiated
+         deployer: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         contract: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+         amount: 206.068mAZERO
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR
+         amount: 1.28mAZERO
+       Event Balances ➜ Deposit
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 838.153nAZERO
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 403.105491μAZERO
+       Event Treasury ➜ Deposit
+         value: 403105491
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 403.105491μAZERO
+         tip: 0AZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 4031038259, proof_size: 9097 }, class: Normal, pays_fee: Yes }
+
+    Contract 5GQxBxbNxVjvrLpZ4p7jwWV9W6oAQ6HnSW9YwFSAzAiod6ZR

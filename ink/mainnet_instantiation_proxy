@@ -1,0 +1,42 @@
+ Dry-running default (skip with --skip-dry-run)
+    Success! Gas required estimated at Weight(ref_time: 169282868, proof_size: 16689)
+      Events
+       Event Balances ➜ Withdraw
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 713.740638μAZERO
+       Event System ➜ NewAccount
+         account: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+       Event Balances ➜ Endowed
+         account: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+         free_balance: 0.50nAZERO
+       Event Balances ➜ Transfer
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+         amount: 0.50nAZERO
+       Event Contracts ➜ Instantiated
+         deployer: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         contract: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+         amount: 525.724mAZERO
+       Event Contracts ➜ StorageDepositTransferredAndHeld
+         from: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         to: 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg
+         amount: 6.44mAZERO
+       Event Balances ➜ Deposit
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         amount: 826.386nAZERO
+       Event Balances ➜ Deposit
+         who: 5EYCAe5fg5WiYGVNH6QpCFnu55Hzv9MwtjFHdQCx8EaSQTm2
+         amount: 712.914252μAZERO
+       Event Treasury ➜ Deposit
+         value: 712914252
+       Event TransactionPayment ➜ TransactionFeePaid
+         who: 5CcduNKcpGPF8mptXoq2yyUW5SQpX4bDiKxGwthGZpaowmvW
+         actual_fee: 712.914252μAZERO
+         tip: 0AZERO
+       Event System ➜ ExtrinsicSuccess
+         dispatch_info: DispatchInfo { weight: Weight { ref_time: 7129099229, proof_size: 9097 }, class: Normal, pays_fee: Yes }
+
+    Contract 5Gn57v4P85q2KaaCJrbuyMVkp4C3zb7VByfBgYyD7vEac7Dg

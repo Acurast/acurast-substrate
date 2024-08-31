@@ -26,6 +26,7 @@ pallet-acurast-marketplace = { workspace = true, features = ["std"] }
 acurast-runtime-common = { workspace = true, features = ["std"] }
 acurast-rococo-runtime = { workspace = true, features = ["std"] }
 acurast-kusama-runtime = { workspace = true, features = ["std"] }
+acurast-mainnet-runtime = { workspace = true, features = ["std"] }
 
 # Substrate
 frame-benchmarking = { workspace = true }
@@ -63,7 +64,7 @@ sp-timestamp = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-consensus = { workspace = true }
 sp-inherents = { workspace = true }
-sp-storage = { workspace = true, features = [ "std" ] }
+sp-storage = { workspace = true, features = ["std"] }
 sc-offchain = { workspace = true }
 substrate-frame-rpc-system = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
@@ -105,6 +106,7 @@ acurast-local = []
 acurast-dev = []
 acurast-rococo = []
 acurast-kusama = []
+acurast-mainnet = []
 
 runtime-benchmarks = [
 	"try-runtime-cli/try-runtime",
@@ -114,5 +116,5 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"try-runtime-cli/try-runtime",
-	"acurast-rococo-runtime/try-runtime"
+	"acurast-rococo-runtime/try-runtime",
 ]

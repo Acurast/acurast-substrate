@@ -8,8 +8,9 @@ pub trait ManagerProvider<T: frame_system::Config> {
 }
 
 /// Trait used to lookup the time a processor was last seen, i.e. sent a heartbeat.
-pub trait ProcessorLastSeenProvider<T: frame_system::Config> {
+pub trait ProcessorInfoProvider<T: frame_system::Config + crate::Config> {
 	fn last_seen(processor: &T::AccountId) -> Option<u128>;
+	fn processor_version(processor: &T::AccountId) -> Option<T::ProcessorVersion>;
 }
 
 /// Manages each job's budget by reserving/unreserving rewards that are externally strored, e.g. on a pallet account in `pallet_balances`.

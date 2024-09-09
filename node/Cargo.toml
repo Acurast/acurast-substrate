@@ -20,6 +20,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 
 # RPC
+pallet-acurast = { workspace = true, features = ["std"] }
 pallet-acurast-marketplace = { workspace = true, features = ["std"] }
 
 # Local

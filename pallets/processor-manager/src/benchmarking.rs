@@ -4,7 +4,7 @@ use crate::stub::{alice_account_id, generate_account};
 
 use super::*;
 
-use acurast_common::ListUpdateOperation;
+use acurast_common::{ListUpdateOperation, Version};
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	sp_runtime::{

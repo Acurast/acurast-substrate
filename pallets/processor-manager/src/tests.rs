@@ -2,9 +2,9 @@
 
 use crate::{
 	mock::*, stub::*, BinaryLocation, Error, Event, ProcessorPairingFor, ProcessorPairingUpdateFor,
-	RewardDistributionSettings, UpdateInfo, Version,
+	RewardDistributionSettings, UpdateInfo,
 };
-use acurast_common::ListUpdateOperation;
+use acurast_common::{ListUpdateOperation, Version};
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
 
 fn paired_manager_processor() -> (AccountId, AccountId) {

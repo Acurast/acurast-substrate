@@ -302,7 +302,7 @@ pub struct ScheduleIter {
 	current: Option<u64>,
 }
 
-impl<'a> Iterator for ScheduleIter {
+impl Iterator for ScheduleIter {
 	type Item = u64;
 
 	// Here, we define the sequence using `.current` and `.next`.
@@ -329,6 +329,26 @@ impl<'a> Iterator for ScheduleIter {
 			},
 		};
 		self.current
+	}
+}
+
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct Version {
+	/// Number representing the device's platform:
+	/// 0: Android
+	pub platform: u32,
+	pub build_number: u32,
+}
+
+impl PartialOrd for Version {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+		match self.platform.partial_cmp(&other.platform) {
+			Some(core::cmp::Ordering::Equal) => {},
+			_ => return None,
+		}
+		self.build_number.partial_cmp(&other.build_number)
 	}
 }
 

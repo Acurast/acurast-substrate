@@ -165,6 +165,8 @@ impl crate::Config for Test {
 	type JobHooks = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	type ProcessorVersion = acurast_common::Version;
+	type MaxVersions = CU32<2>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -16,7 +16,7 @@ use crate::{
 	mock::*, payments::JobBudget, stub::*, AdvertisementRestriction, Assignment,
 	AssignmentStrategy, Config, Error, ExecutionMatch, ExecutionResult, ExecutionSpecifier,
 	FeeManager, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions, PubKeys,
-	SLA,
+	RegistrationExtra, SLA,
 };
 
 /// Job is not assigned and gets deregistered successfully.
@@ -39,11 +39,15 @@ fn test_valid_deregister() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -61,6 +65,7 @@ fn test_valid_deregister() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -148,14 +153,18 @@ fn test_deregister_on_matched_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
-				PlannedExecution { source: processor_account_id(), start_delay: 0 },
-				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
-			])),
-			slots: 2,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -180,6 +189,7 @@ fn test_deregister_on_matched_job() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -280,14 +290,18 @@ fn test_deregister_on_assigned_job() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
-				PlannedExecution { source: processor_account_id(), start_delay: 0 },
-				PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
-			])),
-			slots: 2,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -324,6 +338,7 @@ fn test_deregister_on_assigned_job() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -356,8 +371,8 @@ fn test_deregister_on_assigned_job() {
 		));
 		let assignment =
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.reward *
-			(registration1.extra.slots as u128) *
+		let total_reward = registration1.extra.requirements.reward *
+			(registration1.extra.requirements.slots as u128) *
 			(registration1.schedule.execution_count() as u128);
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
@@ -482,15 +497,15 @@ fn test_deregister_on_assigned_job_for_competing() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			// assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
-			// 	PlannedExecution { source: processor_account_id(), start_delay: 0 },
-			// 	PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
-			// ])),
-			assignment_strategy: AssignmentStrategy::Competing,
-			slots: 2,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Competing,
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -527,6 +542,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -583,8 +599,8 @@ fn test_deregister_on_assigned_job_for_competing() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 		let assignment2 =
 			AcurastMarketplace::stored_matches(processor_2_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.reward *
-			(registration1.extra.slots as u128) *
+		let total_reward = registration1.extra.requirements.reward *
+			(registration1.extra.requirements.slots as u128) *
 			(registration1.schedule.execution_count() as u128);
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
@@ -741,11 +757,15 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Competing,
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Competing,
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -782,6 +802,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -863,8 +884,8 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 		let assignment2 =
 			AcurastMarketplace::stored_matches(processor_2_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.reward *
-			(registration1.extra.slots as u128) *
+		let total_reward = registration1.extra.requirements.reward *
+			(registration1.extra.requirements.slots as u128) *
 			(registration1.schedule.execution_count() as u128);
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
 		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
@@ -1042,11 +1063,15 @@ fn test_match() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 	let registration2 = JobRegistrationFor::<Test> {
@@ -1064,11 +1089,15 @@ fn test_match() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -1097,6 +1126,7 @@ fn test_match() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -1417,17 +1447,21 @@ fn test_multi_assignments() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 4,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 4,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ =
-			Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 1000_000_000);
+			Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 1_000_000_000);
 
 		let initial_job_id = Acurast::job_id_sequence();
 
@@ -1463,6 +1497,7 @@ fn test_multi_assignments() {
 						storage_capacity: 100_000,
 						allowed_consumers: ad.allowed_consumers.clone(),
 						available_modules: JobModules::default(),
+						cpu_score: 1
 					}),
 					AcurastMarketplace::stored_advertisement(processor)
 				);
@@ -1636,11 +1671,15 @@ fn test_no_match_schedule_overlap() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -1659,11 +1698,15 @@ fn test_no_match_schedule_overlap() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -1791,11 +1834,15 @@ fn test_no_match_insufficient_reputation() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: Some(1_000_000),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: Some(1_000_000),
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -1879,11 +1926,15 @@ fn test_more_reports_than_expected() {
 		network_requests: 5,
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
-		extra: JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 3_000_000 * 2,
-			min_reputation: None,
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				min_cpu_score: None,
+			},
 		},
 	};
 
@@ -1904,6 +1955,7 @@ fn test_more_reports_than_expected() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
+				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);

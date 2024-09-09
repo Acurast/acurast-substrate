@@ -76,6 +76,10 @@ pub mod pallet {
 		type UnixTime: UnixTime;
 		/// Hooks used by tightly coupled subpallets.
 		type JobHooks: JobHooks<Self>;
+		/// The type to use to represent a processor version.
+		type ProcessorVersion: PartialOrd + Parameter;
+		#[pallet::constant]
+		type MaxVersions: Get<u32> + ParameterBound;
 		/// Weight Info for extrinsics. Needs to include weight of hooks called. The weights in this pallet or only correct when using the default hooks [()].
 		type WeightInfo: WeightInfo;
 

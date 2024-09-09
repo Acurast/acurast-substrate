@@ -224,6 +224,7 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "log",
+ "pallet-acurast",
  "pallet-acurast-marketplace",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",

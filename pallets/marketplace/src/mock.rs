@@ -164,7 +164,7 @@ impl parachain_info::Config for Test {}
 
 impl pallet_acurast::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type RegistrationExtra = JobRequirementsFor<Self>;
+	type RegistrationExtra = ExtraFor<Self>;
 	type MaxAllowedSources = CU32<4>;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
 	type MaxSlots = CU32<64>;
@@ -232,6 +232,17 @@ impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 	}
 }
 
+type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;
+pub type ProcessorVersionFor<T> = <T as pallet_acurast::Config>::ProcessorVersion;
+pub type MaxVersionsFor<T> = <T as pallet_acurast::Config>::MaxVersions;
+pub type ExtraFor<T> = RegistrationExtra<
+	Balance,
+	AccountId,
+	MaxSlotsFor<T>,
+	ProcessorVersionFor<T>,
+	MaxVersionsFor<T>,
+>;
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = pallet_acurast::CU32<4>;
@@ -241,7 +252,7 @@ impl Config for Test {
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
-	type RegistrationExtra = JobRequirementsFor<Self>;
+	type RegistrationExtra = ExtraFor<Test>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
@@ -257,7 +268,7 @@ impl Config for Test {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
-	fn registration_extra(r: JobRequirementsFor<Test>) -> <Test as Config>::RegistrationExtra {
+	fn registration_extra(r: ExtraFor<Test>) -> <Test as Config>::RegistrationExtra {
 		r
 	}
 

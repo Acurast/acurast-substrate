@@ -1,11 +1,17 @@
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::core::__reexports::serde_json;
+use pallet_acurast_marketplace::{
+	AdvertisementRestriction, AssignmentStrategy, JobRequirements, RegistrationExtra,
+};
 use sc_service::ChainType;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 
 pub(crate) use acurast_rococo_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
-use acurast_runtime_common::*;
+use acurast_runtime_common::{
+	pallet_acurast::{MultiOrigin, Schedule},
+	*,
+};
 
 use crate::chain_spec::{accountid_from_str, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
 
@@ -139,6 +145,10 @@ fn genesis_config(
 		},
 		"sudo": {
 			"key": Some(sudo_account)
+		},
+		"acurastMarketplace": {
+			"jobs": genesis_jobs(),
+			"advertisements": genesis_ad_restrictions(),
 		}
 	})
 }
@@ -160,4 +170,79 @@ pub fn acurast_faucet_account() -> AccountId {
 
 pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5DJCQnpbFHnFZHHc5XJGKP1rduYuNaKNe6kAWgRoZc2JXJ5m")
+}
+
+type JobRegistration =
+	pallet_acurast_marketplace::JobRegistrationForMarketplace<acurast_rococo_runtime::Runtime>;
+
+pub fn genesis_jobs() -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
+	let mut result: Vec<(MultiOrigin<AccountId>, JobRegistration)> = vec![];
+	for i in 0..50_000 {
+		result.push((
+			MultiOrigin::Acurast(generate_account(i)),
+			JobRegistration {
+				script: Default::default(),
+				allowed_sources: None,
+				allow_only_verified_sources: true,
+				schedule: Schedule {
+					duration: 10_000,
+					start_time: 1_757_582_734_000,
+					end_time: 1_757_669_134_000,
+					interval: 60_000,
+					max_start_delay: 10_000,
+				},
+				memory: 0,
+				network_requests: 0,
+				storage: 0,
+				required_modules: Default::default(),
+				extra: RegistrationExtra {
+					requirements: JobRequirements {
+						assignment_strategy: AssignmentStrategy::Single(None),
+						slots: 1,
+						reward: 10_000_000_000,
+						min_reputation: None,
+					},
+				},
+			},
+		));
+	}
+	result
+}
+
+type AdRestriction = AdvertisementRestriction<
+	AccountId,
+	<acurast_rococo_runtime::Runtime as pallet_acurast_marketplace::Config>::MaxAllowedConsumers,
+>;
+
+pub fn genesis_ad_restrictions() -> Vec<(AccountId, AdRestriction)> {
+	let mut result: Vec<(AccountId, AdRestriction)> = vec![];
+	for i in 0..50_000 {
+		result.push((
+			generate_account(i),
+			AdRestriction {
+				max_memory: 10_000,
+				network_request_quota: 100,
+				storage_capacity: 10_000,
+				allowed_consumers: None,
+				available_modules: Default::default(),
+			},
+		));
+	}
+	result
+}
+
+pub fn generate_account(index: u32) -> AccountId {
+	let mut buffer = [0u8; 32];
+	let byte1: u8 = (index >> 24) as u8;
+	let byte2: u8 = ((index << 8) >> 24) as u8;
+	let byte3: u8 = ((index << 16) >> 24) as u8;
+	let byte4: u8 = ((index << 24) >> 24) as u8;
+	buffer[28] = byte1;
+	buffer[29] = byte2;
+	buffer[30] = byte3;
+	buffer[31] = byte4;
+
+	let account_id: AccountId = buffer.into();
+
+	account_id
 }

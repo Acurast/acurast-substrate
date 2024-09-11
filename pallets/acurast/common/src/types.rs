@@ -83,9 +83,10 @@ pub type AllowedSourcesUpdate<AccountId> = ListUpdate<AccountId>;
 pub type CertificateRevocationListUpdate = ListUpdate<SerialNumber>;
 
 /// Structure representing a job registration.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
 pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
 	/// The script to execute. It is a vector of bytes representing a utf8 string. The string needs to be a ipfs url that points to the script.
 	pub script: Script,
@@ -374,7 +375,6 @@ impl<const T: u32> TypedGet for CU32<T> {
 	}
 }
 
-#[cfg(feature = "std")]
 impl<const T: u32> Serialize for CU32<T> {
 	fn serialize<D>(&self, serializer: D) -> Result<D::Ok, D::Error>
 	where
@@ -384,7 +384,6 @@ impl<const T: u32> Serialize for CU32<T> {
 	}
 }
 
-#[cfg(feature = "std")]
 impl<'de, const T: u32> Deserialize<'de> for CU32<T> {
 	fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
 	where

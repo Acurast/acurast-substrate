@@ -102,7 +102,9 @@ pub type AdvertisementFor<T> = Advertisement<
 >;
 
 /// The resource advertisement by a source containing the base restrictions.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
 pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBound> {
 	/// Maximum memory in bytes not to be exceeded during any job's execution.
 	pub max_memory: u32,

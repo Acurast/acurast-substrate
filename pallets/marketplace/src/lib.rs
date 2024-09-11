@@ -114,6 +114,54 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
+	
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config>
+	where
+		<T as pallet_acurast::Config>::RegistrationExtra:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as pallet_acurast::Config>::MaxAllowedSources:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as Config>::MaxAllowedConsumers: serde::Serialize + serde::de::DeserializeOwned,
+	{
+		pub advertisements:
+			Vec<(T::AccountId, AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>)>,
+		pub jobs: Vec<(MultiOrigin<T::AccountId>, JobRegistrationFor<T>)>,
+	}
+
+	impl<T: Config> Default for GenesisConfig<T>
+	where
+		<T as pallet_acurast::Config>::RegistrationExtra:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as pallet_acurast::Config>::MaxAllowedSources:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as Config>::MaxAllowedConsumers: serde::Serialize + serde::de::DeserializeOwned,
+	{
+		fn default() -> Self {
+			Self { advertisements: vec![], jobs: vec![] }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		<T as pallet_acurast::Config>::RegistrationExtra:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as pallet_acurast::Config>::MaxAllowedSources:
+			serde::Serialize + serde::de::DeserializeOwned,
+		<T as Config>::MaxAllowedConsumers: serde::Serialize + serde::de::DeserializeOwned,
+	{
+		fn build(&self) {
+			for (who, ad) in &self.advertisements {
+				StoredAdvertisementRestriction::<T>::insert(who, ad.clone());
+			}
+
+			for (index, (who, job)) in self.jobs.iter().enumerate() {
+				let job = job.clone();
+				StoredJobRegistration::<T>::insert(who, index as u128, job);
+			}
+		}
+	}
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 

@@ -1,47 +1,59 @@
 [settings]
-provider="native"
+provider = "native"
 
 [relaychain]
 default_command = "polkadot"
-default_args = [ "-lparachain=debug" ]
+default_args = ["-lparachain=debug"]
 chain = "rococo-local"
 
-  [[relaychain.nodes]]
-  name = "alice"
-  validator = true
-  command = "polkadot"
-  ws_port = 9944
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+command = "polkadot"
+ws_port = 9944
 
-  [[relaychain.nodes]]
-  name = "bob"
-  validator = true
-  command = "polkadot"
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+command = "polkadot"
 
-  [[relaychain.nodes]]
-  name = "charlie"
-  validator = true
-  command = "polkadot"
+[[relaychain.nodes]]
+name = "charlie"
+validator = true
+command = "polkadot"
 
-  [[relaychain.nodes]]
-  name = "dave"
-  validator = true
-  command = "polkadot"
+[[relaychain.nodes]]
+name = "dave"
+validator = true
+command = "polkadot"
 
 [[parachains]]
 id = 2001
-chain = "acurast-local"
+chain = "acurast-dev"
 cumulus_based = true
 
-	[[parachains.collators]]
-	name = "Alice"
-	command = "acurast-node"
-	ws_port = 8802
-	rpc_port = 8082
-	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--local-runtime", "--block-authoring-duration=1500" ]
+[[parachains.collators]]
+name = "Alice"
+command = "acurast-node"
+ws_port = 8802
+rpc_port = 8082
+args = [
+	"-lparachain=debug,runtime=debug",
+	"--pruning=archive",
+	"--database=rocksdb",
+	"--local-runtime",
+	"--block-authoring-duration=1500",
+]
 
-	[[parachains.collators]]
-	name = "Bob"
-	command = "acurast-node"
-	ws_port = 8803
-	rpc_port = 8083
-	args = [ "-lparachain=debug,runtime=debug", "--pruning=archive", "--database=rocksdb", "--local-runtime", "--block-authoring-duration=1500" ]
+[[parachains.collators]]
+name = "Bob"
+command = "acurast-node"
+ws_port = 8803
+rpc_port = 8083
+args = [
+	"-lparachain=debug,runtime=debug",
+	"--pruning=archive",
+	"--database=rocksdb",
+	"--local-runtime",
+	"--block-authoring-duration=1500",
+]

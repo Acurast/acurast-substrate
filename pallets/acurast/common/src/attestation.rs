@@ -273,17 +273,17 @@ pub fn peek_attestation_version(data: &[u8]) -> Result<i64, ParseError> {
 /// - the chain starts with a self-signed certificate at index 0 that matches one of the known [TRUSTED_ROOT_CERTS]
 /// - that the root's contained public key signs the next certificate in the chain
 /// - the next certificate's public key signs the next one and so on...
-pub fn validate_certificate_chain<'a>(
-	chain: &'a CertificateChainInput,
-) -> Result<(Vec<CertificateId>, TBSCertificate<'a>, PublicKey), ValidationError> {
+pub fn validate_certificate_chain(
+	chain: &CertificateChainInput,
+) -> Result<(Vec<CertificateId>, TBSCertificate<'_>, PublicKey), ValidationError> {
 	let root_pub_key =
 		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(TRUSTED_ROOT_PUB_KEY)?)?;
 	let mut cert_ids = Vec::<CertificateId>::new();
 	let fold_result = chain.iter().try_fold::<_, _, Result<_, ValidationError>>(
 		(Option::<PublicKey>::None, Option::<Certificate>::None),
 		|(prev_pbk, _), cert_data| {
-			let cert = parse_cert(&cert_data)?;
-			let payload = parse_cert_payload(&cert_data)?;
+			let cert = parse_cert(cert_data)?;
+			let payload = parse_cert_payload(cert_data)?;
 			let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
 			if prev_pbk.is_none() && current_pbk != root_pub_key {
 				return Err(ValidationError::UntrustedRoot)
@@ -308,7 +308,7 @@ pub fn validate_certificate_chain<'a>(
 	Ok((cert_ids, last_cert.tbs_certificate, last_cert_pbk))
 }
 
-const TRUSTED_ROOT_PUB_KEY: &'static [u8] = include_bytes!("./__root_key__/public.key");
+const TRUSTED_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/public.key");
 
 #[cfg(test)]
 mod tests {

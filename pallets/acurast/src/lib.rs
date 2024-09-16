@@ -87,128 +87,6 @@ pub mod pallet {
 		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}
 
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		/// Genesis attestations considered valid without ever calling [`Pallet<T>::submit_attestation`] and therefore skipping validation!
-		///
-		/// Specify a list o tuples (account_id, attestation) or (account_id, None) to use default long-term valid attestation.
-		///
-		/// This should only be used for test runtime configurations.
-		pub attestations: Vec<(T::AccountId, Option<Attestation>)>,
-	}
-
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { attestations: vec![] }
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			for (who, attestation) in self.attestations.clone() {
-				<StoredAttestation<T>>::insert(
-					&who,
-					attestation.unwrap_or(Attestation {
-						cert_ids: ValidatingCertIds::default(),
-						key_description: BoundedKeyDescription {
-							attestation_security_level: AttestationSecurityLevel::Unknown,
-							key_mint_security_level: AttestationSecurityLevel::Unknown,
-							software_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: Some(1_672_527_600_000), // 1.1.2023
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-							tee_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: None,
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-						},
-						validity: AttestationValidity {
-							not_before: 0,
-							not_after: 4_102_441_200_000, // 1.1.2100
-						},
-					}),
-				);
-			}
-		}
-	}
-
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -407,7 +285,7 @@ pub mod pallet {
 			};
 			<StoredJobRegistration<T>>::insert(
 				&job_id.0,
-				&job_id.1,
+				job_id.1,
 				JobRegistration { allowed_sources, ..registration.clone() },
 			);
 
@@ -433,7 +311,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				(&attestation_chain).certificate_chain.len() >= 2,
+				attestation_chain.certificate_chain.len() >= 2,
 				Error::<T>::CertificateChainTooShort,
 			);
 

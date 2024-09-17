@@ -440,14 +440,8 @@ fn test_update_revocation_list() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated(
-					alice_account_id(),
-					updates_1.try_into().unwrap()
-				)),
-				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated(
-					alice_account_id(),
-					updates_2.try_into().unwrap()
-				))
+				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated),
+				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated)
 			]
 		);
 	});
@@ -477,10 +471,7 @@ fn test_update_revocation_list_submit_attestation() {
 
 		assert_eq!(
 			events(),
-			[RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated(
-				alice_account_id(),
-				updates.try_into().unwrap()
-			)),]
+			[RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated)]
 		);
 	});
 }
@@ -523,10 +514,7 @@ fn test_update_revocation_list_assign_job() {
 					registration.clone(),
 					(MultiOrigin::Acurast(bob_account_id()), initial_job_id + 1)
 				)),
-				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated(
-					alice_account_id(),
-					updates.try_into().unwrap()
-				)),
+				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated),
 			]
 		);
 	});

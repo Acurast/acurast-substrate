@@ -104,9 +104,9 @@ impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
 	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
 )]
 pub struct BoundedDeviceAttestation {
-	key_usage_properties: BoundedDeviceAttestationKeyUsageProperties,
-	device_os_information: BoundedDeviceAttestationDeviceOSInformation,
-	nonce: BoundedDeviceAttestationNonce,
+	pub key_usage_properties: BoundedDeviceAttestationKeyUsageProperties,
+	pub device_os_information: BoundedDeviceAttestationDeviceOSInformation,
+	pub nonce: BoundedDeviceAttestationNonce,
 }
 
 impl TryFrom<DeviceAttestation<'_>> for BoundedDeviceAttestation {

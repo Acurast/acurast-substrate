@@ -68,8 +68,6 @@ pub mod pallet {
 		type EnvKeyMaxSize: Get<u32> + ParameterBound;
 		#[pallet::constant]
 		type EnvValueMaxSize: Get<u32> + ParameterBound;
-		/// Barrier for the update_certificate_revocation_list extrinsic call.
-		type RevocationListUpdateBarrier: RevocationListUpdateBarrier<Self>;
 		/// Barrier for submit_attestation extrinsic call.
 		type KeyAttestationBarrier: KeyAttestationBarrier<Self>;
 		/// Timestamp
@@ -150,10 +148,7 @@ pub mod pallet {
 		/// An attestation was successfully stored. [attestation, who]
 		AttestationStored(Attestation, T::AccountId),
 		/// The certificate revocation list has been updated. [who, updates]
-		CertificateRevocationListUpdated(
-			T::AccountId,
-			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
-		),
+		CertificateRevocationListUpdated,
 		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
 	}
@@ -342,10 +337,8 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			if !T::RevocationListUpdateBarrier::can_update_revocation_list(&who, &updates) {
-				return Err(Error::<T>::CertificateRevocationListUpdateNotAllowed)?
-			}
+			ensure_root(origin)?;
+
 			for update in &updates {
 				match &update.operation {
 					ListUpdateOperation::Add => {
@@ -356,7 +349,7 @@ pub mod pallet {
 					},
 				}
 			}
-			Self::deposit_event(Event::CertificateRevocationListUpdated(who, updates));
+			Self::deposit_event(Event::CertificateRevocationListUpdated);
 			Ok(().into())
 		}
 

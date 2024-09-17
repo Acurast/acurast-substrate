@@ -222,6 +222,49 @@ pub enum KeyDescription<'a> {
 	V300(KeyDescriptionKeyMint<'a>),
 }
 
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationKeyUsageProperties<'a> {
+	pub t4: i64,
+	pub t1200: i64,
+	pub t1201: i64,
+	pub t1202: i64,
+	pub t1203: i64,
+	pub t1204: &'a [u8],
+	pub t5: &'a [u8],
+	pub t1206: i64,
+	pub t1207: i64,
+	pub t1208: i64,
+	pub t1209: i64,
+	pub t1210: i64,
+	pub t1211: i64,
+}
+
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationDeviceOSInformation<'a> {
+	pub t1400: &'a [u8],
+	pub t1104: i64,
+	pub t1403: &'a [u8],
+	pub t1405: &'a [u8],
+	pub t1406: i64,
+	pub t1420: &'a [u8],
+}
+
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationNonce<'a> {
+	pub nonce: &'a [u8],
+}
+
+pub struct DeviceAttestation<'a> {
+	pub key_usage_properties: DeviceAttestationKeyUsageProperties<'a>,
+	pub device_os_information: DeviceAttestationDeviceOSInformation<'a>,
+	pub nonce: DeviceAttestationNonce<'a>,
+}
+
+pub enum ParsedAttestation<'a> {
+	KeyDescription(KeyDescription<'a>),
+	DeviceAttestation(DeviceAttestation<'a>),
+}
+
 /// One of
 /// Software (0),
 /// TrustedEnvironment (1),

@@ -122,7 +122,7 @@ pub mod staking_info {
 }
 
 pub mod utils {
-	use pallet_acurast::{Attestation, VerifiedBootState};
+	use pallet_acurast::{Attestation, BoundedAttestationContent, VerifiedBootState};
 	use sp_std::prelude::*;
 
 	pub fn check_attestation(
@@ -130,15 +130,20 @@ pub mod utils {
 		allowed_package_names: &[&[u8]],
 		allowed_signature_digests: &[&[u8]],
 	) -> bool {
-		let root_of_trust = &attestation.key_description.tee_enforced.root_of_trust;
-		if let Some(root_of_trust) = root_of_trust {
-			if root_of_trust.verified_boot_state == VerifiedBootState::Verified {
-				return check_attestation_signature_digest(
-					attestation,
-					allowed_package_names,
-					allowed_signature_digests,
-				)
-			}
+		match &attestation.content {
+			BoundedAttestationContent::KeyDescription(key_description) => {
+				let root_of_trust = &key_description.tee_enforced.root_of_trust;
+				if let Some(root_of_trust) = root_of_trust {
+					if root_of_trust.verified_boot_state == VerifiedBootState::Verified {
+						return check_attestation_signature_digest(
+							attestation,
+							allowed_package_names,
+							allowed_signature_digests,
+						)
+					}
+				}
+			},
+			BoundedAttestationContent::DeviceAttestation(device_attestation) => {},
 		}
 
 		false

@@ -85,7 +85,7 @@ pub mod pallet {
 		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -253,7 +253,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who.clone());
 			let job_id: JobId<T::AccountId> = (multi_origin, local_job_id);
-			let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+			let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 				.ok_or(Error::<T>::JobRegistrationNotFound)?;
 
 			let mut current_allowed_sources =

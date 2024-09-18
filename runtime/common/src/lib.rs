@@ -15,8 +15,6 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string;
 pub use xcm::{
 	latest::{AssetId, MultiAsset},
 	prelude::Fungible,

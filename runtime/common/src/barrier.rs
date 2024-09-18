@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 
 use frame_support::traits::Get;
 use pallet_acurast::{Attestation, BoundedAttestationContent, ProcessorType};
+use sp_std::prelude::*;
 
 use crate::utils::{check_attestation, check_key_description};
 

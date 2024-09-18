@@ -2,31 +2,12 @@ use acurast_common::{Attestation, JobId, MultiOrigin};
 use frame_support::{dispatch::DispatchResultWithPostInfo, weights::Weight};
 use sp_std::prelude::*;
 
-use crate::{
-	AllowedSourcesUpdate, CertificateRevocationListUpdate, Config, Error, JobRegistrationFor,
-};
-
-/// Allows to customize who can perform an update to the certificate revocation list.
-pub trait RevocationListUpdateBarrier<T: Config> {
-	fn can_update_revocation_list(
-		origin: &T::AccountId,
-		updates: &Vec<CertificateRevocationListUpdate>,
-	) -> bool;
-}
-
-impl<T: Config> RevocationListUpdateBarrier<T> for () {
-	fn can_update_revocation_list(
-		_origin: &T::AccountId,
-		_updates: &Vec<CertificateRevocationListUpdate>,
-	) -> bool {
-		false
-	}
-}
+use crate::{AllowedSourcesUpdate, Config, Error, JobRegistrationFor};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ProcessorType {
-	StandAlone,
-	Personal,
+	Core,
+	Lite,
 }
 
 /// Allows to customize the kind of key attestations that are accepted.

@@ -68,7 +68,6 @@ use frame_system::{
 };
 use sp_runtime::AccountId32;
 pub use sp_runtime::{traits::BlakeTwo256, MultiAddress, Perbill, Permill};
-use utils::check_attestation_signature_digest;
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
@@ -94,10 +93,9 @@ use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
 /// Acurast Imports
 use acurast_p256_crypto::MultiSignature;
-use acurast_runtime_common::*;
+use acurast_runtime_common::{barrier::Barrier, *};
 
-use acurast_runtime_common::utils::check_attestation;
-use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, ProcessorType, CU32};
+use pallet_acurast::{Attestation, EnvironmentFor, JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ParsedAction, ProxyChain};
 pub use pallet_acurast_marketplace;
 use pallet_acurast_marketplace::{
@@ -757,12 +755,18 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
-	pub const AcurastStandAloneProcessorPackageName: &'static [u8] = b"com.acurast.attested.executor.canary";
-	pub const AcurastPersonalProcessorPackageName: &'static [u8] = b"com.acurast.attested.executor.sbs.canary";
-	pub const AcurastProcessorPackageNames: [&'static [u8]; 2] = [AcurastStandAloneProcessorPackageName::get(), AcurastPersonalProcessorPackageName::get()];
-	pub const AcurastStandAloneProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
-	pub const AcurastPersonalProcessorSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
-	pub const AcurastProcessorSignatureDigests: [&'static [u8]; 2] = [AcurastStandAloneProcessorSignatureDigest::get(), AcurastPersonalProcessorSignatureDigest::get()];
+	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.mainnet";
+	pub const LitePackageName: &'static [u8] = b"com.acurast.attested.executor.sbs.mainnet";
+	pub const BundleId: &'static [u8] = b"GV2452922R.com.acurast.executor";
+	pub const CoreSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
+	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub PackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), LitePackageName::get()];
+	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
+	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageName::get()];
+	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageName::get()];
+	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get()];
+	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get()];
+	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 }
 
@@ -811,8 +815,16 @@ impl pallet_acurast::Config for Runtime {
 	type MaxEnvVars = MaxEnvVars;
 	type EnvKeyMaxSize = EnvKeyMaxSize;
 	type EnvValueMaxSize = EnvValueMaxSize;
-	type RevocationListUpdateBarrier = Barrier;
-	type KeyAttestationBarrier = Barrier;
+	type KeyAttestationBarrier = Barrier<
+		Self,
+		PackageNames,
+		SignatureDigests,
+		CorePackageNames,
+		LitePackageNames,
+		CoreSignatureDigests,
+		LiteSignatureDigests,
+		BundleIds,
+	>;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type ProcessorVersion = pallet_acurast::Version;
@@ -978,51 +990,6 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 
 				Ok(().into())
 			},
-		}
-	}
-}
-
-/// Struct use for various barrier implementations.
-pub struct Barrier;
-
-impl pallet_acurast::RevocationListUpdateBarrier<Runtime> for Barrier {
-	fn can_update_revocation_list(
-		origin: &<Runtime as frame_system::Config>::AccountId,
-		_updates: &Vec<pallet_acurast::CertificateRevocationListUpdate>,
-	) -> bool {
-		let pallet_account: <Runtime as frame_system::Config>::AccountId =
-			<Runtime as pallet_acurast::Config>::PalletId::get().into_account_truncating();
-		&pallet_account == origin
-	}
-}
-
-impl pallet_acurast::KeyAttestationBarrier<Runtime> for Barrier {
-	fn accept_attestation_for_origin(
-		_origin: &<Runtime as frame_system::Config>::AccountId,
-		attestation: &Attestation,
-	) -> bool {
-		check_attestation(
-			attestation,
-			AcurastProcessorPackageNames::get().as_slice(),
-			AcurastProcessorSignatureDigests::get().as_slice(),
-		)
-	}
-
-	fn check_attestation_is_of_type(
-		attestation: &Attestation,
-		processor_type: ProcessorType,
-	) -> bool {
-		match processor_type {
-			ProcessorType::StandAlone => check_attestation_signature_digest(
-				attestation,
-				&[AcurastStandAloneProcessorPackageName::get()],
-				&[AcurastStandAloneProcessorSignatureDigest::get()],
-			),
-			ProcessorType::Personal => check_attestation_signature_digest(
-				attestation,
-				&[AcurastPersonalProcessorPackageName::get()],
-				&[AcurastPersonalProcessorSignatureDigest::get()],
-			),
 		}
 	}
 }

@@ -12,7 +12,7 @@ fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (_, processor_account) = generate_pair_account();
 	let initial_timestamp = 1657363915010u64;
 	if Timestamp::get() != initial_timestamp {
-		let _ = Timestamp::set_timestamp(initial_timestamp);
+		Timestamp::set_timestamp(initial_timestamp);
 	}
 	let timestamp = 1657363915002u128;
 	let signature = generate_signature(&signer, &manager_account, timestamp, 1);
@@ -28,7 +28,7 @@ fn paired_manager_processor() -> (AccountId, AccountId) {
 
 #[test]
 fn test_update_processor_pairings_succeed_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
@@ -88,7 +88,7 @@ fn test_update_processor_pairings_succeed_1() {
 
 #[test]
 fn test_update_processor_pairings_succeed_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
@@ -147,7 +147,7 @@ fn test_update_processor_pairings_succeed_2() {
 
 #[test]
 fn test_update_processor_pairings_failure_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
@@ -170,7 +170,7 @@ fn test_update_processor_pairings_failure_1() {
 
 #[test]
 fn test_update_processor_pairings_failure_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
@@ -204,7 +204,7 @@ fn test_update_processor_pairings_failure_2() {
 
 #[test]
 fn test_update_processor_pairings_failure_3() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
@@ -242,19 +242,19 @@ fn test_update_processor_pairings_failure_3() {
 
 #[test]
 fn test_recover_funds_succeed_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
-			processor_account.clone().into(),
+			processor_account.clone(),
 			10_000_000
 		));
 		assert_eq!(Balances::balance(&alice_account_id()), 90_000_000);
 
 		assert_ok!(AcurastProcessorManager::recover_funds(
 			RuntimeOrigin::signed(manager_account),
-			processor_account.clone().into(),
-			alice_account_id().into(),
+			processor_account.clone(),
+			alice_account_id(),
 		));
 		assert_eq!(Balances::balance(&alice_account_id()), 99_999_000); // 1_000 of existensial balance remains on the processor
 
@@ -270,13 +270,13 @@ fn test_recover_funds_succeed_1() {
 
 #[test]
 fn test_recover_funds_succeed_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
 
 		assert_ok!(AcurastProcessorManager::recover_funds(
 			RuntimeOrigin::signed(manager_account),
-			processor_account.clone().into(),
-			alice_account_id().into(),
+			processor_account.clone(),
+			alice_account_id(),
 		));
 
 		assert_eq!(
@@ -291,15 +291,15 @@ fn test_recover_funds_succeed_2() {
 
 #[test]
 fn test_recover_funds_failure_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (manager_account, _) = paired_manager_processor();
 
 		let (_, processor_account) = generate_pair_account();
 
 		let call = AcurastProcessorManager::recover_funds(
 			RuntimeOrigin::signed(manager_account),
-			processor_account.clone().into(),
-			alice_account_id().into(),
+			processor_account.clone(),
+			alice_account_id(),
 		);
 
 		assert_err!(call, Error::<Test>::ProcessorHasNoManager);
@@ -308,14 +308,14 @@ fn test_recover_funds_failure_1() {
 
 #[test]
 fn test_recover_funds_failure_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (manager_account, _) = paired_manager_processor();
 		let (_, processor_account) = paired_manager_processor();
 
 		let call = AcurastProcessorManager::recover_funds(
 			RuntimeOrigin::signed(manager_account),
-			processor_account.clone().into(),
-			alice_account_id().into(),
+			processor_account.clone(),
+			alice_account_id(),
 		);
 
 		assert_err!(call, Error::<Test>::ProcessorPairedWithAnotherManager);
@@ -324,7 +324,7 @@ fn test_recover_funds_failure_2() {
 
 #[test]
 fn test_pair_with_manager() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (signer, manager_account) = generate_pair_account();
 		let (_, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
@@ -363,12 +363,12 @@ fn test_pair_with_manager() {
 
 #[test]
 fn test_advertise_for_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
 
 		assert_ok!(AcurastProcessorManager::advertise_for(
 			RuntimeOrigin::signed(manager_account.clone()),
-			processor_account.clone().into(),
+			processor_account.clone(),
 			(),
 		));
 
@@ -387,14 +387,14 @@ fn test_advertise_for_success() {
 
 #[test]
 fn test_advertise_for_failure() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = paired_manager_processor();
 		let (manager_account, _) = paired_manager_processor();
 
 		assert_err!(
 			AcurastProcessorManager::advertise_for(
 				RuntimeOrigin::signed(manager_account),
-				processor_account.clone().into(),
+				processor_account.clone(),
 				(),
 			),
 			Error::<Test>::ProcessorPairedWithAnotherManager,
@@ -404,7 +404,7 @@ fn test_advertise_for_failure() {
 
 #[test]
 fn test_heartbeat_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = paired_manager_processor();
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
@@ -428,7 +428,7 @@ fn test_heartbeat_success() {
 
 #[test]
 fn test_heartbeat_failure() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = generate_pair_account();
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
@@ -444,7 +444,7 @@ fn test_heartbeat_failure() {
 
 #[test]
 fn test_heartbeat_with_version_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = paired_manager_processor();
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
@@ -473,7 +473,7 @@ fn test_heartbeat_with_version_success() {
 
 #[test]
 fn test_heartbeat_with_version_failure() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = generate_pair_account();
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
@@ -495,13 +495,13 @@ fn test_heartbeat_with_version_failure() {
 
 #[test]
 fn test_reward_distribution_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = paired_manager_processor();
 
 		let mut timestamp = 1657363915010u64;
 		let mut block_number = 1;
 		if Timestamp::get() != timestamp {
-			let _ = Timestamp::set_timestamp(timestamp);
+			Timestamp::set_timestamp(timestamp);
 		}
 		System::set_block_number(block_number);
 
@@ -535,7 +535,7 @@ fn test_reward_distribution_success() {
 
 		timestamp += 900_000;
 		block_number += 75;
-		let _ = Timestamp::set_timestamp(timestamp);
+		Timestamp::set_timestamp(timestamp);
 		System::set_block_number(block_number);
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
@@ -545,7 +545,7 @@ fn test_reward_distribution_success() {
 
 		timestamp += 900_000;
 		block_number += 75;
-		let _ = Timestamp::set_timestamp(timestamp);
+		Timestamp::set_timestamp(timestamp);
 		System::set_block_number(block_number);
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
@@ -555,7 +555,7 @@ fn test_reward_distribution_success() {
 
 		timestamp += 900_000;
 		block_number += 75;
-		let _ = Timestamp::set_timestamp(timestamp);
+		Timestamp::set_timestamp(timestamp);
 		System::set_block_number(block_number);
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
@@ -565,7 +565,7 @@ fn test_reward_distribution_success() {
 
 		timestamp += 900_000;
 		block_number += 75;
-		let _ = Timestamp::set_timestamp(timestamp);
+		Timestamp::set_timestamp(timestamp);
 		System::set_block_number(block_number);
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
@@ -587,7 +587,7 @@ fn test_reward_distribution_success() {
 
 #[test]
 fn insert_remove_binary_hash_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let hash = [1u8; 32];
 		let version = Version { platform: 0, build_number: 1 };
 
@@ -596,7 +596,7 @@ fn insert_remove_binary_hash_success() {
 		assert_ok!(AcurastProcessorManager::update_binary_hash(
 			RuntimeOrigin::root(),
 			version.clone(),
-			Some(hash.clone().into())
+			Some(hash.into())
 		));
 
 		assert!(AcurastProcessorManager::known_binary_hash(&version).is_some());
@@ -606,7 +606,7 @@ fn insert_remove_binary_hash_success() {
 			last_events.last(),
 			Some(RuntimeEvent::AcurastProcessorManager(Event::BinaryHashUpdated(
 				version.clone(),
-				Some(hash.clone().into())
+				Some(hash.into())
 			)))
 			.as_ref()
 		);
@@ -633,7 +633,7 @@ fn insert_remove_binary_hash_success() {
 
 #[test]
 fn insert_remove_binary_hash_failure() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let hash = [1u8; 32];
 		let version = Version { platform: 0, build_number: 1 };
 
@@ -643,7 +643,7 @@ fn insert_remove_binary_hash_failure() {
 			AcurastProcessorManager::update_binary_hash(
 				RuntimeOrigin::signed(alice_account_id()),
 				version.clone(),
-				Some(hash.clone().into())
+				Some(hash.into())
 			),
 			BadOrigin
 		);
@@ -663,7 +663,7 @@ fn insert_remove_binary_hash_failure() {
 
 #[test]
 fn set_processor_update_info_success() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let (manager_account, processor_account) = paired_manager_processor();
 
         let hash = [1u8; 32];
@@ -696,7 +696,7 @@ fn set_processor_update_info_success() {
 
 #[test]
 fn set_processor_update_info_failure_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let (manager_account, processor_account) = paired_manager_processor();
 
         let hash = [1u8; 32];
@@ -726,7 +726,7 @@ fn set_processor_update_info_failure_1() {
 
 #[test]
 fn set_processor_update_info_failure_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let (manager_account, _) = paired_manager_processor();
         let (_, processor_account) = paired_manager_processor();
 
@@ -736,7 +736,7 @@ fn set_processor_update_info_failure_2() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.clone().into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {
@@ -753,7 +753,7 @@ fn set_processor_update_info_failure_2() {
 
 #[test]
 fn set_processor_update_info_failure_3() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let (_, processor_account) = paired_manager_processor();
 
         let hash = [1u8; 32];
@@ -779,7 +779,7 @@ fn set_processor_update_info_failure_3() {
 
 #[test]
 fn set_processor_update_info_failure_4() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let (manager_account, _) = paired_manager_processor();
 
         let hash = [1u8; 32];
@@ -788,7 +788,7 @@ fn set_processor_update_info_failure_4() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.clone().into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {

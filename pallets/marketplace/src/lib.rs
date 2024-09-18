@@ -1067,7 +1067,7 @@ pub mod pallet {
 						!registration.allow_only_verified_sources ||
 							ensure_source_verified_and_of_type::<T>(
 								&planned_execution.source,
-								ProcessorType::StandAlone
+								ProcessorType::Core
 							)
 							.is_ok(),
 						Error::<T>::UnverifiedSourceInMatch

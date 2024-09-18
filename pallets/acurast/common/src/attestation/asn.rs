@@ -222,6 +222,67 @@ pub enum KeyDescription<'a> {
 	V300(KeyDescriptionKeyMint<'a>),
 }
 
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationKeyUsageProperties<'a> {
+	#[explicit(4)]
+	pub t4: Option<i64>,
+	#[explicit(1200)]
+	pub t1200: Option<i64>,
+	#[explicit(1201)]
+	pub t1201: Option<i64>,
+	#[explicit(1202)]
+	pub t1202: Option<i64>,
+	#[explicit(1203)]
+	pub t1203: Option<i64>,
+	#[explicit(1204)]
+	pub t1204: Option<&'a [u8]>,
+	#[explicit(5)]
+	pub t5: Option<&'a [u8]>,
+	#[explicit(1206)]
+	pub t1206: Option<i64>,
+	#[explicit(1207)]
+	pub t1207: Option<i64>,
+	#[explicit(1209)]
+	pub t1209: Option<i64>,
+	#[explicit(1210)]
+	pub t1210: Option<i64>,
+	#[explicit(1211)]
+	pub t1211: Option<i64>,
+}
+
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationDeviceOSInformation<'a> {
+	#[explicit(1400)]
+	pub t1400: Option<&'a [u8]>,
+	#[explicit(1104)]
+	pub t1104: Option<i64>,
+	#[explicit(1403)]
+	pub t1403: Option<&'a [u8]>,
+	#[explicit(1405)]
+	pub t1405: Option<&'a [u8]>,
+	#[explicit(1406)]
+	pub t1406: Option<i64>,
+	#[explicit(1420)]
+	pub t1420: Option<&'a [u8]>,
+}
+
+#[derive(Asn1Read, Asn1Write)]
+pub struct DeviceAttestationNonce<'a> {
+	#[explicit(1)]
+	pub nonce: Option<&'a [u8]>,
+}
+
+pub struct DeviceAttestation<'a> {
+	pub key_usage_properties: DeviceAttestationKeyUsageProperties<'a>,
+	pub device_os_information: DeviceAttestationDeviceOSInformation<'a>,
+	pub nonce: DeviceAttestationNonce<'a>,
+}
+
+pub enum ParsedAttestation<'a> {
+	KeyDescription(KeyDescription<'a>),
+	DeviceAttestation(DeviceAttestation<'a>),
+}
+
 /// One of
 /// Software (0),
 /// TrustedEnvironment (1),

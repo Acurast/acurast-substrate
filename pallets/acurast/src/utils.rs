@@ -1,6 +1,6 @@
 use acurast_common::{
-	extract_attestation, validate_certificate_chain, AttestationSecurityLevel, ECDSACurve,
-	PublicKey,
+	extract_attestation, validate_certificate_chain, AttestationSecurityLevel,
+	BoundedAttestationContent, ECDSACurve, PublicKey,
 };
 use frame_support::{ensure, traits::UnixTime};
 use parity_scale_codec::Encode;
@@ -28,7 +28,7 @@ pub fn validate_and_extract_attestation<T: Config>(
 		not_after: cert.validity.not_after.timestamp_millis(),
 	};
 
-	let key_description = extract_attestation(cert.extensions)
+	let parsed_attestation = extract_attestation(cert.extensions)
 		.map_err(|_| Error::<T>::AttestationExtractionFailed)?;
 
 	let cert_ids_bounded = cert_ids
@@ -47,7 +47,7 @@ pub fn validate_and_extract_attestation<T: Config>(
 
 	Ok(Attestation {
 		cert_ids: cert_ids_bounded_vec,
-		key_description: key_description
+		content: parsed_attestation
 			.try_into()
 			.map_err(|_| Error::<T>::AttestationToBoundedTypeConversionFailed)?,
 		validity: attestation_validity,
@@ -76,8 +76,10 @@ pub fn ensure_source_verified_and_security_level<T: Config>(
 	valid_security_levels: &[AttestationSecurityLevel],
 ) -> Result<(), Error<T>> {
 	let attestation = check_attestation(account)?;
-	if !valid_security_levels.contains(&attestation.key_description.attestation_security_level) {
-		return Err(Error::<T>::AttestationRejected)
+	if let BoundedAttestationContent::KeyDescription(key_description) = attestation.content {
+		if !valid_security_levels.contains(&key_description.attestation_security_level) {
+			return Err(Error::<T>::AttestationRejected)
+		}
 	}
 	Ok(())
 }
@@ -92,14 +94,16 @@ pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result
 	if now >= attestation.validity.not_after || now < attestation.validity.not_before {
 		return Err(Error::<T>::AttestationCertificateNotValid)
 	}
-	let expire_date_time = attestation
-		.key_description
-		.tee_enforced
-		.usage_expire_date_time
-		.or(attestation.key_description.software_enforced.usage_expire_date_time);
-	if let Some(expire_date_time) = expire_date_time {
-		if now >= expire_date_time {
-			return Err(Error::<T>::AttestationUsageExpired)
+
+	if let BoundedAttestationContent::KeyDescription(key_description) = &attestation.content {
+		let expire_date_time = key_description
+			.tee_enforced
+			.usage_expire_date_time
+			.or(key_description.software_enforced.usage_expire_date_time);
+		if let Some(expire_date_time) = expire_date_time {
+			if now >= expire_date_time {
+				return Err(Error::<T>::AttestationUsageExpired)
+			}
 		}
 	}
 	Ok(())

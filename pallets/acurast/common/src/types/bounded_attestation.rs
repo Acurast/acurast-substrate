@@ -1,6 +1,10 @@
 #![cfg(feature = "attestation")]
 
 use crate::{
+	asn::{
+		DeviceAttestation, DeviceAttestationDeviceOSInformation,
+		DeviceAttestationKeyUsageProperties, DeviceAttestationNonce, ParsedAttestation,
+	},
 	attestation::{
 		asn::{self, KeyDescription},
 		CertificateChainInput, CHAIN_MAX_LENGTH,
@@ -53,7 +57,7 @@ pub struct AttestationChain {
 )]
 pub struct Attestation {
 	pub cert_ids: ValidatingCertIds,
-	pub key_description: BoundedKeyDescription,
+	pub content: BoundedAttestationContent,
 	pub validity: AttestationValidity,
 }
 
@@ -73,6 +77,133 @@ pub struct Attestation {
 pub struct AttestationValidity {
 	pub not_before: u64,
 	pub not_after: u64,
+}
+
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+pub enum BoundedAttestationContent {
+	KeyDescription(BoundedKeyDescription),
+	DeviceAttestation(BoundedDeviceAttestation),
+}
+
+impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
+	type Error = ();
+
+	fn try_from(value: ParsedAttestation<'_>) -> Result<Self, Self::Error> {
+		match value {
+			ParsedAttestation::KeyDescription(key_description) =>
+				Ok(Self::KeyDescription(key_description.try_into()?)),
+			ParsedAttestation::DeviceAttestation(device_attestation) =>
+				Ok(Self::DeviceAttestation(device_attestation.try_into()?)),
+		}
+	}
+}
+
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+pub struct BoundedDeviceAttestation {
+	pub key_usage_properties: BoundedDeviceAttestationKeyUsageProperties,
+	pub device_os_information: BoundedDeviceAttestationDeviceOSInformation,
+	pub nonce: BoundedDeviceAttestationNonce,
+}
+
+impl TryFrom<DeviceAttestation<'_>> for BoundedDeviceAttestation {
+	type Error = ();
+
+	fn try_from(value: DeviceAttestation<'_>) -> Result<Self, Self::Error> {
+		Ok(Self {
+			key_usage_properties: value.key_usage_properties.try_into()?,
+			device_os_information: value.device_os_information.try_into()?,
+			nonce: value.nonce.try_into()?,
+		})
+	}
+}
+
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+pub struct BoundedDeviceAttestationKeyUsageProperties {
+	pub t4: Option<i64>,
+	pub t1200: Option<i64>,
+	pub t1201: Option<i64>,
+	pub t1202: Option<i64>,
+	pub t1203: Option<i64>,
+	pub t1204: Option<BoundedVec<u8, ConstU32<64>>>,
+	pub t5: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1206: Option<i64>,
+	pub t1207: Option<i64>,
+	pub t1209: Option<i64>,
+	pub t1210: Option<i64>,
+	pub t1211: Option<i64>,
+}
+
+impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
+	for BoundedDeviceAttestationKeyUsageProperties
+{
+	type Error = ();
+
+	fn try_from(value: DeviceAttestationKeyUsageProperties<'_>) -> Result<Self, Self::Error> {
+		Ok(Self {
+			t4: value.t4,
+			t1200: value.t1200,
+			t1201: value.t1201,
+			t1202: value.t1202,
+			t1203: value.t1203,
+			t1204: value.t1204.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t5: value.t5.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1206: value.t1206,
+			t1207: value.t1207,
+			t1209: value.t1209,
+			t1210: value.t1210,
+			t1211: value.t1211,
+		})
+	}
+}
+
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+pub struct BoundedDeviceAttestationDeviceOSInformation {
+	pub t1400: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1104: Option<i64>,
+	pub t1403: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1405: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1406: Option<i64>,
+	pub t1420: Option<BoundedVec<u8, ConstU32<32>>>,
+}
+
+impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
+	for BoundedDeviceAttestationDeviceOSInformation
+{
+	type Error = ();
+
+	fn try_from(value: DeviceAttestationDeviceOSInformation<'_>) -> Result<Self, Self::Error> {
+		Ok(Self {
+			t1400: value.t1400.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1104: value.t1104,
+			t1403: value.t1403.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1405: value.t1405.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1406: value.t1406,
+			t1420: value.t1420.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+		})
+	}
+}
+
+#[derive(
+	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+)]
+pub struct BoundedDeviceAttestationNonce {
+	pub nonce: Option<BoundedVec<u8, ConstU32<32>>>,
+}
+
+impl TryFrom<DeviceAttestationNonce<'_>> for BoundedDeviceAttestationNonce {
+	type Error = ();
+
+	fn try_from(value: DeviceAttestationNonce<'_>) -> Result<Self, Self::Error> {
+		Ok(Self { nonce: value.nonce.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()? })
+	}
 }
 
 #[derive(
@@ -365,7 +496,7 @@ impl TryFrom<asn::AuthorizationListV2<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -461,7 +592,7 @@ impl TryFrom<asn::AuthorizationListV3<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -557,7 +688,7 @@ impl TryFrom<asn::AuthorizationListV4<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -649,7 +780,7 @@ impl TryFrom<asn::AuthorizationListKeyMint<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))?,
 			attestation_id_brand: data
@@ -802,7 +933,7 @@ impl<'a> TryFrom<asn::AttestationApplicationId<'a>> for BoundedAttestationApplic
 		Ok(Self {
 			package_infos: value
 				.package_infos
-				.map(|package_info| BoundedAttestationPackageInfo::try_from(package_info))
+				.map(BoundedAttestationPackageInfo::try_from)
 				.collect::<Result<Vec<BoundedAttestationPackageInfo>, Self::Error>>()?
 				.try_into()
 				.map_err(|_| ())?,

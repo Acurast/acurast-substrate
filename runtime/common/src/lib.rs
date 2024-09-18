@@ -15,8 +15,6 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string;
 pub use xcm::{
 	latest::{AssetId, MultiAsset},
 	prelude::Fungible,
@@ -28,9 +26,11 @@ use pallet_acurast::{
 	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
 };
 
+pub mod barrier;
 pub mod consensus;
 pub mod constants;
 // pub mod migrations;
+pub mod utils;
 pub mod weight;
 pub mod weights;
 
@@ -94,93 +94,6 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
-}
-
-/// Stake information
-pub mod staking_info {
-	use crate::{Balance, UNIT};
-
-	/// Minimum collators selected per round, default at genesis and minimum forever after
-	pub const MINIMUM_SELECTED_CANDIDATES: u32 = 2; // TBD
-	/// Minimum stake required to be reserved to be a candidate
-	pub const MINIMUM_COLLATOR_STAKE: Balance = 20_000 * UNIT; // TBD
-	/// Maximum top delegations per candidate
-	pub const MAXIMUM_TOP_DELEGATIONS_PER_CANDIDATE: u32 = 300; // TBD
-	/// Maximum bottom delegations per candidate
-	pub const MAXIMUM_BOTTOM_DELEGATIONS_PER_CANDIDATE: u32 = 50; // TBD
-	/// Maximum delegations per delegator
-	pub const MAXIMUM_DELEGATIONS_PER_DELEGATOR: u32 = 100; // TBD
-	/// Minimum stake required to be reserved to be a delegator
-	pub const MINIMUM_DELEGATION: Balance = 10 * UNIT; // TBD
-	pub const MINIMUM_DELEGATOR_STAKE: Balance = 10 * UNIT; // TBD
-
-	// pub const DEFAULT_INFLATION_CONFIG: InflationInfoWithoutRound = InflationInfoWithoutRound {
-	// 	ideal_staked: Perbill::from_percent(75),
-	// 	decay_rate: Perbill::from_percent(5),
-	// 	annual: Range { min: Perbill::from_percent(2), ideal: Perbill::from_percent(10) },
-	// };
-}
-
-pub mod utils {
-	use pallet_acurast::{Attestation, VerifiedBootState};
-	use sp_std::prelude::*;
-
-	pub fn check_attestation(
-		attestation: &Attestation,
-		allowed_package_names: &[&[u8]],
-		allowed_signature_digests: &[&[u8]],
-	) -> bool {
-		let root_of_trust = &attestation.key_description.tee_enforced.root_of_trust;
-		if let Some(root_of_trust) = root_of_trust {
-			if root_of_trust.verified_boot_state == VerifiedBootState::Verified {
-				return check_attestation_signature_digest(
-					attestation,
-					allowed_package_names,
-					allowed_signature_digests,
-				)
-			}
-		}
-
-		false
-	}
-
-	pub fn check_attestation_signature_digest(
-		attestation: &Attestation,
-		allowed_package_names: &[&[u8]],
-		allowed_signature_digests: &[&[u8]],
-	) -> bool {
-		let mut result = false;
-		let attestation_application_id =
-			attestation.key_description.tee_enforced.attestation_application_id.as_ref().or(
-				attestation
-					.key_description
-					.software_enforced
-					.attestation_application_id
-					.as_ref(),
-			);
-
-		if let Some(attestation_application_id) = attestation_application_id {
-			let package_names = attestation_application_id
-				.package_infos
-				.iter()
-				.map(|package_info| package_info.package_name.as_slice())
-				.collect::<Vec<_>>();
-			let is_package_name_allowed = package_names
-				.iter()
-				.all(|package_name| allowed_package_names.contains(package_name));
-			if is_package_name_allowed {
-				let signature_digests = attestation_application_id
-					.signature_digests
-					.iter()
-					.map(|signature_digest| signature_digest.as_slice())
-					.collect::<Vec<_>>();
-				result = signature_digests
-					.iter()
-					.all(|digest| allowed_signature_digests.contains(digest));
-			}
-		}
-		result
-	}
 }
 
 pub struct RewardDistributor<Runtime, Currency>(PhantomData<(Runtime, Currency)>);

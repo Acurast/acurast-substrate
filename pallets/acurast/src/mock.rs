@@ -1,6 +1,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::BenchmarkHelper;
-use crate::{AttestationChain, JobRegistration, RevocationListUpdateBarrier, Script, SerialNumber};
+use crate::{AttestationChain, JobRegistration, Script, SerialNumber};
 use acurast_common::{AllowedSources, JobModules, Schedule, CU32};
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
@@ -23,17 +23,6 @@ type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type Balance = u128;
 pub type BlockNumber = u32;
-
-pub struct Barrier;
-
-impl RevocationListUpdateBarrier<Test> for Barrier {
-	fn can_update_revocation_list(
-		origin: &<Test as frame_system::Config>::AccountId,
-		_updates: &Vec<crate::CertificateRevocationListUpdate>,
-	) -> bool {
-		AllowedRevocationListUpdate::get().contains(origin)
-	}
-}
 
 pub struct ExtBuilder;
 
@@ -158,7 +147,6 @@ impl crate::Config for Test {
 	type MaxEnvVars = CU32<10>;
 	type EnvKeyMaxSize = CU32<32>;
 	type EnvValueMaxSize = CU32<1024>;
-	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type WeightInfo = crate::weights::WeightInfo<Test>;

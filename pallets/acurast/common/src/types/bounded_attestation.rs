@@ -125,19 +125,18 @@ impl TryFrom<DeviceAttestation<'_>> for BoundedDeviceAttestation {
 	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
 )]
 pub struct BoundedDeviceAttestationKeyUsageProperties {
-	pub t4: i64,
-	pub t1200: i64,
-	pub t1201: i64,
-	pub t1202: i64,
-	pub t1203: i64,
-	pub t1204: BoundedVec<u8, ConstU32<64>>,
-	pub t5: BoundedVec<u8, ConstU32<16>>,
-	pub t1206: i64,
-	pub t1207: i64,
-	pub t1208: i64,
-	pub t1209: i64,
-	pub t1210: i64,
-	pub t1211: i64,
+	pub t4: Option<i64>,
+	pub t1200: Option<i64>,
+	pub t1201: Option<i64>,
+	pub t1202: Option<i64>,
+	pub t1203: Option<i64>,
+	pub t1204: Option<BoundedVec<u8, ConstU32<64>>>,
+	pub t5: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1206: Option<i64>,
+	pub t1207: Option<i64>,
+	pub t1209: Option<i64>,
+	pub t1210: Option<i64>,
+	pub t1211: Option<i64>,
 }
 
 impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
@@ -152,11 +151,10 @@ impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
 			t1201: value.t1201,
 			t1202: value.t1202,
 			t1203: value.t1203,
-			t1204: value.t1204.to_vec().try_into().map_err(|_| ())?,
-			t5: value.t5.to_vec().try_into().map_err(|_| ())?,
+			t1204: value.t1204.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t5: value.t5.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 			t1206: value.t1206,
 			t1207: value.t1207,
-			t1208: value.t1208,
 			t1209: value.t1209,
 			t1210: value.t1210,
 			t1211: value.t1211,
@@ -168,12 +166,12 @@ impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
 	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
 )]
 pub struct BoundedDeviceAttestationDeviceOSInformation {
-	pub t1400: BoundedVec<u8, ConstU32<16>>,
-	pub t1104: i64,
-	pub t1403: BoundedVec<u8, ConstU32<16>>,
-	pub t1405: BoundedVec<u8, ConstU32<16>>,
-	pub t1406: i64,
-	pub t1420: BoundedVec<u8, ConstU32<32>>,
+	pub t1400: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1104: Option<i64>,
+	pub t1403: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1405: Option<BoundedVec<u8, ConstU32<16>>>,
+	pub t1406: Option<i64>,
+	pub t1420: Option<BoundedVec<u8, ConstU32<32>>>,
 }
 
 impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
@@ -183,12 +181,12 @@ impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
 
 	fn try_from(value: DeviceAttestationDeviceOSInformation<'_>) -> Result<Self, Self::Error> {
 		Ok(Self {
-			t1400: value.t1400.to_vec().try_into().map_err(|_| ())?,
+			t1400: value.t1400.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 			t1104: value.t1104,
-			t1403: value.t1403.to_vec().try_into().map_err(|_| ())?,
-			t1405: value.t1405.to_vec().try_into().map_err(|_| ())?,
+			t1403: value.t1403.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1405: value.t1405.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 			t1406: value.t1406,
-			t1420: value.t1420.to_vec().try_into().map_err(|_| ())?,
+			t1420: value.t1420.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 		})
 	}
 }
@@ -197,14 +195,14 @@ impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
 	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
 )]
 pub struct BoundedDeviceAttestationNonce {
-	pub nonce: BoundedVec<u8, ConstU32<32>>,
+	pub nonce: Option<BoundedVec<u8, ConstU32<32>>>,
 }
 
 impl TryFrom<DeviceAttestationNonce<'_>> for BoundedDeviceAttestationNonce {
 	type Error = ();
 
 	fn try_from(value: DeviceAttestationNonce<'_>) -> Result<Self, Self::Error> {
-		Ok(Self { nonce: value.nonce.to_vec().try_into().map_err(|_| ())? })
+		Ok(Self { nonce: value.nonce.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()? })
 	}
 }
 
@@ -498,7 +496,7 @@ impl TryFrom<asn::AuthorizationListV2<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -594,7 +592,7 @@ impl TryFrom<asn::AuthorizationListV3<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -690,7 +688,7 @@ impl TryFrom<asn::AuthorizationListV4<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -782,7 +780,7 @@ impl TryFrom<asn::AuthorizationListKeyMint<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))?,
 			attestation_id_brand: data
@@ -935,7 +933,7 @@ impl<'a> TryFrom<asn::AttestationApplicationId<'a>> for BoundedAttestationApplic
 		Ok(Self {
 			package_infos: value
 				.package_infos
-				.map(|package_info| BoundedAttestationPackageInfo::try_from(package_info))
+				.map(BoundedAttestationPackageInfo::try_from)
 				.collect::<Result<Vec<BoundedAttestationPackageInfo>, Self::Error>>()?
 				.try_into()
 				.map_err(|_| ())?,

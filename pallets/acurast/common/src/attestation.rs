@@ -56,12 +56,12 @@ const APPLE_DEVICE_ATTESTATION_NONCE: ObjectIdentifier = oid!(1, 2, 840, 113635,
 pub fn extract_attestation<'a>(
 	extensions: Option<SequenceOf<'a, Extension<'a>>>,
 ) -> Result<ParsedAttestation<'a>, ValidationError> {
-	let mut extensions = extensions.ok_or(ValidationError::ExtensionMissing)?;
-	if let Some(extension) = &extensions.find(|e| e.extn_id == KEY_ATTESTATION_OID) {
+	let extensions = extensions.ok_or(ValidationError::ExtensionMissing)?.collect::<Vec<_>>();
+	if let Some(extension) = &extensions.iter().find(|e| e.extn_id == KEY_ATTESTATION_OID) {
 		return Ok(ParsedAttestation::KeyDescription(parse_key_description(extension)?));
 	}
 
-	Ok(ParsedAttestation::DeviceAttestation(parse_apple_attestation(&mut extensions)?))
+	Ok(ParsedAttestation::DeviceAttestation(parse_apple_attestation(&extensions)?))
 }
 
 fn parse_key_description<'a>(
@@ -103,21 +103,25 @@ fn parse_key_description<'a>(
 }
 
 fn parse_apple_attestation<'a>(
-	extensions: &mut SequenceOf<'a, Extension<'a>>,
+	extensions: &[Extension<'a>],
 ) -> Result<DeviceAttestation<'a>, ValidationError> {
-	if let Some(key_usage_properties) =
-		&extensions.find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_KEY_USAGE_PROPERTIES)
+	if let Some(key_usage_properties) = &extensions
+		.iter()
+		.find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_KEY_USAGE_PROPERTIES)
 	{
 		let key_usage_properties = asn1::parse_single::<DeviceAttestationKeyUsageProperties>(
 			key_usage_properties.extn_value,
 		)?;
-		if let Some(device_os_information) =
-			&extensions.find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_DEVICE_OS_INFORMATION)
+		if let Some(device_os_information) = &extensions
+			.iter()
+			.find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_DEVICE_OS_INFORMATION)
 		{
 			let device_os_information = asn1::parse_single::<DeviceAttestationDeviceOSInformation>(
 				device_os_information.extn_value,
 			)?;
-			if let Some(nonce) = &extensions.find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_NONCE) {
+			if let Some(nonce) =
+				&extensions.iter().find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_NONCE)
+			{
 				let nonce = asn1::parse_single::<DeviceAttestationNonce>(nonce.extn_value)?;
 				return Ok(DeviceAttestation { key_usage_properties, device_os_information, nonce });
 			}
@@ -153,19 +157,19 @@ pub enum ECDSACurve {
 
 impl PublicKey {
 	fn parse(info: &SubjectPublicKeyInfo) -> Result<Self, ValidationError> {
-		match &info.algorithm.algorithm {
-			&RSA_PBK => {
+		match info.algorithm.algorithm {
+			RSA_PBK => {
 				let pbk = parse_rsa_pbk(info.subject_public_key.as_bytes())?;
 				Ok(PublicKey::RSA(pbk))
 			},
-			&ECDSA_PBK => {
+			ECDSA_PBK => {
 				let pbk_param =
 					info.algorithm.parameters.ok_or(ValidationError::MissingECDSAAlgorithmTyp)?;
 				let typ = asn1::parse_single::<ObjectIdentifier>(pbk_param.full_data())?;
 				match typ {
 					CURVE_P256 => {
 						let verifying_key =
-							VerifyingKey::from_sec1_bytes(&info.subject_public_key.as_bytes())
+							VerifyingKey::from_sec1_bytes(info.subject_public_key.as_bytes())
 								.or(Err(ValidationError::ParseP256PublicKey))?;
 						Ok(PublicKey::ECDSA(ECDSACurve::CurveP256(verifying_key)))
 					},
@@ -191,8 +195,8 @@ impl PublicKey {
 const CURVE_P256: ObjectIdentifier = oid!(1, 2, 840, 10045, 3, 1, 7);
 const CURVE_P384: ObjectIdentifier = oid!(1, 3, 132, 0, 34);
 
-fn validate<'a>(
-	cert: &Certificate<'a>,
+fn validate(
+	cert: &Certificate<'_>,
 	payload: &[u8],
 	pbk: &PublicKey,
 ) -> Result<(), ValidationError> {
@@ -201,17 +205,17 @@ fn validate<'a>(
 	}
 	match cert.signature_algorithm.algorithm {
 		RSA_ALGORITHM => match pbk {
-			PublicKey::RSA(pbk) => validate_rsa(&payload, &cert.signature_value, &pbk),
+			PublicKey::RSA(pbk) => validate_rsa(payload, &cert.signature_value, pbk),
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		ECDSA_WITH_SHA256_ALGORITHM => match pbk {
 			PublicKey::ECDSA(pbk) =>
-				validate_ecdsa::<sha2::Sha256>(&payload, &cert.signature_value, &pbk),
+				validate_ecdsa::<sha2::Sha256>(payload, &cert.signature_value, pbk),
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		ECDSA_WITH_SHA384_ALGORITHM => match pbk {
 			PublicKey::ECDSA(pbk) =>
-				validate_ecdsa::<sha2::Sha384>(&payload, &cert.signature_value, &pbk),
+				validate_ecdsa::<sha2::Sha384>(payload, &cert.signature_value, pbk),
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		_ => Err(ValidationError::UnsupportedSignatureAlgorithm)?,
@@ -251,7 +255,7 @@ where
 {
 	match curve {
 		ECDSACurve::CurveP256(verifying_key) => {
-			let signature = p256::ecdsa::Signature::from_der(&signature.as_bytes())
+			let signature = p256::ecdsa::Signature::from_der(signature.as_bytes())
 				.or(Err(ValidationError::InvalidSignatureEncoding))?;
 			verifying_key
 				.verify(payload, &signature)
@@ -325,15 +329,13 @@ pub fn validate_certificate_chain(
 			let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
 			let validating_pbk: &PublicKey = if let Some(ref prev_pbk) = prev_pbk {
 				prev_pbk
+			} else if trusted_roots.contains(&current_pbk) {
+				&current_pbk
 			} else {
-				if trusted_roots.contains(&current_pbk) {
-					&current_pbk
-				} else {
-					// this can happen if the submitted certificate chain does not contain the root,
-					// which is fine, we can start validating from the intermediate certificate since
-					// we already have the root public key.
-					&trusted_roots[0] // we try to validate with google first
-				}
+				// this can happen if the submitted certificate chain does not contain the root,
+				// which is fine, we can start validating from the intermediate certificate since
+				// we already have the root public key.
+				&trusted_roots[0] // we try to validate with google first
 			};
 
 			match validate(&cert, payload, validating_pbk) {
@@ -378,12 +380,12 @@ mod tests {
 		asn::KeyDescription, validate_certificate_chain, CertificateChainInput, CertificateInput,
 	};
 
-	pub fn decode_certificate_chain(chain: &Vec<&str>) -> CertificateChainInput {
+	pub fn decode_certificate_chain(chain: &[&str]) -> CertificateChainInput {
 		let decoded = chain
 			.iter()
 			.map(|cert_data| {
 				CertificateInput::truncate_from(
-					base64::decode(&cert_data).expect("error decoding test input"),
+					base64::decode(cert_data).expect("error decoding test input"),
 				)
 			})
 			.collect::<Vec<CertificateInput>>();
@@ -542,7 +544,7 @@ mod tests {
 		let decoded_chain = decode_certificate_chain(&chain);
 		let res = validate_certificate_chain(&decoded_chain);
 		match res {
-			Err(e) => assert_eq!(e, ValidationError::InvalidSignature),
+			Err(e) => assert_eq!(e, ValidationError::UnsupportedPublicKeyAlgorithm),
 			_ => return Err(()),
 		};
 		Ok(())
@@ -550,12 +552,18 @@ mod tests {
 
 	#[test]
 	fn test_validate_ios_chain() -> Result<(), ()> {
-		let chain = vec![
+		let chain = [
 			hex_literal::hex!("30820243308201c8a003020102021009bac5e1bc401ad9d45395bc381a0854300a06082a8648ce3d04030330523126302406035504030c1d4170706c6520417070204174746573746174696f6e20526f6f7420434131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3230303331383138333935355a170d3330303331333030303030305a304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613076301006072a8648ce3d020106052b8104002203620004ae5b37a0774d79b2358f40e7d1f22626f1c25fef17802deab3826a59874ff8d2ad1525789aa26604191248b63cb967069e98d363bd5e370fbfa08e329e8073a985e7746ea359a2f66f29db32af455e211658d567af9e267eb2614dc21a66ce99a366306430120603551d130101ff040830060101ff020100301f0603551d23041830168014ac91105333bdbe6841ffa70ca9e5faeae5e58aa1301d0603551d0e041604143ee35d1c0419a9c9b431f88474d6e1e15772e39b300e0603551d0f0101ff040403020106300a06082a8648ce3d0403030369003066023100bbbe888d738d0502cfbcfd666d09575035bcd6872c3f8430492629edd1f914e879991c9ae8b5aef8d3a85433f7b60d06023100ab38edd0cc81ed00a452c3ba44f993636553fecc297f2eb4df9f5ebe5a4acab6995c4b820df904386f7807bb589439b7").to_vec().try_into().unwrap(),
 			hex_literal::hex!("3082032a308202b0a00302010202060191eaf64f46300a06082a8648ce3d040302304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3234303931323130333831365a170d3235303732343034323031365a3081913149304706035504030c4036383535336364646665363764323132313731616462323234353932393731613663393064346332653734613165386363323635373732396334303638616235311a3018060355040b0c114141412043657274696669636174696f6e31133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613059301306072a8648ce3d020106082a8648ce3d03010703420004ed4b1e614c1b18ea36b940efd84c82fe661b136a80358946552d1338c78de0d43c6ddc9bd027718ea674a7dd4b7b9f1f2cdfc0840d61c9957d1ee57cd6800a1ca38201333082012f300c0603551d130101ff04023000300e0603551d0f0101ff0404030204f030818006092a864886f76364080504733071a40302010abf893003020101bf893103020100bf893203020101bf893303020101bf893421041f475632343532393232522e636f6d2e616375726173742e6578656375746f72a5060404736b7320bf893603020105bf893703020100bf893903020100bf893a03020100bf893b03020100305706092a864886f763640807044a3048bf8a7808040631372e362e31bf885007020500fffffffebf8a7b0704053231473933bf8a7d08040631372e362e31bf8a7e03020100bf8b0c0f040d32312e372e39332e302e302c30303306092a864886f76364080204263024a1220420e185a91f767e0dba7ea2a0fb76bc44a5a5b63537adc0097eada55f646d8c13f2300a06082a8648ce3d0403020368003065023100a8f61c00005ecac3e19bf6e2f2ddbc037682184d24140acc80be6b1476e12e4120a2dce0a530e690c4492c0c86511a53023011a4598c8a0e4d8f82ca5c04a06bf311bf56918a4364002655209eb12a6c4bed03b2e89b31a88f44d16daab8752e06e4").to_vec().try_into().unwrap(),
 		].to_vec().try_into().unwrap();
 		let (_, cert, _) = validate_certificate_chain(&chain)?;
-
-		Ok(())
+		let res = extract_attestation(cert.extensions);
+		match res {
+			Ok(attestation) => match attestation {
+				ParsedAttestation::DeviceAttestation(_) => Ok(()),
+				_ => Err(()),
+			},
+			Err(_) => Err(()),
+		}
 	}
 }

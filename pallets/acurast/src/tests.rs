@@ -2,7 +2,7 @@
 
 use frame_support::{assert_err, assert_ok, BoundedVec};
 use hex_literal::hex;
-use sp_runtime::{bounded_vec, AccountId32};
+use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 
 use acurast_common::{Environment, MultiOrigin};
 
@@ -13,14 +13,12 @@ use crate::{
 
 #[test]
 fn test_job_registration() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		let registration = job_registration(None, false);
-		let register_call = Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			registration.clone(),
-		);
+		let register_call =
+			Acurast::register(RuntimeOrigin::signed(alice_account_id()), registration.clone());
 		assert_ok!(register_call);
 
 		assert_eq!(
@@ -32,7 +30,7 @@ fn test_job_registration() {
 		);
 
 		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			Acurast::job_id_sequence()
 		));
 
@@ -62,16 +60,13 @@ fn test_job_registration() {
 
 #[test]
 fn test_job_registration_failure_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let registration = invalid_job_registration_1();
 
 		let initial_job_id = Acurast::job_id_sequence();
 
 		assert_err!(
-			Acurast::register(
-				RuntimeOrigin::signed(alice_account_id()).into(),
-				registration.clone()
-			),
+			Acurast::register(RuntimeOrigin::signed(alice_account_id()), registration.clone()),
 			Error::<Test>::InvalidScriptValue
 		);
 
@@ -89,15 +84,12 @@ fn test_job_registration_failure_1() {
 
 #[test]
 fn test_job_registration_failure_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		let registration = invalid_job_registration_2();
 		assert_err!(
-			Acurast::register(
-				RuntimeOrigin::signed(alice_account_id()).into(),
-				registration.clone()
-			),
+			Acurast::register(RuntimeOrigin::signed(alice_account_id()), registration.clone()),
 			Error::<Test>::InvalidScriptValue
 		);
 
@@ -115,7 +107,7 @@ fn test_job_registration_failure_2() {
 
 #[test]
 fn test_job_registration_failure_3() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		let registration = job_registration(Some(bounded_vec![]), false);
@@ -129,10 +121,7 @@ fn test_job_registration_failure_3() {
 		);
 
 		assert_err!(
-			Acurast::register(
-				RuntimeOrigin::signed(alice_account_id()).into(),
-				registration.clone()
-			),
+			Acurast::register(RuntimeOrigin::signed(alice_account_id()), registration.clone()),
 			Error::<Test>::TooFewAllowedSources
 		);
 
@@ -150,7 +139,7 @@ fn test_job_registration_failure_3() {
 
 #[test]
 fn test_update_allowed_sources() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		let registration_1 = job_registration(None, false);
@@ -168,12 +157,12 @@ fn test_update_allowed_sources() {
 			AllowedSourcesUpdate { operation: ListUpdateOperation::Remove, item: bob_account_id() },
 		];
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration_1.clone(),
 		));
 
 		assert_ok!(Acurast::update_allowed_sources(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			Acurast::job_id_sequence(),
 			updates_1.clone().try_into().unwrap()
 		));
@@ -187,7 +176,7 @@ fn test_update_allowed_sources() {
 		);
 
 		assert_ok!(Acurast::update_allowed_sources(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			Acurast::job_id_sequence(),
 			updates_2.clone().try_into().unwrap()
 		));
@@ -235,17 +224,17 @@ fn test_update_allowed_sources_failure() {
 	);
 	let updates =
 		vec![AllowedSourcesUpdate { operation: ListUpdateOperation::Add, item: eve_account_id() }];
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration.clone(),
 		));
 
 		assert_err!(
 			Acurast::update_allowed_sources(
-				RuntimeOrigin::signed(alice_account_id()).into(),
+				RuntimeOrigin::signed(alice_account_id()),
 				initial_job_id + 1,
 				updates.clone().try_into().unwrap()
 			),
@@ -272,11 +261,11 @@ fn test_update_allowed_sources_failure() {
 
 #[test]
 fn test_submit_attestation() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let chain = attestation_chain();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
 		assert_ok!(Acurast::submit_attestation(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			chain.clone()
 		));
 
@@ -297,7 +286,7 @@ fn test_submit_attestation() {
 
 #[test]
 fn test_submit_attestation_parse_issuer_name() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
         let chain = AttestationChain {
             certificate_chain: vec![
                 hex!("3082056030820348a003020102020900e8fa196314d2fa18300d06092a864886f70d01010b0500301b311930170603550405131066393230303965383533623662303435301e170d3136303532363136323835325a170d3236303532343136323835325a301b31193017060355040513106639323030396538353362366230343530820222300d06092a864886f70d01010105000382020f003082020a0282020100afb6c7822bb1a701ec2bb42e8bcc541663abef982f32c77f7531030c97524b1b5fe809fbc72aa9451f743cbd9a6f1335744aa55e77f6b6ac3535ee17c25e639517dd9c92e6374a53cbfe258f8ffbb6fd129378a22a4ca99c452d47a59f3201f44197ca1ccd7e762fb2f53151b6feb2fffd2b6fe4fe5bc6bd9ec34bfe08239daafceb8eb5a8ed2b3acd9c5e3a7790e1b51442793159859811ad9eb2a96bbdd7a57c93a91c41fccd27d67fd6f671aa0b815261ad384fa37944864604ddb3d8c4f920a19b1656c2f14ad6d03c56ec060899041c1ed1a5fe6d3440b556bad1d0a152589c53e55d370762f0122eef91861b1b0e6c4c80927499c0e9bec0b83e3bc1f93c72c049604bbd2f1345e62c3f8e26dbec06c94766f3c128239d4f4312fad8123887e06becf567583bf8355a81feeabaf99a83c8df3e2a322afc672bf120b135158b6821ceaf309b6eee77f98833b018daa10e451f06a374d50781f359082966bb778b9308942698e74e0bcd24628a01c2cc03e51f0b3e5b4ac1e4df9eaf9ff6a492a77c1483882885015b422ce67b80b88c9b48e13b607ab545c723ff8c44f8f2d368b9f6520d31145ebf9e862ad71df6a3bfd2450959d653740d97a12f368b13ef66d5d0a54a6e2f5d9a6fef446832bc67844725861f093dd0e6f3405da89643ef0f4d69b6420051fdb93049673e36950580d3cdf4fbd08bc58483952600630203010001a381a63081a3301d0603551d0e041604143661e1007c880509518b446c47ff1a4cc9ea4f12301f0603551d230418301680143661e1007c880509518b446c47ff1a4cc9ea4f12300f0603551d130101ff040530030101ff300e0603551d0f0101ff04040302018630400603551d1f043930373035a033a031862f68747470733a2f2f616e64726f69642e676f6f676c65617069732e636f6d2f6174746573746174696f6e2f63726c2f300d06092a864886f70d01010b0500038202010020c8c38d4bdca9571b468c892fff72aac6f844a11d41a8f0736cc37d16d6426d8e7e9407044cea39e68b07c13dbf1503dd5c85bdafb2c02d5f6cdb4efa8127df8b04f182770fc4e7745b7fceaa87129a8801ce8e9bc0cb96379b4d26a82d30fd9c2f8eed6dc1be2f84b689e4d914258b144bbae624a1c70671132e2f0616a884b2a4d6a46ffa89b602bfbad80c1243711f56eb6056f637c8a0141cc54094268b8c3c7db994b35c0dcd6cb2abc2dafee252023d2dea0cd6c368bea3e6414886f6b1e58b5bd7c730b268c4e3c1fb6424b91febbdb80c586e2ae8368c84d5d10917bda2561789d4687393340e2e254f560ef64b2358fcdc0fbfc6700952e708bffcc627500c1f66e81ea17c098d7a2e9b18801b7ab4ac71587d345dcc8309d5b62a50427aa6d03dcb05996c96ba0c5d71e92162c016ca849ff35f0d52c65d05605a47f3ae917acd2df910efd2326688596ef69b3bf5fe3154f7aeb880a0a73ca04d94c2ce8317eeb43d5eff5883e336f5f249daaca4899237bf267e5c43ab02ea44162403723be6aa692c61bdae9ed409d463c4c97c64306577eef2bc7560b75715cc9c7dc67c86082db751a89c30349762b0782385875cf1a3c6166e0ae3c12d374e2d4f1846f318744bd879b587329bf018217a6c0c77241a4878e435c03079cb451289c5776206069a2f8d65f840e1445287bed877abae24e24435168d553ce4").to_vec().try_into().unwrap(),
@@ -311,7 +300,7 @@ fn test_submit_attestation_parse_issuer_name() {
 
         let account_id: AccountId32 = hex!("6c0711dba61c0c7f4a124d85384471b98ce9e28e2a6f7e567c4408f3ab77de09").into();
         assert_ok!(Acurast::submit_attestation(
-            RuntimeOrigin::signed(account_id.clone()).into(),
+            RuntimeOrigin::signed(account_id.clone()),
             chain.clone()
         ));
 
@@ -321,12 +310,12 @@ fn test_submit_attestation_parse_issuer_name() {
 
 #[test]
 fn test_submit_attestation_failure_1() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let chain = invalid_attestation_chain_1();
 
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::CertificateChainTooShort
@@ -338,7 +327,7 @@ fn test_submit_attestation_failure_1() {
 
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::CertificateChainValidationFailed
@@ -350,7 +339,7 @@ fn test_submit_attestation_failure_1() {
 
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::CertificateChainValidationFailed
@@ -364,13 +353,13 @@ fn test_submit_attestation_failure_1() {
 
 #[test]
 fn test_submit_attestation_failure_2() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let chain = attestation_chain();
 
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363914000);
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::AttestationCertificateNotValid
@@ -384,13 +373,13 @@ fn test_submit_attestation_failure_2() {
 
 #[test]
 fn test_submit_attestation_failure_3() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let chain = attestation_chain();
 
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1842739199001);
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::AttestationCertificateNotValid
@@ -404,13 +393,13 @@ fn test_submit_attestation_failure_3() {
 
 #[test]
 fn test_update_revocation_list() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let updates_1 = vec![CertificateRevocationListUpdate {
 			operation: ListUpdateOperation::Add,
 			item: cert_serial_number(),
 		}];
 		assert_ok!(Acurast::update_certificate_revocation_list(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::root(),
 			updates_1.clone().try_into().unwrap(),
 		));
 		assert_eq!(
@@ -423,17 +412,17 @@ fn test_update_revocation_list() {
 			item: cert_serial_number(),
 		}];
 		assert_ok!(Acurast::update_certificate_revocation_list(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::root(),
 			updates_2.clone().try_into().unwrap(),
 		));
 		assert_eq!(None, Acurast::stored_revoked_certificate::<SerialNumber>(cert_serial_number()));
 
 		assert_err!(
 			Acurast::update_certificate_revocation_list(
-				RuntimeOrigin::signed(bob_account_id()).into(),
+				RuntimeOrigin::signed(alice_account_id()),
 				updates_1.clone().try_into().unwrap(),
 			),
-			Error::<Test>::CertificateRevocationListUpdateNotAllowed
+			BadOrigin,
 		);
 		assert_eq!(None, Acurast::stored_revoked_certificate::<SerialNumber>(cert_serial_number()));
 
@@ -449,13 +438,13 @@ fn test_update_revocation_list() {
 
 #[test]
 fn test_update_revocation_list_submit_attestation() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let updates = vec![CertificateRevocationListUpdate {
 			operation: ListUpdateOperation::Add,
 			item: cert_serial_number(),
 		}];
 		assert_ok!(Acurast::update_certificate_revocation_list(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::root(),
 			updates.clone().try_into().unwrap(),
 		));
 
@@ -463,7 +452,7 @@ fn test_update_revocation_list_submit_attestation() {
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
 		assert_err!(
 			Acurast::submit_attestation(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				chain.clone()
 			),
 			Error::<Test>::RevokedCertificate
@@ -478,7 +467,7 @@ fn test_update_revocation_list_submit_attestation() {
 
 #[test]
 fn test_update_revocation_list_assign_job() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 		let updates = vec![CertificateRevocationListUpdate {
 			operation: ListUpdateOperation::Add,
@@ -488,15 +477,15 @@ fn test_update_revocation_list_assign_job() {
 		let registration = job_registration(None, true);
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
 		assert_ok!(Acurast::submit_attestation(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			chain.clone()
 		));
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(bob_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()),
 			registration.clone()
 		));
 		assert_ok!(Acurast::update_certificate_revocation_list(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::root(),
 			updates.clone().try_into().unwrap(),
 		));
 
@@ -531,11 +520,11 @@ fn test_set_environment() {
 		]),
 		false,
 	);
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration.clone(),
 		));
 		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -550,7 +539,7 @@ fn test_set_environment() {
 			)],
 		};
 		assert_ok!(Acurast::set_environment(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			initial_job_id + 1,
 			bob_account_id(),
 			env

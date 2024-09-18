@@ -12,24 +12,11 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use pallet_acurast::{
-	CertificateRevocationListUpdate, JobModules, RevocationListUpdateBarrier, CU32,
-};
+use pallet_acurast::{JobModules, CU32};
 
 use crate::{stub::*, *};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-pub struct Barrier;
-
-impl RevocationListUpdateBarrier<Test> for Barrier {
-	fn can_update_revocation_list(
-		origin: &<Test as frame_system::Config>::AccountId,
-		_updates: &Vec<CertificateRevocationListUpdate>,
-	) -> bool {
-		AllowedRevocationListUpdate::get().contains(origin)
-	}
-}
 
 pub struct FeeManagerImpl;
 
@@ -172,7 +159,6 @@ impl pallet_acurast::Config for Test {
 	type MaxEnvVars = CU32<10>;
 	type EnvKeyMaxSize = CU32<32>;
 	type EnvValueMaxSize = CU32<1024>;
-	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = Pallet<Test>;
@@ -190,13 +176,15 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	fn registration_extra(
 		_instant_match: bool,
 	) -> <Test as pallet_acurast::Config>::RegistrationExtra {
-		JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 1,
-			min_reputation: None,
-			processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
-			min_cpu_score: Some(1),
+		ExtraFor::<Test> {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 1,
+				min_reputation: None,
+				processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
+				min_cpu_score: Some(1),
+			},
 		}
 	}
 
@@ -226,7 +214,7 @@ impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 	}
 
 	fn processor_version(
-		processor: &<Test as frame_system::Config>::AccountId,
+		_processor: &<Test as frame_system::Config>::AccountId,
 	) -> Option<<Test as pallet_acurast::Config>::ProcessorVersion> {
 		Some(1)
 	}
@@ -268,8 +256,8 @@ impl Config for Test {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
-	fn registration_extra(r: ExtraFor<Test>) -> <Test as Config>::RegistrationExtra {
-		r
+	fn registration_extra(r: JobRequirementsFor<Test>) -> <Test as Config>::RegistrationExtra {
+		ExtraFor::<Test> { requirements: r }
 	}
 
 	fn funded_account(index: u32, amount: Balance) -> AccountId {

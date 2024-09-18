@@ -65,5 +65,8 @@ pub fn check_device_attestation(
 	device_attestation: &BoundedDeviceAttestation,
 	allowed_bundle_ids: &[&[u8]],
 ) -> bool {
-	allowed_bundle_ids.contains(&device_attestation.key_usage_properties.t1204.as_slice())
+	if let Some(bundle_id) = &device_attestation.key_usage_properties.t1204 {
+		return allowed_bundle_ids.contains(&bundle_id.as_slice());
+	}
+	false
 }

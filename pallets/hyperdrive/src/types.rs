@@ -15,6 +15,7 @@ pub type ProxyAddress = BoundedVec<u8, ConstU32<PROXY_ADDRESS_MAX_LENGTH>>;
 
 pub enum ProxyChain {
 	AlephZero,
+	Vara,
 	// Tezos,
 	// Ethereum,
 }
@@ -90,7 +91,7 @@ pub type JobRegistrationFor<T> = JobRegistration<
 pub trait MessageDecoder<T: pallet_acurast::Config> {
 	type Error;
 
-	fn decode(encoded: &[u8]) -> Result<ParsedAction<T>, Self::Error>;
+	fn decode(encoded: &[u8], chain: ProxyChain) -> Result<ParsedAction<T>, Self::Error>;
 }
 
 pub trait MessageEncoder {

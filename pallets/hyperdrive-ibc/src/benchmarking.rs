@@ -121,5 +121,9 @@ benchmarks_instance_pallet! {
 		let owner: ProxyAddress = proxy_address();
 	}: _(RawOrigin::Root, owner)
 
+	update_vara_contract {
+		let owner: ProxyAddress = proxy_address();
+	}: _(RawOrigin::Root, owner)
+
 	impl_benchmark_test_suite!(AcurastHyperdrive, crate::mock::new_test_ext(), mock::Test);
 }

@@ -953,6 +953,23 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 
 				Ok(().into())
 			},
+			MultiOrigin::Vara(_) => {
+				let key = pub_keys
+					.iter()
+					.find(|key| match key {
+						PubKey::SECP256k1(_) => true,
+						_ => false,
+					})
+					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+
+				AcurastHyperdrive::send_to_proxy(
+					ProxyChain::Vara,
+					IncomingAction::AssignJob(job_id_seq.clone(), key.clone()),
+					&HyperdriveIbcFeePalletAccount::get(),
+				)?;
+
+				Ok(().into())
+			},
 		}
 	}
 
@@ -987,6 +1004,15 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::AlephZero(_) => {
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::AlephZero,
+					IncomingAction::FinalizeJob(job_id_seq.clone(), refund),
+					&HyperdriveIbcFeePalletAccount::get(),
+				)?;
+
+				Ok(().into())
+			},
+			MultiOrigin::Vara(_) => {
+				AcurastHyperdrive::send_to_proxy(
+					ProxyChain::Vara,
 					IncomingAction::FinalizeJob(job_id_seq.clone(), refund),
 					&HyperdriveIbcFeePalletAccount::get(),
 				)?;
@@ -1146,8 +1172,9 @@ impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
 
 parameter_types! {
 	/// The acurast contract on the aleph zero network
-	pub AlephZeroAcurastContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
-	pub AlephZeroAcurastContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
+	pub AlephZeroContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub VaraContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into(); // TODO(vara)
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 }
@@ -1157,8 +1184,9 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type ActionExecutor = AcurastActionExecutor<Runtime>;
 	type Sender = AcurastPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
-	type AlephZeroContract = AlephZeroAcurastContract;
-	type AlephZeroContractSelector = AlephZeroAcurastContractSelector;
+	type AlephZeroContract = AlephZeroContract;
+	type AlephZeroContractSelector = AlephZeroContractSelector;
+	type VaraContract = VaraContract;
 	type Balance = Balance;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }

@@ -65,7 +65,7 @@ fn test_single_vest_no_rewards() {
 			[
 				RuntimeEvent::Balances(pallet_balances::Event::Burned {
 					who: Treasury::get(),
-					amount: 0 * UNIT
+					amount: 0
 				}),
 				RuntimeEvent::RewardsTreasury(crate::Event::BurntFromTreasuryAtEndOfEpoch(0)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {

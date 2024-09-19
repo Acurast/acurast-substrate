@@ -50,23 +50,30 @@ pub type ExecutionMatchFor<T> =
 	Serialize,
 	Deserialize,
 )]
-pub struct RegistrationExtra<Reward, AccountId, MaxSlots: ParameterBound> {
-	pub requirements: JobRequirements<Reward, AccountId, MaxSlots>,
+pub struct RegistrationExtra<
+	Reward,
+	AccountId,
+	MaxSlots: ParameterBound,
+	Version,
+	MaxVersions: ParameterBound,
+> {
+	pub requirements: JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>,
 }
 
-impl<Reward, AccountId, MaxSlots: ParameterBound>
-	From<RegistrationExtra<Reward, AccountId, MaxSlots>>
-	for JobRequirements<Reward, AccountId, MaxSlots>
+impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
+	From<RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>>
+	for JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>
 {
-	fn from(extra: RegistrationExtra<Reward, AccountId, MaxSlots>) -> Self {
+	fn from(extra: RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>) -> Self {
 		extra.requirements
 	}
 }
 
-impl<Reward, AccountId, MaxSlots: ParameterBound> From<JobRequirements<Reward, AccountId, MaxSlots>>
-	for RegistrationExtra<Reward, AccountId, MaxSlots>
+impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
+	From<JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>>
+	for RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>
 {
-	fn from(req: JobRequirements<Reward, AccountId, MaxSlots>) -> Self {
+	fn from(req: JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>) -> Self {
 		RegistrationExtra { requirements: req }
 	}
 }
@@ -86,6 +93,8 @@ pub struct Advertisement<AccountId, Reward, MaxAllowedConsumers: Get<u32>> {
 	pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
 	/// The modules available to the job on processor.
 	pub available_modules: JobModules,
+	/// CPU score
+	pub cpu_score: u128,
 }
 
 pub type AdvertisementFor<T> = Advertisement<
@@ -107,6 +116,8 @@ pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBou
 	pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
 	/// The modules available to the job on processor.
 	pub available_modules: JobModules,
+	/// CPU score
+	pub cpu_score: u128,
 }
 
 /// Defines the scheduling window in which to accept matches for this pricing,
@@ -260,6 +271,8 @@ pub type JobRequirementsFor<T> = JobRequirements<
 	<T as Config>::Balance,
 	<T as frame_system::Config>::AccountId,
 	<T as pallet_acurast::Config>::MaxSlots,
+	<T as pallet_acurast::Config>::ProcessorVersion,
+	<T as pallet_acurast::Config>::MaxVersions,
 >;
 
 /// Structure representing a job registration.
@@ -275,7 +288,13 @@ pub type JobRequirementsFor<T> = JobRequirements<
 	Serialize,
 	Deserialize,
 )]
-pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
+pub struct JobRequirements<
+	Reward,
+	AccountId,
+	MaxSlots: ParameterBound,
+	Version,
+	MaxVersions: ParameterBound,
+> {
 	/// The type of matching selected by the consumer.
 	pub assignment_strategy: AssignmentStrategy<AccountId, MaxSlots>,
 	/// The number of execution slots to be assigned to distinct sources. Either all or no slot get assigned by matching.
@@ -284,6 +303,27 @@ pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
 	pub reward: Reward,
 	/// Minimum reputation required to process job, in parts per million, `r ∈ [0, 1_000_000]`.
 	pub min_reputation: Option<u128>,
+	/// Restrictions to processor version.
+	pub processor_version: Option<ProcessorVersionRequirements<Version, MaxVersions>>,
+	/// CPU score.
+	pub min_cpu_score: Option<u128>,
+}
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum ProcessorVersionRequirements<Version, MaxVersions: ParameterBound> {
+	Min(BoundedVec<Version, MaxVersions>),
 }
 
 /// Strategies for matching/assigning a job to single or multiple competing processors.

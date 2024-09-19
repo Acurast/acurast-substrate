@@ -103,18 +103,19 @@ pub mod pallet {
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
 		type ManagerProvider: ManagerProvider<Self>;
-		type ProcessorLastSeenProvider: ProcessorLastSeenProvider<Self>;
+		type ProcessorInfoProvider: ProcessorInfoProvider<Self>;
 		/// Logic for locking and paying tokens for job execution
 		type RewardManager: RewardManager<Self>;
 		/// Hook to act on marketplace related state transitions.
 		type MarketplaceHooks: MarketplaceHooks<Self>;
+		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -339,6 +340,10 @@ pub mod pallet {
 		JobCannotBeFinalized,
 		/// Nested Acurast error.
 		PalletAcurast(pallet_acurast::Error<T>),
+		/// Processor version mismatch
+		ProcessorVersionMismatch,
+		/// Processor CPU score mismatch
+		ProcessorCpuScoreMismatch,
 	}
 
 	impl<T> From<pallet_acurast::Error<T>> for Error<T> {
@@ -376,6 +381,8 @@ pub mod pallet {
 					_ => false,
 				},
 				Error::CapacityNotFound => true,
+				Error::ProcessorVersionMismatch => true,
+				Error::ProcessorCpuScoreMismatch => true,
 
 				Error::CalculationOverflow => false,
 				Error::UnexpectedCheckedCalculation => false,
@@ -414,7 +421,18 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	where
+		<T as pallet_acurast::Config>::RegistrationExtra: IsType<
+			RegistrationExtra<
+				T::Balance,
+				T::AccountId,
+				T::MaxSlots,
+				T::ProcessorVersion,
+				T::MaxVersions,
+			>,
+		>,
+	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			crate::migration::migrate::<T>()
 		}
@@ -1110,9 +1128,21 @@ pub mod pallet {
 						Error::<T>::ConsumerNotAllowedInMatch
 					);
 
+					if let Some(min_cpu_score) = requirements.min_cpu_score {
+						ensure!(
+							ad.cpu_score >= min_cpu_score,
+							Error::<T>::ProcessorCpuScoreMismatch
+						);
+					}
+
 					// CHECK reputation sufficient
 					Self::check_min_reputation(
 						requirements.min_reputation,
+						&planned_execution.source,
+					)?;
+
+					Self::check_processor_version(
+						&requirements.processor_version,
 						&planned_execution.source,
 					)?;
 
@@ -1316,9 +1346,21 @@ pub mod pallet {
 						Error::<T>::ConsumerNotAllowedInMatch
 					);
 
+					if let Some(min_cpu_score) = requirements.min_cpu_score {
+						ensure!(
+							ad.cpu_score >= min_cpu_score,
+							Error::<T>::ProcessorCpuScoreMismatch
+						);
+					}
+
 					// CHECK reputation sufficient
 					Self::check_min_reputation(
 						requirements.min_reputation,
+						&planned_execution.source,
+					)?;
+
+					Self::check_processor_version(
+						&requirements.processor_version,
 						&planned_execution.source,
 					)?;
 
@@ -1504,6 +1546,28 @@ pub mod pallet {
 			Ok(())
 		}
 
+		fn check_processor_version(
+			required_processor_version: &Option<
+				ProcessorVersionRequirements<T::ProcessorVersion, T::MaxVersions>,
+			>,
+			source: &T::AccountId,
+		) -> Result<(), Error<T>> {
+			if let Some(version_req) = required_processor_version {
+				if let Some(version) = T::ProcessorInfoProvider::processor_version(&source) {
+					let matches_version = match version_req {
+						ProcessorVersionRequirements::Min(versions) =>
+							versions.iter().any(|req_version| &version >= req_version),
+					};
+					if !matches_version {
+						return Err(Error::<T>::ProcessorVersionMismatch);
+					}
+				} else {
+					return Err(Error::<T>::ProcessorVersionMismatch);
+				}
+			}
+			Ok(())
+		}
+
 		/// Filters the given `sources` by those recently seen and matching partially specified `registration`
 		/// and whitelisting `consumer` if specifying a whitelist.
 		///
@@ -1519,7 +1583,7 @@ pub mod pallet {
 				let valid_match = match Self::check(&registration, &p, consumer.as_ref()) {
 					Ok(()) =>
 						if let Some(latest_seen_after) = latest_seen_after {
-							T::ProcessorLastSeenProvider::last_seen(&p)
+							T::ProcessorInfoProvider::last_seen(&p)
 								.map(|last_seen| last_seen >= latest_seen_after)
 								.unwrap_or(false)
 						} else {

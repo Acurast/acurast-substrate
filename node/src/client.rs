@@ -33,9 +33,10 @@ use acurast_runtime_common::AuraId;
 
 use acurast_runtime_common::{
 	opaque::{Block, Header},
-	EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots,
+	EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots, MaxVersions,
 };
 pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Nonce};
+use pallet_acurast::Version;
 use pallet_acurast_marketplace::RegistrationExtra;
 
 use crate::service::{self, ParachainBackend, ParachainClient};
@@ -57,7 +58,7 @@ pub trait RuntimeApiCollection:
 		Block,
 		Balance,
 		AccountId,
-		RegistrationExtra<Balance, AccountId, MaxSlots>,
+		RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
 		MaxAllowedSources,
 		MaxEnvVars,
 		EnvKeyMaxSize,
@@ -80,7 +81,7 @@ impl<Api> RuntimeApiCollection for Api where
 			Block,
 			Balance,
 			AccountId,
-			RegistrationExtra<Balance, AccountId, MaxSlots>,
+			RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
 			MaxAllowedSources,
 			MaxEnvVars,
 			EnvKeyMaxSize,

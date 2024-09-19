@@ -196,7 +196,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 17,
+	spec_version: 18,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -818,6 +818,8 @@ impl pallet_acurast::Config for Runtime {
 	type KeyAttestationBarrier = Barrier;
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
+	type ProcessorVersion = pallet_acurast::Version;
+	type MaxVersions = MaxVersions;
 	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -836,11 +838,17 @@ impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerPro
 }
 
 pub struct ProcessorLastSeenProvider;
-impl pallet_acurast_marketplace::traits::ProcessorLastSeenProvider<Runtime>
+impl pallet_acurast_marketplace::traits::ProcessorInfoProvider<Runtime>
 	for ProcessorLastSeenProvider
 {
 	fn last_seen(processor: &<Runtime as frame_system::Config>::AccountId) -> Option<u128> {
 		AcurastProcessorManager::processor_last_seen(processor)
+	}
+
+	fn processor_version(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) -> Option<<Runtime as pallet_acurast::Config>::ProcessorVersion> {
+		AcurastProcessorManager::processor_version(processor)
 	}
 }
 
@@ -862,7 +870,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
 	type ManagerProvider = ManagerProvider;
-	type ProcessorLastSeenProvider = ProcessorLastSeenProvider;
+	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]

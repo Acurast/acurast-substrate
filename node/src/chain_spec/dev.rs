@@ -177,7 +177,7 @@ type JobRegistration =
 
 pub fn genesis_jobs() -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
 	let mut result: Vec<(MultiOrigin<AccountId>, JobRegistration)> = vec![];
-	for i in 0..50_000 {
+	for i in 0..3_627 {
 		result.push((
 			MultiOrigin::Acurast(generate_account(i)),
 			JobRegistration {
@@ -216,7 +216,7 @@ type AdRestriction = AdvertisementRestriction<
 
 pub fn genesis_ad_restrictions() -> Vec<(AccountId, AdRestriction)> {
 	let mut result: Vec<(AccountId, AdRestriction)> = vec![];
-	for i in 0..50_000 {
+	for i in 0..14_809 {
 		result.push((
 			generate_account(i),
 			AdRestriction {

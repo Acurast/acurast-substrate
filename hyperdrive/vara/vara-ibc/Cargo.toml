@@ -12,10 +12,8 @@ codec = { package = "parity-scale-codec", version = "3.6", default-features = fa
 scale-info = { version = "2.11", default-features = false, features = [
 	"derive",
 ] }
-libsecp256k1 = { version = "0.7", default-features = false, features = [
-	"static-context",
-] }
 blake2b_simd = { version = "1.0.2", default-features = false }
+k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "alloc"] }
 
 [build-dependencies]
 sails-rs = { version = "0.3.0", features = ["wasm-builder"] }

@@ -12,6 +12,8 @@ pub enum IbcError {
 	MessageNotFound,
 	DeliveryConfirmationOverdue,
 	SignatureInvalid,
+    SignatureInvalidRecoveryId,
+	SignatureInvalidRecoveredPubKeyLength,
 	DuplicateSignature,
 	PublicKeyUnknown,
 }
@@ -45,11 +47,17 @@ pub fn secp256k1_ecdsa_recover_compressed(
 	sig: &[u8; 65],
 	msg: &[u8; 32],
 ) -> Result<[u8; 33], IbcError> {
-	let rid = libsecp256k1::RecoveryId::parse(if sig[64] > 26 { sig[64] - 27 } else { sig[64] })
-		.map_err(|_| IbcError::SignatureInvalid)?;
-	let sig = libsecp256k1::Signature::parse_overflowing_slice(&sig[0..64])
-		.map_err(|_| IbcError::SignatureInvalid)?;
-	let msg = libsecp256k1::Message::parse(msg);
-	let pubkey = libsecp256k1::recover(&msg, &sig, &rid).map_err(|_| IbcError::SignatureInvalid)?;
-	Ok(pubkey.serialize_compressed())
+    // e.g. 46c05b6368a44b8810d79859441d819b8e7cdc8bfd371e35c53196f4bcacdb5135c7facce2a97b95eacba8a586d87b7958aaf8368ab29cee481f76e871dbd9cb
+    let signature = k256::ecdsa::Signature::from_slice(&sig[..64]).map_err(|_| IbcError::SignatureInvalid)?;
+
+    let recid = k256::ecdsa::RecoveryId::try_from(if sig[64] > 26 { sig[64] - 27 } else { sig[64] }).map_err(|_| IbcError::SignatureInvalidRecoveryId)?;
+
+    let recovered_key = k256::ecdsa::VerifyingKey::recover_from_prehash(
+        msg,
+        &signature,
+        recid
+    ).map_err(|_| IbcError::SignatureInvalid)?;
+
+    let a: Box<[u8;33]> = recovered_key.to_sec1_bytes().try_into().map_err(|_| IbcError::SignatureInvalidRecoveredPubKeyLength)?;
+    Ok(*a)
 }

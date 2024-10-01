@@ -190,13 +190,14 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	fn registration_extra(
 		_instant_match: bool,
 	) -> <Test as pallet_acurast::Config>::RegistrationExtra {
-		JobRequirements {
-			assignment_strategy: AssignmentStrategy::Single(None),
-			slots: 1,
-			reward: 1,
-			min_reputation: None,
-			processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
-			min_cpu_score: Some(1),
+		ExtraFor::<Test> {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 1,
+				min_reputation: None,
+				processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
+			},
 		}
 	}
 
@@ -226,7 +227,7 @@ impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 	}
 
 	fn processor_version(
-		processor: &<Test as frame_system::Config>::AccountId,
+		_processor: &<Test as frame_system::Config>::AccountId,
 	) -> Option<<Test as pallet_acurast::Config>::ProcessorVersion> {
 		Some(1)
 	}
@@ -315,6 +316,5 @@ pub fn advertisement(
 		max_memory,
 		network_request_quota,
 		available_modules: JobModules::default(),
-		cpu_score: 1,
 	}
 }

@@ -46,7 +46,6 @@ fn test_valid_deregister() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -65,7 +64,6 @@ fn test_valid_deregister() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -163,7 +161,6 @@ fn test_deregister_on_matched_job() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -189,7 +186,6 @@ fn test_deregister_on_matched_job() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -300,7 +296,6 @@ fn test_deregister_on_assigned_job() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -338,7 +333,6 @@ fn test_deregister_on_assigned_job() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -504,7 +498,6 @@ fn test_deregister_on_assigned_job_for_competing() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -542,7 +535,6 @@ fn test_deregister_on_assigned_job_for_competing() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -764,7 +756,6 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -802,7 +793,6 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -1070,7 +1060,6 @@ fn test_match() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1096,7 +1085,6 @@ fn test_match() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1126,7 +1114,6 @@ fn test_match() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
@@ -1454,7 +1441,6 @@ fn test_multi_assignments() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1497,7 +1483,6 @@ fn test_multi_assignments() {
 						storage_capacity: 100_000,
 						allowed_consumers: ad.allowed_consumers.clone(),
 						available_modules: JobModules::default(),
-						cpu_score: 1
 					}),
 					AcurastMarketplace::stored_advertisement(processor)
 				);
@@ -1678,7 +1663,6 @@ fn test_no_match_schedule_overlap() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1705,7 +1689,6 @@ fn test_no_match_schedule_overlap() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1841,7 +1824,6 @@ fn test_no_match_insufficient_reputation() {
 				reward: 3_000_000 * 2,
 				min_reputation: Some(1_000_000),
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1933,7 +1915,6 @@ fn test_more_reports_than_expected() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
-				min_cpu_score: None,
 			},
 		},
 	};
@@ -1955,7 +1936,6 @@ fn test_more_reports_than_expected() {
 				storage_capacity: 100_000,
 				allowed_consumers: ad.allowed_consumers.clone(),
 				available_modules: JobModules::default(),
-				cpu_score: 1
 			}),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);

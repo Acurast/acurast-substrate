@@ -12,7 +12,6 @@ use super::*;
 pub mod v5 {
 	use super::*;
 	use frame_support::{pallet_prelude::*, Deserialize, Serialize};
-	use pallet_acurast::JobModules;
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 
 	#[derive(
@@ -45,7 +44,6 @@ pub mod v5 {
 					reward: self.requirements.reward,
 					min_reputation: self.requirements.min_reputation,
 					processor_version: None,
-					min_cpu_score: None,
 				},
 			}
 		}
@@ -76,47 +74,16 @@ pub mod v5 {
 	}
 
 	impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
-		Into<crate::JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>>
-		for JobRequirements<Reward, AccountId, MaxSlots>
+		From<JobRequirements<Reward, AccountId, MaxSlots>>
+		for crate::JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>
 	{
-		fn into(self) -> crate::JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions> {
-			crate::JobRequirements {
-				assignment_strategy: self.assignment_strategy,
-				slots: self.slots,
-				reward: self.reward,
-				min_reputation: self.min_reputation,
+		fn from(val: JobRequirements<Reward, AccountId, MaxSlots>) -> Self {
+			Self {
+				assignment_strategy: val.assignment_strategy,
+				slots: val.slots,
+				reward: val.reward,
+				min_reputation: val.min_reputation,
 				processor_version: None,
-				min_cpu_score: None,
-			}
-		}
-	}
-
-	#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
-	pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBound> {
-		/// Maximum memory in bytes not to be exceeded during any job's execution.
-		pub max_memory: u32,
-		/// Maximum network requests per second not to be exceeded.
-		pub network_request_quota: u8,
-		/// Storage capacity in bytes not to be exceeded in matching. The associated fee is listed in [pricing].
-		pub storage_capacity: u32,
-		/// An optional array of the [AccountId]s of consumers whose jobs should get accepted. If the array is [None], then jobs from all consumers are accepted.
-		pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
-		/// The modules available to the job on processor.
-		pub available_modules: JobModules,
-	}
-
-	impl<AccountId, MaxAllowedConsumers: ParameterBound>
-		Into<crate::AdvertisementRestriction<AccountId, MaxAllowedConsumers>>
-		for AdvertisementRestriction<AccountId, MaxAllowedConsumers>
-	{
-		fn into(self) -> crate::AdvertisementRestriction<AccountId, MaxAllowedConsumers> {
-			crate::AdvertisementRestriction {
-				max_memory: self.max_memory,
-				network_request_quota: self.network_request_quota,
-				storage_capacity: self.storage_capacity,
-				allowed_consumers: self.allowed_consumers,
-				available_modules: self.available_modules,
-				cpu_score: 0,
 			}
 		}
 	}
@@ -160,11 +127,6 @@ where
 		>,
 	>,
 {
-	StoredAdvertisementRestriction::<T>::translate_values::<
-		v5::AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
-		_,
-	>(|old| Some(old.into()));
-
 	StoredJobRegistration::<T>::translate_values::<
 		JobRegistration<
 			T::AccountId,
@@ -186,7 +148,6 @@ where
 		})
 	});
 
-	let count = StoredAdvertisementRestriction::<T>::iter_values().count() as u64 +
-		StoredJobRegistration::<T>::iter_values().count() as u64;
+	let count = StoredJobRegistration::<T>::iter_values().count() as u64;
 	T::DbWeight::get().reads_writes(count + 1, count + 1)
 }

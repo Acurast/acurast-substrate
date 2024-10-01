@@ -48,7 +48,6 @@ pub fn advertisement<T: Config>(
 		max_memory: 100_000,
 		network_request_quota: 100,
 		available_modules: JobModules::default(),
-		cpu_score: 1,
 	}
 }
 
@@ -68,7 +67,6 @@ pub fn job_registration_with_reward<T: Config>(
 			instant_match_processor.map(|m| vec![m].try_into().unwrap()),
 		),
 		processor_version: None,
-		min_cpu_score: None,
 	};
 	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
 	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();
@@ -104,7 +102,6 @@ pub fn competing_job_registration_with_reward<T: Config>(
 		min_reputation: Some(0),
 		assignment_strategy: AssignmentStrategy::Single(None),
 		processor_version: None,
-		min_cpu_score: None,
 	};
 	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
 	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();

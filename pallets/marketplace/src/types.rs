@@ -93,8 +93,6 @@ pub struct Advertisement<AccountId, Reward, MaxAllowedConsumers: Get<u32>> {
 	pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
 	/// The modules available to the job on processor.
 	pub available_modules: JobModules,
-	/// CPU score
-	pub cpu_score: u128,
 }
 
 pub type AdvertisementFor<T> = Advertisement<
@@ -116,8 +114,6 @@ pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBou
 	pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
 	/// The modules available to the job on processor.
 	pub available_modules: JobModules,
-	/// CPU score
-	pub cpu_score: u128,
 }
 
 /// Defines the scheduling window in which to accept matches for this pricing,
@@ -305,8 +301,6 @@ pub struct JobRequirements<
 	pub min_reputation: Option<u128>,
 	/// Restrictions to processor version.
 	pub processor_version: Option<ProcessorVersionRequirements<Version, MaxVersions>>,
-	/// CPU score.
-	pub min_cpu_score: Option<u128>,
 }
 
 #[derive(

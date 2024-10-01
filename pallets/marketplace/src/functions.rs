@@ -46,7 +46,6 @@ impl<T: Config> Pallet<T> {
 				storage_capacity: advertisement.storage_capacity,
 				allowed_consumers: advertisement.allowed_consumers.clone(),
 				available_modules: advertisement.available_modules.clone(),
-				cpu_score: advertisement.cpu_score,
 			},
 		);
 		// update separate pricing index

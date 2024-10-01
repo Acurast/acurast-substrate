@@ -1128,13 +1128,6 @@ pub mod pallet {
 						Error::<T>::ConsumerNotAllowedInMatch
 					);
 
-					if let Some(min_cpu_score) = requirements.min_cpu_score {
-						ensure!(
-							ad.cpu_score >= min_cpu_score,
-							Error::<T>::ProcessorCpuScoreMismatch
-						);
-					}
-
 					// CHECK reputation sufficient
 					Self::check_min_reputation(
 						requirements.min_reputation,
@@ -1345,13 +1338,6 @@ pub mod pallet {
 						is_consumer_whitelisted::<T>(&m.job_id.0, &ad.allowed_consumers),
 						Error::<T>::ConsumerNotAllowedInMatch
 					);
-
-					if let Some(min_cpu_score) = requirements.min_cpu_score {
-						ensure!(
-							ad.cpu_score >= min_cpu_score,
-							Error::<T>::ProcessorCpuScoreMismatch
-						);
-					}
 
 					// CHECK reputation sufficient
 					Self::check_min_reputation(

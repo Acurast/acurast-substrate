@@ -121,7 +121,6 @@ where
 							reward: T::Balance::from(j.extra.reward),
 							min_reputation: j.extra.min_reputation,
 							processor_version: None,
-							min_cpu_score: None,
 						},
 					}
 					.into();

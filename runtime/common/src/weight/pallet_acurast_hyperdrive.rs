@@ -44,4 +44,16 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive::WeightInfo for WeightIn
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+    /// Storage: AcurastHyperdriveTezos CurrentVaraContract (r:0 w:1)
+	/// Proof: AcurastHyperdriveTezos CurrentVaraContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
+	fn update_vara_contract() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 13_710_000 picoseconds.
+		Weight::from_parts(14_410_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "acurast-core-ink"
+name = "acurast-hyperdrive-substrate-core"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
@@ -6948,7 +6948,7 @@ dependencies = [
 name = "pallet-acurast-hyperdrive"
 version = "0.10.0"
 dependencies = [
- "acurast-core-ink",
+ "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
  "derive_more",
  "frame-benchmarking",

@@ -20,7 +20,7 @@ mod proxy {
 
 	use scale::{Decode, Encode};
 
-	use acurast_core_ink::types::{
+	use acurast_hyperdrive_substrate_core::types::{
 		IncomingAction, IncomingActionPayloadV1, JobRegistrationV1, OutgoingActionPayloadV1,
 		RegisterJobPayloadV1, ScheduleV1, SetJobEnvironmentPayloadV1, SetProcessorJobEnvironmentV1,
 		Version, VersionedIncomingActionPayload,

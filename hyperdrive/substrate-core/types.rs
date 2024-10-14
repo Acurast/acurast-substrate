@@ -2,14 +2,14 @@ extern crate alloc;
 
 use alloc::{format, vec::Vec};
 use scale::{Decode, Encode};
-use scale_info::prelude::cmp::Ordering;
+use scale_info::{prelude::cmp::Ordering, TypeInfo};
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum Version {
 	V1 = 1,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct IncomingAction {
 	pub id: u64,
 	pub payload: VersionedIncomingActionPayload,
@@ -27,31 +27,31 @@ impl PartialOrd for IncomingAction {
 	}
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum VersionedIncomingActionPayload {
 	V1(IncomingActionPayloadV1),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum IncomingActionPayloadV1 {
 	AssignJobProcessor(AssignProcessorPayloadV1),
 	FinalizeJob(FinalizeJobPayloadV1),
 	Noop,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct AssignProcessorPayloadV1 {
 	pub job_id: u128,
 	pub processor: [u8; 32],
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct FinalizeJobPayloadV1 {
 	pub job_id: u128,
 	pub unused_reward: u128,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct RawOutgoingAction {
 	pub id: u64,
 	pub origin: [u8; 32],
@@ -79,7 +79,7 @@ impl OutgoingAction {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Decode)]
+#[derive(Clone, Eq, PartialEq, Decode, TypeInfo)]
 pub enum VersionedOutgoingActionPayload {
 	V1(OutgoingActionPayloadV1),
 }
@@ -100,7 +100,7 @@ impl VersionedOutgoingActionPayload {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum OutgoingActionPayloadV1 {
 	RegisterJob(RegisterJobPayloadV1),
 	DeregisterJob(u128),
@@ -109,22 +109,19 @@ pub enum OutgoingActionPayloadV1 {
 	Noop,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct PlannedExecutionV1 {
 	pub source: [u8; 32], // AccountId
 	pub start_delay: u64,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct RegisterJobPayloadV1 {
 	pub job_id: u128,
 	pub job_registration: JobRegistrationV1,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct JobRegistrationV1 {
 	pub script: Vec<u8>,
 	pub allowed_sources: Option<Vec<[u8; 32]>>, // Vec<AccountId>
@@ -137,8 +134,7 @@ pub struct JobRegistrationV1 {
 	pub extra: JobRequirementsV1,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct ScheduleV1 {
 	pub duration: u64,
 	pub start_time: u64,
@@ -147,8 +143,7 @@ pub struct ScheduleV1 {
 	pub max_start_delay: u64,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct JobRequirementsV1 {
 	pub assignment_strategy: AssignmentStrategyV1,
 	pub slots: u8,
@@ -156,22 +151,19 @@ pub struct JobRequirementsV1 {
 	pub min_reputation: Option<u128>,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum AssignmentStrategyV1 {
 	Single(Option<Vec<PlannedExecutionV1>>),
 	Competing,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct SetProcessorJobEnvironmentV1 {
 	pub address: [u8; 32], // AccountId
 	pub variables: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct SetJobEnvironmentPayloadV1 {
 	pub job_id: u128,
 	pub public_key: Vec<u8>,

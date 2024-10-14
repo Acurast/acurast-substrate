@@ -132,6 +132,11 @@ pub mod pallet {
 	pub type StoredRevokedCertificate<T: Config> =
 		StorageMap<_, Blake2_128Concat, SerialNumber, ()>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn v5_migration_state)]
+	pub type V5MigrationState<T: Config> =
+		StorageValue<_, Option<BoundedVec<u8, ConstU32<80>>>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -151,6 +156,9 @@ pub mod pallet {
 		CertificateRevocationListUpdated,
 		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
+		V5MigrationStarted,
+		V5MigrationProgress(Weight, Weight),
+		V5MigrationCompleted,
 	}
 
 	#[pallet::error]
@@ -205,7 +213,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			crate::migration::migrate::<T>()
 		}
 	}
@@ -423,7 +431,7 @@ pub mod pallet {
 				);
 			}
 
-			<StoredJobRegistration<T>>::insert(&job_id.0, &job_id.1, registration.clone());
+			<StoredJobRegistration<T>>::insert(&job_id.0, job_id.1, registration.clone());
 
 			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
 
@@ -434,7 +442,7 @@ pub mod pallet {
 		pub fn deregister_for(job_id: JobId<T::AccountId>) -> DispatchResultWithPostInfo {
 			<T as Config>::JobHooks::deregister_hook(&job_id)?;
 			Self::clear_environment_for(&job_id);
-			<StoredJobRegistration<T>>::remove(&job_id.0, &job_id.1);
+			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
 			Self::deposit_event(Event::JobRegistrationRemoved(job_id));
 			Ok(().into())
 		}
@@ -446,7 +454,7 @@ pub mod pallet {
 			let sources = environments
 				.into_iter()
 				.map(|(source, env)| {
-					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 						.ok_or(Error::<T>::JobRegistrationNotFound)?;
 					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
 					Ok(source)

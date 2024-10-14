@@ -1,0 +1,124 @@
+type ConfigureArgument = enum {
+  Owner: actor_id,
+  IBCContract: actor_id,
+  AcurastPalletAccount: actor_id,
+  Paused: bool,
+  PayloadVersion: u16,
+  MaxMessageBytes: u16,
+  ExchangeRatio: ExchangeRatio,
+};
+
+type ExchangeRatio = struct {
+  numerator: u16,
+  denominator: u16,
+};
+
+type UserAction = enum {
+  RegisterJob: RegisterJobUserInput,
+  DeregisterJob: u128,
+  FinalizeJob: vec u128,
+  SetJobEnvironment: SetJobEnvironmentUserInput,
+  Noop,
+};
+
+type RegisterJobUserInput = struct {
+  job_registration: JobRegistrationV1,
+  destination: actor_id,
+  expected_fulfillment_fee: u128,
+};
+
+type JobRegistrationV1 = struct {
+  script: vec u8,
+  allowed_sources: opt vec [u8, 32],
+  allow_only_verified_sources: bool,
+  schedule: ScheduleV1,
+  memory: u32,
+  network_requests: u32,
+  storage: u32,
+  required_modules: vec u16,
+  extra: JobRequirementsV1,
+};
+
+type ScheduleV1 = struct {
+  duration: u64,
+  start_time: u64,
+  end_time: u64,
+  interval: u64,
+  max_start_delay: u64,
+};
+
+type JobRequirementsV1 = struct {
+  assignment_strategy: AssignmentStrategyV1,
+  slots: u8,
+  reward: u128,
+  min_reputation: opt u128,
+};
+
+type AssignmentStrategyV1 = enum {
+  Single: opt vec PlannedExecutionV1,
+  Competing,
+};
+
+type PlannedExecutionV1 = struct {
+  source: [u8, 32],
+  start_delay: u64,
+};
+
+type SetJobEnvironmentUserInput = struct {
+  job_id: u128,
+  public_key: vec u8,
+  processors: vec SetJobEnvironmentProcessor,
+};
+
+type SetJobEnvironmentProcessor = struct {
+  address: actor_id,
+  variables: vec struct { vec u8, vec u8 },
+};
+
+type Config = struct {
+  owner: actor_id,
+  ibc: actor_id,
+  acurast_pallet_account: actor_id,
+  paused: bool,
+  payload_version: u16,
+  max_message_bytes: u16,
+  exchange_ratio: ExchangeRatio,
+};
+
+type JobInformation = enum {
+  V1: JobInformationV1,
+};
+
+type JobInformationV1 = struct {
+  schedule: ScheduleV1,
+  creator: actor_id,
+  destination: actor_id,
+  processors: vec actor_id,
+  expected_fulfillment_fee: u128,
+  remaining_fee: u128,
+  maximum_reward: u128,
+  status: JobStatus,
+  slots: u8,
+};
+
+type JobStatus = enum {
+  Open,
+  Matched,
+  Assigned,
+  FinalizedOrCancelled,
+};
+
+constructor {
+  New : (owner: actor_id, ibc: actor_id);
+};
+
+service VaraProxy {
+  Configure : (actions: vec ConfigureArgument) -> null;
+  Fulfill : (job_id: u128, payload: vec u8) -> null;
+  ReceiveAction : (payload: vec u8) -> null;
+  SendActions : (actions: vec UserAction) -> null;
+  query Config : () -> Config;
+  query Job : (job_id: u128) -> JobInformation;
+  query NextJobId : () -> u128;
+};
+

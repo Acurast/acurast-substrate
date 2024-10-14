@@ -19,8 +19,8 @@ use pallet_acurast_marketplace::{
 	RegistrationExtra,
 };
 
-use crate::{IncomingAction, Message, MessageDecoder, MessageEncoder, ParsedAction};
-use acurast_core_ink::types::{
+use crate::{IncomingAction, Message, MessageDecoder, MessageEncoder, ParsedAction, ProxyChain};
+use acurast_hyperdrive_substrate_core::types::{
 	AssignProcessorPayloadV1, AssignmentStrategyV1, FinalizeJobPayloadV1,
 	IncomingAction as IncomingActionOnProxy, IncomingActionPayloadV1, OutgoingAction,
 	OutgoingActionPayloadV1 as ActionPayloadV1, PlannedExecutionV1, VersionedIncomingActionPayload,
@@ -64,13 +64,15 @@ where
 {
 	type Error = SubstrateMessageDecoderError;
 
-	fn decode(encoded: &[u8]) -> Result<ParsedAction<T>, Self::Error> {
+	fn decode(encoded: &[u8], chain: ProxyChain) -> Result<ParsedAction<T>, Self::Error> {
 		let action =
 			OutgoingAction::decode(encoded).map_err(|_err| Self::Error::CouldNotDecodeAction)?;
 
-		let origin = MultiOrigin::AlephZero(convert_account_id::<T::AccountId, AccountConverter>(
-			&action.origin,
-		)?);
+		let account = convert_account_id::<T::AccountId, AccountConverter>(&action.origin)?;
+		let origin = match chain {
+			ProxyChain::AlephZero => MultiOrigin::AlephZero(account),
+			ProxyChain::Vara => MultiOrigin::Vara(account),
+		};
 
 		fn convert_account_id<Account, AccountConverter: TryFrom<Vec<u8>> + Into<Account>>(
 			bytes: &[u8; 32],

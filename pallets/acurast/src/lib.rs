@@ -44,11 +44,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{
-		traits::*,
-		utils::{ensure_not_expired, ensure_not_revoked, validate_and_extract_attestation},
-		EnvironmentFor, JobRegistrationFor,
-	};
+	use crate::{traits::*, utils::*, EnvironmentFor, JobRegistrationFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -314,7 +310,7 @@ pub mod pallet {
 		///
 		/// Revocation: Each atttestation is stored with the unique IDs of the certificates on the chain proofing the attestation's validity.
 		#[pallet::call_index(5)]
-		#[pallet::weight(< T as Config >::WeightInfo::update_certificate_revocation_list())]
+		#[pallet::weight(< T as Config >::WeightInfo::submit_attestation())]
 		pub fn submit_attestation(
 			origin: OriginFor<T>,
 			attestation_chain: AttestationChain,

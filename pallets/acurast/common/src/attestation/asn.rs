@@ -258,12 +258,20 @@ pub struct DeviceAttestationDeviceOSInformation<'a> {
 	pub t1104: Option<i64>,
 	#[explicit(1403)]
 	pub t1403: Option<&'a [u8]>,
+	#[explicit(1404)]
+	pub t1404: Option<&'a [u8]>,
 	#[explicit(1405)]
 	pub t1405: Option<&'a [u8]>,
 	#[explicit(1406)]
 	pub t1406: Option<i64>,
+	#[explicit(1418)]
+	pub t1418: Option<&'a [u8]>,
+	#[explicit(1419)]
+	pub t1419: Option<&'a [u8]>,
 	#[explicit(1420)]
 	pub t1420: Option<&'a [u8]>,
+	#[explicit(1026)]
+	pub t1026: Option<&'a [u8]>,
 }
 
 #[derive(Asn1Read, Asn1Write)]

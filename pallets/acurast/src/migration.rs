@@ -1,6 +1,6 @@
 use frame_support::{
 	traits::{GetStorageVersion, StorageVersion},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	IterableStorageMap,
 };
 use sp_core::Get;
@@ -36,12 +36,23 @@ pub fn migrate<T: Config>() -> Weight {
 
 fn migrate_to_v5<T: Config>(weight: Weight) -> Weight {
 	let weights = T::BlockWeights::get();
-	let mut weight = weight;
-	let max_weight = weights.max_block - weights.base_block;
+	let mut meter = WeightMeter::with_limit(
+		weights.max_block.saturating_sub(weights.base_block).saturating_sub(weight),
+	);
 	let mut cursor = V5MigrationState::<T>::get();
-	weight += T::DbWeight::get().reads_writes(1, 1);
-	crate::Pallet::<T>::deposit_event(Event::V5MigrationStarted);
+	meter.consume(T::DbWeight::get().reads_writes(1, 2));
+	if cursor.is_none() {
+		crate::Pallet::<T>::deposit_event(Event::<T>::V5MigrationStarted);
+	}
+	let mut migrated_items: u32 = 0;
 	loop {
+		// check if current iteration would go over weight
+		if meter.try_consume(T::DbWeight::get().reads_writes(1, 1)).is_err() {
+			crate::Pallet::<T>::deposit_event(Event::<T>::V5MigrationProgress(migrated_items));
+			V5MigrationState::<T>::put(cursor);
+			break;
+		}
+		// Update storage
 		cursor = StoredAttestation::<T>::translate_next::<v4::Attestation, _>(
 			cursor.map(|v| v.to_vec()),
 			|_, old_value| {
@@ -53,20 +64,16 @@ fn migrate_to_v5<T: Config>(weight: Weight) -> Weight {
 			},
 		)
 		.map(|cursor| cursor.try_into().unwrap());
-		weight += T::DbWeight::get().reads_writes(1, 1);
-		if weight.any_gte(max_weight) || cursor.is_none() {
-			crate::Pallet::<T>::deposit_event(Event::V5MigrationProgress(
-				weight,
-				max_weight.saturating_sub(weight),
-			));
-			if cursor.is_none() {
-				STORAGE_VERSION.put::<Pallet<T>>();
-				crate::Pallet::<T>::deposit_event(Event::V5MigrationCompleted);
-			}
-			V5MigrationState::<T>::put(cursor);
+		// Check if the migration is complete
+		if cursor.is_none() {
+			crate::Pallet::<T>::deposit_event(Event::<T>::V5MigrationProgress(migrated_items));
+			STORAGE_VERSION.put::<Pallet<T>>();
+			crate::Pallet::<T>::deposit_event(Event::<T>::V5MigrationCompleted);
+			V5MigrationState::<T>::kill();
 			break;
 		}
+		migrated_items = migrated_items.saturating_add(1);
 	}
 
-	weight
+	meter.consumed()
 }

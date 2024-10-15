@@ -44,7 +44,11 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, utils::*, EnvironmentFor, JobRegistrationFor};
+	use crate::{
+		traits::*,
+		utils::{ensure_not_expired, ensure_not_revoked, validate_and_extract_attestation},
+		EnvironmentFor, JobRegistrationFor,
+	};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -156,8 +160,11 @@ pub mod pallet {
 		CertificateRevocationListUpdated,
 		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
+		/// Migration started.
 		V5MigrationStarted,
-		V5MigrationProgress(Weight, Weight),
+		/// Migration progressed. [migrations]
+		V5MigrationProgress(u32),
+		/// Migration completed.
 		V5MigrationCompleted,
 	}
 
@@ -307,7 +314,7 @@ pub mod pallet {
 		///
 		/// Revocation: Each atttestation is stored with the unique IDs of the certificates on the chain proofing the attestation's validity.
 		#[pallet::call_index(5)]
-		#[pallet::weight(< T as Config >::WeightInfo::submit_attestation())]
+		#[pallet::weight(< T as Config >::WeightInfo::update_certificate_revocation_list())]
 		pub fn submit_attestation(
 			origin: OriginFor<T>,
 			attestation_chain: AttestationChain,
@@ -330,6 +337,7 @@ pub mod pallet {
 
 			<StoredAttestation<T>>::insert(&who, attestation.clone());
 			Self::deposit_event(Event::AttestationStored(attestation, who));
+
 			Ok(().into())
 		}
 

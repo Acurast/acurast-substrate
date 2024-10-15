@@ -18,10 +18,7 @@ use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{TransactionLongevity, ValidTransaction},
-	traits::{
-		ConstBool, ConstU128, ConstU32, ConstU64, EnqueueWithOrigin, LinearStoragePrice,
-		TransformOrigin,
-	},
+	traits::{ConstBool, ConstU128, ConstU32, ConstU64, LinearStoragePrice, TransformOrigin},
 };
 use pallet_acurast_hyperdrive_ibc::{Instance1, LayerFor, MessageBody, SubjectFor};
 use parity_scale_codec::{Decode, Encode};
@@ -1357,11 +1354,11 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl cumulus_pallet_dmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type DmpSink = EnqueueWithOrigin<MessageQueue, RelayOrigin>;
-	type WeightInfo = ();
-}
+//impl cumulus_pallet_dmp_queue::Config for Runtime {
+//	type RuntimeEvent = RuntimeEvent;
+//	type DmpSink = EnqueueWithOrigin<MessageQueue, RelayOrigin>;
+//	type WeightInfo = ();
+//}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1399,7 +1396,7 @@ construct_runtime!(
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
-		DmpQueue: cumulus_pallet_dmp_queue = 33,
+		//DmpQueue: cumulus_pallet_dmp_queue = 33,
 		MessageQueue: pallet_message_queue = 34,
 
 		// Acurast pallets

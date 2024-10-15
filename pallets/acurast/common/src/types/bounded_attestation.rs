@@ -176,6 +176,7 @@ pub struct BoundedDeviceAttestationDeviceOSInformation {
 	pub t1419: Option<BoundedVec<u8, ConstU32<32>>>,
 	pub t1420: Option<BoundedVec<u8, ConstU32<32>>>,
 	pub t1026: Option<BoundedVec<u8, ConstU32<32>>>,
+	pub t1029: Option<BoundedVec<u8, ConstU32<16>>>,
 }
 
 impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
@@ -195,6 +196,7 @@ impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
 			t1419: value.t1419.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 			t1420: value.t1420.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 			t1026: value.t1026.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
+			t1029: value.t1029.map(|v| v.to_vec().try_into().map_err(|_| ())).transpose()?,
 		})
 	}
 }

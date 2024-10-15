@@ -272,6 +272,8 @@ pub struct DeviceAttestationDeviceOSInformation<'a> {
 	pub t1420: Option<&'a [u8]>,
 	#[explicit(1026)]
 	pub t1026: Option<&'a [u8]>,
+	#[explicit(1029)]
+	pub t1029: Option<&'a [u8]>,
 }
 
 #[derive(Asn1Read, Asn1Write)]

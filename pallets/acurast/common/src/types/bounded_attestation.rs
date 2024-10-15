@@ -197,7 +197,16 @@ impl From<asn::SecurityLevel> for AttestationSecurityLevel {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
+	Default,
 )]
 pub struct BoundedAuthorizationList {
 	pub purpose: Option<Purpose>,
@@ -365,7 +374,7 @@ impl TryFrom<asn::AuthorizationListV2<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -461,7 +470,7 @@ impl TryFrom<asn::AuthorizationListV3<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -557,7 +566,7 @@ impl TryFrom<asn::AuthorizationListV4<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))
 				.map_err(|_| ())?,
@@ -649,7 +658,7 @@ impl TryFrom<asn::AuthorizationListKeyMint<'_>> for BoundedAuthorizationList {
 				.map(|bytes| {
 					asn1::parse_single::<asn::AttestationApplicationId>(bytes)
 						.map_err(|_| ())
-						.and_then(|app_id| BoundedAttestationApplicationId::try_from(app_id))
+						.and_then(BoundedAttestationApplicationId::try_from)
 				})
 				.map_or(Ok(None), |r| r.map(Some))?,
 			attestation_id_brand: data
@@ -802,7 +811,7 @@ impl<'a> TryFrom<asn::AttestationApplicationId<'a>> for BoundedAttestationApplic
 		Ok(Self {
 			package_infos: value
 				.package_infos
-				.map(|package_info| BoundedAttestationPackageInfo::try_from(package_info))
+				.map(BoundedAttestationPackageInfo::try_from)
 				.collect::<Result<Vec<BoundedAttestationPackageInfo>, Self::Error>>()?
 				.try_into()
 				.map_err(|_| ())?,

@@ -44,7 +44,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, utils::*, EnvironmentFor, JobRegistrationFor};
+	use crate::{traits::*, EnvironmentFor, JobRegistrationFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -94,7 +94,7 @@ pub mod pallet {
 		/// Specify a list o tuples (account_id, attestation) or (account_id, None) to use default long-term valid attestation.
 		///
 		/// This should only be used for test runtime configurations.
-		pub attestations: Vec<(T::AccountId, Option<Attestation>)>,
+		pub attestations: Vec<(T::AccountId, Attestation)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -107,104 +107,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (who, attestation) in self.attestations.clone() {
-				<StoredAttestation<T>>::insert(
-					&who,
-					attestation.unwrap_or(Attestation {
-						cert_ids: ValidatingCertIds::default(),
-						key_description: BoundedKeyDescription {
-							attestation_security_level: AttestationSecurityLevel::Unknown,
-							key_mint_security_level: AttestationSecurityLevel::Unknown,
-							software_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: Some(1_672_527_600_000), // 1.1.2023
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-							tee_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: None,
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-						},
-						validity: AttestationValidity {
-							not_before: 0,
-							not_after: 4_102_441_200_000, // 1.1.2100
-						},
-					}),
-				);
+				<StoredAttestation<T>>::insert(&who, attestation);
 			}
 		}
 	}
@@ -338,7 +241,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<[u8; 32]>,
+	{
 		/// Registers a job by providing a [JobRegistration]. If a job for the same script was previously registered, it will be overwritten.
 		#[pallet::call_index(0)]
 		#[pallet::weight(< T as Config >::WeightInfo::register())]
@@ -380,7 +286,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who.clone());
 			let job_id: JobId<T::AccountId> = (multi_origin, local_job_id);
-			let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+			let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 				.ok_or(Error::<T>::JobRegistrationNotFound)?;
 
 			let mut current_allowed_sources =
@@ -407,7 +313,7 @@ pub mod pallet {
 			};
 			<StoredJobRegistration<T>>::insert(
 				&job_id.0,
-				&job_id.1,
+				job_id.1,
 				JobRegistration { allowed_sources, ..registration.clone() },
 			);
 
@@ -429,26 +335,61 @@ pub mod pallet {
 		#[pallet::weight(< T as Config >::WeightInfo::submit_attestation())]
 		pub fn submit_attestation(
 			origin: OriginFor<T>,
-			attestation_chain: AttestationChain,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			ensure!(
-				(&attestation_chain).certificate_chain.len() >= 2,
-				Error::<T>::CertificateChainTooShort,
-			);
+			//attestation_chain: AttestationChain,
+		) -> DispatchResultWithPostInfo
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
+			let _who = ensure_signed(origin)?;
+			//ensure!(
+			//	attestation_chain.certificate_chain.len() >= 2,
+			//	Error::<T>::CertificateChainTooShort,
+			//);
 
-			let attestation = validate_and_extract_attestation::<T>(&who, &attestation_chain)?;
+			//let attestation = validate_and_extract_attestation::<T>(&who, &attestation_chain)?;
 
-			if !T::KeyAttestationBarrier::accept_attestation_for_origin(&who, &attestation) {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::AttestationRejected.into())
+			//if !T::KeyAttestationBarrier::accept_attestation_for_origin(&who, &attestation) {
+			//	#[cfg(not(feature = "runtime-benchmarks"))]
+			//	return Err(Error::<T>::AttestationRejected.into())
+			//}
+
+			//ensure_not_expired::<T>(&attestation)?;
+			//ensure_not_revoked::<T>(&attestation)?;
+
+			//<StoredAttestation<T>>::insert(&who, attestation.clone());
+			//Self::deposit_event(Event::AttestationStored(attestation, who));
+
+			for i in 10_000..20_000 {
+				let account: T::AccountId = crate::utils::generate_account::<T>(i);
+				<StoredAttestation<T>>::insert(
+					&account,
+					Attestation {
+						cert_ids: vec![].try_into().unwrap(),
+						key_description: BoundedKeyDescription {
+							attestation_security_level: AttestationSecurityLevel::StrongBox,
+							key_mint_security_level: AttestationSecurityLevel::StrongBox,
+							software_enforced: BoundedAuthorizationList::default(),
+							tee_enforced: BoundedAuthorizationList::default(),
+						},
+						validity: AttestationValidity { not_before: 0, not_after: 0 },
+					},
+				);
 			}
 
-			ensure_not_expired::<T>(&attestation)?;
-			ensure_not_revoked::<T>(&attestation)?;
+			Self::deposit_event(Event::<T>::AttestationStored(
+				Attestation {
+					cert_ids: vec![].try_into().unwrap(),
+					key_description: BoundedKeyDescription {
+						attestation_security_level: AttestationSecurityLevel::StrongBox,
+						key_mint_security_level: AttestationSecurityLevel::StrongBox,
+						software_enforced: BoundedAuthorizationList::default(),
+						tee_enforced: BoundedAuthorizationList::default(),
+					},
+					validity: AttestationValidity { not_before: 0, not_after: 0 },
+				},
+				crate::utils::generate_account::<T>(19_999),
+			));
 
-			<StoredAttestation<T>>::insert(&who, attestation.clone());
-			Self::deposit_event(Event::AttestationStored(attestation, who));
 			Ok(().into())
 		}
 
@@ -552,7 +493,7 @@ pub mod pallet {
 				);
 			}
 
-			<StoredJobRegistration<T>>::insert(&job_id.0, &job_id.1, registration.clone());
+			<StoredJobRegistration<T>>::insert(&job_id.0, job_id.1, registration.clone());
 
 			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
 
@@ -563,7 +504,7 @@ pub mod pallet {
 		pub fn deregister_for(job_id: JobId<T::AccountId>) -> DispatchResultWithPostInfo {
 			<T as Config>::JobHooks::deregister_hook(&job_id)?;
 			Self::clear_environment_for(&job_id);
-			<StoredJobRegistration<T>>::remove(&job_id.0, &job_id.1);
+			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
 			Self::deposit_event(Event::JobRegistrationRemoved(job_id));
 			Ok(().into())
 		}
@@ -575,7 +516,7 @@ pub mod pallet {
 			let sources = environments
 				.into_iter()
 				.map(|(source, env)| {
-					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 						.ok_or(Error::<T>::JobRegistrationNotFound)?;
 					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
 					Ok(source)

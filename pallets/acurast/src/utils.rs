@@ -150,3 +150,20 @@ fn ensure_valid_public_key_for_source<T: Config>(
 		},
 	}
 }
+
+pub fn generate_account<T: frame_system::Config>(index: u32) -> T::AccountId
+where
+	T::AccountId: From<[u8; 32]>,
+{
+	let mut buffer = [0u8; 32];
+	let byte1: u8 = (index >> 24) as u8;
+	let byte2: u8 = ((index << 8) >> 24) as u8;
+	let byte3: u8 = ((index << 16) >> 24) as u8;
+	let byte4: u8 = ((index << 24) >> 24) as u8;
+	buffer[28] = byte1;
+	buffer[29] = byte2;
+	buffer[30] = byte3;
+	buffer[31] = byte4;
+
+	buffer.into()
+}

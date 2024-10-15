@@ -1,5 +1,9 @@
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::core::__reexports::serde_json;
+use pallet_acurast::{
+	Attestation, AttestationSecurityLevel, AttestationValidity, BoundedAuthorizationList,
+	BoundedKeyDescription,
+};
 use pallet_acurast_marketplace::{
 	AdvertisementRestriction, AssignmentStrategy, JobRequirements, RegistrationExtra,
 };
@@ -146,10 +150,13 @@ fn genesis_config(
 		"sudo": {
 			"key": Some(sudo_account)
 		},
+		"acurast": {
+			"attestations": genesis_attestations(10_000),
+		},
 		"acurastMarketplace": {
-			"jobs": genesis_jobs(),
-			"advertisements": genesis_ad_restrictions(),
-		}
+			"jobs": genesis_jobs(0),
+			"advertisements": genesis_ad_restrictions(0),
+		},
 	})
 }
 
@@ -172,12 +179,32 @@ pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5DJCQnpbFHnFZHHc5XJGKP1rduYuNaKNe6kAWgRoZc2JXJ5m")
 }
 
+pub fn genesis_attestations(count: u32) -> Vec<(AccountId, Attestation)> {
+	let mut result: Vec<(AccountId, Attestation)> = vec![];
+	for i in 0..count {
+		result.push((
+			generate_account(i),
+			Attestation {
+				cert_ids: vec![].try_into().unwrap(),
+				key_description: BoundedKeyDescription {
+					attestation_security_level: AttestationSecurityLevel::StrongBox,
+					key_mint_security_level: AttestationSecurityLevel::StrongBox,
+					software_enforced: BoundedAuthorizationList::default(),
+					tee_enforced: BoundedAuthorizationList::default(),
+				},
+				validity: AttestationValidity { not_before: 0, not_after: 0 },
+			},
+		));
+	}
+	result
+}
+
 type JobRegistration =
 	pallet_acurast_marketplace::JobRegistrationForMarketplace<acurast_rococo_runtime::Runtime>;
 
-pub fn genesis_jobs() -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
+pub fn genesis_jobs(count: u32) -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
 	let mut result: Vec<(MultiOrigin<AccountId>, JobRegistration)> = vec![];
-	for i in 0..3_627 {
+	for i in 0..count {
 		result.push((
 			MultiOrigin::Acurast(generate_account(i)),
 			JobRegistration {
@@ -201,6 +228,7 @@ pub fn genesis_jobs() -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
 						slots: 1,
 						reward: 10_000_000_000,
 						min_reputation: None,
+						processor_version: None,
 					},
 				},
 			},
@@ -214,9 +242,9 @@ type AdRestriction = AdvertisementRestriction<
 	<acurast_rococo_runtime::Runtime as pallet_acurast_marketplace::Config>::MaxAllowedConsumers,
 >;
 
-pub fn genesis_ad_restrictions() -> Vec<(AccountId, AdRestriction)> {
+pub fn genesis_ad_restrictions(count: u32) -> Vec<(AccountId, AdRestriction)> {
 	let mut result: Vec<(AccountId, AdRestriction)> = vec![];
-	for i in 0..14_809 {
+	for i in 0..count {
 		result.push((
 			generate_account(i),
 			AdRestriction {

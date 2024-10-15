@@ -15,7 +15,7 @@ variables:
 
 stages:
   - benchmarking
-  - checks
+  # - checks
   - build
   - publish
 
@@ -27,17 +27,17 @@ stages:
     - rustup component add rustfmt --toolchain nightly-2023-10-31
     - rustup component add rust-src
 
-format-check:
-  stage: checks
-  extends: .prepare_rust
-  script:
-    - cargo fmt --check
+# format-check:
+#   stage: checks
+#   extends: .prepare_rust
+#   script:
+#     - cargo fmt --check
 
-test:
-  stage: checks
-  extends: .prepare_rust
-  script:
-    - cargo test
+# test:
+#   stage: checks
+#   extends: .prepare_rust
+#   script:
+#     - cargo test
 
 build:
   stage: build

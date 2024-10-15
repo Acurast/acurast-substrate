@@ -1,0 +1,31 @@
+type ConfigureArgument = enum {
+  Owner: actor_id,
+  Proxy: actor_id,
+};
+
+type ConsumerError = enum {
+  NotOwner,
+  UnauthorizedCaller,
+};
+
+type Config = struct {
+  owner: actor_id,
+  proxy: actor_id,
+};
+
+constructor {
+  New : (owner: opt actor_id, proxy: actor_id);
+};
+
+service VaraConsumer {
+  Configure : (actions: vec ConfigureArgument) -> null;
+  Fulfill : (job_id: u64, payload: vec u8) -> result (null, ConsumerError);
+  query Config : () -> Config;
+  query Fulfillment : (job_id: u64) -> opt vec u8;
+  query FulfillmentsIndex : () -> vec u64;
+
+  events {
+    FulfillmentReceived: struct { job_id: u64 };
+  }
+};
+

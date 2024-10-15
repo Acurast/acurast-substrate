@@ -208,6 +208,10 @@ impl VaraIbcService {
 	pub fn config(&self) -> &'static Config {
 		Storage::config()
 	}
+	
+    pub fn block(&self) -> BlockNumber {
+		exec::block_height()
+	}
 
 	pub fn message_count(&self) -> u128 {
 		Storage::message_counter()

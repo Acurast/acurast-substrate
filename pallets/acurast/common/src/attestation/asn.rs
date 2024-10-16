@@ -6,7 +6,7 @@ use core::{
 };
 
 use asn1::{
-	parse, Asn1Read, Asn1Readable, Asn1Writable, Asn1Write, BitString, Enumerated, Null,
+	parse, Asn1Read, Asn1Readable, Asn1Writable, Asn1Write, BitString, Enumerated, Explicit, Null,
 	ObjectIdentifier, ParseResult, SequenceOf, SetOf, SimpleAsn1Readable, SimpleAsn1Writable, Tag,
 	Tlv, WriteBuf, WriteResult,
 };
@@ -102,24 +102,16 @@ impl Time {
 		let initial = chrono::NaiveDateTime::default();
 		let milliseconds = initial
 			.with_second(date_time.second().into())
-			.map(|t| {
-				t.with_minute(date_time.minute().into())
-					.map(|t| {
-						t.with_hour(date_time.hour().into())
-							.map(|t| {
-								t.with_day(date_time.day().into())
-									.map(|t| {
-										t.with_month(date_time.month().into())
-											.map(|t| t.with_year(date_time.year().into()))
-											.flatten()
-									})
-									.flatten()
-							})
-							.flatten()
+			.and_then(|t| {
+				t.with_minute(date_time.minute().into()).and_then(|t| {
+					t.with_hour(date_time.hour().into()).and_then(|t| {
+						t.with_day(date_time.day().into()).and_then(|t| {
+							t.with_month(date_time.month().into())
+								.and_then(|t| t.with_year(date_time.year().into()))
+						})
 					})
-					.flatten()
+				})
 			})
-			.flatten()
 			.map(|t| t.timestamp_millis())
 			.unwrap_or(0);
 
@@ -222,64 +214,218 @@ pub enum KeyDescription<'a> {
 	V300(KeyDescriptionKeyMint<'a>),
 }
 
-#[derive(Asn1Read, Asn1Write)]
+fn try_parse_tags<'a>(
+	parser: &mut asn1::Parser<'a>,
+	tags: &[asn1::Tag],
+) -> ParseResult<Vec<asn1::Tlv<'a>>> {
+	let mut result = vec![];
+	while !parser.is_empty() {
+		let tlv = parser.read_element::<asn1::Tlv>()?;
+		if tags.contains(&tlv.tag()) {
+			result.push(tlv);
+		}
+	}
+	Ok(result)
+}
+
 pub struct DeviceAttestationKeyUsageProperties<'a> {
-	#[explicit(4)]
 	pub t4: Option<i64>,
-	#[explicit(1200)]
 	pub t1200: Option<i64>,
-	#[explicit(1201)]
 	pub t1201: Option<i64>,
-	#[explicit(1202)]
 	pub t1202: Option<i64>,
-	#[explicit(1203)]
 	pub t1203: Option<i64>,
-	#[explicit(1204)]
 	pub t1204: Option<&'a [u8]>,
-	#[explicit(5)]
 	pub t5: Option<&'a [u8]>,
-	#[explicit(1206)]
 	pub t1206: Option<i64>,
-	#[explicit(1207)]
 	pub t1207: Option<i64>,
-	#[explicit(1209)]
 	pub t1209: Option<i64>,
-	#[explicit(1210)]
 	pub t1210: Option<i64>,
-	#[explicit(1211)]
 	pub t1211: Option<i64>,
 }
 
-#[derive(Asn1Read, Asn1Write)]
+impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationKeyUsageProperties<'a> {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		asn1::parse(data, |parser| {
+			let t4 = Tag::from_bytes(&[0xA4, 0x03])?.0;
+			let t1200 = Tag::from_bytes(&[0xBF, 0x89, 0x30, 0x03])?.0;
+			let t1201 = Tag::from_bytes(&[0xBF, 0x89, 0x31, 0x03])?.0;
+			let t1202 = Tag::from_bytes(&[0xBF, 0x89, 0x32, 0x03])?.0;
+			let t1203 = Tag::from_bytes(&[0xBF, 0x89, 0x33, 0x03])?.0;
+			let t1204 = Tag::from_bytes(&[0xBF, 0x89, 0x34, 0x21])?.0;
+			let t5 = Tag::from_bytes(&[0xA5, 0x06])?.0;
+			let t1206 = Tag::from_bytes(&[0xBF, 0x89, 0x36, 0x03])?.0;
+			let t1207 = Tag::from_bytes(&[0xBF, 0x89, 0x37, 0x03])?.0;
+			let t1209 = Tag::from_bytes(&[0xBF, 0x89, 0x39, 0x03])?.0;
+			let t1210 = Tag::from_bytes(&[0xBF, 0x89, 0x3A, 0x03])?.0;
+			let t1211 = Tag::from_bytes(&[0xBF, 0x89, 0x3B, 0x03])?.0;
+			let tlvs = try_parse_tags(
+				parser,
+				&[t4, t1200, t1201, t1202, t1203, t1204, t5, t1206, t1207, t1209, t1210, t1211],
+			)?;
+			Ok(Self {
+				t4: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t4)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 4>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1200: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1200)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1200>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1201: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1201)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1201>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1202: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1202)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1202>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1203: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1203)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1203>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1204: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1204)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1204>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t5: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t5)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 5>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1206: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1206)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1206>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1207: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1207)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1207>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1209: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1209)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1209>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1210: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1210)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1210>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1211: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1211)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1211>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+			})
+		})
+	}
+}
+
 pub struct DeviceAttestationDeviceOSInformation<'a> {
-	#[explicit(1400)]
 	pub t1400: Option<&'a [u8]>,
-	#[explicit(1104)]
 	pub t1104: Option<i64>,
-	#[explicit(1403)]
 	pub t1403: Option<&'a [u8]>,
-	#[explicit(1404)]
-	pub t1404: Option<&'a [u8]>,
-	#[explicit(1405)]
-	pub t1405: Option<&'a [u8]>,
-	#[explicit(1406)]
-	pub t1406: Option<i64>,
-	#[explicit(1418)]
-	pub t1418: Option<&'a [u8]>,
-	#[explicit(1419)]
-	pub t1419: Option<&'a [u8]>,
-	#[explicit(1420)]
 	pub t1420: Option<&'a [u8]>,
-	#[explicit(1026)]
 	pub t1026: Option<&'a [u8]>,
-	#[explicit(1029)]
 	pub t1029: Option<&'a [u8]>,
 }
 
-#[derive(Asn1Read, Asn1Write)]
+impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationDeviceOSInformation<'a> {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		asn1::parse(data, |parser| {
+			let t1400 = Tag::from_bytes(&[0xBF, 0x8A, 0x78, 0x08])?.0;
+			let t1104 = Tag::from_bytes(&[0xBF, 0x88, 0x50, 0x03])?.0;
+			let t1403 = Tag::from_bytes(&[0xBF, 0x8A, 0x7B, 0x09])?.0;
+			let t1420 = Tag::from_bytes(&[0xBF, 0x8B, 0x0C, 0x10])?.0;
+			let t1026 = Tag::from_bytes(&[0xBF, 0x88, 0x02, 0x0A])?.0;
+			let t1029 = Tag::from_bytes(&[0xBF, 0x88, 0x05, 0x06])?.0;
+			let tlvs = try_parse_tags(parser, &[t1400, t1104, t1403, t1420, t1026, t1029])?;
+			Ok(Self {
+				t1400: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1400)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1400>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1104: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1104)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1104>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1403: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1403)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1403>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1420: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1420)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1420>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1026: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1026)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1026>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+				t1029: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == t1029)
+					.map(Tlv::parse::<asn1::Explicit<'a, _, 1029>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+			})
+		})
+	}
+}
+
 pub struct DeviceAttestationNonce<'a> {
-	#[explicit(1)]
 	pub nonce: Option<&'a [u8]>,
+}
+
+impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationNonce<'a> {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		asn1::parse(data, |parser| {
+			let nonce = Tag::from_bytes(&[0xA1, 0x22])?.0;
+			let tlvs = try_parse_tags(parser, &[nonce])?;
+			Ok(Self {
+				nonce: tlvs
+					.iter()
+					.find(|tlv| tlv.tag() == nonce)
+					.map(Tlv::parse::<Explicit<'a, _, 1>>)
+					.transpose()?
+					.map(asn1::Explicit::into_inner),
+			})
+		})
+	}
 }
 
 pub struct DeviceAttestation<'a> {

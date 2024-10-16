@@ -268,75 +268,75 @@ impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationKeyUsageProperties<'a> {
 				t4: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t4)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 4>>)
+					.map(Tlv::parse::<Explicit<'a, _, 4>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1200: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1200)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1200>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1200>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1201: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1201)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1201>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1201>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1202: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1202)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1202>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1202>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1203: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1203)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1203>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1203>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1204: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1204)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1204>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1204>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t5: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t5)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 5>>)
+					.map(Tlv::parse::<Explicit<'a, _, 5>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1206: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1206)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1206>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1206>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1207: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1207)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1207>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1207>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1209: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1209)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1209>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1209>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1210: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1210)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1210>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1210>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1211: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1211)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1211>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1211>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 			})
 		})
 	}
@@ -367,39 +367,39 @@ impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationDeviceOSInformation<'a> {
 				t1400: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1400)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1400>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1400>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1104: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1104)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1104>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1104>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1403: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1403)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1403>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1403>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1420: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1420)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1420>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1420>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1026: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1026)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1026>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1026>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 				t1029: tlvs
 					.iter()
 					.find(|tlv| tlv.tag() == t1029)
-					.map(Tlv::parse::<asn1::Explicit<'a, _, 1029>>)
+					.map(Tlv::parse::<Explicit<'a, _, 1029>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 			})
 		})
 	}
@@ -422,7 +422,7 @@ impl<'a> SimpleAsn1Readable<'a> for DeviceAttestationNonce<'a> {
 					.find(|tlv| tlv.tag() == nonce)
 					.map(Tlv::parse::<Explicit<'a, _, 1>>)
 					.transpose()?
-					.map(asn1::Explicit::into_inner),
+					.map(Explicit::into_inner),
 			})
 		})
 	}

@@ -34,8 +34,9 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = 2000;
 
     /// The acurast contract on the aleph zero network
-	pub AlephZeroAcurastContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
-	pub AlephZeroAcurastContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
+	pub AlephZeroContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
+	pub VaraContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into(); // TODO(vara)
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 
@@ -109,8 +110,9 @@ impl crate::Config<Instance1> for Test {
     type ActionExecutor = ();
 	type Sender = AcurastPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
-	type AlephZeroContract = AlephZeroAcurastContract;
-	type AlephZeroContractSelector = AlephZeroAcurastContractSelector;
+	type AlephZeroContract = AlephZeroContract;
+	type AlephZeroContractSelector = AlephZeroContractSelector;
+	type VaraContract = VaraContract;
 	type Balance = Balance;
 	type WeightInfo = weights::WeightInfo<Test>;
 }

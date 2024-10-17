@@ -12,24 +12,11 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use pallet_acurast::{
-	CertificateRevocationListUpdate, JobModules, RevocationListUpdateBarrier, CU32,
-};
+use pallet_acurast::{JobModules, CU32};
 
 use crate::{stub::*, *};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-pub struct Barrier;
-
-impl RevocationListUpdateBarrier<Test> for Barrier {
-	fn can_update_revocation_list(
-		origin: &<Test as frame_system::Config>::AccountId,
-		_updates: &Vec<CertificateRevocationListUpdate>,
-	) -> bool {
-		AllowedRevocationListUpdate::get().contains(origin)
-	}
-}
 
 pub struct FeeManagerImpl;
 
@@ -172,7 +159,6 @@ impl pallet_acurast::Config for Test {
 	type MaxEnvVars = CU32<10>;
 	type EnvKeyMaxSize = CU32<32>;
 	type EnvValueMaxSize = CU32<1024>;
-	type RevocationListUpdateBarrier = Barrier;
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = Pallet<Test>;
@@ -269,8 +255,8 @@ impl Config for Test {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
-	fn registration_extra(r: ExtraFor<Test>) -> <Test as Config>::RegistrationExtra {
-		r
+	fn registration_extra(r: JobRequirementsFor<Test>) -> <Test as Config>::RegistrationExtra {
+		ExtraFor::<Test> { requirements: r }
 	}
 
 	fn funded_account(index: u32, amount: Balance) -> AccountId {

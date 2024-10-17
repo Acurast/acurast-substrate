@@ -7084,6 +7084,7 @@ dependencies = [
  "tokio",
  "vara-ibc",
  "vara-ibc-client",
+ "vara-proxy-client",
 ]
 
 [[package]]
@@ -7095,6 +7096,15 @@ dependencies = [
  "sails-idl-gen",
  "sails-rs",
  "vara-ibc",
+]
+
+[[package]]
+name = "vara-proxy-client"
+version = "0.1.0"
+dependencies = [
+ "sails-client-gen",
+ "sails-idl-gen",
+ "sails-rs",
 ]
 
 [[package]]

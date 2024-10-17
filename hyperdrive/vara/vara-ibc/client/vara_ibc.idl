@@ -1,0 +1,91 @@
+type ConfigureArgument = enum {
+  Owner: actor_id,
+  Paused: bool,
+  OraclePublicKeys: vec OracleUpdate,
+  MinDeliverySignatures: u8,
+  MinReceiptSignatures: u8,
+  MinTTL: u32,
+  IncomingTTL: u32,
+};
+
+type OracleUpdate = enum {
+  Add: vec u8,
+  Remove: vec u8,
+};
+
+type Subject = enum {
+  Acurast: Layer,
+  AlephZero: Layer,
+  Vara: Layer,
+};
+
+type Layer = enum {
+  Extrinsic: actor_id,
+  Contract: ContractCall,
+};
+
+type ContractCall = struct {
+  contract: actor_id,
+  selector: opt [u8, 4],
+};
+
+type Config = struct {
+  owner: actor_id,
+  paused: bool,
+  min_delivery_signatures: u8,
+  min_receipt_signatures: u8,
+  min_ttl: u32,
+  incoming_ttl: u32,
+};
+
+type IncomingMessageWithMeta = struct {
+  message: Message,
+  current_block: u32,
+  relayer: actor_id,
+};
+
+type Message = struct {
+  id: [u8, 32],
+  sender: Subject,
+  nonce: [u8, 32],
+  recipient: Subject,
+  payload: vec u8,
+};
+
+type OutgoingMessageWithMeta = struct {
+  message: Message,
+  current_block: u32,
+  ttl_block: u32,
+  fee: u128,
+  payer: actor_id,
+};
+
+constructor {
+  New : (owner: opt actor_id);
+};
+
+service VaraIbc {
+  Configure : (actions: vec ConfigureArgument) -> null;
+  ConfirmMessageDelivery : (id: [u8, 32], signatures: vec [u8, 65]) -> null;
+  ReceiveMessage : (sender: Subject, nonce: [u8, 32], recipient: Subject, payload: vec u8, signatures: vec [u8, 65]) -> null;
+  SendMessage : (nonce: [u8, 32], recipient: Subject, payload: vec u8, ttl: u32) -> null;
+  SendTestMessage : (recipient: Subject, ttl: u32) -> null;
+  query Config : () -> Config;
+  query IncomingIndex : () -> vec [u8, 32];
+  query IncomingMessage : (message_id: [u8, 32]) -> opt IncomingMessageWithMeta;
+  query MessageCount : () -> u128;
+  query Oracles : (public: vec u8) -> bool;
+  query OutgoingIndex : () -> vec [u8, 32];
+  query OutgoingMessage : (message_id: [u8, 32]) -> opt OutgoingMessageWithMeta;
+
+  events {
+    OraclesUpdated;
+    MessageReadyToSend: struct { message: OutgoingMessageWithMeta };
+    MessageDelivered: struct { id: [u8, 32] };
+    MessageRemoved: struct { id: [u8, 32] };
+    MessageStored: struct { id: [u8, 32] };
+    MessageProcessed: struct { id: [u8, 32] };
+    MessageProcessedWithErrors: struct { id: [u8, 32] };
+  }
+};
+

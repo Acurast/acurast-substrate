@@ -68,8 +68,6 @@ pub mod pallet {
 		type EnvKeyMaxSize: Get<u32> + ParameterBound;
 		#[pallet::constant]
 		type EnvValueMaxSize: Get<u32> + ParameterBound;
-		/// Barrier for the update_certificate_revocation_list extrinsic call.
-		type RevocationListUpdateBarrier: RevocationListUpdateBarrier<Self>;
 		/// Barrier for submit_attestation extrinsic call.
 		type KeyAttestationBarrier: KeyAttestationBarrier<Self>;
 		/// Timestamp
@@ -87,129 +85,7 @@ pub mod pallet {
 		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}
 
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		/// Genesis attestations considered valid without ever calling [`Pallet<T>::submit_attestation`] and therefore skipping validation!
-		///
-		/// Specify a list o tuples (account_id, attestation) or (account_id, None) to use default long-term valid attestation.
-		///
-		/// This should only be used for test runtime configurations.
-		pub attestations: Vec<(T::AccountId, Option<Attestation>)>,
-	}
-
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { attestations: vec![] }
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			for (who, attestation) in self.attestations.clone() {
-				<StoredAttestation<T>>::insert(
-					&who,
-					attestation.unwrap_or(Attestation {
-						cert_ids: ValidatingCertIds::default(),
-						key_description: BoundedKeyDescription {
-							attestation_security_level: AttestationSecurityLevel::Unknown,
-							key_mint_security_level: AttestationSecurityLevel::Unknown,
-							software_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: Some(1_672_527_600_000), // 1.1.2023
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-							tee_enforced: BoundedAuthorizationList {
-								purpose: None,
-								algorithm: None,
-								key_size: None,
-								digest: None,
-								padding: None,
-								ec_curve: None,
-								rsa_public_exponent: None,
-								mgf_digest: None,
-								rollback_resistance: None,
-								early_boot_only: None,
-								active_date_time: None,
-								origination_expire_date_time: None,
-								usage_expire_date_time: None,
-								usage_count_limit: None,
-								no_auth_required: false,
-								user_auth_type: None,
-								auth_timeout: None,
-								allow_while_on_body: false,
-								trusted_user_presence_required: None,
-								trusted_confirmation_required: None,
-								unlocked_device_required: None,
-								all_applications: None,
-								application_id: None,
-								creation_date_time: None,
-								origin: None,
-								root_of_trust: None,
-								os_version: None,
-								os_patch_level: None,
-								attestation_application_id: None,
-								attestation_id_brand: None,
-								attestation_id_device: None,
-								attestation_id_product: None,
-								attestation_id_serial: None,
-								attestation_id_imei: None,
-								attestation_id_meid: None,
-								attestation_id_manufacturer: None,
-								attestation_id_model: None,
-								vendor_patch_level: None,
-								boot_patch_level: None,
-								device_unique_attestation: None,
-							},
-						},
-						validity: AttestationValidity {
-							not_before: 0,
-							not_after: 4_102_441_200_000, // 1.1.2100
-						},
-					}),
-				);
-			}
-		}
-	}
-
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -256,6 +132,11 @@ pub mod pallet {
 	pub type StoredRevokedCertificate<T: Config> =
 		StorageMap<_, Blake2_128Concat, SerialNumber, ()>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn v5_migration_state)]
+	pub type V5MigrationState<T: Config> =
+		StorageValue<_, Option<BoundedVec<u8, ConstU32<80>>>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -272,12 +153,15 @@ pub mod pallet {
 		/// An attestation was successfully stored. [attestation, who]
 		AttestationStored(Attestation, T::AccountId),
 		/// The certificate revocation list has been updated. [who, updates]
-		CertificateRevocationListUpdated(
-			T::AccountId,
-			BoundedVec<CertificateRevocationListUpdate, T::MaxCertificateRevocationListUpdates>,
-		),
+		CertificateRevocationListUpdated,
 		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
+		/// Migration started.
+		V5MigrationStarted,
+		/// Migration progressed. [migrations]
+		V5MigrationProgress(u32),
+		/// Migration completed.
+		V5MigrationCompleted,
 	}
 
 	#[pallet::error]
@@ -332,7 +216,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			crate::migration::migrate::<T>()
 		}
 	}
@@ -380,7 +264,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who.clone());
 			let job_id: JobId<T::AccountId> = (multi_origin, local_job_id);
-			let registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+			let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 				.ok_or(Error::<T>::JobRegistrationNotFound)?;
 
 			let mut current_allowed_sources =
@@ -407,7 +291,7 @@ pub mod pallet {
 			};
 			<StoredJobRegistration<T>>::insert(
 				&job_id.0,
-				&job_id.1,
+				job_id.1,
 				JobRegistration { allowed_sources, ..registration.clone() },
 			);
 
@@ -433,7 +317,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				(&attestation_chain).certificate_chain.len() >= 2,
+				attestation_chain.certificate_chain.len() >= 2,
 				Error::<T>::CertificateChainTooShort,
 			);
 
@@ -449,6 +333,7 @@ pub mod pallet {
 
 			<StoredAttestation<T>>::insert(&who, attestation.clone());
 			Self::deposit_event(Event::AttestationStored(attestation, who));
+
 			Ok(().into())
 		}
 
@@ -464,10 +349,8 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			if !T::RevocationListUpdateBarrier::can_update_revocation_list(&who, &updates) {
-				return Err(Error::<T>::CertificateRevocationListUpdateNotAllowed)?
-			}
+			ensure_root(origin)?;
+
 			for update in &updates {
 				match &update.operation {
 					ListUpdateOperation::Add => {
@@ -478,7 +361,7 @@ pub mod pallet {
 					},
 				}
 			}
-			Self::deposit_event(Event::CertificateRevocationListUpdated(who, updates));
+			Self::deposit_event(Event::CertificateRevocationListUpdated);
 			Ok(().into())
 		}
 
@@ -552,7 +435,7 @@ pub mod pallet {
 				);
 			}
 
-			<StoredJobRegistration<T>>::insert(&job_id.0, &job_id.1, registration.clone());
+			<StoredJobRegistration<T>>::insert(&job_id.0, job_id.1, registration.clone());
 
 			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
 
@@ -563,7 +446,7 @@ pub mod pallet {
 		pub fn deregister_for(job_id: JobId<T::AccountId>) -> DispatchResultWithPostInfo {
 			<T as Config>::JobHooks::deregister_hook(&job_id)?;
 			Self::clear_environment_for(&job_id);
-			<StoredJobRegistration<T>>::remove(&job_id.0, &job_id.1);
+			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
 			Self::deposit_event(Event::JobRegistrationRemoved(job_id));
 			Ok(().into())
 		}
@@ -575,7 +458,7 @@ pub mod pallet {
 			let sources = environments
 				.into_iter()
 				.map(|(source, env)| {
-					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, &job_id.1)
+					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 						.ok_or(Error::<T>::JobRegistrationNotFound)?;
 					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
 					Ok(source)

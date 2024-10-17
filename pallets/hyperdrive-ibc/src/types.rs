@@ -125,6 +125,7 @@ impl<AccountId, Contract> From<Message<AccountId, Contract>> for MessageBody<Acc
 pub enum Subject<AccountId, Contract> {
 	Acurast(Layer<AccountId, Contract>),
 	AlephZero(Layer<AccountId32, Contract>),
+	Vara(Layer<AccountId32, Contract>),
 }
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]

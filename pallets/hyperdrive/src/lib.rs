@@ -58,6 +58,7 @@ pub mod pallet {
 		type ParsableAccountId: Into<Self::AccountId> + TryFrom<Vec<u8>>;
 		type AlephZeroContract: Get<Self::AccountId>;
 		type AlephZeroContractSelector: Get<[u8; 4]>;
+		type VaraContract: Get<Self::AccountId>;
 		type Balance: Member
 			+ Parameter
 			+ AtLeast32BitUnsigned
@@ -76,6 +77,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		AlephZeroContractUpdated { contract: ContractCall<T::AccountId> },
+		VaraContractUpdated { contract: T::AccountId },
 		SentToProxy(OutgoingMessageWithMetaFor<T, I>),
 		ReceivedFromProxy(ProcessMessageResult),
 	}
@@ -115,10 +117,20 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::type_value]
+	pub fn InitialVaraContract<T: Config<I>, I: 'static>() -> T::AccountId {
+		T::VaraContract::get()
+	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn aleph_zero_contract)]
 	pub type AlephZeroContract<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, ContractCall<T::AccountId>, ValueQuery, InitialAlephZeroContract<T, I>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn vara_contract)]
+	pub type VaraContract<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, T::AccountId, ValueQuery, InitialVaraContract<T, I>>;
 
 	/// Next outgoing message number. The latest used number is the stored value - 1.
 	#[pallet::storage]
@@ -137,6 +149,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 			<AlephZeroContract<T, I>>::set(contract.clone());
 			Self::deposit_event(Event::AlephZeroContractUpdated { contract });
+			Ok(())
+		}
+
+		/// Updates the Vara (target chain) contract address in storage. Can only be called by a privileged/root account.
+		#[pallet::call_index(1)]
+		#[pallet::weight(< T as Config<I>>::WeightInfo::update_vara_contract())]
+		pub fn update_vara_contract(
+			origin: OriginFor<T>,
+			contract: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			<VaraContract<T, I>>::set(contract.clone());
+			Self::deposit_event(Event::VaraContractUpdated { contract });
 			Ok(())
 		}
 	}
@@ -162,6 +187,10 @@ pub mod pallet {
 			let recipient = match chain {
 				ProxyChain::AlephZero =>
 					Subject::AlephZero(Layer::Contract(Self::aleph_zero_contract())),
+				ProxyChain::Vara => Subject::Vara(Layer::Contract(ContractCall {
+					contract: Self::vara_contract(),
+					selector: None,
+				})),
 			};
 			let message = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
 				Subject::Acurast(Layer::Extrinsic(T::Sender::get())),
@@ -199,6 +228,18 @@ pub mod pallet {
 					let action =
 						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
 							&message.payload,
+                            ProxyChain::AlephZero,
+						)
+						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
+					T::ActionExecutor::execute(action)?;
+
+					Ok(().into())
+				},
+				SubjectFor::<T>::Vara(_) => {
+					let action =
+						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
+							&message.payload,
+                            ProxyChain::Vara,
 						)
 						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
 					T::ActionExecutor::execute(action)?;

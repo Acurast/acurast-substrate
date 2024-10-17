@@ -17,7 +17,7 @@ pub struct VaraProxyProgram;
 #[sails_rs::program]
 impl VaraProxyProgram {
 	// Program's constructor
-	pub fn new(owner: ActorId, ibc: ActorId) -> Self {
+	pub fn new(owner: Option<ActorId>, ibc: Option<ActorId>) -> Self {
 		VaraProxyService::init(owner, ibc);
 		Self
 	}

@@ -1,5 +1,9 @@
 [workspace]
 
+members = [
+    "./client",
+]
+
 [package]
 name = "vara-proxy"
 version = "0.1.0"

@@ -1,5 +1,10 @@
 [workspace]
 
+members = [
+    "./idl",
+    "./client",
+]
+
 [package]
 name = "vara-ibc"
 version = "0.1.0"

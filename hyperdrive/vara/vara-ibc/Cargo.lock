@@ -22,6 +22,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "acurast-hyperdrive-substrate-core"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7083,7 +7091,6 @@ dependencies = [
  "scale-info",
  "tokio",
  "vara-ibc",
- "vara-ibc-client",
  "vara-proxy-client",
 ]
 
@@ -7093,9 +7100,30 @@ version = "0.1.0"
 dependencies = [
  "mockall",
  "sails-client-gen",
+ "sails-rs",
+]
+
+[[package]]
+name = "vara-ibc-idl"
+version = "0.1.0"
+dependencies = [
+ "mockall",
  "sails-idl-gen",
  "sails-rs",
  "vara-ibc",
+]
+
+[[package]]
+name = "vara-proxy"
+version = "0.1.0"
+dependencies = [
+ "acurast-hyperdrive-substrate-core",
+ "blake2b_simd",
+ "gstd",
+ "parity-scale-codec",
+ "sails-rs",
+ "scale-info",
+ "vara-ibc-client",
 ]
 
 [[package]]
@@ -7105,6 +7133,7 @@ dependencies = [
  "sails-client-gen",
  "sails-idl-gen",
  "sails-rs",
+ "vara-proxy",
 ]
 
 [[package]]

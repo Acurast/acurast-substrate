@@ -1,5 +1,5 @@
 [package]
-name = "vara-ibc-client"
+name = "vara-ibc-idl"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,8 @@ mockall = { version = "0.12", optional = true }
 sails-rs = "0.3.0"
 
 [build-dependencies]
-sails-client-gen = "0.3.0"
+vara-ibc = { path = ".." }
+sails-idl-gen = "0.3.0"
 
 [features]
 mocks = ["sails-rs/mockall", "dep:mockall"]

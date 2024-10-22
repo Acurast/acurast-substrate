@@ -216,8 +216,8 @@ impl VaraProxyService {
 						// Send initial fees to the processor (the processor may need a reveal)
 						let initial_fee = job.expected_fulfillment_fee;
 						job.remaining_fee -= initial_fee;
-						// Transfer
-						msg::send(processor_address, (), initial_fee).expect("COULD_NOT_TRANSFER");
+						// Pre-pay initial fee from program balance
+						msg::send(processor_address, (), initial_fee).expect("PREPAY_FEE_FAILED");
 
 						job.status = JobStatus::Assigned;
 
@@ -242,7 +242,7 @@ impl VaraProxyService {
 
 						let refund = job.remaining_fee + payload.unused_reward;
 						if refund > 0 {
-							msg::send(job.creator, (), refund).expect("COULD_NOT_TRANSFER");
+							msg::send(job.creator, (), refund).expect("REFUND_FAILED");
 						}
 
 						// Save changes
@@ -282,9 +282,9 @@ impl VaraProxyService {
 				let has_funds = job.remaining_fee >= job.expected_fulfillment_fee;
 				if has_funds && job.expected_fulfillment_fee > 0 {
 					job.remaining_fee -= job.expected_fulfillment_fee;
-					// Transfer
+					// Pre-pay next execution's fee from program balance
 					msg::send(processor_address, (), job.expected_fulfillment_fee)
-						.expect("COULD_NOT_TRANSFER");
+						.expect("PREPAY_FEE_FAILED");
 					// Save changes
 					Storage::job_info().insert(job_id, (Version::V1 as u16, job.encode()));
 				}

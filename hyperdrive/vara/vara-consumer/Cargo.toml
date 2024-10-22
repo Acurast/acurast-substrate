@@ -1,30 +1,33 @@
 [workspace]
 
 members = [
-    "./client",
+    "./io",
+    "./state",
 ]
 
 [package]
 name = "vara-consumer"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
-sails-rs = "0.3.0"
-gstd = "*"
-codec = { package = "parity-scale-codec", version = "3.6", default-features = false }
-scale-info = { version = "2.11", default-features = false, features = [
-	"derive",
-] }
-blake2b_simd = { version = "1.0.2", default-features = false }
-k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "alloc"] }
+gstd.workspace = true
+hex-literal = "0.3.4"
 
 [build-dependencies]
-sails-rs = { version = "0.3.0", features = ["wasm-builder"] }
+vara-consumer-io = { path = "io" }
+gear-wasm-builder.workspace = true
 
 [dev-dependencies]
-vara-consumer-client = { path = "client" }
-tokio = { version = "1.39", features = ["rt", "macros"] }
+vara-consumer-state = { path = "state" }
 
-[features]
-wasm-binary = []
+[workspace.dependencies]
+gstd = "1.6.2"
+gmeta = "1.6.2"
+gear-wasm-builder = "1.6.2"

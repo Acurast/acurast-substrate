@@ -1,3 +1,4 @@
+use acurast_common::Version;
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	sp_runtime::{
@@ -73,9 +74,18 @@ where
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
+	pub(crate) fn do_reward_distribution(
+		processor: &T::AccountId,
+		version: &Version,
+	) -> Option<T::Balance> {
 		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
-			return None
+			return None;
+		}
+
+		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
+			if version.build_number < min_req_version {
+				return None;
+			}
 		}
 
 		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {

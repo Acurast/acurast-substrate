@@ -524,10 +524,15 @@ fn test_reward_distribution_success() {
 			Some(reward_distribution_settings.clone())
 		));
 
+		assert_ok!(AcurastProcessorManager::update_min_processor_version_for_reward(
+			RuntimeOrigin::root(),
+			Version { platform: 0, build_number: 1 }
+		));
+
 		let version = Version { platform: 0, build_number: 1 };
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
@@ -540,7 +545,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -550,7 +555,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -560,7 +565,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -570,7 +575,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		let last_events = events();
@@ -579,6 +584,103 @@ fn test_reward_distribution_success() {
 			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorRewardSent(
 				processor_account.clone(),
 				reward_distribution_settings.reward_per_distribution
+			)))
+			.as_ref()
+		);
+	});
+}
+
+#[test]
+fn test_reward_distribution_failure() {
+	ExtBuilder.build().execute_with(|| {
+		let (_, processor_account) = paired_manager_processor();
+
+		let mut timestamp = 1657363915010u64;
+		let mut block_number = 1;
+		if Timestamp::get() != timestamp {
+			Timestamp::set_timestamp(timestamp);
+		}
+		System::set_block_number(block_number);
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_none());
+
+		let reward_distribution_settings = RewardDistributionSettings::<
+			<Test as crate::Config>::Balance,
+			<Test as frame_system::Config>::AccountId,
+		> {
+			window_length: 300,
+			tollerance: 25,
+			min_heartbeats: 3,
+			reward_per_distribution: 300_000_000_000,
+			distributor_account: alice_account_id(),
+		};
+
+		assert_ok!(AcurastProcessorManager::update_reward_distribution_settings(
+			RuntimeOrigin::root(),
+			Some(reward_distribution_settings.clone())
+		));
+
+		assert_ok!(AcurastProcessorManager::update_min_processor_version_for_reward(
+			RuntimeOrigin::root(),
+			Version { platform: 0, build_number: 2 }
+		));
+
+		let version = Version { platform: 0, build_number: 1 };
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_some());
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		let last_events = events();
+		assert_eq!(
+			last_events.last(),
+			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorHeartbeatWithVersion(
+				processor_account.clone(),
+				version
 			)))
 			.as_ref()
 		);

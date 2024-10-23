@@ -143,5 +143,9 @@ benchmarks! {
 		};
 	}: _(RawOrigin::Root, Some(settings))
 
+	update_min_processor_version_for_reward {
+		let version = Version { platform: 0, build_number: 100 };
+	}: _(RawOrigin::Root, version)
+
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder::default().build(), mock::Test);
 }

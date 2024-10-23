@@ -67,4 +67,5 @@ pub trait WeightInfo {
 	fn update_api_version() -> Weight;
 	fn set_processor_update_info(x: u32) -> Weight;
 	fn update_reward_distribution_settings() -> Weight;
+	fn update_min_processor_version_for_reward() -> Weight;
 }

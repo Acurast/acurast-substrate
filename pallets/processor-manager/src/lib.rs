@@ -48,7 +48,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{tokens::Balance, Get, UnixTime},
-		Blake2_128, Parameter,
+		Blake2_128, Blake2_128Concat, Parameter,
 	};
 	use frame_system::{
 		ensure_root, ensure_signed,
@@ -191,6 +191,11 @@ pub mod pallet {
 	pub(super) type ProcessorRewardDistributionWindow<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, RewardDistributionWindow>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn processor_min_version_for_reward)]
+	pub(super) type ProcessorMinVersionForReward<T: Config> =
+		StorageMap<_, Blake2_128Concat, u32, u32>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -222,6 +227,8 @@ pub mod pallet {
 		ApiVersionUpdated(u32),
 		/// Reward has been sent to processor. [processor_account_id, amount]
 		ProcessorRewardSent(T::AccountId, T::Balance),
+		/// Updated the minimum required processor version to receive rewards.
+		MinProcessorVersionForRewardUpdated(Version),
 	}
 
 	// Errors inform users that something went wrong.
@@ -400,11 +407,11 @@ pub mod pallet {
 			let now = T::UnixTime::now().as_millis();
 
 			<ProcessorHeartbeat<T>>::insert(&who, now);
-			<ProcessorVersion<T>>::insert(&who, version.clone());
+			<ProcessorVersion<T>>::insert(&who, version);
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if let Some(amount) = Self::do_reward_distribution(&who) {
+			if let Some(amount) = Self::do_reward_distribution(&who, &version) {
 				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
 			}
 
@@ -476,6 +483,19 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			<ProcessorRewardDistributionSettings<T>>::set(new_settings);
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::update_min_processor_version_for_reward())]
+		pub fn update_min_processor_version_for_reward(
+			origin: OriginFor<T>,
+			version: Version,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			<ProcessorMinVersionForReward<T>>::insert(version.platform, version.build_number);
+			Self::deposit_event(Event::<T>::MinProcessorVersionForRewardUpdated(version));
 
 			Ok(().into())
 		}

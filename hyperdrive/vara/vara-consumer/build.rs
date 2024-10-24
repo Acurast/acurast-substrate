@@ -1,3 +1,5 @@
+use vara_consumer_io::VaraConsumerMetadata;
+
 fn main() {
-	sails_rs::build_wasm();
+	gear_wasm_builder::build_with_metadata::<VaraConsumerMetadata>();
 }

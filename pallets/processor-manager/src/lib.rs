@@ -103,12 +103,12 @@ pub mod pallet {
 		fn build(&self) {
 			for (manager, processors) in &self.managers {
 				let manager_id =
-					T::ManagerIdProvider::manager_id_for(&manager).unwrap_or_else(|_| {
+					T::ManagerIdProvider::manager_id_for(manager).unwrap_or_else(|_| {
 						// Get the latest manager identifier in the sequence.
 						let id = <LastManagerId<T>>::get().unwrap_or(0.into()) + 1.into();
 
 						// Using .expect here should be fine it is only applied at the genesis block.
-						T::ManagerIdProvider::create_manager_id(id, &manager)
+						T::ManagerIdProvider::create_manager_id(id, manager)
 							.expect("Could not create manager id.");
 
 						// Update sequential manager identifier
@@ -119,13 +119,13 @@ pub mod pallet {
 
 				processors.iter().for_each(|processor| {
 					// Set manager/processor indexes
-					<ManagedProcessors<T>>::insert(manager_id, &processor, ());
-					<ProcessorToManagerIdIndex<T>>::insert(&processor, manager_id);
+					<ManagedProcessors<T>>::insert(manager_id, processor, ());
+					<ProcessorToManagerIdIndex<T>>::insert(processor, manager_id);
 
 					// Update the processor counter for the manager
 					let counter =
-						<ManagerCounter<T>>::get(&manager).unwrap_or(0u8.into()) + 1.into();
-					<ManagerCounter<T>>::insert(&manager, counter);
+						<ManagerCounter<T>>::get(manager).unwrap_or(0u8.into()) + 1.into();
+					<ManagerCounter<T>>::insert(manager, counter);
 				});
 			}
 		}
@@ -428,9 +428,9 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			if let Some(hash) = &hash {
-				<KnownBinaryHash<T>>::insert(&version, hash.clone());
+				<KnownBinaryHash<T>>::insert(version, *hash);
 			} else {
-				<KnownBinaryHash<T>>::remove(&version)
+				<KnownBinaryHash<T>>::remove(version)
 			}
 
 			Self::deposit_event(Event::<T>::BinaryHashUpdated(version, hash));
@@ -462,7 +462,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			_ = Self::known_binary_hash(&update_info.version)
+			_ = Self::known_binary_hash(update_info.version)
 				.ok_or(Error::<T>::UnknownProcessorVersion)?;
 
 			for processor in processors {

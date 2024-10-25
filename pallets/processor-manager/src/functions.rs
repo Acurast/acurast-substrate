@@ -50,14 +50,14 @@ where
 		processor_account: &T::AccountId,
 		manager_id: T::ManagerId,
 	) -> DispatchResult {
-		if let Some(id) = Self::manager_id_for_processor(&processor_account) {
+		if let Some(id) = Self::manager_id_for_processor(processor_account) {
 			if id == manager_id {
 				return Err(Error::<T>::ProcessorAlreadyPaired)?
 			}
 			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
 		}
-		<ManagedProcessors<T>>::insert(manager_id, &processor_account, ());
-		<ProcessorToManagerIdIndex<T>>::insert(&processor_account, manager_id);
+		<ManagedProcessors<T>>::insert(manager_id, processor_account, ());
+		<ProcessorToManagerIdIndex<T>>::insert(processor_account, manager_id);
 
 		Ok(())
 	}
@@ -69,8 +69,8 @@ where
 		manager: &T::AccountId,
 	) -> DispatchResult {
 		let id = Self::ensure_managed(manager, processor_account)?;
-		<ManagedProcessors<T>>::remove(id, &processor_account);
-		<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		<ManagedProcessors<T>>::remove(id, processor_account);
+		<ProcessorToManagerIdIndex<T>>::remove(processor_account);
 		Ok(())
 	}
 
@@ -115,7 +115,7 @@ where
 							}
 						}
 						<ProcessorRewardDistributionWindow<T>>::insert(
-							&processor,
+							processor,
 							RewardDistributionWindow::new(
 								current_block_number,
 								&distribution_settings,
@@ -124,19 +124,19 @@ where
 						return distributed_amount
 					} else {
 						<ProcessorRewardDistributionWindow<T>>::insert(
-							&processor,
+							processor,
 							distribution_window.next(),
 						);
 					}
 				} else {
 					<ProcessorRewardDistributionWindow<T>>::insert(
-						&processor,
+						processor,
 						RewardDistributionWindow::new(current_block_number, &distribution_settings),
 					);
 				}
 			}
 		}
-		return None
+		None
 	}
 
 	pub fn ensure_managed(

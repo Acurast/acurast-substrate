@@ -18,6 +18,7 @@ use sp_core::crypto::UncheckedFrom;
 use sp_core::H256;
 use sp_std::prelude::*;
 
+#[derive(Default)]
 pub struct ExtBuilder;
 
 impl ExtBuilder {
@@ -37,12 +38,6 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
-	}
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
 	}
 }
 
@@ -153,9 +148,7 @@ impl crate::BenchmarkHelper<Test> for () {
 		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
 	}
 
-	fn advertisement() -> <Test as Config>::Advertisement {
-		()
-	}
+	fn advertisement() -> <Test as Config>::Advertisement {}
 }
 
 pub struct AcurastManagerIdProvider;

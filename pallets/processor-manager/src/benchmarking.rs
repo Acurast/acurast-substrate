@@ -122,7 +122,7 @@ benchmarks! {
 			build_number: 1,
 		};
 		let hash: BinaryHash = [1; 32].into();
-		Pallet::<T>::update_binary_hash(RawOrigin::Root.into(), version.clone(), Some(hash))?;
+		Pallet::<T>::update_binary_hash(RawOrigin::Root.into(), version, Some(hash))?;
 		let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
 		let update_info = UpdateInfo {
 			version,
@@ -147,5 +147,5 @@ benchmarks! {
 		let version = Version { platform: 0, build_number: 100 };
 	}: _(RawOrigin::Root, version)
 
-	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder::default().build(), mock::Test);
+	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
 }

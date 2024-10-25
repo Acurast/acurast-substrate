@@ -453,7 +453,7 @@ fn test_heartbeat_with_version_success() {
 		let version = Version { platform: 0, build_number: 1 };
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
@@ -483,7 +483,7 @@ fn test_heartbeat_with_version_failure() {
 		assert_err!(
 			AcurastProcessorManager::heartbeat_with_version(
 				RuntimeOrigin::signed(processor_account.clone()),
-				version.clone()
+				version
 			),
 			Error::<Test>::ProcessorHasNoManager,
 		);
@@ -524,10 +524,15 @@ fn test_reward_distribution_success() {
 			Some(reward_distribution_settings.clone())
 		));
 
+		assert_ok!(AcurastProcessorManager::update_min_processor_version_for_reward(
+			RuntimeOrigin::root(),
+			Version { platform: 0, build_number: 1 }
+		));
+
 		let version = Version { platform: 0, build_number: 1 };
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
@@ -540,7 +545,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -550,7 +555,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -560,7 +565,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		timestamp += 900_000;
@@ -570,7 +575,7 @@ fn test_reward_distribution_success() {
 
 		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
 			RuntimeOrigin::signed(processor_account.clone()),
-			version.clone()
+			version
 		));
 
 		let last_events = events();
@@ -586,26 +591,123 @@ fn test_reward_distribution_success() {
 }
 
 #[test]
+fn test_reward_distribution_failure() {
+	ExtBuilder.build().execute_with(|| {
+		let (_, processor_account) = paired_manager_processor();
+
+		let mut timestamp = 1657363915010u64;
+		let mut block_number = 1;
+		if Timestamp::get() != timestamp {
+			Timestamp::set_timestamp(timestamp);
+		}
+		System::set_block_number(block_number);
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_none());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_none());
+
+		let reward_distribution_settings = RewardDistributionSettings::<
+			<Test as crate::Config>::Balance,
+			<Test as frame_system::Config>::AccountId,
+		> {
+			window_length: 300,
+			tollerance: 25,
+			min_heartbeats: 3,
+			reward_per_distribution: 300_000_000_000,
+			distributor_account: alice_account_id(),
+		};
+
+		assert_ok!(AcurastProcessorManager::update_reward_distribution_settings(
+			RuntimeOrigin::root(),
+			Some(reward_distribution_settings.clone())
+		));
+
+		assert_ok!(AcurastProcessorManager::update_min_processor_version_for_reward(
+			RuntimeOrigin::root(),
+			Version { platform: 0, build_number: 2 }
+		));
+
+		let version = Version { platform: 0, build_number: 1 };
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
+		assert!(AcurastProcessorManager::processor_version(&processor_account).is_some());
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		timestamp += 900_000;
+		block_number += 75;
+		Timestamp::set_timestamp(timestamp);
+		System::set_block_number(block_number);
+
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			version
+		));
+
+		let last_events = events();
+		assert_eq!(
+			last_events.last(),
+			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorHeartbeatWithVersion(
+				processor_account.clone(),
+				version
+			)))
+			.as_ref()
+		);
+	});
+}
+
+#[test]
 fn insert_remove_binary_hash_success() {
 	ExtBuilder.build().execute_with(|| {
 		let hash = [1u8; 32];
 		let version = Version { platform: 0, build_number: 1 };
 
-		assert!(AcurastProcessorManager::known_binary_hash(&version).is_none());
+		assert!(AcurastProcessorManager::known_binary_hash(version).is_none());
 
 		assert_ok!(AcurastProcessorManager::update_binary_hash(
 			RuntimeOrigin::root(),
-			version.clone(),
+			version,
 			Some(hash.into())
 		));
 
-		assert!(AcurastProcessorManager::known_binary_hash(&version).is_some());
+		assert!(AcurastProcessorManager::known_binary_hash(version).is_some());
 
 		let last_events = events();
 		assert_eq!(
 			last_events.last(),
 			Some(RuntimeEvent::AcurastProcessorManager(Event::BinaryHashUpdated(
-				version.clone(),
+				version,
 				Some(hash.into())
 			)))
 			.as_ref()
@@ -613,20 +715,17 @@ fn insert_remove_binary_hash_success() {
 
 		assert_ok!(AcurastProcessorManager::update_binary_hash(
 			RuntimeOrigin::root(),
-			version.clone(),
+			version,
 			None,
 		));
 
-		assert!(AcurastProcessorManager::known_binary_hash(&version).is_none());
+		assert!(AcurastProcessorManager::known_binary_hash(version).is_none());
 
 		let last_events = events();
 		assert_eq!(
 			last_events.last(),
-			Some(RuntimeEvent::AcurastProcessorManager(Event::BinaryHashUpdated(
-				version.clone(),
-				None
-			)))
-			.as_ref()
+			Some(RuntimeEvent::AcurastProcessorManager(Event::BinaryHashUpdated(version, None)))
+				.as_ref()
 		);
 	});
 }
@@ -637,23 +736,23 @@ fn insert_remove_binary_hash_failure() {
 		let hash = [1u8; 32];
 		let version = Version { platform: 0, build_number: 1 };
 
-		assert!(AcurastProcessorManager::known_binary_hash(&version).is_none());
+		assert!(AcurastProcessorManager::known_binary_hash(version).is_none());
 
 		assert_err!(
 			AcurastProcessorManager::update_binary_hash(
 				RuntimeOrigin::signed(alice_account_id()),
-				version.clone(),
+				version,
 				Some(hash.into())
 			),
 			BadOrigin
 		);
 
-		assert!(AcurastProcessorManager::known_binary_hash(&version).is_none());
+		assert!(AcurastProcessorManager::known_binary_hash(version).is_none());
 
 		assert_err!(
 			AcurastProcessorManager::update_binary_hash(
 				RuntimeOrigin::signed(alice_account_id()),
-				version.clone(),
+				version,
 				None,
 			),
 			BadOrigin
@@ -672,7 +771,7 @@ fn set_processor_update_info_success() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.clone().into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version, Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {
@@ -705,7 +804,7 @@ fn set_processor_update_info_failure_1() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.clone().into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version, Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let version = Version {
@@ -736,7 +835,7 @@ fn set_processor_update_info_failure_2() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version, Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {
@@ -762,7 +861,7 @@ fn set_processor_update_info_failure_3() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.clone().into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version, Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {
@@ -788,7 +887,7 @@ fn set_processor_update_info_failure_4() {
             build_number: 1,
         };
 
-        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version.clone(), Some(hash.into())));
+        assert_ok!(AcurastProcessorManager::update_binary_hash(RuntimeOrigin::root(), version, Some(hash.into())));
 
         let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
         let update_info = UpdateInfo {

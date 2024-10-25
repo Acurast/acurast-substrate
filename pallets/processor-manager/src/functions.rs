@@ -1,3 +1,4 @@
+use acurast_common::Version;
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	sp_runtime::{
@@ -49,14 +50,14 @@ where
 		processor_account: &T::AccountId,
 		manager_id: T::ManagerId,
 	) -> DispatchResult {
-		if let Some(id) = Self::manager_id_for_processor(&processor_account) {
+		if let Some(id) = Self::manager_id_for_processor(processor_account) {
 			if id == manager_id {
 				return Err(Error::<T>::ProcessorAlreadyPaired)?
 			}
 			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
 		}
-		<ManagedProcessors<T>>::insert(manager_id, &processor_account, ());
-		<ProcessorToManagerIdIndex<T>>::insert(&processor_account, manager_id);
+		<ManagedProcessors<T>>::insert(manager_id, processor_account, ());
+		<ProcessorToManagerIdIndex<T>>::insert(processor_account, manager_id);
 
 		Ok(())
 	}
@@ -68,14 +69,23 @@ where
 		manager: &T::AccountId,
 	) -> DispatchResult {
 		let id = Self::ensure_managed(manager, processor_account)?;
-		<ManagedProcessors<T>>::remove(id, &processor_account);
-		<ProcessorToManagerIdIndex<T>>::remove(&processor_account);
+		<ManagedProcessors<T>>::remove(id, processor_account);
+		<ProcessorToManagerIdIndex<T>>::remove(processor_account);
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
+	pub(crate) fn do_reward_distribution(
+		processor: &T::AccountId,
+		version: &Version,
+	) -> Option<T::Balance> {
 		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
-			return None
+			return None;
+		}
+
+		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
+			if version.build_number < min_req_version {
+				return None;
+			}
 		}
 
 		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
@@ -105,7 +115,7 @@ where
 							}
 						}
 						<ProcessorRewardDistributionWindow<T>>::insert(
-							&processor,
+							processor,
 							RewardDistributionWindow::new(
 								current_block_number,
 								&distribution_settings,
@@ -114,19 +124,19 @@ where
 						return distributed_amount
 					} else {
 						<ProcessorRewardDistributionWindow<T>>::insert(
-							&processor,
+							processor,
 							distribution_window.next(),
 						);
 					}
 				} else {
 					<ProcessorRewardDistributionWindow<T>>::insert(
-						&processor,
+						processor,
 						RewardDistributionWindow::new(current_block_number, &distribution_settings),
 					);
 				}
 			}
 		}
-		return None
+		None
 	}
 
 	pub fn ensure_managed(

@@ -39,7 +39,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		<StoredAdvertisementRestriction<T>>::insert(
-			&processor,
+			processor,
 			AdvertisementRestriction {
 				max_memory: advertisement.max_memory,
 				network_request_quota: advertisement.network_request_quota,
@@ -56,6 +56,6 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		Ok(().into())
+		Ok(())
 	}
 }

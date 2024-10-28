@@ -16,7 +16,7 @@ use pallet_acurast::{
 };
 use pallet_acurast_marketplace::{
 	AssignmentStrategy, JobRequirements, PlannedExecution, PlannedExecutions, PubKey, PubKeyBytes,
-	RegistrationExtra,
+	RegistrationExtra, Runtime,
 };
 
 use crate::{IncomingAction, Message, MessageDecoder, MessageEncoder, ParsedAction, ProxyChain};
@@ -123,6 +123,7 @@ where
 							reward: T::Balance::from(j.extra.reward),
 							min_reputation: j.extra.min_reputation,
 							processor_version: None,
+							runtime: Runtime::NodeJS,
 						},
 					}
 					.into();

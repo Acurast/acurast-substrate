@@ -183,6 +183,7 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 				reward: 1,
 				min_reputation: None,
 				processor_version: Some(ProcessorVersionRequirements::Min(bounded_vec!(1))),
+				runtime: Runtime::NodeJS,
 			},
 		}
 	}

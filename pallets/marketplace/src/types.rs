@@ -301,6 +301,8 @@ pub struct JobRequirements<
 	pub min_reputation: Option<u128>,
 	/// Restrictions to processor version.
 	pub processor_version: Option<ProcessorVersionRequirements<Version, MaxVersions>>,
+	/// The required runtime
+	pub runtime: Runtime,
 }
 
 #[derive(
@@ -318,6 +320,24 @@ pub struct JobRequirements<
 #[serde(rename_all = "camelCase")]
 pub enum ProcessorVersionRequirements<Version, MaxVersions: ParameterBound> {
 	Min(BoundedVec<Version, MaxVersions>),
+}
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum Runtime {
+	NodeJS,
+	NodeJSWithBundle,
 }
 
 /// Strategies for matching/assigning a job to single or multiple competing processors.

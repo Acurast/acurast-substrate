@@ -109,6 +109,8 @@ pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
 
 pub const PUB_KEYS_MAX_LENGTH: u32 = 33;
 pub type PubKeyBytes = BoundedVec<u8, ConstU32<PUB_KEYS_MAX_LENGTH>>;
+pub type EnvVarKey<KeyMaxSize> = BoundedVec<u8, KeyMaxSize>;
+pub type EnvVarValue<ValueMaxSize> = BoundedVec<u8, ValueMaxSize>;
 
 /// Structure representing execution environment variables encrypted for a specific processor.
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
@@ -122,8 +124,7 @@ pub struct Environment<
 	/// Public key of key pair specifically created to encrypt environment secrets.
 	pub public_key: PubKeyBytes,
 	/// Environment variables with cleartext key, encrypted value.
-	pub variables:
-		BoundedVec<(BoundedVec<u8, KeyMaxSize>, BoundedVec<u8, ValueMaxSize>), MaxEnvVars>,
+	pub variables: BoundedVec<(EnvVarKey<KeyMaxSize>, EnvVarValue<ValueMaxSize>), MaxEnvVars>,
 }
 
 pub const MAX_JOB_MODULES: u32 = 1;
@@ -236,11 +237,9 @@ impl Schedule {
 		if execution_index >= self.execution_count() {
 			return None
 		}
-		Some(
-			self.start_time
-				.checked_add(start_delay)?
-				.checked_add(self.interval.checked_mul(execution_index)?)?,
-		)
+		self.start_time
+			.checked_add(start_delay)?
+			.checked_add(self.interval.checked_mul(execution_index)?)
 	}
 
 	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
@@ -282,7 +281,7 @@ impl Schedule {
 			let _b = relative_b % self.interval;
 			let b = if _b == 0 { self.interval } else { _b };
 
-			let l = b.checked_sub(a).unwrap_or(0);
+			let l = b.saturating_sub(a);
 			//   ╭a    ╭b
 			// ■■■■______■■■■______
 			// OR

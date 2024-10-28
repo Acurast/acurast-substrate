@@ -9,7 +9,7 @@ use sp_core::Get;
 
 use super::*;
 
-pub mod v5 {
+pub mod v6 {
 	use super::*;
 	use frame_support::{pallet_prelude::*, Deserialize, Serialize};
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -26,26 +26,24 @@ pub mod v5 {
 		Serialize,
 		Deserialize,
 	)]
-	pub struct RegistrationExtra<Reward, AccountId, MaxSlots: ParameterBound> {
-		pub requirements: JobRequirements<Reward, AccountId, MaxSlots>,
+	pub struct RegistrationExtra<
+		Reward,
+		AccountId,
+		MaxSlots: ParameterBound,
+		Version,
+		MaxVersions: ParameterBound,
+	> {
+		pub requirements: JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>,
 	}
 
 	impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
-		Into<crate::RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>>
-		for RegistrationExtra<Reward, AccountId, MaxSlots>
+		From<RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>>
+		for crate::RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>
 	{
-		fn into(
-			self,
-		) -> crate::RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions> {
-			crate::RegistrationExtra {
-				requirements: crate::JobRequirements {
-					assignment_strategy: self.requirements.assignment_strategy,
-					slots: self.requirements.slots,
-					reward: self.requirements.reward,
-					min_reputation: self.requirements.min_reputation,
-					processor_version: None,
-				},
-			}
+		fn from(
+			value: RegistrationExtra<Reward, AccountId, MaxSlots, Version, MaxVersions>,
+		) -> Self {
+			Self { requirements: value.requirements.into() }
 		}
 	}
 
@@ -62,28 +60,32 @@ pub mod v5 {
 		Serialize,
 		Deserialize,
 	)]
-	pub struct JobRequirements<Reward, AccountId, MaxSlots: ParameterBound> {
-		/// The type of matching selected by the consumer.
+	pub struct JobRequirements<
+		Reward,
+		AccountId,
+		MaxSlots: ParameterBound,
+		Version,
+		MaxVersions: ParameterBound,
+	> {
 		pub assignment_strategy: AssignmentStrategy<AccountId, MaxSlots>,
-		/// The number of execution slots to be assigned to distinct sources. Either all or no slot get assigned by matching.
 		pub slots: u8,
-		/// Reward offered for each slot and scheduled execution of the job.
 		pub reward: Reward,
-		/// Minimum reputation required to process job, in parts per million, `r ∈ [0, 1_000_000]`.
 		pub min_reputation: Option<u128>,
+		pub processor_version: Option<ProcessorVersionRequirements<Version, MaxVersions>>,
 	}
 
 	impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
-		From<JobRequirements<Reward, AccountId, MaxSlots>>
+		From<JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>>
 		for crate::JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>
 	{
-		fn from(val: JobRequirements<Reward, AccountId, MaxSlots>) -> Self {
+		fn from(val: JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>) -> Self {
 			Self {
 				assignment_strategy: val.assignment_strategy,
 				slots: val.slots,
 				reward: val.reward,
 				min_reputation: val.min_reputation,
-				processor_version: None,
+				processor_version: val.processor_version,
+				runtime: Runtime::NodeJS,
 			}
 		}
 	}
@@ -101,7 +103,7 @@ where
 		>,
 	>,
 {
-	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(5, &migrate_to_v5::<T>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(6, &migrate_to_v6::<T>)];
 
 	let onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -115,7 +117,7 @@ where
 	weight + T::DbWeight::get().writes(1)
 }
 
-pub fn migrate_to_v5<T: Config>() -> Weight
+pub fn migrate_to_v6<T: Config>() -> Weight
 where
 	<T as pallet_acurast::Config>::RegistrationExtra: IsType<
 		RegistrationExtra<
@@ -131,7 +133,13 @@ where
 		JobRegistration<
 			T::AccountId,
 			T::MaxAllowedSources,
-			v5::RegistrationExtra<T::Balance, T::AccountId, T::MaxSlots>,
+			v6::RegistrationExtra<
+				T::Balance,
+				T::AccountId,
+				T::MaxSlots,
+				T::ProcessorVersion,
+				T::MaxVersions,
+			>,
 		>,
 		_,
 	>(|old| {

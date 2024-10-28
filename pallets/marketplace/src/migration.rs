@@ -103,7 +103,7 @@ where
 		>,
 	>,
 {
-	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(5, &migrate_to_v5::<T>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(6, &migrate_to_v6::<T>)];
 
 	let onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -117,7 +117,7 @@ where
 	weight + T::DbWeight::get().writes(1)
 }
 
-pub fn migrate_to_v5<T: Config>() -> Weight
+pub fn migrate_to_v6<T: Config>() -> Weight
 where
 	<T as pallet_acurast::Config>::RegistrationExtra: IsType<
 		RegistrationExtra<

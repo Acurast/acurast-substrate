@@ -16,7 +16,7 @@ use crate::{
 	mock::*, payments::JobBudget, stub::*, AdvertisementRestriction, Assignment,
 	AssignmentStrategy, Config, Error, ExecutionMatch, ExecutionResult, ExecutionSpecifier,
 	FeeManager, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions, PubKeys,
-	RegistrationExtra, SLA,
+	RegistrationExtra, Runtime, SLA,
 };
 
 /// Job is not assigned and gets deregistered successfully.
@@ -46,6 +46,7 @@ fn test_valid_deregister() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -161,6 +162,7 @@ fn test_deregister_on_matched_job() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -296,6 +298,7 @@ fn test_deregister_on_assigned_job() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -498,6 +501,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -756,6 +760,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1060,6 +1065,7 @@ fn test_match() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1085,6 +1091,7 @@ fn test_match() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1441,6 +1448,7 @@ fn test_multi_assignments() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1663,6 +1671,7 @@ fn test_no_match_schedule_overlap() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1689,6 +1698,7 @@ fn test_no_match_schedule_overlap() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1824,6 +1834,7 @@ fn test_no_match_insufficient_reputation() {
 				reward: 3_000_000 * 2,
 				min_reputation: Some(1_000_000),
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};
@@ -1915,6 +1926,7 @@ fn test_more_reports_than_expected() {
 				reward: 3_000_000 * 2,
 				min_reputation: None,
 				processor_version: None,
+				runtime: Runtime::NodeJS,
 			},
 		},
 	};

@@ -3,7 +3,7 @@ use frame_support::BoundedVec;
 use pallet_acurast::{AllowedSources, MultiOrigin};
 
 /// Checks if a consumer is whitelisted/
-pub(crate) fn is_consumer_whitelisted<T: Config>(
+pub(crate) fn is_consumer_allowed<T: Config>(
 	consumer: &MultiOrigin<T::AccountId>,
 	allowed_consumers: &Option<BoundedVec<MultiOrigin<T::AccountId>, T::MaxAllowedConsumers>>,
 ) -> bool {
@@ -16,7 +16,7 @@ pub(crate) fn is_consumer_whitelisted<T: Config>(
 }
 
 /// Checks if a source/processor is whitelisted
-pub fn is_source_whitelisted<T: Config>(
+pub fn is_processor_allowed<T: Config>(
 	source: &T::AccountId,
 	allowed_sources: &Option<AllowedSources<T::AccountId, T::MaxAllowedSources>>,
 ) -> bool {

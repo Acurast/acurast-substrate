@@ -201,6 +201,7 @@ pub fn genesis_jobs() -> Vec<(MultiOrigin<AccountId>, JobRegistration)> {
 						slots: 1,
 						reward: 10_000_000_000,
 						min_reputation: None,
+						processor_version: None,
 					},
 				},
 			},

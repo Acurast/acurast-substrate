@@ -3,6 +3,7 @@ use frame_support::traits::{
 	tokens::WithdrawReasons, Currency, ExistenceRequirement::KeepAlive, LockIdentifier,
 	LockableCurrency,
 };
+use pallet_acurast_vesting::VestingBalance;
 
 const PALLET_ID: PalletId = PalletId(*b"vestlock");
 

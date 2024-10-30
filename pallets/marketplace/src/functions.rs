@@ -2,6 +2,7 @@ use frame_support::{ensure, pallet_prelude::DispatchResult, sp_runtime::Dispatch
 use pallet_acurast::{utils::ensure_source_verified, JobId, StoredJobRegistration};
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
+use sp_std::prelude::ToOwned;
 
 use crate::{
 	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor,

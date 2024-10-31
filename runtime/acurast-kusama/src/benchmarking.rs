@@ -53,6 +53,8 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 				} else {
 					None
 				}),
+				processor_version: None,
+				runtime: pallet_acurast_marketplace::Runtime::NodeJS,
 			},
 		}
 	}

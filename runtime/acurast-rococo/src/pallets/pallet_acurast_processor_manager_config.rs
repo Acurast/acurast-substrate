@@ -1,8 +1,22 @@
-use crate::*;
+use acurast_runtime_common::{weight, Balance, RewardDistributor, Signature};
+use frame_support::traits::{
+	fungible::{Inspect, Mutate},
+	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+	tokens::{Fortitude, Precision, Preservation},
+};
+use sp_core::{ConstU128, ConstU32};
+use sp_std::prelude::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+use crate::benchmarking;
+use crate::{
+	AcurastMarketplace, Balances, ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent,
+	Uniques,
+};
 
 impl pallet_acurast_processor_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Proof = MultiSignature;
+	type Proof = Signature;
 	type ManagerId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;

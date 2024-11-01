@@ -1,4 +1,9 @@
-use crate::*;
+use cumulus_primitives_core::AggregateMessageOrigin;
+use parachains_common::message_queue::NarrowOriginToSibling;
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::RuntimeCall;
+use crate::{MessageQueueServiceWeight, Runtime, RuntimeEvent, XcmpQueue};
 
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -9,7 +14,7 @@ impl pallet_message_queue::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessageProcessor = xcm_builder::ProcessXcmMessage<
 		AggregateMessageOrigin,
-		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		xcm_executor::XcmExecutor<crate::xcm_config::XcmConfig>,
 		RuntimeCall,
 	>;
 	type Size = u32;

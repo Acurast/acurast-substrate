@@ -1,4 +1,14 @@
-use crate::*;
+use acurast_runtime_common::{
+	barrier::Barrier, weight, EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources,
+	MaxEnvVars, MaxSlots, MaxVersions,
+};
+
+#[cfg(feature = "runtime-benchmarks")]
+use crate::benchmarking;
+use crate::{
+	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, LitePackageNames,
+	LiteSignatureDigests, PackageNames, Runtime, RuntimeEvent, SignatureDigests,
+};
 
 /// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {

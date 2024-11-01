@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{Runtime, RuntimeCall, RuntimeEvent};
 
 /// Runtime configuration for pallet_sudo.
 impl pallet_sudo::Config for Runtime {

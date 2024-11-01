@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{OriginCaller, Runtime, RuntimeCall, RuntimeEvent};
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

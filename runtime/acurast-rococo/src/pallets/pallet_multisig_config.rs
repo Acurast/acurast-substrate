@@ -1,4 +1,6 @@
-use crate::*;
+use crate::{
+	Balances, DepositBase, DepositFactor, MaxSignatories, Runtime, RuntimeCall, RuntimeEvent,
+};
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

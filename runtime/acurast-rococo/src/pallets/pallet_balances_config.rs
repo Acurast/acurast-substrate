@@ -1,4 +1,10 @@
-use crate::*;
+use acurast_runtime_common::{weight, Balance};
+use sp_core::ConstU32;
+
+use crate::{
+	ExistentialDeposit, MaxLocks, MaxReserves, Runtime, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, System,
+};
 
 /// Runtime configuration for pallet_balances.
 impl pallet_balances::Config for Runtime {

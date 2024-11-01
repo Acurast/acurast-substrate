@@ -1,4 +1,9 @@
-use crate::*;
+use acurast_runtime_common::AccountId;
+
+use crate::{
+	MaxScheduledPerBlock, MaximumSchedulerWeight, OriginCaller, Preimage, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin,
+};
 
 /// Runtime configuration for pallet_scheduler.
 impl pallet_scheduler::Config for Runtime {

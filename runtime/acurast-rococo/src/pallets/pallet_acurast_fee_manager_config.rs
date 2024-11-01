@@ -1,4 +1,7 @@
-use crate::*;
+use acurast_runtime_common::{weight, AccountId};
+use frame_system::EnsureRoot;
+
+use crate::{DefaultFeePercentage, DefaultMatcherFeePercentage, Runtime, RuntimeEvent};
 
 /// Runtime configuration for pallet_acurast_fee_manager instance 1.
 impl pallet_acurast_fee_manager::Config<pallet_acurast_fee_manager::Instance1> for Runtime {

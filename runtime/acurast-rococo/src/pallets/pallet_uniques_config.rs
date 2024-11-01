@@ -1,4 +1,8 @@
-use crate::*;
+use frame_support::traits::AsEnsureOriginWithArg;
+use frame_system::{EnsureRoot, EnsureRootWithSuccess};
+use sp_core::{ConstU128, ConstU32};
+
+use crate::{Balances, RootAccountId, Runtime, RuntimeEvent};
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

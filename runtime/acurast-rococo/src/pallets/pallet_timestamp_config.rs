@@ -1,4 +1,6 @@
-use crate::*;
+use acurast_runtime_common::weight;
+
+use crate::{MinimumPeriod, Runtime};
 
 /// Runtime configuration for pallet_timestamp.
 impl pallet_timestamp::Config for Runtime {

@@ -1,4 +1,10 @@
-use crate::*;
+use acurast_runtime_common::AccountId;
+use frame_system::EnsureRoot;
+
+use crate::{
+	Balances, MaxCandidates, MaxInvulnerables, MinCandidates, Period, PotId, Runtime, RuntimeEvent,
+	Session,
+};
 
 // We allow root only to execute privileged collator selection operations.
 pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;

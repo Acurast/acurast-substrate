@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{Aura, CollatorSelection, Runtime};
 
 /// Runtime configuration for pallet_authorship.
 impl pallet_authorship::Config for Runtime {

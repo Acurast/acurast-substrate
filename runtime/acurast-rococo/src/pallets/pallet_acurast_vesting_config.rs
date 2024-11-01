@@ -1,4 +1,9 @@
-use crate::{implementations::StakingOverVesting, *};
+use acurast_runtime_common::{weights, Balance, BlockNumber};
+
+use crate::{
+	implementations::StakingOverVesting, BalanceUnit, DivestTolerance, MaximumLockingPeriod,
+	Runtime, RuntimeEvent,
+};
 
 impl pallet_acurast_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

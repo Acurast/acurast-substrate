@@ -1,5 +1,4 @@
-use acurast_p256_crypto::MultiSignature;
-use acurast_runtime_common::{weight, Balance, RewardDistributor};
+use acurast_runtime_common::{weight, Balance, RewardDistributor, Signature};
 use frame_support::traits::{
 	fungible::{Inspect, Mutate},
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
@@ -17,7 +16,7 @@ use crate::{
 
 impl pallet_acurast_processor_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Proof = MultiSignature;
+	type Proof = Signature;
 	type ManagerId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;

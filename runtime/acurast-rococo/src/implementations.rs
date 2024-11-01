@@ -4,6 +4,7 @@ use frame_support::traits::{
 	LockableCurrency,
 };
 use pallet_acurast_vesting::VestingBalance;
+use sp_runtime::traits::AccountIdConversion;
 
 const PALLET_ID: PalletId = PalletId(*b"vestlock");
 

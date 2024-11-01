@@ -26,14 +26,13 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	instances::Instance1,
 	pallet_prelude::{InvalidTransaction, TransactionLongevity, ValidTransaction},
-	parameter_types,
 	traits::{
 		fungible::{HoldConsideration, Inspect, Mutate},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		tokens::{Fortitude, Precision, Preservation},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, Currency, EitherOfDiverse,
-		EnqueueWithOrigin, ExistenceRequirement, Imbalance, LinearStoragePrice, OnUnbalanced,
-		TransformOrigin, WithdrawReasons,
+		ExistenceRequirement, Imbalance, LinearStoragePrice, OnUnbalanced, TransformOrigin,
+		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 	weights::{
@@ -57,8 +56,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
-		PostDispatchInfoOf, SignedExtension, Zero,
+		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
+		SignedExtension, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	AccountId32, ApplyExtrinsicResult, DispatchError, Perbill,

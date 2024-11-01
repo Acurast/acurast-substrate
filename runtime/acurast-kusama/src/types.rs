@@ -1,4 +1,17 @@
-use crate::*;
+use acurast_runtime_common::{
+	opaque, weights::ExtrinsicBaseWeight, AccountId, Address, Balance, Signature, MILLIUNIT,
+};
+use derive_more::{From, Into};
+use frame_support::{
+	traits::{Currency, EitherOfDiverse},
+	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+};
+use frame_system::{EnsureRoot, EnsureSignedBy};
+use smallvec::smallvec;
+use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
+use sp_std::prelude::*;
+
+use crate::{Admin, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -28,7 +41,7 @@ pub type SignedExtra = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	CheckNonce,
+	crate::check_nonce::CheckNonce,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
@@ -93,3 +106,23 @@ impl frame_support::traits::Contains<RuntimeCall> for KusamaCallFilter {
 		}
 	}
 }
+
+pub type NegativeImbalanceOf<C, T> =
+	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+pub struct LiquidityInfo {
+	pub imbalance: Option<NegativeImbalanceOf<Balances, Runtime>>,
+	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
+}
+
+impl Default for LiquidityInfo {
+	fn default() -> Self {
+		Self { imbalance: None, fee_payer: None }
+	}
+}
+
+// We allow root only to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin = EnsureAdminOrRoot;
+
+pub type EnsureAdminOrRoot =
+	EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Admin, AccountId>>;

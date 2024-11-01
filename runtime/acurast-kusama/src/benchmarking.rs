@@ -6,7 +6,7 @@ use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
-use sp_std::vec;
+use sp_std::prelude::*;
 
 fn create_funded_user(
 	string: &'static str,

@@ -1,14 +1,13 @@
-use acurast_runtime_common::{AccountId, BlockNumber, MICROUNIT, MILLIUNIT, UNIT};
+use acurast_runtime_common::{
+	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
+	AccountId, Balance, BlockNumber, MICROUNIT, MILLIUNIT, UNIT,
+};
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
-	ord_parameter_types,
-	pallet_prelude::DispatchClass,
-	parameter_types,
-	weights::constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
-	PalletId,
+	ord_parameter_types, pallet_prelude::DispatchClass, parameter_types,
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND, PalletId,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use parachains_common::Balance;
 use sp_runtime::{create_runtime_str, traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
@@ -173,6 +172,12 @@ parameter_types! {
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 20);
 	pub const MaxSignatories: u32 = 100;
+
+	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
 }
 
 ord_parameter_types! {

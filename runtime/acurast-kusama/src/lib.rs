@@ -15,9 +15,6 @@ mod types;
 mod utils;
 pub mod xcm_config;
 
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use derive_more::{From, Into};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo},

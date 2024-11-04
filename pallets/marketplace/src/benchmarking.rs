@@ -67,6 +67,7 @@ pub fn job_registration_with_reward<T: Config>(
 			instant_match_processor.map(|m| vec![m].try_into().unwrap()),
 		),
 		processor_version: None,
+		runtime: Runtime::NodeJS,
 	};
 	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
 	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();
@@ -102,6 +103,7 @@ pub fn competing_job_registration_with_reward<T: Config>(
 		min_reputation: Some(0),
 		assignment_strategy: AssignmentStrategy::Single(None),
 		processor_version: None,
+		runtime: Runtime::NodeJS,
 	};
 	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
 	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();

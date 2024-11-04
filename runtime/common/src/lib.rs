@@ -94,6 +94,8 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+	/// A Block signed with a Justification
+	pub type SignedBlock = generic::SignedBlock<Block>;
 }
 
 pub struct RewardDistributor<Runtime, Currency>(PhantomData<(Runtime, Currency)>);

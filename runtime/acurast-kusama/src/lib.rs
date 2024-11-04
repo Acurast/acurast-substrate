@@ -399,6 +399,7 @@ cumulus_pallet_parachain_system::register_validate_block! {
 mod tests {
 	use super::*;
 	use sp_core::ByteArray;
+	use sp_runtime::AccountId32;
 	use std::str::FromStr;
 
 	#[test]

@@ -1,6 +1,7 @@
 use collections::BTreeSet;
 use gstd::{exec, msg, BlockNumber};
-use sails_rs::prelude::*;
+use sails_rs::{calls::Call, gstd::calls::GStdRemoting, prelude::*};
+use vara_proxy_client::traits::VaraProxy;
 
 use crate::storage::*;
 use crate::types::*;
@@ -209,6 +210,10 @@ impl VaraIbcService {
 		Storage::config()
 	}
 
+	pub fn block(&self) -> BlockNumber {
+		exec::block_height()
+	}
+
 	pub fn message_count(&self) -> u128 {
 		Storage::message_counter()
 	}
@@ -233,7 +238,7 @@ impl VaraIbcService {
 		Storage::oracle_public_keys().get(&public).is_some()
 	}
 
-	fn do_receive_message(
+	async fn do_receive_message(
 		&mut self,
 		sender: Subject,
 		nonce: MessageNonce,
@@ -271,7 +276,13 @@ impl VaraIbcService {
 
 		Storage::incoming_index().push(id);
 
-		match msg::send(contract, message_with_meta.message.payload, 0) {
+		// for now we assume the contract is ALWAYS pointing to an acurast proxy program (vara-proxy) and this program understands the payload (interpreting acurast proxy actions).
+		//
+		// Reasoning: it's possible to send generic gear messages to untyped receiver gear programs,
+		// but it's not obvious how to handle generic gear inputs ALONGSIDE the higher level abstractions provided by sails lib used in vara-proxy
+		// and we also don't want to have the encoding logic adhering to the makro-generated message type detection in vara-proxy at the original sender of the hyperdrive messages, which is the Acurast pallet on Acurast parachain that is harder to upgrade on encoding changes.
+		let mut proxy = vara_proxy_client::VaraProxy::new(GStdRemoting);
+		match proxy.receive_action(message_with_meta.message.payload).send(contract).await {
 			Ok(_) => {
 				let _ = self.notify_on(Event::MessageProcessed { id });
 			},
@@ -284,7 +295,7 @@ impl VaraIbcService {
 		Ok(())
 	}
 
-	pub fn receive_message(
+	pub async fn receive_message(
 		&mut self,
 		sender: Subject,
 		nonce: MessageNonce,
@@ -294,9 +305,9 @@ impl VaraIbcService {
 	) {
 		panicking(Self::ensure_unpaused);
 
-		let _message = panicking(move || {
-			self.do_receive_message(sender, nonce, recipient, payload, signatures)
-		});
+		let result = self.do_receive_message(sender, nonce, recipient, payload, signatures).await;
+
+		panicking(|| result);
 	}
 
 	pub fn send_message(
@@ -327,12 +338,8 @@ impl VaraIbcService {
 
 		let _ = self.notify_on(Event::MessageReadyToSend { message });
 	}
-	
-    pub fn send_test_message(
-		&mut self,
-		recipient: Subject,
-		ttl: BlockNumber,
-	) {
+
+	pub fn send_test_message(&mut self, recipient: Subject, ttl: BlockNumber) {
 		panicking(Self::ensure_unpaused);
 
 		let fee = msg::value();
@@ -346,7 +353,7 @@ impl VaraIbcService {
 				msg::source(),
 				blake2_256(self.message_count().encode().as_slice()),
 				recipient,
-                // the test message payload is just the sender of the message
+				// the test message payload is just the sender of the message
 				msg::source().encode(),
 				ttl,
 				fee,

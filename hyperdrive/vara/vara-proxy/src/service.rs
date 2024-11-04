@@ -1,24 +1,29 @@
 use gstd::{exec, msg};
-use sails_rs::calls::Call;
-use sails_rs::gstd::calls::GStdRemoting;
-use sails_rs::prelude::*;
-use vara_ibc_client::traits::VaraIbc;
-use vara_ibc_client::{Subject, Layer};
+use sails_rs::{calls::Call, gstd::calls::GStdRemoting, prelude::*};
+use vara_ibc_client::{traits::VaraIbc, Layer, Subject};
 
-use crate::storage::*;
-use crate::types::*;
-use crate::utils::*;
+use crate::{storage::*, types::*, utils::*};
 
 #[derive(Default)]
 pub struct VaraProxyService();
 
 impl VaraProxyService {
-	pub fn init(owner: ActorId, ibc: ActorId) -> Self {
+	pub fn init(owner: Option<ActorId>, ibc: Option<ActorId>) -> Self {
 		unsafe {
 			STORAGE = Some(Storage::default());
 		}
-		Storage::config().owner = owner;
-		Storage::config().ibc = ibc;
+		Storage::config().owner = owner.unwrap_or(msg::source());
+		Storage::config().ibc = ibc.unwrap_or(AccountId::from([
+			49, 130, 234, 130, 139, 9, 29, 1, 29, 40, 243, 244, 238, 82, 31, 213, 26, 151, 177,
+			111, 7, 25, 158, 39, 63, 198, 44, 23, 16, 134, 21, 84,
+		])); //0x3182ea828b091d011d28f3f4ee521fd51a97b16f07199e273fc62c1710861554
+		Storage::config().acurast_pallet_account = AccountId::from([
+			109, 111, 100, 108, 97, 99, 114, 115, 116, 112, 105, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		]);
+		Storage::config().payload_version = 1;
+		Storage::config().max_message_bytes = 2048;
+		Storage::config().exchange_ratio = ExchangeRatio { numerator: 1, denominator: 10 };
 		Self()
 	}
 
@@ -211,8 +216,8 @@ impl VaraProxyService {
 						// Send initial fees to the processor (the processor may need a reveal)
 						let initial_fee = job.expected_fulfillment_fee;
 						job.remaining_fee -= initial_fee;
-						// Transfer
-						msg::send(processor_address, (), initial_fee).expect("COULD_NOT_TRANSFER");
+						// Pre-pay initial fee from program balance
+						msg::send(processor_address, (), initial_fee).expect("PREPAY_FEE_FAILED");
 
 						job.status = JobStatus::Assigned;
 
@@ -237,7 +242,7 @@ impl VaraProxyService {
 
 						let refund = job.remaining_fee + payload.unused_reward;
 						if refund > 0 {
-							msg::send(job.creator, (), refund).expect("COULD_NOT_TRANSFER");
+							msg::send(job.creator, (), refund).expect("REFUND_FAILED");
 						}
 
 						// Save changes
@@ -277,9 +282,9 @@ impl VaraProxyService {
 				let has_funds = job.remaining_fee >= job.expected_fulfillment_fee;
 				if has_funds && job.expected_fulfillment_fee > 0 {
 					job.remaining_fee -= job.expected_fulfillment_fee;
-					// Transfer
+					// Pre-pay next execution's fee from program balance
 					msg::send(processor_address, (), job.expected_fulfillment_fee)
-						.expect("COULD_NOT_TRANSFER");
+						.expect("PREPAY_FEE_FAILED");
 					// Save changes
 					Storage::job_info().insert(job_id, (Version::V1 as u16, job.encode()));
 				}

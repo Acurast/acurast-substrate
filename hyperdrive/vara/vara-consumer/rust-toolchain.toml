@@ -1,0 +1,5 @@
+[toolchain]
+channel = "nightly-2024-10-20"
+targets = [ "wasm32-unknown-unknown" ]
+components = [ "rustfmt", "cargo", "clippy", "rust-std", "rust-analyzer", "rust-src" ]
+

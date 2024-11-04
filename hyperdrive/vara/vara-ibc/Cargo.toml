@@ -1,5 +1,10 @@
 [workspace]
 
+members = [
+    "./idl",
+    "./client",
+]
+
 [package]
 name = "vara-ibc"
 version = "0.1.0"
@@ -14,6 +19,7 @@ scale-info = { version = "2.11", default-features = false, features = [
 ] }
 blake2b_simd = { version = "1.0.2", default-features = false }
 k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "alloc"] }
+vara-proxy-client = { path = "../vara-proxy/client" }
 
 [build-dependencies]
 sails-rs = { version = "0.3.0", features = ["wasm-builder"] }

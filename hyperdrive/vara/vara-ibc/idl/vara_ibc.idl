@@ -70,6 +70,7 @@ service VaraIbc {
   ReceiveMessage : (sender: Subject, nonce: [u8, 32], recipient: Subject, payload: vec u8, signatures: vec [u8, 65]) -> null;
   SendMessage : (nonce: [u8, 32], recipient: Subject, payload: vec u8, ttl: u32) -> null;
   SendTestMessage : (recipient: Subject, ttl: u32) -> null;
+  query Block : () -> u32;
   query Config : () -> Config;
   query IncomingIndex : () -> vec [u8, 32];
   query IncomingMessage : (message_id: [u8, 32]) -> opt IncomingMessageWithMeta;

@@ -8,9 +8,7 @@ mockall = { version = "0.12", optional = true }
 sails-rs = "0.3.0"
 
 [build-dependencies]
-vara-ibc = { path = ".." }
 sails-client-gen = "0.3.0"
-sails-idl-gen = "0.3.0"
 
 [features]
 mocks = ["sails-rs/mockall", "dep:mockall"]

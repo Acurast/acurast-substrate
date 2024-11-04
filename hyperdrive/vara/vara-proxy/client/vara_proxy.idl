@@ -109,7 +109,7 @@ type JobStatus = enum {
 };
 
 constructor {
-  New : (owner: actor_id, ibc: actor_id);
+  New : (owner: opt actor_id, ibc: opt actor_id);
 };
 
 service VaraProxy {

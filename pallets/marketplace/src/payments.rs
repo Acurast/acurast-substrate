@@ -122,7 +122,7 @@ where
 			},
 		};
 
-		Budget::reserve(&job_id, reward)
+		Budget::reserve(job_id, reward)
 			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::reserve failed"))?;
 
 		Ok(())
@@ -133,7 +133,7 @@ where
 		reward: T::Balance,
 		target: &T::AccountId,
 	) -> Result<(), DispatchError> {
-		Budget::unreserve(&job_id, reward)
+		Budget::unreserve(job_id, reward)
 			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
 
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
@@ -209,7 +209,7 @@ where
 	}
 
 	fn refund(job_id: &JobId<T::AccountId>) -> Result<T::Balance, DispatchError> {
-		let remaining = Budget::unreserve_remaining(&job_id);
+		let remaining = Budget::unreserve_remaining(job_id);
 		// Send remaining funds to the job creator
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 		let hyperdrive_pallet_account: T::AccountId =

@@ -1,0 +1,33 @@
+[workspace]
+
+members = [
+    "./io",
+    "./state",
+]
+
+[package]
+name = "vara-consumer"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+gstd.workspace = true
+hex-literal = "0.3.4"
+
+[build-dependencies]
+vara-consumer-io = { path = "io" }
+gear-wasm-builder.workspace = true
+
+[dev-dependencies]
+vara-consumer-state = { path = "state" }
+
+[workspace.dependencies]
+gstd = "1.6.2"
+gmeta = "1.6.2"
+gear-wasm-builder = "1.6.2"

@@ -1,8 +1,15 @@
-use crate::*;
-use frame_support::traits::{
-	tokens::WithdrawReasons, Currency, ExistenceRequirement::KeepAlive, LockIdentifier,
-	LockableCurrency,
+use acurast_runtime_common::{AccountId, Balance};
+use frame_support::{
+	traits::{
+		tokens::WithdrawReasons, Currency, ExistenceRequirement::KeepAlive, LockIdentifier,
+		LockableCurrency,
+	},
+	PalletId,
 };
+use pallet_acurast_vesting::VestingBalance;
+use sp_runtime::{traits::AccountIdConversion, DispatchError, Perbill};
+
+use crate::Runtime;
 
 const PALLET_ID: PalletId = PalletId(*b"vestlock");
 

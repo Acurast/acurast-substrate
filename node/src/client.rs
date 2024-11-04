@@ -17,7 +17,6 @@
 
 use std::sync::Arc;
 
-use acurast_rococo_runtime::pallet_acurast_marketplace;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, KeysIter, MerkleValue, PairsIter};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;

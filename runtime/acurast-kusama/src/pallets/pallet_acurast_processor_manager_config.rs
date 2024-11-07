@@ -102,6 +102,7 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 			let burned = <Balances as Mutate<_>>::burn_from(
 				processor,
 				usable_balance,
+				Preservation::Preserve,
 				Precision::BestEffort,
 				Fortitude::Polite,
 			)?;

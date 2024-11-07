@@ -104,9 +104,7 @@ parachains-common = { workspace = true }
 parachain-info = { workspace = true }
 
 [features]
-default = [
-	"std",
-]
+default = ["std"]
 std = [
 	"parity-scale-codec/std",
 	"log/std",
@@ -162,9 +160,9 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 	"acurast-p256-crypto/std",
-#	"nimbus-primitives/std",
-#	"pallet-author-inherent/std",
-#	"pallet-parachain-staking/std",
+	#	"nimbus-primitives/std",
+	#	"pallet-author-inherent/std",
+	#	"pallet-parachain-staking/std",
 	"pallet-collator-selection/std",
 	"frame-support-procedural/std",
 ]
@@ -193,10 +191,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 ]
 
-try-runtime = [
-	"frame-executive/try-runtime",
-	"frame-try-runtime",
-]
+try-runtime = ["frame-executive/try-runtime", "frame-try-runtime"]
 
 emulation = []
 allow-faucet = ["frame-support-procedural/allow-faucet"]

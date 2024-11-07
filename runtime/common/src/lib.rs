@@ -2,7 +2,12 @@
 
 use core::marker::PhantomData;
 
+use acurast_p256_crypto::MultiSignature;
 use frame_support::traits::{fungible, tokens::Preservation};
+pub use pallet_acurast;
+use pallet_acurast::{
+	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
+};
 use pallet_acurast_marketplace::RegistrationExtra;
 pub use parachains_common::Balance;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -15,19 +20,8 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-pub use xcm::{
-	latest::{AssetId, MultiAsset},
-	prelude::Fungible,
-};
-
-use acurast_p256_crypto::MultiSignature;
-pub use pallet_acurast;
-use pallet_acurast::{
-	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
-};
 
 pub mod barrier;
-pub mod consensus;
 pub mod constants;
 // pub mod migrations;
 pub mod utils;

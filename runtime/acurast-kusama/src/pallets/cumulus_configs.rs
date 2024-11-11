@@ -1,4 +1,3 @@
-use cumulus_pallet_aura_ext::consensus_hook;
 use cumulus_pallet_parachain_system::{ExpectParentIncluded, RelayNumberStrictlyIncreases};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::TransformOrigin;

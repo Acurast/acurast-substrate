@@ -10,7 +10,8 @@ use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImpo
 use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -19,11 +20,8 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_chain_spec::ChainSpec;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
-use sc_executor::{
-	HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
-};
+use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::NetworkBlock;
-use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -91,76 +89,33 @@ pub mod mainnet {
 	}
 }
 
-#[cfg(feature = "acurast-kusama")]
-pub mod canary {
-	use sc_executor::NativeVersion;
-
-	pub struct AcurastExecutor;
-
-	impl sc_executor::NativeExecutionDispatch for AcurastExecutor {
-		type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-			acurast_kusama_runtime::api::dispatch(method, data)
-		}
-
-		fn native_version() -> NativeVersion {
-			acurast_kusama_runtime::native_version()
-		}
-	}
-}
-
-#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
-pub mod testnet {
-	use sc_executor::NativeVersion;
-
-	pub struct AcurastExecutor;
-
-	impl sc_executor::NativeExecutionDispatch for AcurastExecutor {
-		type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-			acurast_rococo_runtime::api::dispatch(method, data)
-		}
-
-		fn native_version() -> NativeVersion {
-			acurast_rococo_runtime::native_version()
-		}
-	}
-}
-
-type ParachainExecutor<Executor> = NativeElseWasmExecutor<Executor>;
-
-pub type ParachainClient<RuntimeApi, Executor> =
-	TFullClient<Block, RuntimeApi, ParachainExecutor<Executor>>;
-
+pub type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
+pub type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, ParachainExecutor>;
 pub type ParachainBackend = TFullBackend<Block>;
 
-type ParachainBlockImport<RuntimeApi, Executor> =
-	TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi, Executor>>, ParachainBackend>;
+type ParachainBlockImport<RuntimeApi> =
+	TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
-pub type Service<RuntimeApi, Executor> = PartialComponents<
-	ParachainClient<RuntimeApi, Executor>,
+pub type Service<RuntimeApi> = PartialComponents<
+	ParachainClient<RuntimeApi>,
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, Executor>>,
-	(ParachainBlockImport<RuntimeApi, Executor>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
-pub fn new_partial<RuntimeApi, Executor>(
+pub fn new_partial<RuntimeApi>(
 	config: &Configuration,
-) -> Result<Service<RuntimeApi, Executor>, sc_service::Error>
+) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
-	RuntimeApi:
-		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
-	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let telemetry = config
 		.telemetry_endpoints
@@ -178,15 +133,13 @@ where
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
-	let wasm = WasmExecutor::builder()
+	let executor = ParachainExecutor::builder()
 		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.executor.max_runtime_instances)
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
-
-	let executor = ParachainExecutor::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -213,7 +166,7 @@ where
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
-	let import_queue = build_import_queue::<RuntimeApi, Executor>(
+	let import_queue = build_import_queue::<RuntimeApi>(
 		client.clone(),
 		block_import.clone(),
 		config,
@@ -237,19 +190,17 @@ where
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl<RuntimeApi, Executor>(
+async fn start_node_impl<RuntimeApi>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	block_authoring_duration: Duration,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
-	RuntimeApi:
-		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
-	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let parachain_config = prepare_node_config(parachain_config);
 
@@ -400,7 +351,7 @@ where
 	})?;
 
 	if validator {
-		start_consensus::<RuntimeApi, Executor>(
+		start_consensus::<RuntimeApi>(
 			client.clone(),
 			block_import,
 			prometheus_registry.as_ref(),
@@ -408,7 +359,6 @@ where
 			&task_manager,
 			relay_chain_interface.clone(),
 			transaction_pool,
-			sync_service.clone(),
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
@@ -425,18 +375,16 @@ where
 }
 
 /// Build the import queue for the parachain runtime.
-fn build_import_queue<RuntimeApi, Executor>(
-	client: Arc<ParachainClient<RuntimeApi, Executor>>,
-	block_import: ParachainBlockImport<RuntimeApi, Executor>,
+fn build_import_queue<RuntimeApi>(
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>
 where
-	RuntimeApi:
-		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
-	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
@@ -468,17 +416,14 @@ where
 	.map_err(Into::into)
 }
 
-fn start_consensus<RuntimeApi, Executor>(
-	client: Arc<ParachainClient<RuntimeApi, Executor>>,
-	block_import: ParachainBlockImport<RuntimeApi, Executor>,
+fn start_consensus<RuntimeApi>(
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	prometheus_registry: Option<&Registry>,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, Executor>>,
-	>,
-	sync_oracle: Arc<SyncingService<Block>>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -488,10 +433,8 @@ fn start_consensus<RuntimeApi, Executor>(
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error>
 where
-	RuntimeApi:
-		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
-	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
 	use cumulus_client_consensus_aura::collators::basic::{
 		self as basic_aura, Params as BasicAuraParams,
@@ -540,7 +483,7 @@ where
 
 /// Start a parachain node.
 // Rustfmt wants to format the closure with space identation.
-pub async fn start_parachain_node<RuntimeApi, Executor>(
+pub async fn start_parachain_node<RuntimeApi>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -548,14 +491,12 @@ pub async fn start_parachain_node<RuntimeApi, Executor>(
 	block_authoring_duration: Duration,
 	// rpc_config: RpcConfig,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi, Executor>>)>
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
-	RuntimeApi:
-		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
-	Executor: sc_executor::NativeExecutionDispatch + 'static,
 {
-	start_node_impl::<RuntimeApi, Executor>(
+	start_node_impl::<RuntimeApi>(
 		parachain_config,
 		polkadot_config,
 		collator_options,

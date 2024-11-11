@@ -1,4 +1,4 @@
-#![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
 use core::marker::PhantomData;
 use derive_more::Display;
@@ -90,7 +90,7 @@ where
 					let j = job_payload.job_registration;
 
 					let assignment_strategy = match j.extra.assignment_strategy {
-						AssignmentStrategyV1::Single(executions) =>
+						AssignmentStrategyV1::Single(executions) => {
 							AssignmentStrategy::Single(if let Some(e) = executions {
 								Some(
 									PlannedExecutions::try_from(
@@ -113,7 +113,8 @@ where
 								)
 							} else {
 								None
-							}),
+							})
+						},
 						AssignmentStrategyV1::Competing => AssignmentStrategy::Competing,
 					};
 					let extra: T::RegistrationExtra = RegistrationExtra {
@@ -172,8 +173,9 @@ where
 
 					ParsedAction::RegisterJob(job_id, registration)
 				},
-				ActionPayloadV1::DeregisterJob(job_id) =>
-					ParsedAction::DeregisterJob((origin, job_id as u128)),
+				ActionPayloadV1::DeregisterJob(job_id) => {
+					ParsedAction::DeregisterJob((origin, job_id as u128))
+				},
 				ActionPayloadV1::FinalizeJob(payload) => ParsedAction::FinalizeJob(
 					payload.iter().map(|id| (origin.clone(), *id as u128)).collect(),
 				),

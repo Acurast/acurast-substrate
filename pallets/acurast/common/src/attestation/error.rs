@@ -1,4 +1,4 @@
-#![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
 use asn1::ParseError;
 use frame_support::pallet_prelude::RuntimeDebug;

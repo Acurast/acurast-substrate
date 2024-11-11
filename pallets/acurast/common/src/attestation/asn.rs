@@ -1,4 +1,4 @@
-#![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
 use core::{
 	convert::TryInto,
@@ -112,7 +112,7 @@ impl Time {
 					})
 				})
 			})
-			.map(|t| t.timestamp_millis())
+			.map(|t| t.and_utc().timestamp_millis())
 			.unwrap_or(0);
 
 		milliseconds.try_into().unwrap()

@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use sc_client_api::AuxStore;
-pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
@@ -59,7 +58,6 @@ where
 	>,
 	P: TransactionPool + Sync + Send + 'static,
 {
-	use pallet_acurast_marketplace::rpc::{Marketplace, MarketplaceApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 

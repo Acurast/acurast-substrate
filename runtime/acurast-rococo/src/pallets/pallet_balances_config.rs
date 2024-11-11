@@ -1,4 +1,4 @@
-use acurast_runtime_common::{weight, Balance};
+use acurast_runtime_common::Balance;
 use sp_core::ConstU32;
 
 use crate::{

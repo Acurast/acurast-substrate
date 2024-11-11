@@ -17,7 +17,11 @@ rust-version = "1.57"
 
 [dependencies]
 base16ct = "0.1.1"
-crypto-bigint = { version = "0.4.8", default-features = false, features = ["rand_core", "generic-array", "zeroize"] }
+crypto-bigint = { version = "0.4.8", default-features = false, features = [
+	"rand_core",
+	"generic-array",
+	"zeroize",
+] }
 der = { version = "0.6", default-features = false, features = ["oid"] }
 generic-array = { version = "0.14", default-features = false }
 rand_core = { version = "0.6", default-features = false }
@@ -34,8 +38,12 @@ hex-literal = { version = "0.3", optional = true }
 pem-rfc7468 = { version = "0.6", optional = true }
 pkcs8 = { version = "0.9", optional = true, default-features = false }
 sec1 = { version = "0.3", optional = true, features = ["subtle", "zeroize"] }
-serdect = { version = "0.1", optional = true, default-features = false, features = ["alloc"] }
-serde_json = { version = "1", optional = true, default-features = false, features = ["alloc"] }
+serdect = { version = "0.1", optional = true, default-features = false, features = [
+	"alloc",
+] }
+serde_json = { version = "1", optional = true, default-features = false, features = [
+	"alloc",
+] }
 
 [dev-dependencies]
 hex-literal = "0.3"
@@ -44,7 +52,12 @@ sha3 = "0.10"
 
 [features]
 default = ["arithmetic"]
-alloc = ["base16ct/alloc", "der/alloc", "sec1/alloc", "zeroize/alloc"] # todo: use weak activation for `group`/`sec1` alloc when available
+alloc = [
+	"base16ct/alloc",
+	"der/alloc",
+	"sec1/alloc",
+	"zeroize/alloc",
+] # todo: use weak activation for `group`/`sec1` alloc when available
 arithmetic = ["ff", "group"]
 bits = ["arithmetic", "ff/bits"]
 dev = ["arithmetic", "hex-literal", "pem", "pkcs8"]
@@ -52,10 +65,18 @@ hash2curve = ["arithmetic", "digest"]
 ecdh = ["arithmetic", "digest", "hkdf"]
 hazmat = []
 jwk = ["alloc", "base64ct/alloc", "serde", "serde_json", "zeroize/alloc"]
-pem = ["alloc", "arithmetic", "der/pem", "pem-rfc7468/alloc", "pkcs8", "sec1/pem"]
+pem = [
+	"alloc",
+	"arithmetic",
+	"der/pem",
+	"pem-rfc7468/alloc",
+	"pkcs8",
+	"sec1/pem",
+]
 serde = ["alloc", "pkcs8", "sec1/serde", "serdect"]
 std = ["alloc", "rand_core/std"]
 voprf = ["digest"]
+rand_core = []
 
 [package.metadata.docs.rs]
 features = ["bits", "ecdh", "hash2curve", "jwk", "pem", "std", "voprf"]

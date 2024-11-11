@@ -4,13 +4,9 @@ use sc_telemetry::serde_json;
 use sp_runtime::{app_crypto::Ss58Codec, traits::AccountIdConversion, AccountId32};
 use std::str::FromStr;
 
-use crate::chain_spec::{accountid_from_str, Extensions, KUSAMA_PARACHAIN_ID, SS58_FORMAT};
+use super::{accountid_from_str, ChainSpec, Extensions, KUSAMA_PARACHAIN_ID, SS58_FORMAT};
 pub(crate) use acurast_kusama_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 use acurast_runtime_common::*;
-
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec =
-	sc_service::GenericChainSpec<acurast_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;

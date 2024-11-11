@@ -7,11 +7,7 @@ use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 pub(crate) use acurast_rococo_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 use acurast_runtime_common::*;
 
-use crate::chain_spec::{accountid_from_str, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
-
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec =
-	sc_service::GenericChainSpec<acurast_runtime::RuntimeGenesisConfig, Extensions>;
+use super::{accountid_from_str, ChainSpec, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;

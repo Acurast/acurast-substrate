@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
 
+use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, Result, SharedParams, SubstrateCli,
+	NetworkParams, Result, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
@@ -28,80 +29,7 @@ fn load_spec(id: &str, run_cmd: &RunCmd) -> std::result::Result<Box<dyn ChainSpe
 		"acurast-kusama" => Box::new(chain_spec::kusama::acurast_kusama_config()),
 		#[cfg(feature = "acurast-mainnet")]
 		"acurast-mainnet" => Box::new(chain_spec::mainnet::acurast_config()),
-
-		// Specs provided as json use the dev runtime by default but flags can be used to specify which runtime to use
-		path => {
-			let path = std::path::PathBuf::from(path);
-
-			// first check if any runtime got explicitly forced by command line argument
-			#[cfg(feature = "acurast-local")]
-			if run_cmd.use_local {
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?));
-			}
-			#[cfg(feature = "acurast-dev")]
-			if run_cmd.use_dev {
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?));
-			}
-			#[cfg(feature = "acurast-rococo")]
-			if run_cmd.use_rococo {
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?));
-			}
-			#[cfg(feature = "acurast-kusama")]
-			if run_cmd.use_kusama {
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
-			}
-
-			#[cfg(feature = "acurast-mainnet")]
-			if run_cmd.use_mainnet {
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::mainnet::ChainSpec::from_json_file(path)?));
-			}
-
-			// fallback to guessing runtime from provided chain_spec's file name
-			let starts_with = |element: &str| {
-				path.file_name()
-					.and_then(|f| f.to_str().map(|s| s.starts_with(&element)))
-					.unwrap_or(false)
-			};
-
-			if starts_with("acurast-local") {
-				#[cfg(feature = "acurast-local")]
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::local::ChainSpec::from_json_file(path)?));
-				#[cfg(not(feature = "acurast-local"))]
-				panic!("guessed runtime from file name as 'acurast-local' but feature 'acurast-local' was not included when building the node");
-			} else if starts_with("acurast-dev") {
-				#[cfg(feature = "acurast-dev")]
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::dev::ChainSpec::from_json_file(path)?));
-				#[cfg(not(feature = "acurast-dev"))]
-				panic!("guessed runtime from file name as 'acurast-dev' but feature 'acurast-dev' was not included when building the node");
-			} else if starts_with("acurast-rococo") {
-				#[cfg(feature = "acurast-rococo")]
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::rococo::ChainSpec::from_json_file(path)?));
-				#[cfg(not(feature = "acurast-rococo"))]
-				panic!("guessed runtime from file name as 'acurast-rococo' but feature 'acurast-rococo' was not included when building the node");
-			} else if starts_with("acurast-kusama") {
-				#[cfg(feature = "acurast-kusama")]
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::kusama::ChainSpec::from_json_file(path)?));
-				#[cfg(not(feature = "acurast-kusama"))]
-				panic!("guessed runtime from file name as 'acurast-kusama' but feature 'acurast-kusama' was not included when building the node");
-			} else if starts_with("acurast-mainnet") {
-				#[cfg(feature = "acurast-mainnet")]
-				#[rustfmt::skip]
-				return Ok(Box::new(chain_spec::mainnet::ChainSpec::from_json_file(path)?));
-				#[cfg(not(feature = "acurast-mainnet"))]
-				panic!("guessed runtime from file name as 'acurast-mainnet' but feature 'acurast-mainnet' was not included when building the node");
-			} else {
-				panic!("could not derive chain spec: non of the --rococo-runtime --kusama-runtime flags was used and the runtime was not clear from the file name");
-			}
-		},
+		path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 	})
 }
 
@@ -201,7 +129,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				#[cfg(any(
+					feature = "acurast-local",
+					feature = "acurast-dev",
+					feature = "acurast-rococo"
+				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
 						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
@@ -231,7 +163,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				#[cfg(any(
+					feature = "acurast-local",
+					feature = "acurast-dev",
+					feature = "acurast-rococo"
+				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
 						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
@@ -261,7 +197,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				#[cfg(any(
+					feature = "acurast-local",
+					feature = "acurast-dev",
+					feature = "acurast-rococo"
+				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
 						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
@@ -291,7 +231,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				#[cfg(any(
+					feature = "acurast-local",
+					feature = "acurast-dev",
+					feature = "acurast-rococo"
+				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
 						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
@@ -321,7 +265,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			let chain_spec = &runner.config().chain_spec;
 			match chain_spec.variant() {
-				#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+				#[cfg(any(
+					feature = "acurast-local",
+					feature = "acurast-dev",
+					feature = "acurast-rococo"
+				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
 						<acurast_rococo_runtime::RuntimeApi, service::testnet::AcurastExecutor>(|components, cli, cmd, config| {
@@ -368,10 +316,14 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(| config| {
+			runner.sync_run(|config| {
 				let chain_spec = &config.chain_spec;
 				match chain_spec.variant() {
-					#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+					#[cfg(any(
+						feature = "acurast-local",
+						feature = "acurast-dev",
+						feature = "acurast-rococo"
+					))]
 					NetworkVariant::Testnet => {
 						let partials = new_partial::<
 							acurast_rococo_runtime::RuntimeApi,
@@ -409,19 +361,41 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
-				BenchmarkCmd::Pallet(cmd) =>
+				BenchmarkCmd::Pallet(cmd) => {
 					if cfg!(feature = "runtime-benchmarks") {
 						return runner.sync_run(|config| {
-							cmd.run::<acurast_runtime_common::opaque::Block, ()>(config)
-						})
+							match config.chain_spec.variant() {
+								#[cfg(any(
+									feature = "acurast-local",
+									feature = "acurast-dev",
+									feature = "acurast-rococo"
+								))]
+								NetworkVariant::Testnet => cmd.run_with_spec::<sp_runtime::traits::HashingFor<
+									acurast_rococo_runtime::Block,
+								>, ReclaimHostFunctions>(Some(config.chain_spec)),
+								#[cfg(feature = "acurast-kusama")]
+								NetworkVariant::Canary => cmd.run_with_spec::<sp_runtime::traits::HashingFor<
+									acurast_kusama_runtime::Block,
+								>, ReclaimHostFunctions>(Some(config.chain_spec)),
+								#[cfg(feature = "acurast-mainnet")]
+								NetworkVariant::Mainnet => cmd.run_with_spec::<sp_runtime::traits::HashingFor<
+									acurast_mainnet_runtime::Block,
+								>, ReclaimHostFunctions>(Some(config.chain_spec)),
+							}
+						});
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
 							.into())
-					},
-				BenchmarkCmd::Block(cmd) =>
+					}
+				},
+				BenchmarkCmd::Block(cmd) => {
 					runner.sync_run(|config| match config.chain_spec.variant() {
-						#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+						#[cfg(any(
+							feature = "acurast-local",
+							feature = "acurast-dev",
+							feature = "acurast-rococo"
+						))]
 						NetworkVariant::Testnet => {
 							let partials = new_partial::<
 								acurast_rococo_runtime::RuntimeApi,
@@ -445,72 +419,77 @@ pub fn run() -> Result<()> {
 							>(&config)?;
 							cmd.run(partials.client)
 						},
-					}),
+					})
+				},
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) =>
+				BenchmarkCmd::Storage(_) => {
 					return Err(sc_cli::Error::Input(
 						"Compile with --features=runtime-benchmarks \
 						to enable storage benchmarks."
 							.into(),
 					)
-					.into()),
+					.into())
+				},
 				#[cfg(feature = "runtime-benchmarks")]
-				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					match config.chain_spec.variant() {
-						#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
-						NetworkVariant::Testnet => {
-							let partials = new_partial::<
-								acurast_rococo_runtime::RuntimeApi,
-								service::testnet::AcurastExecutor,
-							>(&config)?;
-							let db = partials.backend.expose_db();
-							let storage = partials.backend.expose_storage();
-							cmd.run(config, partials.client.clone(), db, storage)
-						},
-						#[cfg(feature = "acurast-kusama")]
-						NetworkVariant::Canary => {
-							let partials = new_partial::<
-								acurast_kusama_runtime::RuntimeApi,
-								service::canary::AcurastExecutor,
-							>(&config)?;
-							let db = partials.backend.expose_db();
-							let storage = partials.backend.expose_storage();
-							cmd.run(config, partials.client.clone(), db, storage)
-						},
-						#[cfg(feature = "acurast-mainnet")]
-						NetworkVariant::Mainnet => {
-							let partials = new_partial::<
-								acurast_mainnet_runtime::RuntimeApi,
-								service::mainnet::AcurastExecutor,
-							>(&config)?;
-							let db = partials.backend.expose_db();
-							let storage = partials.backend.expose_storage();
-							cmd.run(config, partials.client.clone(), db, storage)
-						},
-					}
+				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| match config.chain_spec.variant() {
+					#[cfg(any(
+						feature = "acurast-local",
+						feature = "acurast-dev",
+						feature = "acurast-rococo"
+					))]
+					NetworkVariant::Testnet => {
+						let partials = new_partial::<
+							acurast_rococo_runtime::RuntimeApi,
+							service::testnet::AcurastExecutor,
+						>(&config)?;
+						let db = partials.backend.expose_db();
+						let storage = partials.backend.expose_storage();
+						cmd.run(config, partials.client.clone(), db, storage)
+					},
+					#[cfg(feature = "acurast-kusama")]
+					NetworkVariant::Canary => {
+						let partials = new_partial::<
+							acurast_kusama_runtime::RuntimeApi,
+							service::canary::AcurastExecutor,
+						>(&config)?;
+						let db = partials.backend.expose_db();
+						let storage = partials.backend.expose_storage();
+						cmd.run(config, partials.client.clone(), db, storage)
+					},
+					#[cfg(feature = "acurast-mainnet")]
+					NetworkVariant::Mainnet => {
+						let partials = new_partial::<
+							acurast_mainnet_runtime::RuntimeApi,
+							service::mainnet::AcurastExecutor,
+						>(&config)?;
+						let db = partials.backend.expose_db();
+						let storage = partials.backend.expose_storage();
+						cmd.run(config, partials.client.clone(), db, storage)
+					},
 				}),
-				BenchmarkCmd::Machine(cmd) =>
-					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
+				BenchmarkCmd::Machine(cmd) => {
+					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+				},
 				// NOTE: this allows the Client to leniently implement
 				// new benchmark commands without requiring a companion MR.
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
-		Some(Subcommand::TryRuntime) => Err("The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.".into()),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
-				let hwbench = if !cli.no_hardware_benchmarks {
-					config.database.path().map(|database_path| {
-						let _ = std::fs::create_dir_all(&database_path);
-						sc_sysinfo::gather_hwbench(Some(database_path))
-					})
-				} else {
-					None
-				};
+				let hwbench = (!cli.no_hardware_benchmarks)
+					.then_some(config.database.path().map(|database_path| {
+						let _ = std::fs::create_dir_all(database_path);
+						sc_sysinfo::gather_hwbench(
+							Some(database_path),
+							&SUBSTRATE_REFERENCE_HARDWARE,
+						)
+					}))
+					.flatten();
 
 				let polkadot_cli = RelayChainCli::new(
 					&config,
@@ -540,30 +519,55 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match &config.chain_spec.variant() {
-					#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
+					#[cfg(any(
+						feature = "acurast-local",
+						feature = "acurast-dev",
+						feature = "acurast-rococo"
+					))]
 					NetworkVariant::Testnet => service::start_parachain_node::<
 						acurast_rococo_runtime::RuntimeApi,
 						service::testnet::AcurastExecutor,
-					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
+					>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+						cli.run.block_authoring_duration,
+						hwbench,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-kusama")]
 					NetworkVariant::Canary => service::start_parachain_node::<
 						acurast_kusama_runtime::RuntimeApi,
 						service::canary::AcurastExecutor,
-					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
+					>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+						cli.run.block_authoring_duration,
+						hwbench,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-mainnet")]
 					NetworkVariant::Mainnet => service::start_parachain_node::<
 						acurast_mainnet_runtime::RuntimeApi,
 						service::mainnet::AcurastExecutor,
-					>(config, polkadot_config, collator_options, id, cli.run.block_authoring_duration, hwbench)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into),
+					>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+						cli.run.block_authoring_duration,
+						hwbench,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 				}
 			})
 		},
@@ -608,7 +612,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 
@@ -620,15 +624,9 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.prometheus_config(default_listen_port, chain_spec)
 	}
 
-	fn init<F>(
-		&self,
-		_support_url: &String,
-		_impl_version: &String,
-		_logger_hook: F,
-		_config: &sc_service::Configuration,
-	) -> Result<()>
+	fn init<F>(&self, _support_url: &String, _impl_version: &String, _logger_hook: F) -> Result<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+		F: FnOnce(&mut sc_cli::LoggerBuilder),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}

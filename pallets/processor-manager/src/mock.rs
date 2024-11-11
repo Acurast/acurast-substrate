@@ -84,8 +84,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = ();
 	type FreezeIdentifier = ();
 	type RuntimeFreezeReason = ();
-	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
-	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -196,6 +194,7 @@ impl ProcessorAssetRecovery<Test> for AcurastProcessorAssetRecovery {
 			let burned = <Balances as Mutate<_>>::burn_from(
 				processor,
 				usable_balance,
+				Preservation::Preserve,
 				Precision::BestEffort,
 				Fortitude::Polite,
 			)?;

@@ -59,7 +59,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
- "frame-support-procedural 4.0.0-dev",
+ "frame-support-procedural",
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
@@ -135,7 +135,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
- "frame-support-procedural 4.0.0-dev",
+ "frame-support-procedural",
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
@@ -3100,17 +3100,6 @@ dependencies = [
 
 [[package]]
 name = "derive-syn-parse"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e79116f119dd1dba1abf1f3405f03b9b0e79a27a3883864bfebded8a3dc768cd"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "derive-syn-parse"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d65d7ce8132b7c0e54497a4d9a55a1c2a0912a0d786cf894472ba818fba45762"
@@ -3258,7 +3247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60e6be249b0a462a14784a99b19bf35a667bb5e09de611738bb7362fa4c95ff7"
 dependencies = [
  "common-path",
- "derive-syn-parse 0.2.0",
+ "derive-syn-parse",
  "once_cell",
  "proc-macro2",
  "quote",
@@ -3858,7 +3847,7 @@ version = "38.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.1#835e0767fe81355c7559e12802b977f96ca271d8"
 dependencies = [
  "frame-support",
- "frame-support-procedural 30.0.3",
+ "frame-support-procedural",
  "frame-system",
  "linregress",
  "log",
@@ -4009,7 +3998,7 @@ dependencies = [
  "docify",
  "environmental",
  "frame-metadata",
- "frame-support-procedural 30.0.3",
+ "frame-support-procedural",
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -4041,33 +4030,14 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "4.0.0-dev"
-dependencies = [
- "Inflector",
- "cfg-expr",
- "derive-syn-parse 0.1.5",
- "expander",
- "frame-support-procedural-tools 4.0.0-dev",
- "itertools 0.10.5",
- "macro_magic",
- "proc-macro-warning 1.0.2",
- "proc-macro2",
- "quote",
- "sp-core-hashing",
- "syn 2.0.87",
-]
-
-[[package]]
-name = "frame-support-procedural"
 version = "30.0.3"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.1#835e0767fe81355c7559e12802b977f96ca271d8"
 dependencies = [
  "Inflector",
  "cfg-expr",
- "derive-syn-parse 0.2.0",
+ "derive-syn-parse",
  "docify",
  "expander",
- "frame-support-procedural-tools 13.0.0",
+ "frame-support-procedural-tools",
  "itertools 0.11.0",
  "macro_magic",
  "proc-macro-warning 1.0.2",
@@ -4079,33 +4049,11 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "frame-support-procedural-tools-derive 3.0.0",
- "proc-macro-crate 3.2.0",
- "proc-macro2",
- "quote",
- "syn 2.0.87",
-]
-
-[[package]]
-name = "frame-support-procedural-tools"
 version = "13.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.1#835e0767fe81355c7559e12802b977f96ca271d8"
 dependencies = [
- "frame-support-procedural-tools-derive 12.0.0",
+ "frame-support-procedural-tools-derive",
  "proc-macro-crate 3.2.0",
- "proc-macro2",
- "quote",
- "syn 2.0.87",
-]
-
-[[package]]
-name = "frame-support-procedural-tools-derive"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -5684,7 +5632,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -6423,7 +6371,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1687dc887e42f352865a393acae7cf79d98fab6351cde1f58e9e057da89bf150"
 dependencies = [
  "const-random",
- "derive-syn-parse 0.2.0",
+ "derive-syn-parse",
  "macro_magic_core_macros",
  "proc-macro2",
  "quote",
@@ -13660,19 +13608,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-core-hashing"
-version = "9.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest 0.10.7",
- "sha2 0.10.8",
- "sha3",
- "twox-hash",
-]
-
-[[package]]
 name = "sp-crypto-hashing"
 version = "0.1.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.1#835e0767fe81355c7559e12802b977f96ca271d8"
@@ -16117,7 +16052,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

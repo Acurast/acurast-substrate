@@ -9,10 +9,9 @@ use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_std::prelude::*;
 
-use crate::Config;
 use acurast_common::{AttestationChain, JobRegistration, Script};
 
-use crate::{utils::validate_and_extract_attestation, Pallet as Acurast};
+use crate::{utils::validate_and_extract_attestation, Config, Pallet as Acurast};
 
 use super::*;
 
@@ -49,7 +48,7 @@ pub fn job_registration<T: Config>(extra: T::RegistrationExtra) -> JobRegistrati
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra,
-	}
+	};
 }
 
 pub fn script() -> Script {

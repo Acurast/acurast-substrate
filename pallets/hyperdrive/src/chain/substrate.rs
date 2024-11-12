@@ -1,5 +1,3 @@
-#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
-
 use core::marker::PhantomData;
 use derive_more::Display;
 use frame_support::pallet_prelude::*;

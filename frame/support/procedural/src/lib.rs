@@ -320,7 +320,7 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 /// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
 #[proc_macro_derive(RuntimeDebugNoBound)]
 pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	if cfg!(any(feature = "std", feature = "try-runtime")) {
+	if cfg!(feature = "std") {
 		no_bound::debug::derive_debug_no_bound(input)
 	} else {
 		let input = syn::parse_macro_input!(input as syn::DeriveInput);
@@ -797,14 +797,14 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
 	let item = syn::parse_macro_input!(item as TraitItemType);
-	if item.ident != "RuntimeCall" &&
-		item.ident != "RuntimeEvent" &&
-		item.ident != "RuntimeTask" &&
-		item.ident != "RuntimeOrigin" &&
-		item.ident != "RuntimeHoldReason" &&
-		item.ident != "RuntimeFreezeReason" &&
-		item.ident != "RuntimeParameters" &&
-		item.ident != "PalletInfo"
+	if item.ident != "RuntimeCall"
+		&& item.ident != "RuntimeEvent"
+		&& item.ident != "RuntimeTask"
+		&& item.ident != "RuntimeOrigin"
+		&& item.ident != "RuntimeHoldReason"
+		&& item.ident != "RuntimeFreezeReason"
+		&& item.ident != "RuntimeParameters"
+		&& item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
@@ -812,7 +812,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 	tokens
 }
@@ -1221,7 +1221,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 			"`#[import_section]` can only be applied to a valid pallet module",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
 	if let Some(ref mut content) = internal_mod.content {

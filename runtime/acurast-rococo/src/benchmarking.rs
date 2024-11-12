@@ -1,4 +1,4 @@
-use crate::{AcurastMarketplace, Balance, Balances, ExtraFor, MultiSignature, Runtime};
+use acurast_runtime_common::Signature;
 use frame_benchmarking::account;
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;
@@ -7,6 +7,8 @@ use pallet_acurast_marketplace::{
 };
 use sp_core::crypto::UncheckedFrom;
 use sp_std::vec;
+
+use crate::{AcurastMarketplace, Balance, Balances, ExtraFor, Runtime};
 
 fn create_funded_user(
 	string: &'static str,
@@ -17,7 +19,7 @@ fn create_funded_user(
 	let user = account(string, n, SEED);
 	Balances::make_free_balance_be(&user, amount);
 	let _ = Balances::issue(amount);
-	return user
+	return user;
 }
 
 pub struct AcurastBenchmarkHelper;
@@ -81,7 +83,7 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 
 impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn dummy_proof() -> <Runtime as pallet_acurast_processor_manager::Config>::Proof {
-		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
 	}
 
 	fn advertisement() -> <Runtime as pallet_acurast_processor_manager::Config>::Advertisement {

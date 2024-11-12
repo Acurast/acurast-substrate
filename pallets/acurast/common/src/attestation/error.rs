@@ -1,5 +1,3 @@
-#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
-
 use asn1::ParseError;
 use frame_support::pallet_prelude::RuntimeDebug;
 use parity_scale_codec::{Decode, Encode};

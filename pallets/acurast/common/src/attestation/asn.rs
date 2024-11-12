@@ -1,5 +1,3 @@
-#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
-
 use core::{
 	convert::TryInto,
 	hash::{Hash, Hasher},

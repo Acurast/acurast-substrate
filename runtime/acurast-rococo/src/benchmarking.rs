@@ -101,4 +101,8 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			available_modules: JobModules::default(),
 		}
 	}
+
+	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
+		create_funded_user("pallet_acurast", index, 1 << 60)
+	}
 }

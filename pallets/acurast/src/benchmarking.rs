@@ -159,10 +159,7 @@ benchmarks! {
 			operation: ListUpdateOperation::Add,
 			item: hex!("15905857467176635834").to_vec().try_into().unwrap()
 		}];
-
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-
-	}: _(RawOrigin::Signed(pallet_account.clone()), updates.clone().try_into().unwrap())
+	}: _(RawOrigin::Root, updates.clone().try_into().unwrap())
 	verify {
 		assert_last_event::<T>(Event::CertificateRevocationListUpdated.into());
 	}

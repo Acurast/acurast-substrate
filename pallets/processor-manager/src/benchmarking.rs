@@ -13,12 +13,13 @@ use frame_support::{
 	},
 	traits::{Get, IsType},
 };
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_std::prelude::*;
 
 pub trait BenchmarkHelper<T: Config> {
 	fn dummy_proof() -> T::Proof;
 	fn advertisement() -> T::Advertisement;
+	fn funded_account(index: u32) -> T::AccountId;
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -33,6 +34,10 @@ where
 		operation: ListUpdateOperation::Add,
 		item: ProcessorPairingFor::<T>::new_with_proof(processor_account_id, timestamp, signature),
 	}
+}
+
+fn run_to_block<T: Config>(new_block: BlockNumberFor<T>) {
+	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
 benchmarks! {
@@ -87,6 +92,19 @@ benchmarks! {
 	heartbeat_with_version {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
+		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+			window_length: 1,
+			tollerance: 1000,
+			min_heartbeats: 1,
+			reward_per_distribution: Default::default(),
+			distributor_account: T::BenchmarkHelper::funded_account(0),
+		};
+		<ProcessorRewardDistributionWindow<T>>::insert(
+			caller.clone(),
+			RewardDistributionWindow::new(0, &distribution_settings),
+		);
+		run_to_block::<T>(100u32.into());
+		Pallet::<T>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(distribution_settings))?;
 		let update = generate_pairing_update_add::<T>(0);
 		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
 		let version = Version {

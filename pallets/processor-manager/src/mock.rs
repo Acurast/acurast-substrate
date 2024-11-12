@@ -129,14 +129,10 @@ impl Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type Advertisement = ();
 	type AdvertisementHandler = ();
-
 	type WeightInfo = weights::WeightInfo<Self>;
-
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
-
 	type Balance = Balance;
-
 	type ProcessorRewardDistributor = ();
 }
 
@@ -147,6 +143,13 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn advertisement() -> <Test as Config>::Advertisement {}
+
+	fn funded_account(index: u32) -> <Test as Config>::AccountId {
+		let caller: T::AccountId = frame_benchmarking::account("token_account", index, SEED);
+		<Balances as fungible::Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+
+		caller
+	}
 }
 
 pub struct AcurastManagerIdProvider;

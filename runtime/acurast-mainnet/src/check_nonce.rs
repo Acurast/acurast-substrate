@@ -60,7 +60,7 @@ where
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 		let mut account = if &fee_payer != who {
 			frame_system::Account::<Runtime>::get(who)
@@ -73,7 +73,7 @@ where
 			} else {
 				InvalidTransaction::Future
 			}
-			.into())
+			.into());
 		}
 		account.nonce += <Runtime as frame_system::Config>::Nonce::one();
 		frame_system::Account::<Runtime>::insert(who, account);
@@ -91,7 +91,7 @@ where
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for
-			return InvalidTransaction::Payment.into()
+			return InvalidTransaction::Payment.into();
 		}
 		let account = if &fee_payer != who {
 			frame_system::Account::<Runtime>::get(who)
@@ -99,7 +99,7 @@ where
 			fee_payer_account
 		};
 		if self.0 < account.nonce {
-			return InvalidTransaction::Stale.into()
+			return InvalidTransaction::Stale.into();
 		}
 
 		let provides = vec![Encode::encode(&(who, self.0))];

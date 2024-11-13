@@ -273,8 +273,9 @@ pub mod pallet {
 				let position =
 					current_allowed_sources.iter().position(|value| value == &update.item);
 				match (position, update.operation) {
-					(None, ListUpdateOperation::Add) =>
-						current_allowed_sources.push(update.item.clone()),
+					(None, ListUpdateOperation::Add) => {
+						current_allowed_sources.push(update.item.clone())
+					},
 					(Some(pos), ListUpdateOperation::Remove) => {
 						current_allowed_sources.remove(pos);
 					},
@@ -325,7 +326,7 @@ pub mod pallet {
 
 			if !T::KeyAttestationBarrier::accept_attestation_for_origin(&who, &attestation) {
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::AttestationRejected.into())
+				return Err(Error::<T>::AttestationRejected.into());
 			}
 
 			ensure_not_expired::<T>(&attestation)?;

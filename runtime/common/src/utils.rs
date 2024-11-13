@@ -11,10 +11,12 @@ pub fn check_attestation(
 	allowed_bundle_ids: &[&[u8]],
 ) -> bool {
 	match &attestation.content {
-		BoundedAttestationContent::KeyDescription(key_description) =>
-			check_key_description(key_description, allowed_package_names, allowed_signature_digests),
-		BoundedAttestationContent::DeviceAttestation(device_attestation) =>
-			check_device_attestation(device_attestation, allowed_bundle_ids),
+		BoundedAttestationContent::KeyDescription(key_description) => {
+			check_key_description(key_description, allowed_package_names, allowed_signature_digests)
+		},
+		BoundedAttestationContent::DeviceAttestation(device_attestation) => {
+			check_device_attestation(device_attestation, allowed_bundle_ids)
+		},
 	}
 }
 

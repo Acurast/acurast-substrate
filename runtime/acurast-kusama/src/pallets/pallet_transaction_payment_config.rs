@@ -43,7 +43,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -56,8 +56,9 @@ where
 
 		match Balances::withdraw(&fee_payer, fee, withdraw_reason, ExistenceRequirement::KeepAlive)
 		{
-			Ok(imbalance) =>
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) })),
+			Ok(imbalance) => {
+				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
+			},
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
 	}

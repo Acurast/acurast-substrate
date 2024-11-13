@@ -92,10 +92,12 @@ impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
 
 	fn try_from(value: ParsedAttestation<'_>) -> Result<Self, Self::Error> {
 		match value {
-			ParsedAttestation::KeyDescription(key_description) =>
-				Ok(Self::KeyDescription(key_description.try_into()?)),
-			ParsedAttestation::DeviceAttestation(device_attestation) =>
-				Ok(Self::DeviceAttestation(device_attestation.try_into()?)),
+			ParsedAttestation::KeyDescription(key_description) => {
+				Ok(Self::KeyDescription(key_description.try_into()?))
+			},
+			ParsedAttestation::DeviceAttestation(device_attestation) => {
+				Ok(Self::DeviceAttestation(device_attestation.try_into()?))
+			},
 		}
 	}
 }

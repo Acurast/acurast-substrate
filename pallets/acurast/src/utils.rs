@@ -66,7 +66,7 @@ pub fn ensure_source_verified_and_of_type<T: Config>(
 ) -> Result<(), Error<T>> {
 	let attestation = check_attestation(source)?;
 	if !T::KeyAttestationBarrier::check_attestation_is_of_type(&attestation, processor_type) {
-		return Err(Error::<T>::AttestationRejected)
+		return Err(Error::<T>::AttestationRejected);
 	}
 	Ok(())
 }
@@ -78,7 +78,7 @@ pub fn ensure_source_verified_and_security_level<T: Config>(
 	let attestation = check_attestation(account)?;
 	if let BoundedAttestationContent::KeyDescription(key_description) = attestation.content {
 		if !valid_security_levels.contains(&key_description.attestation_security_level) {
-			return Err(Error::<T>::AttestationRejected)
+			return Err(Error::<T>::AttestationRejected);
 		}
 	}
 	Ok(())
@@ -92,7 +92,7 @@ pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result
 		.map_err(|_| Error::<T>::FailedTimestampConversion)?;
 
 	if now >= attestation.validity.not_after || now < attestation.validity.not_before {
-		return Err(Error::<T>::AttestationCertificateNotValid)
+		return Err(Error::<T>::AttestationCertificateNotValid);
 	}
 
 	if let BoundedAttestationContent::KeyDescription(key_description) = &attestation.content {
@@ -102,7 +102,7 @@ pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result
 			.or(key_description.software_enforced.usage_expire_date_time);
 		if let Some(expire_date_time) = expire_date_time {
 			if now >= expire_date_time {
-				return Err(Error::<T>::AttestationUsageExpired)
+				return Err(Error::<T>::AttestationUsageExpired);
 			}
 		}
 	}
@@ -114,7 +114,7 @@ pub(crate) fn ensure_not_revoked<T: Config>(attestation: &Attestation) -> Result
 	let ids = &attestation.cert_ids;
 	for id in ids {
 		if <StoredRevokedCertificate<T>>::get(&id.1).is_some() {
-			return Err(Error::<T>::RevokedCertificate)
+			return Err(Error::<T>::RevokedCertificate);
 		}
 	}
 	Ok(())
@@ -126,7 +126,7 @@ fn check_attestation<T: Config>(account: &T::AccountId) -> Result<Attestation, E
 	ensure_not_expired(&attestation)?;
 	ensure_not_revoked(&attestation)?;
 	if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
-		return Err(Error::<T>::AttestationRejected)
+		return Err(Error::<T>::AttestationRejected);
 	}
 	Ok(attestation)
 }

@@ -52,9 +52,9 @@ where
 	) -> DispatchResult {
 		if let Some(id) = Self::manager_id_for_processor(processor_account) {
 			if id == manager_id {
-				return Err(Error::<T>::ProcessorAlreadyPaired)?
+				return Err(Error::<T>::ProcessorAlreadyPaired)?;
 			}
-			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
+			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?;
 		}
 		<ManagedProcessors<T>>::insert(manager_id, processor_account, ());
 		<ProcessorToManagerIdIndex<T>>::insert(processor_account, manager_id);
@@ -100,9 +100,9 @@ where
 					if progress >= distribution_window.window_length {
 						let mut distributed_amount: Option<T::Balance> = None;
 						let buffer = progress.saturating_sub(distribution_window.window_length);
-						if buffer <= distribution_window.tollerance &&
-							(distribution_window.heartbeats + 1) >=
-								distribution_window.min_heartbeats
+						if buffer <= distribution_window.tollerance
+							&& (distribution_window.heartbeats + 1)
+								>= distribution_window.min_heartbeats
 						{
 							let result = T::ProcessorRewardDistributor::distribute_reward(
 								&manager,
@@ -121,7 +121,7 @@ where
 								&distribution_settings,
 							),
 						);
-						return distributed_amount
+						return distributed_amount;
 					} else {
 						<ProcessorRewardDistributionWindow<T>>::insert(
 							processor,
@@ -149,7 +149,7 @@ where
 		let processor_manager = T::ManagerIdProvider::owner_for(processor_manager_id)?;
 
 		if manager != &processor_manager {
-			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?
+			return Err(Error::<T>::ProcessorPairedWithAnotherManager)?;
 		}
 
 		Ok(processor_manager_id)

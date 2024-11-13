@@ -128,8 +128,8 @@ pub const fn fiat_p384_scalar_cmovznz_u32(arg1: fiat_p384_scalar_u1, arg2: u32, 
 	let mut out1: u32 = 0;
 	let x1: fiat_p384_scalar_u1 = (!(!arg1));
 	let x2: u32 = ((((((0x0 as fiat_p384_scalar_i2) - (x1 as fiat_p384_scalar_i2))
-		as fiat_p384_scalar_i1) as i64) &
-		(0xffffffff as i64)) as u32);
+		as fiat_p384_scalar_i1) as i64)
+		& (0xffffffff as i64)) as u32);
 	let x3: u32 = ((x2 & arg3) | ((!x2) & arg2));
 	out1 = x3;
 	out1
@@ -10497,17 +10497,15 @@ pub const fn fiat_p384_scalar_to_montgomery(
 #[inline]
 pub const fn fiat_p384_scalar_nonzero(arg1: &[u32; 12]) -> u32 {
 	let mut out1: u32 = 0;
-	let x1: u32 = ((arg1[0]) |
-		((arg1[1]) |
-			((arg1[2]) |
-				((arg1[3]) |
-					((arg1[4]) |
-						((arg1[5]) |
-							((arg1[6]) |
-								((arg1[7]) |
-									((arg1[8]) |
-										((arg1[9]) |
-											((arg1[10]) | (arg1[11]))))))))))));
+	let x1: u32 = ((arg1[0])
+		| ((arg1[1])
+			| ((arg1[2])
+				| ((arg1[3])
+					| ((arg1[4])
+						| ((arg1[5])
+							| ((arg1[6])
+								| ((arg1[7])
+									| ((arg1[8]) | ((arg1[9]) | ((arg1[10]) | (arg1[11]))))))))))));
 	out1 = x1;
 	out1
 }

@@ -1,10 +1,5 @@
 use frame_benchmarking::{account, benchmarks, whitelist_account};
-use frame_support::{
-	assert_ok,
-	sp_runtime::traits::{AccountIdConversion, Get},
-	traits::OriginTrait,
-	BoundedVec,
-};
+use frame_support::{assert_ok, sp_runtime::traits::Get, traits::OriginTrait, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_std::prelude::*;

@@ -14,8 +14,11 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 use acurast_runtime_common::{
-	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
-	MaxEnvVars, MaxSlots, MaxVersions, Nonce,
+	opaque::Block,
+	types::{
+		AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars,
+		MaxSlots, MaxVersions, Nonce,
+	},
 };
 use pallet_acurast::Version;
 use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};

@@ -1,4 +1,7 @@
-use acurast_runtime_common::{weights, Balance, BlockNumber};
+use acurast_runtime_common::{
+	types::{Balance, BlockNumber},
+	weights,
+};
 
 use crate::{
 	implementations::StakingOverVesting, BalanceUnit, DivestTolerance, MaximumLockingPeriod,

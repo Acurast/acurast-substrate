@@ -1,4 +1,4 @@
-use acurast_runtime_common::AccountId;
+use acurast_runtime_common::types::AccountId;
 use cumulus_pallet_parachain_system::{ExpectParentIncluded, RelayNumberStrictlyIncreases};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::TransformOrigin;

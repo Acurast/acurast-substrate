@@ -1,4 +1,4 @@
-use acurast_runtime_common::AuraId;
+use acurast_runtime_common::types::AuraId;
 use pallet_aura::MinimumPeriodTimesTwo;
 use sp_core::ConstBool;
 

@@ -1,4 +1,7 @@
-use acurast_runtime_common::{weight, Balance, RewardDistributor, Signature};
+use acurast_runtime_common::{
+	types::{Balance, RewardDistributor, Signature},
+	weight,
+};
 use frame_support::traits::{
 	fungible::{Inspect, Mutate},
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},

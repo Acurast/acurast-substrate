@@ -1,4 +1,7 @@
-use acurast_runtime_common::{weight, AccountId, Balance, ExtraFor};
+use acurast_runtime_common::{
+	types::{AccountId, Balance, ExtraFor},
+	weight,
+};
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
 use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};

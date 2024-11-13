@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use acurast_runtime_common::{AccountId, Balance};
+use acurast_runtime_common::types::{AccountId, Balance};
 use frame_support::{
 	traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
 	weights::ConstantMultiplier,

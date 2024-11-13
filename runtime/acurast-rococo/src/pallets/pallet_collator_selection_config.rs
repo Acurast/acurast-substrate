@@ -1,4 +1,4 @@
-use acurast_runtime_common::AccountId;
+use acurast_runtime_common::types::AccountId;
 use frame_system::EnsureRoot;
 
 use crate::{

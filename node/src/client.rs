@@ -17,6 +17,16 @@
 
 use std::sync::Arc;
 
+pub use acurast_runtime_common::types::{AccountId, Balance, BlockNumber, Hash, Nonce};
+use acurast_runtime_common::{
+	opaque::{Block, Header},
+	types::{
+		AuraId, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots,
+		MaxVersions,
+	},
+};
+use pallet_acurast::Version;
+use pallet_acurast_marketplace::RegistrationExtra;
 use sc_client_api::{KeysIter, MerkleValue, PairsIter};
 use sp_consensus::BlockStatus;
 use sp_runtime::{
@@ -25,16 +35,6 @@ use sp_runtime::{
 	Justifications,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
-
-use acurast_runtime_common::AuraId;
-
-use acurast_runtime_common::{
-	opaque::{Block, Header},
-	EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots, MaxVersions,
-};
-pub use acurast_runtime_common::{AccountId, Balance, BlockNumber, Hash, Nonce};
-use pallet_acurast::Version;
-use pallet_acurast_marketplace::RegistrationExtra;
 
 use crate::service::{ParachainBackend, ParachainClient};
 

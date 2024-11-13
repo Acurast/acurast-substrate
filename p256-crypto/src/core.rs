@@ -1,6 +1,8 @@
 pub mod p256 {
+	#[cfg(feature = "std")]
+	use p256::ecdsa::{signature::Signer, SigningKey};
 	use p256::{
-		ecdsa::{recoverable, signature::Signer, SigningKey, VerifyingKey},
+		ecdsa::{recoverable, VerifyingKey},
 		elliptic_curve, EncodedPoint, PublicKey, SecretKey,
 	};
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};

@@ -30,8 +30,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 /// Acurast Imports
-pub use acurast_runtime_common::Balance;
-use acurast_runtime_common::{
+pub use acurast_runtime_common::types::Balance;
+use acurast_runtime_common::types::{
 	AccountId, AuraId, EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources, MaxEnvVars,
 	Nonce,
 };

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 
-use acurast_runtime_common::AccountId;
+use acurast_runtime_common::types::AccountId;
 
 #[cfg(any(feature = "acurast-local", feature = "acurast-dev"))]
 const DEFAULT_PARACHAIN_ID: u32 = 2001;

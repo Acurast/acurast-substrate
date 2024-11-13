@@ -1,5 +1,8 @@
 use acurast_runtime_common::{
-	opaque, weights::ExtrinsicBaseWeight, AccountId, Address, Balance, Signature, MILLIUNIT,
+	constants::MILLIUNIT,
+	opaque,
+	types::{AccountId, Address, Balance, Signature},
+	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
 use frame_support::{

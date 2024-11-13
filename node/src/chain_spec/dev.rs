@@ -1,3 +1,4 @@
+use acurast_runtime_common::types::{AccountId, AuraId, Signature};
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::core::__reexports::serde_json;
 use sc_service::ChainType;
@@ -5,7 +6,6 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 
 pub(crate) use acurast_rococo_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
-use acurast_runtime_common::*;
 
 use super::{accountid_from_str, ChainSpec, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
 

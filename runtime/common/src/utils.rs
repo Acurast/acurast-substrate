@@ -1,8 +1,23 @@
+use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
 use pallet_acurast::{
 	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
 	VerifiedBootState,
 };
 use sp_std::prelude::*;
+
+use crate::{constants::MILLIUNIT, types::Balance};
+
+/// Returns the base transaction fee.
+pub fn base_tx_fee() -> Balance {
+	MILLIUNIT / 10
+}
+
+/// Returns the default fee per second.
+pub fn default_fee_per_second() -> u128 {
+	let base_weight = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+	let base_tx_per_second = (WEIGHT_REF_TIME_PER_SECOND as u128) / base_weight;
+	base_tx_per_second * base_tx_fee()
+}
 
 pub fn check_attestation(
 	attestation: &Attestation,

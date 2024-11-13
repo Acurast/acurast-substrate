@@ -1,4 +1,4 @@
-use acurast_runtime_common::{Balance, UNIT};
+use acurast_runtime_common::{constants::UNIT, types::Balance};
 use sp_std::prelude::*;
 
 use crate::{AcurastProcessorManager, Runtime, RuntimeCall, STORAGE_BYTE_FEE, SUPPLY_FACTOR};

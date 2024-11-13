@@ -1,4 +1,4 @@
-use acurast_runtime_common::Signature;
+use acurast_runtime_common::types::Signature;
 use frame_benchmarking::account;
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;

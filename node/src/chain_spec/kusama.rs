@@ -1,3 +1,4 @@
+use acurast_runtime_common::types::{AccountId, AuraId};
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
 use sc_telemetry::serde_json;
@@ -6,7 +7,6 @@ use std::str::FromStr;
 
 use super::{accountid_from_str, ChainSpec, Extensions, KUSAMA_PARACHAIN_ID, SS58_FORMAT};
 pub(crate) use acurast_kusama_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
-use acurast_runtime_common::*;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;

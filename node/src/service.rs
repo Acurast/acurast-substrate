@@ -30,7 +30,7 @@ use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 use crate::client::RuntimeApiCollection;
-use acurast_runtime_common::{opaque::Block, Hash};
+use acurast_runtime_common::{opaque::Block, types::Hash};
 
 /// The exhaustive enum of Acurast networks.
 #[derive(Clone)]

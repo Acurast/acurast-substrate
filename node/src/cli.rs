@@ -83,9 +83,6 @@ pub struct Cli {
 #[derive(Debug, clap::Parser)]
 #[group(skip)]
 pub struct RunCmd {
-	#[command(subcommand)]
-	pub subcommand: Option<Subcommand>,
-
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 

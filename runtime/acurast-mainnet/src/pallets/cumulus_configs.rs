@@ -1,4 +1,4 @@
-use cumulus_pallet_parachain_system::{ExpectParentIncluded, RelayNumberStrictlyIncreases};
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::TransformOrigin;
 use parachains_common::message_queue::ParaIdToSibling;
@@ -6,7 +6,7 @@ use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::ConstU32;
 
 use crate::{
-	xcm_config::XcmOriginToTransactDispatchOrigin, EnsureAdminOrRoot, MessageQueue,
+	xcm_config::XcmOriginToTransactDispatchOrigin, ConsensusHook, EnsureAdminOrRoot, MessageQueue,
 	ParachainSystem, RelayOrigin, ReservedDmpWeight, ReservedXcmpWeight, Runtime, RuntimeEvent,
 	XcmpQueue,
 };
@@ -21,7 +21,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type WeightInfo = ();
 
 	#[doc = " An entry-point for higher-level logic to manage the backlog of unincluded parachain"]
@@ -34,7 +34,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	#[doc = " [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case"]
 	#[doc = " that collators aren\'t expected to have node versions that supply the included block"]
 	#[doc = " in the relay-chain state proof."]
-	type ConsensusHook = ExpectParentIncluded;
+	type ConsensusHook = ConsensusHook;
 }
 
 /// Runtime configuration for cumulus_pallet_aura_ext.

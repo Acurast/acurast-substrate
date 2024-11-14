@@ -1,5 +1,8 @@
 use acurast_runtime_common::{
-	constants::MILLIUNIT,
+	constants::{
+		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+		UNINCLUDED_SEGMENT_CAPACITY,
+	},
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
 	weights::ExtrinsicBaseWeight,
@@ -129,3 +132,10 @@ pub type CollatorSelectionUpdateOrigin = EnsureAdminOrRoot;
 
 pub type EnsureAdminOrRoot =
 	EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Admin, AccountId>>;
+
+pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;

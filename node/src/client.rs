@@ -62,6 +62,7 @@ pub trait RuntimeApiCollection:
 		EnvValueMaxSize,
 	> + sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
+	+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
 {
 }
 
@@ -85,6 +86,7 @@ impl<Api> RuntimeApiCollection for Api where
 			EnvValueMaxSize,
 		> + sp_consensus_aura::AuraApi<Block, AuraId>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
+		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
 {
 }
 

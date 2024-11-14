@@ -65,11 +65,6 @@ pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
 pallet-acurast-vesting = { path = "./pallets/vesting", default-features = false }
 
-# Nimbus (Pallets and Primitives) used in the Proof of Stake consensus implementation.
-#nimbus-consensus = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v1.1.0" }
-#nimbus-primitives = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v1.1.0" }
-#pallet-author-inherent = { git = "https://github.com/acurast/nimbus", default-features = false, branch = "polkadot-v1.1.0" }
-
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }
 acurast-kusama-runtime = { path = "runtime/acurast-kusama", default-features = false }
@@ -188,6 +183,7 @@ cumulus-pallet-xcmp-queue = { git = "https://github.com/paritytech/polkadot-sdk"
 cumulus-primitives-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
 cumulus-primitives-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
 cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
+cumulus-primitives-aura = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
 parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
 parachain-info = { package = "staging-parachain-info", git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.1" }
 

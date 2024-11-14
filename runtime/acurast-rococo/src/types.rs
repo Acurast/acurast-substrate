@@ -1,5 +1,8 @@
 use acurast_runtime_common::{
-	constants::MILLIUNIT,
+	constants::{
+		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+		UNINCLUDED_SEGMENT_CAPACITY,
+	},
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
 	weights::ExtrinsicBaseWeight,
@@ -110,3 +113,10 @@ impl Default for LiquidityInfo {
 		Self { imbalance: None, fee_payer: None }
 	}
 }
+
+pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;

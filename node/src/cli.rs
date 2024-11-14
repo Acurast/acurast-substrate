@@ -89,32 +89,12 @@ pub struct RunCmd {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	/// Use Acurast Local runtime.
-	#[clap(long = "local-runtime")]
-	pub use_local: bool,
-
-	/// Use Acurast Dev runtime.
-	#[clap(long = "dev-runtime")]
-	pub use_dev: bool,
-
-	/// Use Acurast Rococo runtime.
-	#[clap(long = "rococo-runtime")]
-	pub use_rococo: bool,
-
-	/// Use Acurast Kusama runtime.
-	#[clap(long = "kusama-runtime")]
-	pub use_kusama: bool,
-
-	/// Use Acurast Mainnet runtime.
-	#[clap(long = "mainnet-runtime")]
-	pub use_mainnet: bool,
-
 	/// Id of the parachain this collator collates for.
 	#[clap(long)]
 	pub parachain_id: Option<u32>,
 
 	/// Maximum duration in milliseconds to produce a block
-	#[clap(long, default_value = "500", value_parser=block_authoring_duration_parser)]
+	#[clap(long, default_value = "1500", value_parser=block_authoring_duration_parser)]
 	pub block_authoring_duration: Duration,
 }
 

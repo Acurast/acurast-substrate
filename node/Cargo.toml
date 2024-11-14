@@ -90,6 +90,7 @@ cumulus-relay-chain-inprocess-interface = { workspace = true }
 cumulus-relay-chain-interface = { workspace = true }
 cumulus-relay-chain-rpc-interface = { workspace = true }
 cumulus-relay-chain-minimal-node = { workspace = true }
+cumulus-primitives-aura = { workspace = true }
 
 color-print = "0.3.4"
 

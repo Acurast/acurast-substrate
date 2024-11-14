@@ -102,6 +102,7 @@ cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 parachains-common = { workspace = true }
 parachain-info = { workspace = true }
+cumulus-primitives-aura = { workspace = true }
 
 [features]
 default = ["std"]
@@ -160,11 +161,9 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 	"acurast-p256-crypto/std",
-	#	"nimbus-primitives/std",
-	#	"pallet-author-inherent/std",
-	#	"pallet-parachain-staking/std",
 	"pallet-collator-selection/std",
 	"frame-support-procedural/std",
+	"cumulus-primitives-aura/std",
 ]
 
 runtime-benchmarks = [

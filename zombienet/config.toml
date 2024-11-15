@@ -29,7 +29,7 @@ command = "polkadot"
 
 [[parachains]]
 id = 2001
-chain = "acurast-local"
+chain = "./acurast-local.json"
 cumulus_based = true
 
 [[parachains.collators]]

@@ -15,7 +15,7 @@ mod types;
 mod utils;
 pub mod xcm_config;
 
-use frame_support::{construct_runtime, genesis_builder_helper, weights::Weight};
+use frame_support::{genesis_builder_helper, weights::Weight};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -41,61 +41,93 @@ pub use constants::*;
 pub use types::*;
 pub use utils::*;
 
-// Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-	pub enum Runtime
-	{
-		// System support stuff.
-		System: frame_system = 0,
-		ParachainSystem: cumulus_pallet_parachain_system = 1,
-		Timestamp: pallet_timestamp = 2,
-		ParachainInfo: parachain_info = 3,
-		Sudo: pallet_sudo = 4,
-		Scheduler: pallet_scheduler = 5,
-		Preimage: pallet_preimage = 6,
-		Multisig: pallet_multisig = 7,
-		Utility: pallet_utility = 8,
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		// Monetary stuff.
-		Balances: pallet_balances = 10,
-		TransactionPayment: pallet_transaction_payment = 11,
-		// (keep comment, just so we know that pallet assets used to be on this pallet index)
-		// Assets: pallet_assets::{Pallet, Storage, Event<T>, Config<T>} = 12,
-		Uniques: pallet_uniques = 14,
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type ParachainSystem = cumulus_pallet_parachain_system;
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+	#[runtime::pallet_index(3)]
+	pub type ParachainInfo = parachain_info;
+	#[runtime::pallet_index(4)]
+	pub type Sudo = pallet_sudo;
+	#[runtime::pallet_index(5)]
+	pub type Scheduler = pallet_scheduler;
+	#[runtime::pallet_index(6)]
+	pub type Preimage = pallet_preimage;
+	#[runtime::pallet_index(7)]
+	pub type Multisig = pallet_multisig;
+	#[runtime::pallet_index(8)]
+	pub type Utility = pallet_utility;
 
-		// Governance stuff.
-		Democracy: pallet_democracy = 15,
+	// Monetary stuff.
+	#[runtime::pallet_index(10)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(11)]
+	pub type TransactionPayment = pallet_transaction_payment;
+	#[runtime::pallet_index(14)]
+	pub type Uniques = pallet_uniques;
 
-		// Consensus. The order of these are important and shall not change.
-		Authorship: pallet_authorship = 20,
-		CollatorSelection: pallet_collator_selection = 21,
-		Session: pallet_session = 22,
-		Aura: pallet_aura = 23,
-		AuraExt: cumulus_pallet_aura_ext = 24,
+	// Governance stuff.
+	#[runtime::pallet_index(15)]
+	pub type Democracy = pallet_democracy;
 
-		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
-		PolkadotXcm: pallet_xcm = 31,
-		CumulusXcm: cumulus_pallet_xcm = 32,
-		//DmpQueue: cumulus_pallet_dmp_queue = 33,
-		MessageQueue: pallet_message_queue = 34,
+	// Consensus. The order of these are important and shall not change.
+	#[runtime::pallet_index(20)]
+	pub type Authorship = pallet_authorship;
+	#[runtime::pallet_index(21)]
+	pub type CollatorSelection = pallet_collator_selection;
+	#[runtime::pallet_index(22)]
+	pub type Session = pallet_session;
+	#[runtime::pallet_index(23)]
+	pub type Aura = pallet_aura;
+	#[runtime::pallet_index(24)]
+	pub type AuraExt = cumulus_pallet_aura_ext;
 
-		// Acurast pallets
-		Acurast: pallet_acurast = 40,
-		AcurastProcessorManager: pallet_acurast_processor_manager = 41,
-		AcurastFeeManager: pallet_acurast_fee_manager::<Instance1> = 42,
-		AcurastMarketplace: pallet_acurast_marketplace = 43,
-		AcurastMatcherFeeManager: pallet_acurast_fee_manager::<Instance2> = 44,
-		AcurastHyperdrive: pallet_acurast_hyperdrive::<Instance1> = 45,
-		// AcurastHyperdriveOutgoingTezos: pallet_acurast_hyperdrive_outgoing::<Instance1> = 46,
-		AcurastRewardsTreasury: pallet_acurast_rewards_treasury = 47,
-		// HyperdriveEthereum: pallet_acurast_hyperdrive::<Instance2> = 48,
-		// HyperdriveOutgoingEthereum: pallet_acurast_hyperdrive_outgoing::<Instance2> = 49,
-		// HyperdriveAlephZero: pallet_acurast_hyperdrive::<Instance3> = 50,
-		// HyperdriveOutgoingAlephZero: pallet_acurast_hyperdrive_outgoing::<Instance3> = 51,
-		AcurastHyperdriveIbc: pallet_acurast_hyperdrive_ibc::<Instance1> = 52,
-	}
-);
+	// XCM helpers.
+	#[runtime::pallet_index(30)]
+	pub type XcmpQueue = cumulus_pallet_xcmp_queue;
+	#[runtime::pallet_index(31)]
+	pub type PolkadotXcm = pallet_xcm;
+	#[runtime::pallet_index(32)]
+	pub type CumulusXcm = cumulus_pallet_xcm;
+	#[runtime::pallet_index(34)]
+	pub type MessageQueue = pallet_message_queue;
+
+	// Acurast pallets
+	#[runtime::pallet_index(40)]
+	pub type Acurast = pallet_acurast;
+	#[runtime::pallet_index(41)]
+	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
+	#[runtime::pallet_index(42)]
+	pub type AcurastFeeManager = pallet_acurast_fee_manager<Instance1>;
+	#[runtime::pallet_index(43)]
+	pub type AcurastMarketplace = pallet_acurast_marketplace;
+	#[runtime::pallet_index(44)]
+	pub type AcurastMatcherFeeManager = pallet_acurast_fee_manager<Instance2>;
+	#[runtime::pallet_index(45)]
+	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
+	#[runtime::pallet_index(47)]
+	pub type AcurastRewardsTreasury = pallet_acurast_rewards_treasury;
+	#[runtime::pallet_index(52)]
+	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

@@ -14,7 +14,7 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
-use crate::{deposit, RuntimeHoldReason, RUNTIME_API_VERSIONS};
+use crate::{apis::RUNTIME_API_VERSIONS, deposit, RuntimeHoldReason};
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {

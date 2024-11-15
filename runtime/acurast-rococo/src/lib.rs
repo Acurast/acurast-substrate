@@ -132,32 +132,6 @@ mod runtime {
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-extern crate core;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benches {
-	define_benchmarks!(
-		// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
-		// [frame_system, SystemBench::<Runtime>]
-		// [pallet_timestamp, Timestamp]
-		// [pallet_multisig, Multisig]
-		// [pallet_balances, Balances]
-		// [pallet_democracy, Democracy]
-		// [pallet_collator_selection, CollatorSelection]
-		// [pallet_session, SessionBench::<Runtime>]
-		// [cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_acurast, Acurast]
-		[pallet_acurast_processor_manager, AcurastProcessorManager]
-		[pallet_acurast_fee_manager, AcurastFeeManager]
-		[pallet_acurast_marketplace, AcurastMarketplace]
-		// [pallet_acurast_hyperdrive, AcurastHyperdrive]
-		[pallet_acurast_vesting, AcurastVesting]
-	);
-}
-
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {

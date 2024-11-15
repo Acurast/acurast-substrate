@@ -40,9 +40,13 @@ fn run_to_block<T: Config>(new_block: BlockNumberFor<T>) {
 	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
+fn set_timestamp<T: pallet_timestamp::Config>(timestamp: u32) {
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+}
+
 benchmarks! {
 	where_clause { where
-		T: Config,
+		T: Config + pallet_timestamp::Config,
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32>,
 		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
@@ -50,6 +54,7 @@ benchmarks! {
 
 	update_processor_pairings {
 		let x in 1 .. T::MaxPairingUpdates::get();
+		set_timestamp::<T>(1000);
 		let mut updates = Vec::<ProcessorPairingUpdateFor<T>>::new();
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
@@ -59,6 +64,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), updates.try_into().unwrap())
 
 	pair_with_manager {
+		set_timestamp::<T>(1000);
 		let manager_account = generate_account(0).into();
 		let processor_account = generate_account(1).into();
 		let timestamp = 1657363915002u128;
@@ -68,6 +74,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(processor_account), item)
 
 	recover_funds {
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let update = generate_pairing_update_add::<T>(0);
@@ -75,6 +82,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), update.item.account.into().into(), caller.clone().into().into())
 
 	heartbeat {
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let update = generate_pairing_update_add::<T>(0);
@@ -82,6 +90,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller))
 
 	advertise_for {
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let update = generate_pairing_update_add::<T>(0);
@@ -90,6 +99,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), update.item.account.into().into(), ad)
 
 	heartbeat_with_version {
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
@@ -114,6 +124,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), version)
 
 	update_binary_hash {
+		set_timestamp::<T>(1000);
 		let version = Version {
 			platform: 0,
 			build_number: 1,
@@ -122,11 +133,13 @@ benchmarks! {
 	}: _(RawOrigin::Root, version, Some(hash))
 
 	update_api_version {
+		set_timestamp::<T>(1000);
 		let version = 1;
 	}: _(RawOrigin::Root, version)
 
 	set_processor_update_info {
 		let x in 1 .. T::MaxProcessorsInSetUpdateInfo::get();
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let mut processors = Vec::<T::AccountId>::new();
@@ -149,6 +162,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), update_info, processors.try_into().unwrap())
 
 	update_reward_distribution_settings {
+		set_timestamp::<T>(1000);
 		let settings = RewardDistributionSettings::<
 			<T as crate::Config>::Balance,
 			<T as frame_system::Config>::AccountId,
@@ -162,6 +176,7 @@ benchmarks! {
 	}: _(RawOrigin::Root, Some(settings))
 
 	update_min_processor_version_for_reward {
+		set_timestamp::<T>(1000);
 		let version = Version { platform: 0, build_number: 100 };
 	}: _(RawOrigin::Root, version)
 

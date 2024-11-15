@@ -1,5 +1,5 @@
 use frame_benchmarking::{account, benchmarks, whitelist_account};
-use frame_support::{assert_ok, sp_runtime::traits::Get, traits::OriginTrait, BoundedVec};
+use frame_support::{assert_ok, sp_runtime::traits::Get, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_std::prelude::*;
@@ -89,14 +89,19 @@ fn register_job<T: Config>(
 	(caller, job)
 }
 
+fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+}
+
 benchmarks! {
 	where_clause {  where
-		T: pallet_timestamp::Config,
+		T: pallet_timestamp::Config<Moment = u64>,
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 		<T as pallet_timestamp::Config>::Moment: From<u64>,
 	}
 
 	register {
+		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(false, true);
 	}: _(RawOrigin::Signed(caller.clone()), job.clone())
 	verify {
@@ -106,6 +111,7 @@ benchmarks! {
 	}
 
 	deregister {
+		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(true, false);
 		let local_job_id = 1;
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id.clone())
@@ -117,6 +123,7 @@ benchmarks! {
 
 	update_allowed_sources {
 		let x in 1 .. T::MaxAllowedSources::get();
+		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(true, false);
 		let mut updates: Vec<AllowedSourcesUpdate<T::AccountId>> = vec![];
 		for i in 0..x {
@@ -135,11 +142,9 @@ benchmarks! {
 	}
 
 	submit_attestation {
+		set_timestamp::<T>(1657363915001);
 		let processor_account: T::AccountId = processor_account_id::<T>();
 		let attestation_chain = attestation_chain();
-		let timestamp_call = pallet_timestamp::Pallet::<T>::set(T::RuntimeOrigin::none(), 1657363915001u64.into());
-		assert_ok!(timestamp_call);
-
 	}: _(RawOrigin::Signed(processor_account.clone()), attestation_chain.clone())
 	verify {
 		let attestation = validate_and_extract_attestation::<T>(&processor_account, &attestation_chain).unwrap();
@@ -150,6 +155,7 @@ benchmarks! {
 	}
 
 	update_certificate_revocation_list {
+		set_timestamp::<T>(1000);
 		let updates =  vec![CertificateRevocationListUpdate {
 			operation: ListUpdateOperation::Add,
 			item: hex!("15905857467176635834").to_vec().try_into().unwrap()
@@ -161,6 +167,7 @@ benchmarks! {
 
 	set_environment {
 		let x in 1 .. T::MaxEnvVars::get();
+		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(true, false);
 		let mut vars: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
 		for i in 0..x {

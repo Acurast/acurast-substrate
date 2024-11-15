@@ -263,6 +263,10 @@ where
 	Ok((processor, job, job_id))
 }
 
+fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+}
+
 fn acknowledge_match_submit_helper<T: Config>(
 	consumer: Option<T::AccountId>,
 	processor: Option<T::AccountId>,
@@ -293,6 +297,7 @@ benchmarks! {
 	}
 
 	advertise {
+		set_timestamp::<T>(1000);
 		// just create the data, do not submit the actual call (we want to benchmark `advertise`)
 		let (caller, ad) = advertise_helper::<T>(0, false);
 	}: _(RawOrigin::Signed(caller.clone()), ad.clone())
@@ -303,6 +308,7 @@ benchmarks! {
 	}
 
 	delete_advertisement {
+		set_timestamp::<T>(1000);
 		// create the data and submit so we have an add in storage to delete when benchmarking `delete_advertisement`
 		let (caller, _) = advertise_helper::<T>(0, true);
 	}: _(RawOrigin::Signed(caller.clone()))
@@ -313,6 +319,7 @@ benchmarks! {
 	}
 
 	report {
+		set_timestamp::<T>(1000);
 		let (processor, job, job_id) = acknowledge_match_submit_helper::<T>(None, None)?;
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
@@ -322,6 +329,7 @@ benchmarks! {
 
 	propose_matching {
 		let x in 1 .. T::MaxProposedMatches::get();
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, 1_000_000_000_000u64.into());
 		whitelist_account!(caller);
 		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobIdSequence)> = vec![];
@@ -352,6 +360,7 @@ benchmarks! {
 
 	propose_execution_matching {
 		let x in 1 .. T::MaxProposedExecutionMatches::get();
+		set_timestamp::<T>(1000);
 		let caller: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, 1_000_000_000_000u64.into());
 		whitelist_account!(caller);
 		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobIdSequence)> = vec![];
@@ -383,16 +392,19 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), matches.try_into().unwrap())
 
 	acknowledge_match {
+		set_timestamp::<T>(1000);
 		let (processor, _, job_id) = acknowledge_match_helper::<T>(None, None)?;
 		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
 	}: _(RawOrigin::Signed(processor), job_id, pub_keys)
 
 	acknowledge_execution_match {
+		set_timestamp::<T>(1000);
 		let (processor, _, job_id) = acknowledge_execution_match_helper::<T>(None, None)?;
 		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
 	}: _(RawOrigin::Signed(processor), job_id, 0u64, pub_keys)
 
 	finalize_job {
+		set_timestamp::<T>(1000);
 		let (processor, job, job_id) = acknowledge_match_submit_helper::<T>(None, None)?;
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
@@ -402,6 +414,7 @@ benchmarks! {
 
 	finalize_jobs {
 		let x in 1 .. T::MaxFinalizeJobs::get();
+		set_timestamp::<T>(1000);
 		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;

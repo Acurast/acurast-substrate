@@ -1,4 +1,4 @@
-use acurast_runtime_common::types::Signature;
+use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;
@@ -9,7 +9,7 @@ use sp_core::crypto::UncheckedFrom;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
-use crate::{AcurastMarketplace, Balance, Balances, ExtraFor, Runtime};
+use crate::{AcurastMarketplace, Balance, Balances, Runtime};
 
 define_benchmarks!(
 	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files

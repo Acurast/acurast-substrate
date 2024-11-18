@@ -131,7 +131,7 @@ impl ProjectivePoint {
 			}
 			q = q.add(&t);
 			if pos == 0 {
-				break
+				break;
 			}
 			q = q.double().double().double().double();
 			pos -= 4;

@@ -1,6 +1,10 @@
 use acurast_runtime_common::{
-	barrier::Barrier, weight, EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources,
-	MaxEnvVars, MaxSlots, MaxVersions,
+	barrier::Barrier,
+	types::{
+		EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources, MaxEnvVars, MaxSlots,
+		MaxVersions,
+	},
+	weight,
 };
 
 #[cfg(feature = "runtime-benchmarks")]

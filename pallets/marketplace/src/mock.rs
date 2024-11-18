@@ -142,8 +142,6 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	// Holds are used with COLLATOR_LOCK_ID and DELEGATOR_LOCK_ID
-	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 }
 

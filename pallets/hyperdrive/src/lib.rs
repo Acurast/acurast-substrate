@@ -15,8 +15,8 @@ pub use types::*;
 // #[cfg(test)]
 // mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+//#[cfg(feature = "runtime-benchmarks")]
+//mod benchmarking;
 mod traits;
 
 pub mod chain;
@@ -185,8 +185,9 @@ pub mod pallet {
 			let encoded = <SubstrateMessageEncoder as MessageEncoder>::encode(&message)?;
 
 			let recipient = match chain {
-				ProxyChain::AlephZero =>
-					Subject::AlephZero(Layer::Contract(Self::aleph_zero_contract())),
+				ProxyChain::AlephZero => {
+					Subject::AlephZero(Layer::Contract(Self::aleph_zero_contract()))
+				},
 				ProxyChain::Vara => Subject::Vara(Layer::Contract(ContractCall {
 					contract: Self::vara_contract(),
 					selector: None,
@@ -244,7 +245,7 @@ pub mod pallet {
 						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
 					T::ActionExecutor::execute(action)?;
 
-					Ok(().into())
+					Ok(())
 				},
 				_ => Err(Error::<T, I>::InvalidSender),
 			}?;

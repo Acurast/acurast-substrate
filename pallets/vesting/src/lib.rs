@@ -245,8 +245,8 @@ pub mod pallet {
 						T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 					if cooldown_started
 						.checked_add(&state.locking_period)
-						.ok_or(Error::<T, I>::CalculationOverflow)? >
-						current_block
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						> current_block
 					{
 						Err(Error::<T, I>::CannotDivestBeforeCooldownEnds)?
 					}
@@ -255,8 +255,8 @@ pub mod pallet {
 						.checked_add(&state.locking_period)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_add(&<T as Config<I>>::DivestTolerance::get().into())
-						.ok_or(Error::<T, I>::CalculationOverflow)? <
-						current_block
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						< current_block
 					{
 						Err(Error::<T, I>::CannotDivestWhenToleranceEnded)?
 					}
@@ -296,8 +296,8 @@ pub mod pallet {
 						.checked_add(&state.locking_period)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_add(&<T as Config<I>>::DivestTolerance::get().into())
-						.ok_or(Error::<T, I>::CalculationOverflow)? >=
-						current_block
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						>= current_block
 					{
 						Err(Error::<T, I>::CannotKickoutBeforeCooldownToleranceEnded)?
 					}
@@ -445,8 +445,8 @@ pub mod pallet {
 							.s
 							.0
 							.checked_add(
-								&(reward * <T as Config<I>>::BalanceUnit::get() /
-									state.total_power),
+								&(reward * <T as Config<I>>::BalanceUnit::get()
+									/ state.total_power),
 							)
 							.ok_or(Error::<T, I>::CalculationOverflow)?,
 						state
@@ -457,8 +457,9 @@ pub mod pallet {
 									// integer division, rounded up
 									// (we already checked for state.total_power > 0 to avoid DivisionByZero)
 									.checked_add(&(state.total_power - 1u128.into()))
-									.ok_or(Error::<T, I>::CalculationOverflow)? *
-									<T as Config<I>>::BalanceUnit::get() / state.total_power),
+									.ok_or(Error::<T, I>::CalculationOverflow)?
+									* <T as Config<I>>::BalanceUnit::get()
+									/ state.total_power),
 							)
 							.ok_or(Error::<T, I>::CalculationOverflow)?,
 					);
@@ -485,8 +486,8 @@ pub mod pallet {
 						.checked_sub(&state.s)
 						.unwrap_or(0u128.into()),
 				)
-				.ok_or(Error::<T, I>::CalculationOverflow)? /
-				<T as Config<I>>::BalanceUnit::get();
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				/ <T as Config<I>>::BalanceUnit::get();
 			// accrued += reward
 			state
 				.accrued
@@ -504,8 +505,8 @@ pub mod pallet {
 			// power = locking_period / MaximumLockingPeriod * stake = locking_period * stake / MaximumLockingPeriod
 			Ok((locking_period
 				.checked_mul(vesting.stake.into())
-				.ok_or(Error::<T, I>::CalculationOverflow)? /
-				max_locking_period)
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				/ max_locking_period)
 				.into())
 		}
 

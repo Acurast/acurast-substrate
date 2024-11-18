@@ -1,4 +1,4 @@
-ZOMBINET_VERSION := v1.3.91
+ZOMBINET_VERSION := v1.3.116
 
 UNAME_S := $(shell uname -s)
 
@@ -10,7 +10,7 @@ ifeq ($(UNAME_S), Linux)
 ZOMBINET_BIN := zombienet-linux-x64
 endif
 ifeq ($(UNAME_S), Darwin)
-ZOMBINET_BIN := zombienet-macos
+ZOMBINET_BIN := zombienet-macos-arm64
 endif
 
 all: download-zombienet

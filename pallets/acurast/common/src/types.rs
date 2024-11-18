@@ -235,7 +235,7 @@ impl Schedule {
 
 	pub fn nth_start_time(&self, start_delay: u64, execution_index: u64) -> Option<u64> {
 		if execution_index >= self.execution_count() {
-			return None
+			return None;
 		}
 		self.start_time
 			.checked_add(start_delay)?
@@ -244,7 +244,7 @@ impl Schedule {
 
 	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
 		if now < self.start_time {
-			return Some(0)
+			return Some(0);
 		}
 		Some((now.saturating_sub(self.start_time.checked_add(start_delay)?) / self.interval) + 1)
 	}
@@ -270,7 +270,7 @@ impl Schedule {
 		let (a, b) = bounds;
 		let (start, end) = self.range(start_delay)?;
 		if b <= a || start == end || b <= start || end <= a {
-			return Some(false)
+			return Some(false);
 		}
 
 		// if query interval `[a, b]` starts before, we can pretend it only starts at `start`
@@ -313,12 +313,13 @@ impl Iterator for ScheduleIter {
 	// the type without having to update the function signatures.
 	fn next(&mut self) -> Option<Self::Item> {
 		self.current = match self.current {
-			None =>
+			None => {
 				if self.delayed_start_time < self.delayed_end_time {
 					Some(self.delayed_start_time)
 				} else {
 					None
-				},
+				}
+			},
 			Some(curr) => {
 				let next = curr.checked_add(self.interval)?;
 				if next < self.delayed_end_time {

@@ -145,7 +145,7 @@ where
 	/// Deserialize raw secret scalar as a big endian integer.
 	pub fn from_be_bytes(bytes: &[u8]) -> Result<Self> {
 		if bytes.len() != C::UInt::BYTE_SIZE {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		let inner: ScalarCore<C> =
@@ -153,7 +153,7 @@ where
 				.ok_or(Error)?;
 
 		if inner.is_zero().into() {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		Ok(Self { inner })
@@ -220,7 +220,7 @@ where
 		let (label, der_bytes) = pem::decode_vec(s.as_bytes()).map_err(|_| Error)?;
 
 		if label != SEC1_PEM_TYPE_LABEL {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		Self::from_sec1_der(&der_bytes).map_err(|_| Error)
@@ -354,7 +354,7 @@ where
 				.map_err(|_| der::Tag::BitString.value_error())?;
 
 			if C::validate_public_key(&secret_key, &pk).is_err() {
-				return Err(der::Tag::BitString.value_error())
+				return Err(der::Tag::BitString.value_error());
 			}
 		}
 

@@ -77,7 +77,7 @@ where
 		K: Borrow<Self> + Invert<Output = CtOption<Self>>,
 	{
 		if k.borrow().is_zero().into() {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		let z = Self::from_be_bytes_reduced(z);
@@ -96,7 +96,7 @@ where
 		let s = k_inv * (z + (r * self));
 
 		if s.is_zero().into() {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		// TODO(tarcieri): support for computing recovery ID

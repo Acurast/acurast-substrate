@@ -47,7 +47,7 @@ where
 		// anything about unrelated outputs so long as `rng` is a secure `CryptoRng`.
 		loop {
 			if let Some(result) = Self::new(Field::random(&mut rng)).into() {
-				break result
+				break result;
 			}
 		}
 	}
@@ -173,7 +173,7 @@ where
 	fn invert(&self) -> Self {
 		Self {
 			// This will always succeed since `scalar` will never be 0
-			scalar: ff::Field::invert(&self.scalar).unwrap(),
+			scalar: Field::invert(&self.scalar).unwrap(),
 		}
 	}
 }

@@ -218,8 +218,9 @@ impl FromEncodedPoint<NistP384> for AffinePoint {
 			sec1::Coordinates::Identity => CtOption::new(Self::identity(), 1.into()),
 			// TODO(tarcieri): point decompaction support
 			sec1::Coordinates::Compact { .. } => CtOption::new(AffinePoint::IDENTITY, 0.into()),
-			sec1::Coordinates::Compressed { x, y_is_odd } =>
-				AffinePoint::decompress(x, Choice::from(y_is_odd as u8)),
+			sec1::Coordinates::Compressed { x, y_is_odd } => {
+				AffinePoint::decompress(x, Choice::from(y_is_odd as u8))
+			},
 			sec1::Coordinates::Uncompressed { x, y } => {
 				let x = FieldElement::from_sec1(*x);
 				let y = FieldElement::from_sec1(*y);

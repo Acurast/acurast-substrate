@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
 
 			if job_status != JobStatus::Open {
 				// skip but don't fail this match (another matcher was quicker)
-				continue
+				continue;
 			}
 
 			let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, m.job_id.1)
@@ -78,8 +78,8 @@ impl<T: Config> Pallet<T> {
 			for (slot, planned_execution) in m.sources.iter().enumerate() {
 				// CHECK attestation
 				ensure!(
-					!registration.allow_only_verified_sources ||
-						ensure_source_verified_and_of_type::<T>(
+					!registration.allow_only_verified_sources
+						|| ensure_source_verified_and_of_type::<T>(
 							&planned_execution.source,
 							ProcessorType::Core
 						)
@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
 			// if the job_execution_status was never set, the default `Open` is returned
 			if <StoredJobExecutionStatus<T>>::get(&m.job_id, m.execution_index) != JobStatus::Open {
 				// skip but don't fail this match (another matcher was quicker)
-				continue
+				continue;
 			}
 
 			let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, m.job_id.1)
@@ -279,8 +279,8 @@ impl<T: Config> Pallet<T> {
 			for (slot, planned_execution) in m.sources.iter().enumerate() {
 				// CHECK attestation
 				ensure!(
-					!registration.allow_only_verified_sources ||
-						ensure_source_verified::<T>(&planned_execution.source).is_ok(),
+					!registration.allow_only_verified_sources
+						|| ensure_source_verified::<T>(&planned_execution.source).is_ok(),
 					Error::<T>::UnverifiedSourceInMatch
 				);
 
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
 							Some(prev_assignment) => {
 								if let ExecutionSpecifier::Index(e) = prev_assignment.execution {
 									if e == m.execution_index {
-										return Err(Error::<T>::DuplicateSourceInMatch)
+										return Err(Error::<T>::DuplicateSourceInMatch);
 									}
 								}
 								*s = Some(Assignment {
@@ -461,8 +461,8 @@ impl<T: Config> Pallet<T> {
 			},
 			SchedulingWindow::Delta(delta) => {
 				ensure!(
-					now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)? >=
-						schedule
+					now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
+						>= schedule
 							.end_time
 							.checked_add(start_delay)
 							.ok_or(Error::<T>::CalculationOverflow)?,
@@ -486,8 +486,8 @@ impl<T: Config> Pallet<T> {
 			// duration (ms) / 1000 * network_request_quota >= network_requests (per second)
 			// <=>
 			// duration (ms) * network_request_quota >= network_requests (per second) * 1000
-			schedule.duration.checked_mul(ad.network_request_quota.into()).unwrap_or(0u64) >=
-				network_requests
+			schedule.duration.checked_mul(ad.network_request_quota.into()).unwrap_or(0u64)
+				>= network_requests
 					.saturated_into::<u64>()
 					.checked_mul(1000u64)
 					.unwrap_or(u64::MAX),
@@ -524,8 +524,9 @@ impl<T: Config> Pallet<T> {
 		if let Some(version_req) = required_processor_version {
 			if let Some(version) = T::ProcessorInfoProvider::processor_version(source) {
 				let matches_version = match version_req {
-					ProcessorVersionRequirements::Min(versions) =>
-						versions.iter().any(|req_version| &version >= req_version),
+					ProcessorVersionRequirements::Min(versions) => {
+						versions.iter().any(|req_version| &version >= req_version)
+					},
 				};
 				if !matches_version {
 					return Err(Error::<T>::ProcessorVersionMismatch);
@@ -550,17 +551,18 @@ impl<T: Config> Pallet<T> {
 		let mut candidates = Vec::new();
 		for p in sources {
 			let valid_match = match Self::check(&registration, &p, consumer.as_ref()) {
-				Ok(()) =>
+				Ok(()) => {
 					if let Some(latest_seen_after) = latest_seen_after {
 						T::ProcessorInfoProvider::last_seen(&p)
 							.map(|last_seen| last_seen >= latest_seen_after)
 							.unwrap_or(false)
 					} else {
 						true
-					},
+					}
+				},
 				Err(e) => {
 					if !e.is_matching_error() {
-						return Err(RuntimeApiError::FilterMatchingSources)
+						return Err(RuntimeApiError::FilterMatchingSources);
 					}
 
 					false
@@ -581,8 +583,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), Error<T>> {
 		// CHECK attestation
 		ensure!(
-			!registration.allow_only_verified_sources ||
-				ensure_source_verified::<T>(source).is_ok(),
+			!registration.allow_only_verified_sources
+				|| ensure_source_verified::<T>(source).is_ok(),
 			Error::<T>::UnverifiedSourceInMatch
 		);
 
@@ -685,7 +687,7 @@ impl<T: Config> Pallet<T> {
 					.ok_or(Error::<T>::CalculationOverflow)?
 				{
 					// periods don't overlap so no detail (and expensive) checks are necessary
-					continue
+					continue;
 				}
 
 				match (execution_specifier, assignment.execution) {
@@ -896,8 +898,8 @@ impl<T: Config> Pallet<T> {
 					let last_execution_index =
 						registration.schedule.execution_count().saturating_sub(1);
 
-					let last_match_overdue = Self::now()? >=
-						registration
+					let last_match_overdue = Self::now()?
+						>= registration
 							.schedule
 							.nth_start_time(
 								registration.schedule.max_start_delay,
@@ -909,10 +911,11 @@ impl<T: Config> Pallet<T> {
 					let job_status =
 						<StoredJobExecutionStatus<T>>::get(&job_id, last_execution_index);
 					match job_status {
-						JobStatus::Open | JobStatus::Matched =>
+						JobStatus::Open | JobStatus::Matched => {
 							if !last_match_overdue {
 								Err(Error::<T>::CannotFinalizeJob(job_status))?;
-							},
+							}
+						},
 						JobStatus::Assigned(_) => {
 							// in the "good case" when all processors finalized their slot we can accept the finalization independent of schedule's latest end
 							let some_assigned =
@@ -1005,8 +1008,9 @@ impl<T: Config> Pallet<T> {
 						|s| -> Result<(), Error<T>> {
 							let status = s.ok_or(Error::<T>::JobStatusNotFound)?;
 							*s = Some(match status {
-								JobStatus::Open =>
-									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?,
+								JobStatus::Open => {
+									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?
+								},
 								JobStatus::Matched => JobStatus::Assigned(1),
 								JobStatus::Assigned(count) => JobStatus::Assigned(count + 1),
 							});
@@ -1021,8 +1025,9 @@ impl<T: Config> Pallet<T> {
 						execution_index,
 						|status| -> Result<JobStatus, Error<T>> {
 							*status = match status {
-								JobStatus::Open =>
-									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?,
+								JobStatus::Open => {
+									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?
+								},
 								JobStatus::Matched => JobStatus::Assigned(1),
 								JobStatus::Assigned(count) => JobStatus::Assigned(*count + 1),
 							};

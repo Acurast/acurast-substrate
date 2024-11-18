@@ -108,7 +108,7 @@ impl Field for Scalar {
 		loop {
 			rng.fill_bytes(&mut bytes);
 			if let Some(scalar) = Self::from_repr(bytes).into() {
-				return scalar
+				return scalar;
 			}
 		}
 	}
@@ -417,12 +417,13 @@ impl ToEncodedPoint<MockCurve> for AffinePoint {
 				&PSEUDO_COORDINATE_FIXED_BASE_MUL.into(),
 				false,
 			),
-			Self::Other(point) =>
+			Self::Other(point) => {
 				if compress == point.is_compressed() {
 					*point
 				} else {
 					unimplemented!();
-				},
+				}
+			},
 			_ => unimplemented!(),
 		}
 	}

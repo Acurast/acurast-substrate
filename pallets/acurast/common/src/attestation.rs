@@ -1,5 +1,3 @@
-#![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
-
 pub mod asn;
 pub mod error;
 
@@ -123,7 +121,11 @@ fn parse_apple_attestation<'a>(
 				&extensions.iter().find(|e| e.extn_id == APPLE_DEVICE_ATTESTATION_NONCE)
 			{
 				let nonce = asn1::parse_single::<DeviceAttestationNonce>(nonce.extn_value)?;
-				return Ok(DeviceAttestation { key_usage_properties, device_os_information, nonce });
+				return Ok(DeviceAttestation {
+					key_usage_properties,
+					device_os_information,
+					nonce,
+				});
 			}
 		}
 	}
@@ -201,7 +203,7 @@ fn validate(
 	pbk: &PublicKey,
 ) -> Result<(), ValidationError> {
 	if cert.signature_algorithm.algorithm != cert.tbs_certificate.signature.algorithm {
-		return Err(ValidationError::SignatureMismatch)
+		return Err(ValidationError::SignatureMismatch);
 	}
 	match cert.signature_algorithm.algorithm {
 		RSA_ALGORITHM => match pbk {
@@ -209,13 +211,15 @@ fn validate(
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		ECDSA_WITH_SHA256_ALGORITHM => match pbk {
-			PublicKey::ECDSA(pbk) =>
-				validate_ecdsa::<sha2::Sha256>(payload, &cert.signature_value, pbk),
+			PublicKey::ECDSA(pbk) => {
+				validate_ecdsa::<sha2::Sha256>(payload, &cert.signature_value, pbk)
+			},
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		ECDSA_WITH_SHA384_ALGORITHM => match pbk {
-			PublicKey::ECDSA(pbk) =>
-				validate_ecdsa::<sha2::Sha384>(payload, &cert.signature_value, pbk),
+			PublicKey::ECDSA(pbk) => {
+				validate_ecdsa::<sha2::Sha384>(payload, &cert.signature_value, pbk)
+			},
 			_ => Err(ValidationError::UnsupportedPublicKeyAlgorithm),
 		},
 		_ => Err(ValidationError::UnsupportedSignatureAlgorithm)?,
@@ -239,7 +243,7 @@ fn validate_rsa(
 	let unpadded = &computed[computed.len() - hashed.len()..];
 
 	if hashed != unpadded {
-		return Err(ValidationError::InvalidSignature)
+		return Err(ValidationError::InvalidSignature);
 	}
 
 	Ok(())
@@ -339,9 +343,10 @@ pub fn validate_certificate_chain(
 			};
 
 			match validate(&cert, payload, validating_pbk) {
-				Err(ValidationError::InvalidSignature) |
-				Err(ValidationError::UnsupportedPublicKeyAlgorithm) =>
-					validate(&cert, payload, &trusted_roots[1])?,
+				Err(ValidationError::InvalidSignature)
+				| Err(ValidationError::UnsupportedPublicKeyAlgorithm) => {
+					validate(&cert, payload, &trusted_roots[1])?
+				},
 				Err(error) => return Err(error),
 				_ => {},
 			}

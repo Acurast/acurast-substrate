@@ -1,6 +1,7 @@
 use acurast_runtime_common::{
+	constants::{MICROUNIT, MILLIUNIT, UNIT},
+	types::{AccountId, Balance, BlockNumber},
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId, Balance, BlockNumber, MICROUNIT, MILLIUNIT, UNIT,
 };
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
@@ -13,14 +14,14 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
-use crate::{deposit, RuntimeHoldReason, RUNTIME_API_VERSIONS};
+use crate::{apis::RUNTIME_API_VERSIONS, deposit, RuntimeHoldReason};
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 38,
+	spec_version: 39,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -33,7 +34,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -60,9 +61,9 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 /// `Operational` extrinsics.
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// We allow for 0.5 of a second of compute with a 12 second average block time.
+/// We allow for 2 seconds of compute with a 6 second average block.
 pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
@@ -173,7 +174,7 @@ parameter_types! {
 	pub const DepositFactor: Balance = deposit(0, 20);
 	pub const MaxSignatories: u32 = 100;
 
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 

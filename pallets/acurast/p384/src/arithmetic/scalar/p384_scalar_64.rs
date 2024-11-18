@@ -141,8 +141,8 @@ pub const fn fiat_p384_scalar_cmovznz_u64(arg1: fiat_p384_scalar_u1, arg2: u64, 
 	let mut out1: u64 = 0;
 	let x1: fiat_p384_scalar_u1 = (!(!arg1));
 	let x2: u64 = ((((((0x0 as fiat_p384_scalar_i2) - (x1 as fiat_p384_scalar_i2))
-		as fiat_p384_scalar_i1) as i128) &
-		0xffffffffffffffff_i128) as u64);
+		as fiat_p384_scalar_i1) as i128)
+		& 0xffffffffffffffff_i128) as u64);
 	let x3: u64 = ((x2 & arg3) | ((!x2) & arg2));
 	out1 = x3;
 	out1

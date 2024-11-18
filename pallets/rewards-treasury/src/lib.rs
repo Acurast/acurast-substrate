@@ -77,6 +77,7 @@ pub mod pallet {
 						let actual_burnt = <pallet_balances::Pallet<T, I> as Mutate<_>>::burn_from(
 							&T::Treasury::get(),
 							penultimate_balance.to_owned(),
+							Preservation::Preserve,
 							Precision::BestEffort,
 							Fortitude::Polite,
 						)?;

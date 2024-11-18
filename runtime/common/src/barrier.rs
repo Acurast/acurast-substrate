@@ -47,7 +47,8 @@ impl<
 		CoreSignatureDigests,
 		LiteSignatureDigests,
 		BundleIds,
-	> where
+	>
+where
 	Runtime: frame_system::Config + pallet_acurast::Config,
 	PackageNames: Get<Vec<&'static [u8]>>,
 	SignatureDigests: Get<Vec<&'static [u8]>>,
@@ -75,21 +76,23 @@ impl<
 	) -> bool {
 		match processor_type {
 			ProcessorType::Core => match &attestation.content {
-				BoundedAttestationContent::KeyDescription(key_description) =>
+				BoundedAttestationContent::KeyDescription(key_description) => {
 					check_key_description(
 						key_description,
 						CorePackageNames::get().as_slice(),
 						CoreSignatureDigests::get().as_slice(),
-					),
+					)
+				},
 				BoundedAttestationContent::DeviceAttestation(_) => false,
 			},
 			ProcessorType::Lite => match &attestation.content {
-				BoundedAttestationContent::KeyDescription(key_description) =>
+				BoundedAttestationContent::KeyDescription(key_description) => {
 					check_key_description(
 						key_description,
 						LitePackageNames::get().as_slice(),
 						LiteSignatureDigests::get().as_slice(),
-					),
+					)
+				},
 				BoundedAttestationContent::DeviceAttestation(_) => true,
 			},
 		}

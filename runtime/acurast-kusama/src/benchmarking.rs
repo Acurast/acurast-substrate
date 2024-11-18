@@ -1,12 +1,30 @@
-use crate::{AcurastMarketplace, Balance, Balances, ExtraFor, MultiSignature, Runtime};
-use frame_benchmarking::account;
+use acurast_runtime_common::types::{ExtraFor, Signature};
+use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::JobModules;
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
+#[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
+
+use crate::{AcurastMarketplace, Balance, Balances, Runtime};
+
+define_benchmarks!(
+	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
+	// [frame_system, SystemBench::<Runtime>]
+	// [pallet_balances, Balances]
+	// [pallet_session, SessionBench::<Runtime>]
+	// [pallet_timestamp, Timestamp]
+	// [pallet_collator_selection, CollatorSelection]
+	// [cumulus_pallet_xcmp_queue, XcmpQueue]
+	[pallet_acurast, Acurast]
+	[pallet_acurast_processor_manager, AcurastProcessorManager]
+	[pallet_acurast_fee_manager, AcurastFeeManager]
+	[pallet_acurast_marketplace, AcurastMarketplace]
+	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
+);
 
 fn create_funded_user(
 	string: &'static str,
@@ -17,7 +35,7 @@ fn create_funded_user(
 	let user = account(string, n, SEED);
 	Balances::make_free_balance_be(&user, amount);
 	let _ = Balances::issue(amount);
-	return user
+	return user;
 }
 
 pub struct AcurastBenchmarkHelper;
@@ -81,7 +99,7 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 
 impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn dummy_proof() -> <Runtime as pallet_acurast_processor_manager::Config>::Proof {
-		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
 	}
 
 	fn advertisement() -> <Runtime as pallet_acurast_processor_manager::Config>::Advertisement {
@@ -98,5 +116,9 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			network_request_quota: 100,
 			available_modules: JobModules::default(),
 		}
+	}
+
+	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
+		create_funded_user("pallet_acurast", index, 1 << 60)
 	}
 }

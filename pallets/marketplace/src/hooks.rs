@@ -61,8 +61,8 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				// ensure the interval is big enough for matchings and acknowledgments to happen
 
 				ensure!(
-					registration.schedule.execution_count() <= 1 ||
-						registration.schedule.interval >= T::MatchingCompetingMinInterval::get(),
+					registration.schedule.execution_count() <= 1
+						|| registration.schedule.interval >= T::MatchingCompetingMinInterval::get(),
 					Error::<T>::JobRegistrationIntervalBelowMinimum
 				);
 			},
@@ -135,7 +135,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 							registration.schedule.next_execution_index(assignment.start_delay, now);
 						if let Some(next_index) = next_execution_index {
 							if index != next_index {
-								continue
+								continue;
 							}
 						}
 					}

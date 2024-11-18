@@ -159,14 +159,14 @@ where
 		let (r, s) = decode_der(input).map_err(|_| Error::new())?;
 
 		if r.as_bytes().len() > C::UInt::BYTE_SIZE || s.as_bytes().len() > C::UInt::BYTE_SIZE {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		let r_range = find_scalar_range(input, r.as_bytes())?;
 		let s_range = find_scalar_range(input, s.as_bytes())?;
 
 		if s_range.end != input.len() {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		let mut bytes = SignatureBytes::<C>::default();

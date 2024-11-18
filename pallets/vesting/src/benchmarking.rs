@@ -45,15 +45,20 @@ where
 	(caller, vesting)
 }
 
+fn set_timestamp<T: pallet_timestamp::Config>(timestamp: u32) {
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+}
+
 benchmarks_instance_pallet! {
 	where_clause {
 		where
-		T: Config<I>,
+		T: Config<I> + pallet_timestamp::Config,
 		<T as Config<I>>::BlockNumber: From<u32>,
 		T::AccountId: From<AccountId32>,
 	}
 
 	vest {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 	}: _(RawOrigin::Signed(caller.clone()), vesting.clone())
 	verify {
@@ -61,6 +66,7 @@ benchmarks_instance_pallet! {
 	}
 
 	revest {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 		assert_ok!(Pallet::<T, I>::vest(RawOrigin::Signed(caller.clone()).into(), vesting.clone()));
 	}: _(RawOrigin::Signed(caller.clone()), vesting.clone())
@@ -69,6 +75,7 @@ benchmarks_instance_pallet! {
 	}
 
 	cooldown {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 		assert_ok!(Pallet::<T, I>::vest(RawOrigin::Signed(caller.clone()).into(), vesting.clone()));
 	}: _(RawOrigin::Signed(caller.clone()))
@@ -77,6 +84,7 @@ benchmarks_instance_pallet! {
 	}
 
 	divest {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 		assert_ok!(Pallet::<T, I>::vest(RawOrigin::Signed(caller.clone()).into(), vesting.clone()));
 		roll_to::<T, I>(1u32);
@@ -88,6 +96,7 @@ benchmarks_instance_pallet! {
 	}
 
 	kick_out {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 		assert_ok!(Pallet::<T, I>::vest(RawOrigin::Signed(caller.clone()).into(), vesting.clone()));
 		roll_to::<T, I>(1u32);
@@ -106,6 +115,7 @@ benchmarks_instance_pallet! {
 	}
 
 	distribute_reward {
+		set_timestamp::<T>(1000);
 		let (caller, vesting) = vest_helper::<T, I>();
 		assert_ok!(Pallet::<T, I>::vest(RawOrigin::Signed(caller.clone()).into(), vesting.clone()));
 

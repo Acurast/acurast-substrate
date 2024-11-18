@@ -3,7 +3,7 @@ use std::str::FromStr;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 
-use acurast_runtime_common::AccountId;
+use acurast_runtime_common::types::AccountId;
 
 #[cfg(any(feature = "acurast-local", feature = "acurast-dev"))]
 const DEFAULT_PARACHAIN_ID: u32 = 2001;
@@ -27,11 +27,12 @@ pub mod rococo;
 
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
 	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
 	pub para_id: u32,
 }
 
@@ -41,6 +42,8 @@ impl Extensions {
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
+
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 fn accountid_from_str(account: &str) -> AccountId {
 	AccountId::from_str(account).expect("valid account id")

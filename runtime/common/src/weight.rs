@@ -3,7 +3,6 @@
 pub mod pallet_acurast_fee_manager;
 pub mod pallet_acurast_hyperdrive;
 pub mod pallet_acurast_processor_manager;
-pub mod pallet_balances;
 pub mod pallet_session;
 //pub mod pallet_acurast_hyperdrive_outgoing;
 pub mod pallet_acurast;

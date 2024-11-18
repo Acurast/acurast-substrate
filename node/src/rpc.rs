@@ -8,15 +8,17 @@
 use std::sync::Arc;
 
 use sc_client_api::AuxStore;
-pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 use acurast_runtime_common::{
-	opaque::Block, AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources,
-	MaxEnvVars, MaxSlots, MaxVersions, Nonce,
+	opaque::Block,
+	types::{
+		AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars,
+		MaxSlots, MaxVersions, Nonce,
+	},
 };
 use pallet_acurast::Version;
 use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
@@ -30,8 +32,6 @@ pub struct FullDeps<C, P> {
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
 }
 
 /// Instantiate all RPC extensions.
@@ -61,15 +61,14 @@ where
 	>,
 	P: TransactionPool + Sync + Send + 'static,
 {
-	use pallet_acurast_marketplace::rpc::{Marketplace, MarketplaceApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
 	let mut module = RpcExtension::new(());
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	module.merge(System::new(client.clone(), pool).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
+	//module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }

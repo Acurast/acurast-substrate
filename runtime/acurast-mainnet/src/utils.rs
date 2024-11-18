@@ -1,9 +1,11 @@
-use acurast_runtime_common::{Balance, UNIT};
+use acurast_runtime_common::{constants::UNIT, types::Balance};
 use sp_std::prelude::*;
-
-use crate::{AcurastProcessorManager, Runtime, RuntimeCall, STORAGE_BYTE_FEE, SUPPLY_FACTOR};
 #[cfg(feature = "std")]
-use crate::{NativeVersion, VERSION};
+use sp_version::NativeVersion;
+
+#[cfg(feature = "std")]
+use crate::VERSION;
+use crate::{AcurastProcessorManager, Runtime, RuntimeCall, STORAGE_BYTE_FEE, SUPPLY_FACTOR};
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	items as Balance * 1 * UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE

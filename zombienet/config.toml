@@ -29,7 +29,7 @@ command = "polkadot"
 
 [[parachains]]
 id = 2001
-chain = "./acurast-local.json"
+chain = "acurast-local"
 cumulus_based = true
 
 [[parachains.collators]]
@@ -46,6 +46,30 @@ args = [
 
 [[parachains.collators]]
 name = "Bob"
+command = "acurast-node"
+ws_port = 8803
+rpc_port = 8083
+args = [
+	"-lparachain=debug,runtime=debug",
+	"--pruning=archive",
+	"--database=rocksdb",
+	"--block-authoring-duration=1500",
+]
+
+[[parachains.collators]]
+name = "Charlie"
+command = "acurast-node"
+ws_port = 8803
+rpc_port = 8083
+args = [
+	"-lparachain=debug,runtime=debug",
+	"--pruning=archive",
+	"--database=rocksdb",
+	"--block-authoring-duration=1500",
+]
+
+[[parachains.collators]]
+name = "Dave"
 command = "acurast-node"
 ws_port = 8803
 rpc_port = 8083

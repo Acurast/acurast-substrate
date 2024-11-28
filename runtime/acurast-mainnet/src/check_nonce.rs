@@ -1,3 +1,4 @@
+use acurast_runtime_common::utils::get_fee_payer;
 use frame_support::dispatch::DispatchInfo;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -10,7 +11,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use crate::{get_fee_payer, Runtime};
+use crate::{ProcessorPairingProvider, Runtime};
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -56,7 +57,7 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
-		let fee_payer = get_fee_payer(who, call);
+		let fee_payer = get_fee_payer::<Runtime, ProcessorPairingProvider>(who, call);
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for
@@ -87,7 +88,7 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let fee_payer = get_fee_payer(who, call);
+		let fee_payer = get_fee_payer::<Runtime, ProcessorPairingProvider>(who, call);
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for

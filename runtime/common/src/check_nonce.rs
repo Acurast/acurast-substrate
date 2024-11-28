@@ -1,9 +1,10 @@
-use acurast_runtime_common::utils::get_fee_payer;
-use frame_support::dispatch::DispatchInfo;
+use core::marker::PhantomData;
+
+use frame_support::{dispatch::DispatchInfo, traits::IsType};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
+	traits::{DispatchInfoOf, Dispatchable, IdentifyAccount, One, SignedExtension, Verify, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
@@ -11,23 +12,39 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use crate::{ProcessorPairingProvider, Runtime};
+use crate::utils::{get_fee_payer, PairingProvider};
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct CheckNonce(#[codec(compact)] pub <Runtime as frame_system::Config>::Nonce);
+#[scale_info(skip_type_params(Runtime, P))]
+pub struct CheckNonce<
+	Runtime: frame_system::Config + pallet_acurast_processor_manager::Config,
+	P: PairingProvider<Runtime> + Eq + Clone + Send + Sync + 'static,
+> {
+	#[codec(compact)]
+	pub nonce: Runtime::Nonce,
+	#[codec(skip)]
+	_phantom_data: PhantomData<P>,
+}
 
-impl CheckNonce {
+impl<
+		Runtime: frame_system::Config + pallet_acurast_processor_manager::Config,
+		P: PairingProvider<Runtime> + Eq + Clone + Send + Sync + 'static,
+	> CheckNonce<Runtime, P>
+{
 	/// utility constructor. Used only in client/factory code.
-	pub fn from(nonce: <Runtime as frame_system::Config>::Nonce) -> Self {
-		Self(nonce)
+	pub fn from(nonce: Runtime::Nonce) -> Self {
+		Self { nonce, _phantom_data: Default::default() }
 	}
 }
 
-impl sp_std::fmt::Debug for CheckNonce {
+impl<
+		Runtime: frame_system::Config + pallet_acurast_processor_manager::Config,
+		P: PairingProvider<Runtime> + Eq + Clone + Send + Sync + 'static,
+	> sp_std::fmt::Debug for CheckNonce<Runtime, P>
+{
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "CheckNonce({})", self.0)
+		write!(f, "CheckNonce({})", self.nonce)
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -36,12 +53,15 @@ impl sp_std::fmt::Debug for CheckNonce {
 	}
 }
 
-impl SignedExtension for CheckNonce
+impl<Runtime, P> SignedExtension for CheckNonce<Runtime, P>
 where
-	<Runtime as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	Runtime: frame_system::Config + pallet_acurast_processor_manager::Config,
+	P: PairingProvider<Runtime> + Eq + Clone + Send + Sync + 'static,
+	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	Runtime::AccountId: IsType<<<<Runtime as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>
 {
-	type AccountId = <Runtime as frame_system::Config>::AccountId;
-	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type AccountId = Runtime::AccountId;
+	type Call = Runtime::RuntimeCall;
 	type AdditionalSigned = ();
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckNonce";
@@ -57,7 +77,7 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
-		let fee_payer = get_fee_payer::<Runtime, ProcessorPairingProvider>(who, call);
+		let fee_payer = get_fee_payer::<Runtime, P>(who, call);
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for
@@ -68,8 +88,8 @@ where
 		} else {
 			fee_payer_account
 		};
-		if self.0 != account.nonce {
-			return Err(if self.0 < account.nonce {
+		if self.nonce != account.nonce {
+			return Err(if self.nonce < account.nonce {
 				InvalidTransaction::Stale
 			} else {
 				InvalidTransaction::Future
@@ -88,7 +108,7 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let fee_payer = get_fee_payer::<Runtime, ProcessorPairingProvider>(who, call);
+		let fee_payer = get_fee_payer::<Runtime, P>(who, call);
 		let fee_payer_account = frame_system::Account::<Runtime>::get(&fee_payer);
 		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
 			// Nonce storage not paid for
@@ -99,13 +119,13 @@ where
 		} else {
 			fee_payer_account
 		};
-		if self.0 < account.nonce {
+		if self.nonce < account.nonce {
 			return InvalidTransaction::Stale.into();
 		}
 
-		let provides = vec![Encode::encode(&(who, self.0))];
-		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(who, self.0 - <Runtime as frame_system::Config>::Nonce::one()))]
+		let provides = vec![Encode::encode(&(who, self.nonce))];
+		let requires = if account.nonce < self.nonce {
+			vec![Encode::encode(&(who, self.nonce - <Runtime as frame_system::Config>::Nonce::one()))]
 		} else {
 			vec![]
 		};

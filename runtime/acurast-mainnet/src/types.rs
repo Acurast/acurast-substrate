@@ -1,4 +1,5 @@
 use acurast_runtime_common::{
+	check_nonce::CheckNonce,
 	constants::{
 		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 		UNINCLUDED_SEGMENT_CAPACITY,
@@ -49,7 +50,7 @@ pub type SignedExtra = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	crate::check_nonce::CheckNonce,
+	CheckNonce<Runtime, ProcessorPairingProvider>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
@@ -141,6 +142,7 @@ pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ProcessorPairingProvider;
 impl PairingProvider<Runtime> for ProcessorPairingProvider {
 	fn pairing_for_call(

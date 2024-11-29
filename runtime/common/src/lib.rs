@@ -3,6 +3,7 @@
 pub mod barrier;
 pub mod constants;
 // pub mod migrations;
+pub mod check_nonce;
 pub mod types;
 pub mod utils;
 pub mod weight;

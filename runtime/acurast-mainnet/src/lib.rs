@@ -11,7 +11,6 @@ extern crate alloc;
 pub mod apis;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-mod check_nonce;
 mod constants;
 mod pallets;
 mod types;

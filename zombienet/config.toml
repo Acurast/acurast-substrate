@@ -41,7 +41,7 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=1500",
+	"--block-authoring-duration=2000",
 ]
 
 [[parachains.collators]]
@@ -53,7 +53,7 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=1500",
+	"--block-authoring-duration=2000",
 ]
 
 [[parachains.collators]]
@@ -65,7 +65,7 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=1500",
+	"--block-authoring-duration=2000",
 ]
 
 [[parachains.collators]]
@@ -77,5 +77,5 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=1500",
+	"--block-authoring-duration=2000",
 ]

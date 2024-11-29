@@ -1,8 +1,13 @@
-use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
+use frame_support::{
+	traits::IsType,
+	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+};
 use pallet_acurast::{
 	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
 	VerifiedBootState,
 };
+use pallet_acurast_processor_manager::ProcessorPairingFor;
+use sp_runtime::traits::{CheckedAdd, IdentifyAccount, Verify};
 use sp_std::prelude::*;
 
 use crate::{constants::MILLIUNIT, types::Balance};
@@ -86,4 +91,34 @@ pub fn check_device_attestation(
 		return allowed_bundle_ids.contains(&bundle_id.as_slice());
 	}
 	false
+}
+
+pub trait PairingProvider<T: pallet_acurast_processor_manager::Config> {
+	fn pairing_for_call(call: &T::RuntimeCall) -> Option<&ProcessorPairingFor<T>>;
+}
+
+pub fn get_fee_payer<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>>(
+	who: &T::AccountId,
+	call: &T::RuntimeCall,
+) -> <T as frame_system::Config>::AccountId where <T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>{
+	let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(who);
+
+	if manager.is_none() {
+		if let Some(pairing) = P::pairing_for_call(call) {
+			if pairing.validate_timestamp::<T>() {
+				let counter = pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
+					&pairing.account,
+				)
+				.unwrap_or(0u8.into())
+				.checked_add(&1u8.into());
+				if let Some(counter) = counter {
+					if pairing.validate_signature::<T>(&pairing.account, counter) {
+						manager = Some(pairing.account.clone());
+					}
+				}
+			}
+		}
+	}
+
+	manager.unwrap_or(who.clone())
 }

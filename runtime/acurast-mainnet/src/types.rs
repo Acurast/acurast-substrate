@@ -1,10 +1,12 @@
 use acurast_runtime_common::{
+	check_nonce::CheckNonce,
 	constants::{
 		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
+	utils::PairingProvider,
 	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
@@ -13,6 +15,7 @@ use frame_support::{
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use pallet_acurast_processor_manager::ProcessorPairingFor;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
@@ -47,7 +50,7 @@ pub type SignedExtra = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	crate::check_nonce::CheckNonce,
+	CheckNonce<Runtime, ProcessorPairingProvider>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
@@ -138,3 +141,19 @@ pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	BLOCK_PROCESSING_VELOCITY,
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct ProcessorPairingProvider;
+impl PairingProvider<Runtime> for ProcessorPairingProvider {
+	fn pairing_for_call(
+		call: &<Runtime as frame_system::Config>::RuntimeCall,
+	) -> Option<&ProcessorPairingFor<Runtime>> {
+		if let RuntimeCall::AcurastProcessorManager(
+			pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
+		) = call
+		{
+			return Some(pairing);
+		}
+		None
+	}
+}

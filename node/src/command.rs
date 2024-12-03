@@ -134,7 +134,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_rococo_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -142,7 +142,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_kusama_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -150,7 +150,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_mainnet_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -168,7 +168,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_rococo_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -176,7 +176,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_kusama_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -184,7 +184,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_mainnet_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -202,7 +202,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_rococo_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -210,7 +210,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_kusama_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -218,7 +218,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_mainnet_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -236,7 +236,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_rococo_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -244,7 +244,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_kusama_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -252,7 +252,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_mainnet_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -270,7 +270,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_rococo_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -278,7 +278,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_kusama_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -286,7 +286,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(|components, cli, cmd, config| {
+						<acurast_mainnet_runtime::RuntimeApi>(|components, cli, cmd, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -323,20 +323,17 @@ pub fn run() -> Result<()> {
 						feature = "acurast-rococo"
 					))]
 					NetworkVariant::Testnet => {
-						let partials =
-							new_partial::<acurast_rococo_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_rococo_runtime::RuntimeApi>(&config)?;
 						cmd.run(partials.client)
 					},
 					#[cfg(feature = "acurast-kusama")]
 					NetworkVariant::Canary => {
-						let partials =
-							new_partial::<acurast_kusama_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_kusama_runtime::RuntimeApi>(&config)?;
 						cmd.run(partials.client)
 					},
 					#[cfg(feature = "acurast-mainnet")]
 					NetworkVariant::Mainnet => {
-						let partials =
-							new_partial::<acurast_mainnet_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_mainnet_runtime::RuntimeApi>(&config)?;
 						cmd.run(partials.client)
 					},
 				}
@@ -390,19 +387,19 @@ pub fn run() -> Result<()> {
 						))]
 						NetworkVariant::Testnet => {
 							let partials =
-								new_partial::<acurast_rococo_runtime::apis::RuntimeApi>(&config)?;
+								new_partial::<acurast_rococo_runtime::RuntimeApi>(&config)?;
 							cmd.run(partials.client)
 						},
 						#[cfg(feature = "acurast-kusama")]
 						NetworkVariant::Canary => {
 							let partials =
-								new_partial::<acurast_kusama_runtime::apis::RuntimeApi>(&config)?;
+								new_partial::<acurast_kusama_runtime::RuntimeApi>(&config)?;
 							cmd.run(partials.client)
 						},
 						#[cfg(feature = "acurast-mainnet")]
 						NetworkVariant::Mainnet => {
 							let partials =
-								new_partial::<acurast_mainnet_runtime::apis::RuntimeApi>(&config)?;
+								new_partial::<acurast_mainnet_runtime::RuntimeApi>(&config)?;
 							cmd.run(partials.client)
 						},
 					})
@@ -424,24 +421,21 @@ pub fn run() -> Result<()> {
 						feature = "acurast-rococo"
 					))]
 					NetworkVariant::Testnet => {
-						let partials =
-							new_partial::<acurast_rococo_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_rococo_runtime::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
 						cmd.run(config, partials.client.clone(), db, storage)
 					},
 					#[cfg(feature = "acurast-kusama")]
 					NetworkVariant::Canary => {
-						let partials =
-							new_partial::<acurast_kusama_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_kusama_runtime::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
 						cmd.run(config, partials.client.clone(), db, storage)
 					},
 					#[cfg(feature = "acurast-mainnet")]
 					NetworkVariant::Mainnet => {
-						let partials =
-							new_partial::<acurast_mainnet_runtime::apis::RuntimeApi>(&config)?;
+						let partials = new_partial::<acurast_mainnet_runtime::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
 						cmd.run(config, partials.client.clone(), db, storage)
@@ -505,7 +499,7 @@ pub fn run() -> Result<()> {
 						feature = "acurast-rococo"
 					))]
 					NetworkVariant::Testnet => {
-						service::start_parachain_node::<acurast_rococo_runtime::apis::RuntimeApi>(
+						service::start_parachain_node::<acurast_rococo_runtime::RuntimeApi>(
 							config,
 							polkadot_config,
 							collator_options,
@@ -518,22 +512,20 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into)
 					},
 					#[cfg(feature = "acurast-kusama")]
-					NetworkVariant::Canary => {
-						service::start_parachain_node::<acurast_kusama_runtime::apis::RuntimeApi>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							cli.run.block_authoring_duration,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
-					},
+					NetworkVariant::Canary => service::start_parachain_node::<acurast_kusama_runtime::RuntimeApi>(
+						config,
+						polkadot_config,
+						collator_options,
+						id,
+						cli.run.block_authoring_duration,
+						hwbench,
+					)
+					.await
+					.map(|r| r.0)
+					.map_err(Into::into),
 					#[cfg(feature = "acurast-mainnet")]
 					NetworkVariant::Mainnet => {
-						service::start_parachain_node::<acurast_mainnet_runtime::apis::RuntimeApi>(
+						service::start_parachain_node::<acurast_mainnet_runtime::RuntimeApi>(
 							config,
 							polkadot_config,
 							collator_options,

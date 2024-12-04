@@ -150,6 +150,8 @@ impl crate::BenchmarkHelper<Test> for () {
 
 		caller
 	}
+
+	fn attest_account(account: &<Test>::AccountId) {}
 }
 
 pub struct AcurastManagerIdProvider;

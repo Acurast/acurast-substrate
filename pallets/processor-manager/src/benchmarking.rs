@@ -20,6 +20,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn dummy_proof() -> T::Proof;
 	fn advertisement() -> T::Advertisement;
 	fn funded_account(index: u32) -> T::AccountId;
+	fn attest_account(account: &T::AccountId);
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -102,11 +103,12 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
 		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
 			window_length: 1,
 			tollerance: 1000,
 			min_heartbeats: 1,
-			reward_per_distribution: Default::default(),
+			reward_per_distribution: 347_222_222_222u128.into(),
 			distributor_account: T::BenchmarkHelper::funded_account(0),
 		};
 		<ProcessorRewardDistributionWindow<T>>::insert(

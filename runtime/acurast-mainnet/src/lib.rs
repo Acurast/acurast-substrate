@@ -345,7 +345,6 @@ impl_runtime_apis! {
 		) {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
-			use super::*;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -358,7 +357,6 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{BenchmarkError, Benchmarking, BenchmarkBatch};
-			use super::*;
 
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &Vec<u8>) -> Result<(), BenchmarkError> {

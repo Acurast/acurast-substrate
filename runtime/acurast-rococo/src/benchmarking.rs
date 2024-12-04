@@ -1,14 +1,18 @@
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
-use pallet_acurast::JobModules;
+use pallet_acurast::{
+	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
+	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
+	BoundedDeviceAttestationNonce, JobModules, StoredAttestation,
+};
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
 use sp_std::vec;
 
-use crate::{AcurastMarketplace, Balance, Balances, Runtime};
+use crate::{AcurastMarketplace, Balance, Balances, BundleId, Runtime};
 
 define_benchmarks!(
 	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
@@ -122,5 +126,38 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 
 	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast", index, 1 << 60)
+	}
+
+	fn attest_account(account: &<Runtime as frame_system::Config>::AccountId) {
+		let attestation = Attestation {
+			cert_ids: Default::default(),
+			content: BoundedAttestationContent::DeviceAttestation(BoundedDeviceAttestation {
+				key_usage_properties: BoundedDeviceAttestationKeyUsageProperties {
+					t4: None,
+					t1200: None,
+					t1201: None,
+					t1202: None,
+					t1203: None,
+					t1204: Some(BundleId::get().to_vec().try_into().unwrap()),
+					t5: None,
+					t1206: None,
+					t1207: None,
+					t1209: None,
+					t1210: None,
+					t1211: None,
+				},
+				device_os_information: BoundedDeviceAttestationDeviceOSInformation {
+					t1400: None,
+					t1104: None,
+					t1403: None,
+					t1420: None,
+					t1026: None,
+					t1029: None,
+				},
+				nonce: BoundedDeviceAttestationNonce { nonce: None },
+			}),
+			validity: AttestationValidity { not_before: 0, not_after: u64::MAX },
+		};
+		<StoredAttestation<Runtime>>::insert(account, attestation);
 	}
 }

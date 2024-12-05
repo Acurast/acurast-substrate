@@ -187,5 +187,28 @@ benchmarks! {
 		).into());
 	}
 
+	set_environments {
+		let x in 1 .. T::MaxSlots::get();
+		let y in 1 .. T::MaxEnvVars::get();
+		set_timestamp::<T>(1000);
+		let (caller, job) = register_job::<T>(true, false);
+		let mut e: Vec<(T::AccountId, EnvironmentFor<T>)> = vec![];
+		for j in 0..x {
+			let mut v: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
+			for i in 0..y {
+				(&mut v).push((BoundedVec::truncate_from(vec![
+					105, 112, 102, 115, 58, 47, 47, 8]), BoundedVec::truncate_from(vec![
+					105, 112, 102, 115, 58, 47, 47, 8])))
+			}
+			let env: EnvironmentFor<T> = Environment {
+				public_key: BoundedVec::truncate_from(vec![105, 112, 102, 115, 58, 47, 47, 8]),
+				variables: BoundedVec::try_from(v).unwrap(),
+			};
+			e.push((account("processor", j, SEED), env));
+		}
+
+		let local_job_id = 1;
+	}: _(RawOrigin::Signed(caller.clone()), local_job_id, e.try_into().unwrap())
+
 	impl_benchmark_test_suite!(Acurast, mock::ExtBuilder::default().build(), mock::Test);
 }

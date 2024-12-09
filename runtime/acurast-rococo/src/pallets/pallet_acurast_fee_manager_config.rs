@@ -1,4 +1,4 @@
-use acurast_runtime_common::{weight, AccountId};
+use acurast_runtime_common::{types::AccountId, weight};
 use frame_system::EnsureRoot;
 
 use crate::{DefaultFeePercentage, DefaultMatcherFeePercentage, Runtime, RuntimeEvent};

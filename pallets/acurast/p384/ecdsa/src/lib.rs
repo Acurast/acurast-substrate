@@ -274,14 +274,14 @@ where
 
 	fn try_from(bytes: &[u8]) -> Result<Self> {
 		if bytes.len() != C::UInt::BYTE_SIZE * 2 {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		for scalar_bytes in bytes.chunks_exact(C::UInt::BYTE_SIZE) {
 			let scalar = ScalarCore::<C>::from_be_slice(scalar_bytes).map_err(|_| Error::new())?;
 
 			if scalar.is_zero().into() {
-				return Err(Error::new())
+				return Err(Error::new());
 			}
 		}
 
@@ -336,7 +336,7 @@ where
 
 	fn from_str(hex: &str) -> Result<Self> {
 		if hex.as_bytes().len() != C::UInt::BYTE_SIZE * 4 {
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		// This check is mainly to ensure `hex.split_at` below won't panic
@@ -345,7 +345,7 @@ where
 			.iter()
 			.all(|&byte| matches!(byte, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z'))
 		{
-			return Err(Error::new())
+			return Err(Error::new());
 		}
 
 		let (r_hex, s_hex) = hex.split_at(C::UInt::BYTE_SIZE * 2);

@@ -1,4 +1,4 @@
-use acurast_runtime_common::{AccountId, UNIT};
+use acurast_runtime_common::{constants::UNIT, types::AccountId};
 use frame_support::traits::EitherOfDiverse;
 use frame_system::{EnsureRoot, EnsureSignedBy, EnsureWithSuccess};
 use sp_core::{ConstBool, ConstU128, ConstU32};

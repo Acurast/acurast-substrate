@@ -1,4 +1,7 @@
-use acurast_runtime_common::{weight, Balance, RewardDistributor, Signature};
+use acurast_runtime_common::{
+	types::{Balance, RewardDistributor, Signature},
+	weight,
+};
 use frame_support::traits::{
 	fungible::{Inspect, Mutate},
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
@@ -102,6 +105,7 @@ impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
 			let burned = <Balances as Mutate<_>>::burn_from(
 				processor,
 				usable_balance,
+				Preservation::Preserve,
 				Precision::BestEffort,
 				Fortitude::Polite,
 			)?;

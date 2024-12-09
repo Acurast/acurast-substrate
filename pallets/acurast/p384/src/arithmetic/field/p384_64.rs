@@ -127,8 +127,8 @@ pub const fn fiat_p384_mulx_u64(arg1: u64, arg2: u64) -> (u64, u64) {
 pub const fn fiat_p384_cmovznz_u64(arg1: fiat_p384_u1, arg2: u64, arg3: u64) -> u64 {
 	let mut out1: u64 = 0;
 	let x1: fiat_p384_u1 = (!(!arg1));
-	let x2: u64 = ((((((0x0 as fiat_p384_i2) - (x1 as fiat_p384_i2)) as fiat_p384_i1) as i128) &
-		(0xffffffffffffffff as i128)) as u64);
+	let x2: u64 = ((((((0x0 as fiat_p384_i2) - (x1 as fiat_p384_i2)) as fiat_p384_i1) as i128)
+		& (0xffffffffffffffff as i128)) as u64);
 	let x3: u64 = ((x2 & arg3) | ((!x2) & arg2));
 	out1 = x3;
 	out1

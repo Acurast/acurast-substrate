@@ -77,6 +77,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 ]
 
 std = [

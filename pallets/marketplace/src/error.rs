@@ -34,11 +34,11 @@ impl<T> Error<T> {
 			Error::ModuleNotAvailableInMatch => true,
 			Error::PalletAcurast(e) => matches!(
 				*e,
-				pallet_acurast::Error::FulfillSourceNotAllowed |
-					pallet_acurast::Error::FulfillSourceNotVerified |
-					pallet_acurast::Error::AttestationCertificateNotValid |
-					pallet_acurast::Error::AttestationUsageExpired |
-					pallet_acurast::Error::RevokedCertificate
+				pallet_acurast::Error::FulfillSourceNotAllowed
+					| pallet_acurast::Error::FulfillSourceNotVerified
+					| pallet_acurast::Error::AttestationCertificateNotValid
+					| pallet_acurast::Error::AttestationUsageExpired
+					| pallet_acurast::Error::RevokedCertificate
 			),
 			Error::CapacityNotFound => true,
 			Error::ProcessorVersionMismatch => true,

@@ -274,7 +274,7 @@ pub mod pallet {
 					ListUpdateOperation::Add => {
 						if !update.item.validate_timestamp::<T>() {
 							#[cfg(not(feature = "runtime-benchmarks"))]
-							return Err(Error::<T>::PairingProofExpired)?
+							return Err(Error::<T>::PairingProofExpired)?;
 						}
 						let counter = Self::counter_for_manager(&who)
 							.unwrap_or(0u8.into())
@@ -282,13 +282,14 @@ pub mod pallet {
 							.ok_or(Error::<T>::CounterOverflow)?;
 						if !update.item.validate_signature::<T>(&who, counter) {
 							#[cfg(not(feature = "runtime-benchmarks"))]
-							return Err(Error::<T>::InvalidPairingProof)?
+							return Err(Error::<T>::InvalidPairingProof)?;
 						}
 						Self::do_add_processor_manager_pairing(&update.item.account, manager_id)?;
 						<ManagerCounter<T>>::insert(&who, counter);
 					},
-					ListUpdateOperation::Remove =>
-						Self::do_remove_processor_manager_pairing(&update.item.account, &who)?,
+					ListUpdateOperation::Remove => {
+						Self::do_remove_processor_manager_pairing(&update.item.account, &who)?
+					},
 				}
 			}
 
@@ -307,7 +308,7 @@ pub mod pallet {
 
 			if !pairing.validate_timestamp::<T>() {
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::PairingProofExpired)?
+				return Err(Error::<T>::PairingProofExpired)?;
 			}
 
 			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
@@ -325,7 +326,7 @@ pub mod pallet {
 
 			if !pairing.validate_signature::<T>(&pairing.account, counter) {
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::InvalidPairingProof)?
+				return Err(Error::<T>::InvalidPairingProof)?;
 			}
 			Self::do_add_processor_manager_pairing(&who, manager_id)?;
 			<ManagerCounter<T>>::insert(&pairing.account, counter);

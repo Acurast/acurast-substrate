@@ -273,8 +273,9 @@ pub mod pallet {
 				let position =
 					current_allowed_sources.iter().position(|value| value == &update.item);
 				match (position, update.operation) {
-					(None, ListUpdateOperation::Add) =>
-						current_allowed_sources.push(update.item.clone()),
+					(None, ListUpdateOperation::Add) => {
+						current_allowed_sources.push(update.item.clone())
+					},
 					(Some(pos), ListUpdateOperation::Remove) => {
 						current_allowed_sources.remove(pos);
 					},
@@ -325,7 +326,7 @@ pub mod pallet {
 
 			if !T::KeyAttestationBarrier::accept_attestation_for_origin(&who, &attestation) {
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::AttestationRejected.into())
+				return Err(Error::<T>::AttestationRejected.into());
 			}
 
 			ensure_not_expired::<T>(&attestation)?;
@@ -365,9 +366,6 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Updates the certificate revocation list by adding or removing a revoked certificate serial number. Attestations signed
-		/// by a revoked certificate will not be considered valid anymore. The `RevocationListUpdateBarrier` configured in [Config] can be used to
-		/// customize who can execute this action.
 		#[pallet::weight(<T as Config>::WeightInfo::set_environment(environment.variables.len() as u32))]
 		#[pallet::call_index(7)]
 		pub fn set_environment(
@@ -387,9 +385,6 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Updates the certificate revocation list by adding or removing a revoked certificate serial number. Attestations signed
-		/// by a revoked certificate will not be considered valid anymore. The `RevocationListUpdateBarrier` configured in [Config] can be used to
-		/// customize who can execute this action.
 		#[pallet::weight(<T as Config>::WeightInfo::set_environments(environments.len() as u32, environments.iter().map(|(_, env)| env.variables.len() as u32).max().unwrap_or(0u32)))]
 		#[pallet::call_index(8)]
 		pub fn set_environments(

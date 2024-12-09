@@ -468,10 +468,12 @@ pub mod pallet {
 			let assignment = Self::do_report(&job_id, &who)?;
 
 			match execution_result {
-				ExecutionResult::Success(operation_hash) =>
-					Self::deposit_event(Event::ExecutionSuccess(job_id.clone(), operation_hash)),
-				ExecutionResult::Failure(message) =>
-					Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message)),
+				ExecutionResult::Success(operation_hash) => {
+					Self::deposit_event(Event::ExecutionSuccess(job_id.clone(), operation_hash))
+				},
+				ExecutionResult::Failure(message) => {
+					Self::deposit_event(Event::ExecutionFailure(job_id.clone(), message))
+				},
 			}
 
 			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
@@ -537,7 +539,7 @@ pub mod pallet {
 		fn unreserve(job_id: &JobId<T::AccountId>, reward: T::Balance) -> Result<(), ()> {
 			<JobBudgets<T>>::mutate(job_id, |amount| {
 				if reward > *amount {
-					return Err(())
+					return Err(());
 				}
 				*amount = amount.checked_sub(&reward).ok_or(())?;
 				Ok(())

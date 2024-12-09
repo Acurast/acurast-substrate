@@ -93,9 +93,7 @@ pallet-collator-selection = { workspace = true }
 parachains-common = { workspace = true }
 
 [features]
-default = [
-	"std",
-]
+default = ["std"]
 std = [
 	"parity-scale-codec/std",
 	"log/std",
@@ -182,7 +180,7 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"frame-executive/try-runtime",
-#	"nimbus-primitives/try-runtime",
+	#	"nimbus-primitives/try-runtime",
 	"frame-try-runtime",
 ]
 

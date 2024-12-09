@@ -5,7 +5,7 @@ use std::{marker::PhantomData, sync::Arc};
 use crate::{JobAssignment, MarketplaceRuntimeApi, PartialJobRegistration, RuntimeApiError};
 use frame_support::sp_runtime::traits::{Block as BlockT, HashingFor, MaybeSerializeDeserialize};
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
 	types::error::{CallError, ErrorObject},
 };
@@ -77,7 +77,6 @@ impl<C, B> Marketplace<C, B> {
 	}
 }
 
-#[async_trait]
 impl<
 		Client,
 		Block,
@@ -182,8 +181,8 @@ where
 
 /// Converts an marketplace-specific error into a [`CallError`].
 fn marketplace_error_into_rpc_error(err: RuntimeApiError) -> CallError {
-	let error_code = MARKETPLACE_ERROR +
-		match err {
+	let error_code = MARKETPLACE_ERROR
+		+ match err {
 			RuntimeApiError::FilterMatchingSources => 1,
 			RuntimeApiError::MatchedJobs => 3,
 		};

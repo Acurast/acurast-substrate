@@ -31,7 +31,7 @@ where
 		len_in_bytes: usize,
 	) -> Result<Self::Expander> {
 		if len_in_bytes == 0 {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		let len_in_bytes = u16::try_from(len_in_bytes).map_err(|_| Error)?;

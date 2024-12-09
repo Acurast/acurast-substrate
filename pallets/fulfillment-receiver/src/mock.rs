@@ -73,7 +73,7 @@ impl OnFulfillment<Test> for FulfillmentHandler {
 		_fulfillment: Fulfillment,
 	) -> sp_runtime::DispatchResultWithInfo<frame_support::dispatch::PostDispatchInfo> {
 		if !AllowedFulfillAccounts::get().contains(&from) {
-			return Err(DispatchError::BadOrigin.into())
+			return Err(DispatchError::BadOrigin.into());
 		}
 		Ok(().into())
 	}

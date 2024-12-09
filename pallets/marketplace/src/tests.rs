@@ -368,9 +368,9 @@ fn test_deregister_on_assigned_job() {
 		));
 		let assignment =
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.requirements.reward *
-			(registration1.extra.requirements.slots as u128) *
-			(registration1.schedule.execution_count() as u128);
+		let total_reward = registration1.extra.requirements.reward
+			* (registration1.extra.requirements.slots as u128)
+			* (registration1.schedule.execution_count() as u128);
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
 			consumer_initial_balance - total_reward
@@ -595,9 +595,9 @@ fn test_deregister_on_assigned_job_for_competing() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 		let assignment2 =
 			AcurastMarketplace::stored_matches(processor_2_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.requirements.reward *
-			(registration1.extra.requirements.slots as u128) *
-			(registration1.schedule.execution_count() as u128);
+		let total_reward = registration1.extra.requirements.reward
+			* (registration1.extra.requirements.slots as u128)
+			* (registration1.schedule.execution_count() as u128);
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
 			consumer_initial_balance - total_reward
@@ -620,8 +620,8 @@ fn test_deregister_on_assigned_job_for_competing() {
 
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
-			consumer_initial_balance -
-				(assignment1.fee_per_execution + assignment2.fee_per_execution)
+			consumer_initial_balance
+				- (assignment1.fee_per_execution + assignment2.fee_per_execution)
 		);
 		assert_eq!(
 			Balances::free_balance(&processor_2_account_id()),
@@ -721,8 +721,8 @@ fn test_deregister_on_assigned_job_for_competing() {
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
-					amount: total_reward -
-						(assignment1.fee_per_execution + assignment2.fee_per_execution)
+					amount: total_reward
+						- (assignment1.fee_per_execution + assignment2.fee_per_execution)
 				}),
 				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationRemoved(
 					job_id1.clone()
@@ -879,9 +879,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 		let assignment2 =
 			AcurastMarketplace::stored_matches(processor_2_account_id(), job_id1.clone()).unwrap();
-		let total_reward = registration1.extra.requirements.reward *
-			(registration1.extra.requirements.slots as u128) *
-			(registration1.schedule.execution_count() as u128);
+		let total_reward = registration1.extra.requirements.reward
+			* (registration1.extra.requirements.slots as u128)
+			* (registration1.schedule.execution_count() as u128);
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
 		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
 		let reward1_after_fee = assignment1.fee_per_execution - fee1;
@@ -906,8 +906,8 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
-			consumer_initial_balance -
-				(assignment1.fee_per_execution + assignment2.fee_per_execution)
+			consumer_initial_balance
+				- (assignment1.fee_per_execution + assignment2.fee_per_execution)
 		);
 		assert_eq!(
 			Balances::free_balance(&processor_2_account_id()),
@@ -1026,8 +1026,8 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
-					amount: total_reward -
-						(assignment1.fee_per_execution + assignment2.fee_per_execution)
+					amount: total_reward
+						- (assignment1.fee_per_execution + assignment2.fee_per_execution)
 				}),
 				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationRemoved(
 					job_id1.clone()
@@ -1499,7 +1499,7 @@ fn test_multi_assignments() {
 					AcurastMarketplace::stored_advertisement_pricing(processor)
 				);
 
-				return attestation
+				return attestation;
 			})
 			.collect();
 

@@ -46,7 +46,7 @@ where
 		len_in_bytes: usize,
 	) -> Result<Self::Expander> {
 		if len_in_bytes == 0 {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		let len_in_bytes_u16 = u16::try_from(len_in_bytes).map_err(|_| Error)?;
@@ -133,7 +133,7 @@ where
 	fn fill_bytes(&mut self, okm: &mut [u8]) {
 		for b in okm {
 			if self.offset == self.b_vals.len() && !self.next() {
-				return
+				return;
 			}
 			*b = self.b_vals[self.offset];
 			self.offset += 1;

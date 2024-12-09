@@ -1,6 +1,7 @@
 use acurast_runtime_common::{
+	constants::{MICROUNIT, MILLIUNIT, UNIT},
+	types::{AccountId, Balance, BlockNumber},
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId, Balance, BlockNumber, MICROUNIT, MILLIUNIT, UNIT,
 };
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
@@ -20,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 20,
+	spec_version: 21,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -33,7 +34,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -119,7 +120,7 @@ parameter_types! {
 		.build_or_panic();
 	pub const SS58Prefix: u16 = 42;
 
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
 	pub const UncleGenerations: u32 = 0;
 
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;

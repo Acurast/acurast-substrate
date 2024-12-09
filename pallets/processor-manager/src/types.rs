@@ -45,7 +45,7 @@ where
 		if let Some(proof) = &self.proof {
 			let now = T::UnixTime::now().as_millis();
 			if let Some(diff) = now.checked_sub(proof.timestamp) {
-				return proof.timestamp <= now && diff < T::PairingProofExpirationTime::get()
+				return proof.timestamp <= now && diff < T::PairingProofExpirationTime::get();
 			}
 		}
 		false
@@ -65,7 +65,7 @@ where
 				b"</Bytes>".to_vec(),
 			]
 			.concat();
-			return proof.signature.verify(message.as_ref(), &self.account.clone().into())
+			return proof.signature.verify(message.as_ref(), &self.account.clone().into());
 		}
 
 		false

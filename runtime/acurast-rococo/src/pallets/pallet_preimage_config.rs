@@ -1,4 +1,4 @@
-use acurast_runtime_common::{AccountId, Balance};
+use acurast_runtime_common::types::{AccountId, Balance};
 use frame_support::traits::{fungible::HoldConsideration, LinearStoragePrice};
 use frame_system::EnsureRoot;
 

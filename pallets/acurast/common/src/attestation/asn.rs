@@ -1,5 +1,3 @@
-#![cfg_attr(all(feature = "alloc", not(feature = "std"), not(test)), no_std)]
-
 use core::{
 	convert::TryInto,
 	hash::{Hash, Hasher},
@@ -112,7 +110,7 @@ impl Time {
 					})
 				})
 			})
-			.map(|t| t.timestamp_millis())
+			.map(|t| t.and_utc().timestamp_millis())
 			.unwrap_or(0);
 
 		milliseconds.try_into().unwrap()

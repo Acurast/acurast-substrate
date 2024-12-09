@@ -13,8 +13,8 @@ pub use types::*;
 // #[cfg(test)]
 // mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+// #[cfg(feature = "runtime-benchmarks")]
+// mod benchmarking;
 mod traits;
 
 mod types;
@@ -408,8 +408,8 @@ pub mod pallet {
 						Some(activity_window) => {
 							// valid window is defined inclusive start_block, exclusive end_block
 
-							if activity_window.start_block <= current_block &&
-								activity_window
+							if activity_window.start_block <= current_block
+								&& activity_window
 									.end_block
 									.map_or(true, |end_block| current_block < end_block)
 							{

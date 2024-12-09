@@ -43,11 +43,13 @@ impl TryFrom<u16> for RawIncomingAction {
 	fn try_from(value: u16) -> Result<Self, Self::Error> {
 		match value {
 			o if o == RawIncomingAction::RegisterJob as u16 => Ok(RawIncomingAction::RegisterJob),
-			o if o == RawIncomingAction::DeregisterJob as u16 =>
-				Ok(RawIncomingAction::DeregisterJob),
+			o if o == RawIncomingAction::DeregisterJob as u16 => {
+				Ok(RawIncomingAction::DeregisterJob)
+			},
 			o if o == RawIncomingAction::FinalizeJob as u16 => Ok(RawIncomingAction::FinalizeJob),
-			o if o == RawIncomingAction::SetJobEnvironment as u16 =>
-				Ok(RawIncomingAction::SetJobEnvironment),
+			o if o == RawIncomingAction::SetJobEnvironment as u16 => {
+				Ok(RawIncomingAction::SetJobEnvironment)
+			},
 			o if o == RawIncomingAction::Noop as u16 => Ok(RawIncomingAction::Noop),
 			_ => Err(b"Unknown action index".to_vec()),
 		}

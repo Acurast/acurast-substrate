@@ -15,7 +15,7 @@ pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
 pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
 pub type MessagePrefix = BoundedVec<u8, ConstU32<100>>;
 
-const ACURAST_SIGNATURE_PREFIX: &'static [u8] = b"ACURAST TRANSACTION:\n";
+const ACURAST_SIGNATURE_PREFIX: &[u8] = b"ACURAST TRANSACTION:\n";
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -255,15 +255,16 @@ impl Verify for MultiSignature {
 				let msig: SPMultiSignature = multi_sig.clone().into();
 				msig.verify(msg, signer)
 			},
-			(Self::P256(ref sig), who) =>
+			(Self::P256(ref sig), who) => {
 				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
 					.and_then(|signature| signature.recover_verifying_key(msg.get()))
 					.map(|pubkey| {
-						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who)
+						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice())
+							== <dyn AsRef<[u8; 32]>>::as_ref(who)
 					})
-					.unwrap_or(false),
-			(Self::P256WithAuthData(sig, auth_data, client_context), who) =>
+					.unwrap_or(false)
+			},
+			(Self::P256WithAuthData(sig, auth_data, client_context), who) => {
 				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
 					.and_then(|signature| {
 						let msg_bytes = msg.get();
@@ -272,12 +273,13 @@ impl Verify for MultiSignature {
 						signature.recover_verifying_key(&signed_msg)
 					})
 					.map(|pubkey| {
-						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who)
+						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice())
+							== <dyn AsRef<[u8; 32]>>::as_ref(who)
 					})
-					.unwrap_or(false),
+					.unwrap_or(false)
+			},
 			(Self::Ed25519WithPrefix(sig, prefix), _) => {
-				let msig: SPMultiSignature = sig.clone().into();
+				let msig: SPMultiSignature = (*sig).into();
 				let message = sp_io::hashing::blake2_256(
 					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
 				);
@@ -288,9 +290,10 @@ impl Verify for MultiSignature {
 					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
 				);
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &message) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who),
+					Ok(pubkey) => {
+						&sp_io::hashing::blake2_256(pubkey.as_ref())
+							== <dyn AsRef<[u8; 32]>>::as_ref(who)
+					},
 					_ => false,
 				}
 			},

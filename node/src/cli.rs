@@ -36,11 +36,6 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// Try-runtime has migrated to a standalone
-	/// [CLI](<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after Janurary 2024.
-	TryRuntime,
 }
 
 const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
@@ -88,38 +83,15 @@ pub struct Cli {
 #[derive(Debug, clap::Parser)]
 #[group(skip)]
 pub struct RunCmd {
-	#[command(subcommand)]
-	pub subcommand: Option<Subcommand>,
-
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
-
-	/// Use Acurast Local runtime.
-	#[clap(long = "local-runtime")]
-	pub use_local: bool,
-
-	/// Use Acurast Dev runtime.
-	#[clap(long = "dev-runtime")]
-	pub use_dev: bool,
-
-	/// Use Acurast Rococo runtime.
-	#[clap(long = "rococo-runtime")]
-	pub use_rococo: bool,
-
-	/// Use Acurast Kusama runtime.
-	#[clap(long = "kusama-runtime")]
-	pub use_kusama: bool,
-
-	/// Use Acurast Mainnet runtime.
-	#[clap(long = "mainnet-runtime")]
-	pub use_mainnet: bool,
 
 	/// Id of the parachain this collator collates for.
 	#[clap(long)]
 	pub parachain_id: Option<u32>,
 
 	/// Maximum duration in milliseconds to produce a block
-	#[clap(long, default_value = "500", value_parser=block_authoring_duration_parser)]
+	#[clap(long, default_value = "1500", value_parser=block_authoring_duration_parser)]
 	pub block_authoring_duration: Duration,
 }
 

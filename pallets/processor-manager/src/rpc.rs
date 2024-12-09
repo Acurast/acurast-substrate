@@ -78,8 +78,8 @@ where
 
 /// Converts an marketplace-specific error into a [`CallError`].
 fn error_into_rpc_error(err: RuntimeApiError) -> CallError {
-	let error_code = ERROR_CODE +
-		match err {
+	let error_code = ERROR_CODE
+		+ match err {
 			RuntimeApiError::ProcessorUpdateInfos => 1,
 		};
 

@@ -144,7 +144,7 @@ impl JwkEcKey {
 		FieldSize<C>: ModulusSize,
 	{
 		if self.crv != C::CRV {
-			return Err(Error)
+			return Err(Error);
 		}
 
 		let x = decode_base64url_fe::<C>(&self.x)?;
@@ -451,7 +451,7 @@ impl<'de> Deserialize<'de> for JwkEcKey {
 					.ok_or_else(|| de::Error::invalid_length(0, &DE_ERROR_MSG))?;
 
 				if kty != EC_KTY {
-					return Err(de::Error::custom(format!("unsupported JWK kty: {:?}", kty)))
+					return Err(de::Error::custom(format!("unsupported JWK kty: {:?}", kty)));
 				}
 
 				let crv = de::SeqAccess::next_element::<String>(&mut seq)?
@@ -482,43 +482,48 @@ impl<'de> Deserialize<'de> for JwkEcKey {
 
 				while let Some(key) = de::MapAccess::next_key::<Field>(&mut map)? {
 					match key {
-						Field::Kty =>
+						Field::Kty => {
 							if kty.is_none() {
 								kty = Some(de::MapAccess::next_value::<String>(&mut map)?);
 							} else {
-								return Err(de::Error::duplicate_field(FIELDS[0]))
-							},
-						Field::Crv =>
+								return Err(de::Error::duplicate_field(FIELDS[0]));
+							}
+						},
+						Field::Crv => {
 							if crv.is_none() {
 								crv = Some(de::MapAccess::next_value::<String>(&mut map)?);
 							} else {
-								return Err(de::Error::duplicate_field(FIELDS[1]))
-							},
-						Field::X =>
+								return Err(de::Error::duplicate_field(FIELDS[1]));
+							}
+						},
+						Field::X => {
 							if x.is_none() {
 								x = Some(de::MapAccess::next_value::<String>(&mut map)?);
 							} else {
-								return Err(de::Error::duplicate_field(FIELDS[2]))
-							},
-						Field::Y =>
+								return Err(de::Error::duplicate_field(FIELDS[2]));
+							}
+						},
+						Field::Y => {
 							if y.is_none() {
 								y = Some(de::MapAccess::next_value::<String>(&mut map)?);
 							} else {
-								return Err(de::Error::duplicate_field(FIELDS[3]))
-							},
-						Field::D =>
+								return Err(de::Error::duplicate_field(FIELDS[3]));
+							}
+						},
+						Field::D => {
 							if d.is_none() {
 								d = de::MapAccess::next_value::<Option<String>>(&mut map)?;
 							} else {
-								return Err(de::Error::duplicate_field(FIELDS[4]))
-							},
+								return Err(de::Error::duplicate_field(FIELDS[4]));
+							}
+						},
 					}
 				}
 
 				let kty = kty.ok_or_else(|| de::Error::missing_field("kty"))?;
 
 				if kty != EC_KTY {
-					return Err(de::Error::custom(format!("unsupported JWK kty: {}", kty)))
+					return Err(de::Error::custom(format!("unsupported JWK kty: {}", kty)));
 				}
 
 				let crv = crv.ok_or_else(|| de::Error::missing_field("crv"))?;

@@ -10,7 +10,6 @@ use frame_support::{
 	PalletId,
 };
 use sp_std::prelude::*;
-use xcm::prelude::AssetId;
 
 use pallet_acurast::{JobId, MultiOrigin};
 
@@ -69,19 +68,6 @@ pub trait FeeManager {
 	fn pallet_id() -> PalletId;
 }
 
-trait IsNativeAsset {
-	fn is_native_asset(&self) -> bool;
-}
-
-impl IsNativeAsset for AssetId {
-	fn is_native_asset(&self) -> bool {
-		match self {
-			AssetId::Concrete(multi_location) => multi_location.is_here(),
-			_ => false,
-		}
-	}
-}
-
 pub struct AssetRewardManager<AssetSplit, Currency, JobBudget>(
 	PhantomData<(AssetSplit, Currency, JobBudget)>,
 );
@@ -108,10 +94,10 @@ where
 					Preservation::Preserve,
 				)?;
 			},
-			MultiOrigin::Tezos(_) |
-			MultiOrigin::Ethereum(_) |
-			MultiOrigin::AlephZero(_) |
-			MultiOrigin::Vara(_) => {
+			MultiOrigin::Tezos(_)
+			| MultiOrigin::Ethereum(_)
+			| MultiOrigin::AlephZero(_)
+			| MultiOrigin::Vara(_) => {
 				// The availability of these funds was ensured on the target chain side
 				Currency::transfer(
 					&hyperdrive_pallet_account,
@@ -223,10 +209,10 @@ where
 					Preservation::Preserve,
 				)?;
 			},
-			MultiOrigin::Tezos(_) |
-			MultiOrigin::Ethereum(_) |
-			MultiOrigin::AlephZero(_) |
-			MultiOrigin::Vara(_) => {
+			MultiOrigin::Tezos(_)
+			| MultiOrigin::Ethereum(_)
+			| MultiOrigin::AlephZero(_)
+			| MultiOrigin::Vara(_) => {
 				Currency::transfer(
 					&pallet_account,
 					&hyperdrive_pallet_account,

@@ -303,7 +303,7 @@ macro_rules! impl_field_element {
 				loop {
 					rng.fill_bytes(&mut bytes);
 					if let Some(fe) = Self::from_be_bytes(bytes).into() {
-						return fe
+						return fe;
 					}
 				}
 			}

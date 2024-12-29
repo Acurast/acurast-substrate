@@ -10,7 +10,7 @@ To learn more about Acurast please visit the [website](https://acurast.com/) and
 Pallets and crates relevant for third, party integrations.
 
 - [Acurast P256 crypto](p256-crypto/README.md): Crates providing crypto primitives to support p256 signatures in substrate
-- [ink contracts for substrate-based chains](./ink/README.md):
+- [ink contracts for substrate-based chains](hyperdrive/ink/README.md):
 
 ## Acurast Protocol
 

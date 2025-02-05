@@ -1,40 +1,33 @@
-use crate::{stub::*, *};
+use std::marker::PhantomData;
+
 use acurast_common::ManagerIdProvider;
 use frame_support::{
 	derive_impl,
+	dispatch::DispatchResult,
+	parameter_types,
 	sp_runtime::{
 		traits::{ConstU128, ConstU32, IdentityLookup},
-		BuildStorage, MultiSignature,
+		BuildStorage,
 	},
 	traits::{
-		fungible::{Inspect, Mutate},
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		tokens::{Fortitude, Precision, Preservation},
-		AsEnsureOriginWithArg, ConstU16, ConstU64,
+		AsEnsureOriginWithArg, ConstU16,
 	},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
-#[cfg(feature = "runtime-benchmarks")]
-use sp_core::crypto::UncheckedFrom;
 use sp_core::H256;
+use sp_runtime::{DispatchError, Perquintill};
 use sp_std::prelude::*;
 
-#[derive(Default)]
+use crate::{stub::*, *};
+
+type Block = frame_system::mocking::MockBlock<Test>;
+
 pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
-		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![
-				(alice_account_id(), INITIAL_BALANCE),
-				(bob_account_id(), INITIAL_BALANCE),
-				(processor_account_id(), INITIAL_BALANCE),
-			],
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
@@ -42,15 +35,26 @@ impl ExtBuilder {
 	}
 }
 
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
+	}
+}
+
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		AcurastProcessorManager: crate::{Pallet, Call, Storage, Event<T>},
+		Compute: crate::{Pallet, Call, Config<T, I>, Storage, Event<T>},
+		MockPallet: mock_pallet::{Pallet, Event<T>}
 	}
 );
+
+parameter_types! {
+	pub const BlockHashCount: BlockNumber = 2400;
+	pub const RootAccountId: AccountId = alice_account_id();
+}
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
@@ -58,8 +62,8 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Nonce = u64;
 	type Hash = H256;
-	type Block = Block<Test>;
-	type BlockHashCount = ConstU64<250>;
+	type Block = Block;
+	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type DbWeight = ();
@@ -68,6 +72,12 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	pub const MaxLocks: u32 = 50;
+	pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_balances::Config for Test {
@@ -82,8 +92,8 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = ();
 	type FreezeIdentifier = ();
+	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type MaxFreezes = ConstU32<0>;
 }
@@ -110,54 +120,28 @@ impl pallet_uniques::Config for Test {
 	type Helper = ();
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
+parameter_types! {
+	pub const EpochBase: BlockNumber = 0;
+	pub const Epoch: BlockNumber = 100;
+	pub const WarmupPeriod: BlockNumber = 30;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Proof = MultiSignature;
 	type ManagerId = AssetId;
 	type ManagerIdProvider = AcurastManagerIdProvider;
-	type ComputeHooks = ();
-	type ProcessorAssetRecovery = AcurastProcessorAssetRecovery;
-	type MaxPairingUpdates = ConstU32<5>;
-	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
-	type Counter = u64;
-	type PairingProofExpirationTime = ConstU128<600000>;
-	type UnixTime = pallet_timestamp::Pallet<Test>;
-	type Advertisement = ();
-	type AdvertisementHandler = ();
-	type WeightInfo = weights::WeightInfo<Self>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type EpochBase = EpochBase;
+	type Epoch = Epoch;
+	type WarmupPeriod = WarmupPeriod;
 	type Balance = Balance;
-	type ProcessorRewardDistributor = ();
+	type BlockNumber = BlockNumber;
+	type Currency = Balances;
+	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
+	type WeightInfo = ();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl crate::BenchmarkHelper<Test> for () {
-	fn dummy_proof() -> <Test as Config>::Proof {
-		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
-	}
-
-	fn advertisement() -> <Test as Config>::Advertisement {}
-
-	fn funded_account(index: u32) -> <Test as Config>::AccountId {
-		let caller: T::AccountId = frame_benchmarking::account("token_account", index, SEED);
-		<Balances as fungible::Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
-
-		caller
-	}
-
-	fn attest_account(account: &<Test>::AccountId) {}
-
-	fn create_compute_pool() -> PoolId {
-		panic!("pallet_acurast_compute not yet installed for this runtime");
-	}
+impl mock_pallet::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 }
 
 pub struct AcurastManagerIdProvider;
@@ -192,28 +176,63 @@ impl ManagerIdProvider<<Test as frame_system::Config>::AccountId, <Test as Confi
 	}
 }
 
-pub struct AcurastProcessorAssetRecovery;
-impl ProcessorAssetRecovery<Test> for AcurastProcessorAssetRecovery {
-	fn recover_assets(
-		processor: &<Test as frame_system::Config>::AccountId,
-		destination_account: &<Test as frame_system::Config>::AccountId,
-	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
-			processor,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		if usable_balance > 0 {
-			let burned = <Balances as Mutate<_>>::burn_from(
-				processor,
-				usable_balance,
-				Preservation::Preserve,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)?;
-			Balances::mint_into(destination_account, burned)?;
-		}
+#[frame_support::pallet]
+pub mod mock_pallet {
+	use crate::EpochOf;
+	use frame_support::pallet_prelude::*;
+	use sp_runtime::Perquintill;
+
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config + crate::Config<I> {
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		CalculateReward(Perquintill, EpochOf<T, I>),
+		DistributeReward(T::AccountId, T::Balance),
+		IsElegibleForReward(T::AccountId),
+	}
+}
+
+pub struct MockComputeRewardDistributor<T, I>(PhantomData<(T, I)>);
+
+impl<T: Config<I> + mock_pallet::Config<I>, I: 'static> ComputeRewardDistributor<T, I>
+	for MockComputeRewardDistributor<T, I>
+where
+	T::Balance: From<u64>,
+{
+	fn calculate_reward(
+		ratio: Perquintill,
+		epoch: EpochOf<T, I>,
+	) -> Result<<T as Config<I>>::Balance, DispatchError> {
+		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::CalculateReward(
+			ratio, epoch,
+		));
+		Ok(ratio.mul_floor(UNIT.into()))
+	}
+
+	fn distribute_reward(
+		processor: &T::AccountId,
+		amount: <T as Config<I>>::Balance,
+	) -> DispatchResult {
+		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::DistributeReward(
+			processor.clone(),
+			amount,
+		));
 		Ok(())
+	}
+
+	fn is_elegible_for_reward(processor: &T::AccountId) -> bool {
+		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::IsElegibleForReward(
+			processor.clone(),
+		));
+		true
 	}
 }
 

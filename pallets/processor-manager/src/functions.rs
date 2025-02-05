@@ -1,27 +1,19 @@
-use acurast_common::Version;
+use acurast_common::{ManagerIdProvider, Version};
 use frame_support::{
 	pallet_prelude::DispatchResult,
-	sp_runtime::{
-		traits::{CheckedAdd, IdentifyAccount, Verify},
-		DispatchError, SaturatedConversion,
-	},
-	traits::IsType,
+	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
 };
 
 use crate::{
-	Config, Error, LastManagerId, ManagedProcessors, ManagerIdProvider, Pallet,
-	ProcessorRewardDistributionWindow, ProcessorRewardDistributor, ProcessorToManagerIdIndex,
-	RewardDistributionWindow,
+	Config, Error, LastManagerId, ManagedProcessors, Pallet, ProcessorRewardDistributionWindow,
+	ProcessorRewardDistributor, ProcessorToManagerIdIndex, RewardDistributionWindow,
 };
 
-impl<T: Config> Pallet<T>
-where
-	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
-{
+impl<T: Config> Pallet<T> {
 	/// Returns the manager account id (if any) for the given processor account.
 	pub fn manager_for_processor(processor_account: &T::AccountId) -> Option<T::AccountId> {
 		let id = Self::manager_id_for_processor(processor_account)?;
-		<T::ManagerIdProvider as ManagerIdProvider<T>>::owner_for(id).ok()
+		<T::ManagerIdProvider>::owner_for(id).ok()
 	}
 
 	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
@@ -74,18 +66,26 @@ where
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(
-		processor: &T::AccountId,
-		version: &Version,
-	) -> Option<T::Balance> {
+	pub(crate) fn is_elegible_for_reward(processor: &T::AccountId, version: &Version) -> bool {
 		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
-			return None;
+			return false;
 		}
 
 		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
 			if version.build_number < min_req_version {
-				return None;
+				return false;
 			}
+		}
+
+		return true;
+	}
+
+	pub(crate) fn do_reward_distribution(
+		processor: &T::AccountId,
+		version: &Version,
+	) -> Option<T::Balance> {
+		if !Self::is_elegible_for_reward(processor, version) {
+			return None;
 		}
 
 		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {

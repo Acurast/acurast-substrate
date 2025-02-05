@@ -180,6 +180,36 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorRewardDistributionSettings` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorRewardDistributionSettings` (`max_values`: Some(1), `max_size`: Some(60), added: 555, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:0)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorRewardDistributionWindow` (r:1 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorRewardDistributionWindow` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	fn heartbeat_with_metrics(_x: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1073`
+		//  Estimated: `15088`
+		// Minimum execution time: 119_130_000 picoseconds.
+		Weight::from_parts(120_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 	/// Storage: `AcurastProcessorManager::KnownBinaryHash` (r:0 w:1)
 	/// Proof: `AcurastProcessorManager::KnownBinaryHash` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn update_binary_hash() -> Weight {

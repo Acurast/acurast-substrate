@@ -4,7 +4,7 @@ use crate::stub::{alice_account_id, generate_account};
 
 use super::*;
 
-use acurast_common::{ListUpdateOperation, Version};
+use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version};
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	sp_runtime::{
@@ -21,6 +21,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn advertisement() -> T::Advertisement;
 	fn funded_account(index: u32) -> T::AccountId;
 	fn attest_account(account: &T::AccountId);
+	fn create_compute_pool() -> PoolId;
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -124,6 +125,40 @@ benchmarks! {
 			build_number: 1,
 		};
 	}: _(RawOrigin::Signed(caller), version)
+
+	heartbeat_with_metrics {
+		let x in 0 .. METRICS_MAX_LENGTH;
+
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+			window_length: 1,
+			tollerance: 1000,
+			min_heartbeats: 1,
+			reward_per_distribution: 347_222_222_222u128.into(),
+			distributor_account: T::BenchmarkHelper::funded_account(0),
+		};
+		<ProcessorRewardDistributionWindow<T>>::insert(
+			caller.clone(),
+			RewardDistributionWindow::new(0, &distribution_settings),
+		);
+		run_to_block::<T>(100u32.into());
+		Pallet::<T>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(distribution_settings))?;
+		let update = generate_pairing_update_add::<T>(0);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+
+		let pool_id = T::BenchmarkHelper::create_compute_pool();
+		let mut values = Vec::<MetricInput>::new();
+		for i in 0..x {
+			values.push((pool_id, i.into(), i.into()));
+		}
+	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
 	update_binary_hash {
 		set_timestamp::<T>(1000);

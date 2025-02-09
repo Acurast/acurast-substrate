@@ -96,7 +96,7 @@ pub mod pallet {
 		/// hence `now <= currentmillis <= now + ReportTolerance`.
 		///
 		/// Should be at least the worst case block time. Otherwise valid reports that are included near the end of a block
-		/// would be considered outide of the agreed schedule despite being within schedule.
+		/// would be considered outside of the agreed schedule despite being within schedule.
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
@@ -214,6 +214,17 @@ pub mod pallet {
 	#[pallet::getter(fn job_budgets)]
 	pub type JobBudgets<T: Config> =
 		StorageMap<_, Blake2_128, JobId<T::AccountId>, T::Balance, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_report_index)]
+	pub type NextReportIndex<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		JobId<T::AccountId>,
+		Blake2_128Concat,
+		T::AccountId,
+		u64,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -476,7 +487,7 @@ pub mod pallet {
 				},
 			}
 
-			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
+			Self::deposit_event(Event::Reported(job_id, who, assignment));
 			Ok(().into())
 		}
 
@@ -520,9 +531,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			matches: BoundedVec<ExecutionMatchFor<T>, <T as Config>::MaxProposedExecutionMatches>,
 		) -> DispatchResultWithPostInfo {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
-			Self::process_execution_matching(&matches)?;
+			let remaining_rewards = Self::process_execution_matching(&matches)?;
+
+			// pay part of accumulated remaining reward (unspent to consumer) to matcher
+			T::RewardManager::pay_matcher_reward(remaining_rewards, &who)?;
 
 			Ok(().into())
 		}

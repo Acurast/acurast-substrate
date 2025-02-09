@@ -236,19 +236,36 @@ where
 	);
 	let job = competing_job_registration_with_reward::<T>(script(), 1, 100, 1_000_000);
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 310_000).into());
+	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
 
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((1689332400000u64 - 120_000).into());
+	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 120_000).into());
 
 	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
 		RawOrigin::Signed(consumer.clone()).into(),
 		vec![ExecutionMatch {
 			job_id: job_id.clone(),
 			execution_index: 0,
+			sources: vec![PlannedExecution { source: processor.clone(), start_delay: 0 }]
+				.try_into()
+				.unwrap()
+		}]
+		.try_into()
+		.unwrap()
+	));
+
+	pallet_timestamp::Pallet::<T>::set_timestamp(
+		(job.schedule.start_time + job.schedule.interval - 120_000).into(),
+	);
+
+	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
+		RawOrigin::Signed(consumer.clone()).into(),
+		vec![ExecutionMatch {
+			job_id: job_id.clone(),
+			execution_index: 1,
 			sources: vec![PlannedExecution { source: processor.clone(), start_delay: 0 }]
 				.try_into()
 				.unwrap()
@@ -324,7 +341,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.start_time.into());
+		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time + job.schedule.interval + job.schedule.duration).into());
 	}: _(RawOrigin::Signed(processor), job_id, ExecutionResult::Success(vec![0u8].try_into().unwrap()))
 
 	propose_matching {
@@ -401,7 +418,7 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let (processor, _, job_id) = acknowledge_execution_match_helper::<T>(None, None)?;
 		let pub_keys: PubKeys = vec![PubKey::SECP256r1([0u8; 33].to_vec().try_into().unwrap()), PubKey::SECP256k1([0u8; 33].to_vec().try_into().unwrap())].try_into().unwrap();
-	}: _(RawOrigin::Signed(processor), job_id, 0u64, pub_keys)
+	}: _(RawOrigin::Signed(processor), job_id, 1u64, pub_keys)
 
 	finalize_job {
 		set_timestamp::<T>(1000);

@@ -123,7 +123,6 @@ pub(crate) fn ensure_not_revoked<T: Config>(attestation: &Attestation) -> Result
 fn check_attestation<T: Config>(account: &T::AccountId) -> Result<Attestation, Error<T>> {
 	let attestation =
 		<StoredAttestation<T>>::get(account).ok_or(Error::<T>::FulfillSourceNotVerified)?;
-	//ensure_not_expired(&attestation)?;
 	ensure_not_revoked(&attestation)?;
 	if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
 		return Err(Error::<T>::AttestationRejected);

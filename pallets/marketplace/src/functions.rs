@@ -1,5 +1,7 @@
 use frame_support::{ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError};
-use pallet_acurast::{utils::ensure_source_verified, JobId, StoredJobRegistration};
+use pallet_acurast::{
+	utils::ensure_source_verified, JobId, JobRegistrationFor, StoredJobRegistration,
+};
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
 use sp_std::prelude::ToOwned;
@@ -129,35 +131,67 @@ impl<T: Config> Pallet<T> {
 			T::RewardManager::pay_reward(job_id, assignment.fee_per_execution, &manager)?;
 		}
 
+		let expected_reports =
+			registration.schedule.next_execution_index(assignment.start_delay, now);
+
+		Self::do_update_reputation(processor, &registration, &assignment, expected_reports)?;
+
+		// if this is the last report, do cleanup
+		if assignment.sla.total == expected_reports {
+			<StoredMatches<T>>::remove(processor, job_id);
+			<AssignedProcessors<T>>::remove(job_id, processor);
+		}
+
 		Ok(assignment)
 	}
 
 	pub fn do_finalize_job(
-		job_id: &JobId<T::AccountId>,
-		processor: &T::AccountId,
+		_job_id: &JobId<T::AccountId>,
+		_processor: &T::AccountId,
 	) -> Result<(), DispatchError> {
-		let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-			.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
-		let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
-		let requirements: JobRequirementsFor<T> = e.into();
+		//let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
+		//	.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
+		//let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
+		//let requirements: JobRequirementsFor<T> = e.into();
 
-		// find assignment
-		let assignment =
-			<StoredMatches<T>>::get(processor, job_id).ok_or(Error::<T>::JobNotAssigned)?;
+		//// find assignment
+		//let assignment =
+		//	<StoredMatches<T>>::get(processor, job_id).ok_or(Error::<T>::JobNotAssigned)?;
 
-		ensure!(
-			Self::actual_schedule_ended(&registration.schedule, &assignment)?,
-			Error::<T>::JobCannotBeFinalized
-		);
+		//ensure!(
+		//	Self::actual_schedule_ended(&registration.schedule, &assignment)?,
+		//	Error::<T>::JobCannotBeFinalized
+		//);
 
-		let unmet: u64 = assignment.sla.total - assignment.sla.met;
+		//let unmet: u64 = assignment.sla.total - assignment.sla.met;
 
-		// update reputation since we don't expect further reports for this job
-		// (only update for attested devices!)
+		//// update reputation since we don't expect further reports for this job
+		//// (only update for attested devices!)
+		//Self::do_update_reputation(processor, &registration, &assignment)?;
+
+		//// only remove storage point indexed by a single processor (corresponding to the completed duties for the assigned slot)
+		//<StoredMatches<T>>::remove(processor, job_id);
+		//<AssignedProcessors<T>>::remove(job_id, processor);
+
+		//// for single assigned slots we support cross-execution persistence and only unlock storage on job finalization
+		//if let AssignmentStrategy::Single(_) = requirements.assignment_strategy {
+		//	<Pallet<T> as StorageTracker<T>>::unlock(processor, &registration)?;
+		//}
+
+		Ok(())
+	}
+
+	fn do_update_reputation(
+		processor: &T::AccountId,
+		registration: &JobRegistrationFor<T>,
+		assignment: &AssignmentFor<T>,
+		expected_reports: u64,
+	) -> Result<(), DispatchError> {
 		if ensure_source_verified::<T>(processor).is_ok() {
+			let unmet: u64 = expected_reports - assignment.sla.met;
 			// skip reputation update if reward is 0
 			if assignment.fee_per_execution > 0u8.into() {
-				let average_reward = <StoredAverageRewardV3<T>>::get().unwrap_or(0);
+				let average_reward = <StoredAverageRewardV3<T>>::get().unwrap_or_default();
 				let total_assigned = <StoredTotalAssignedV3<T>>::get().unwrap_or_default();
 
 				let total_reward = average_reward
@@ -191,16 +225,6 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		}
-
-		// only remove storage point indexed by a single processor (corresponding to the completed duties for the assigned slot)
-		<StoredMatches<T>>::remove(processor, job_id);
-		<AssignedProcessors<T>>::remove(job_id, processor);
-
-		// for single assigned slots we support cross-execution persistence and only unlock storage on job finalization
-		if let AssignmentStrategy::Single(_) = requirements.assignment_strategy {
-			<Pallet<T> as StorageTracker<T>>::unlock(processor, &registration)?;
-		}
-
 		Ok(())
 	}
 }

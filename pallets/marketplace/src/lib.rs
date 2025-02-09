@@ -476,7 +476,7 @@ pub mod pallet {
 				},
 			}
 
-			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
+			Self::deposit_event(Event::Reported(job_id, who, assignment));
 			Ok(().into())
 		}
 

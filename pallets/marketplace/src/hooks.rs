@@ -133,10 +133,8 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 					if let ExecutionSpecifier::Index(index) = assignment.execution {
 						let next_execution_index =
 							registration.schedule.next_execution_index(assignment.start_delay, now);
-						if let Some(next_index) = next_execution_index {
-							if index != next_index {
-								continue;
-							}
+						if index != next_execution_index {
+							continue;
 						}
 					}
 

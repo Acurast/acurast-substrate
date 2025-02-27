@@ -181,10 +181,8 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		MissingMetricCommit,
 		MissingMetricTotal,
 		ProcessorNeverCommitted,
-		InvalidMetricEpoch,
 		InvalidMetric,
 		CalculationOverflow,
 		PoolNotFound,
@@ -315,11 +313,17 @@ pub mod pallet {
 
 				let mut total_reward_ratio: Perquintill = Zero::zero();
 				for pool_id in pool_ids {
-					// currently we are strict and expect a commit for each metric, later we might allow partial metrics committed (for backwards compatibility).
-					let commit = Metrics::<T, I>::get(processor, pool_id)
-						.ok_or(Error::<T, I>::MissingMetricCommit)?;
+					// we allow partial metrics committed (for backwards compatibility)
+					let commit = if let Some(c) = Metrics::<T, I>::get(processor, pool_id) {
+                        c
+                    } else {
+                        continue;
+                    };
+
 					// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
-					ensure!(commit.epoch == p.committed, Error::<T, I>::InvalidMetricEpoch);
+					if commit.epoch != p.committed {
+                        continue
+                    }
 
 					let pool =
 						<MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;

@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use sp_core::bounded_vec;
 use sp_runtime::{FixedU128, Perquintill};
 
@@ -9,9 +9,36 @@ use crate::{
 	mock::*,
 	stub::*,
 	types::*,
-	Event,
+	Error, Event,
 };
 use acurast_common::ComputeHooks;
+
+#[test]
+fn test_create_pools_name_conflict() {
+	ExtBuilder::default().build().execute_with(|| {
+		// create pool 1
+		{
+			assert_ok!(Compute::create_pool(
+				RuntimeOrigin::root(),
+				*b"cpu-ops-per-second______",
+				Perquintill::from_percent(25),
+				bounded_vec![],
+			));
+			assert_eq!(Compute::last_metric_pool_id(), 1);
+		}
+
+		// create pool 2
+		assert_err!(
+			Compute::create_pool(
+				RuntimeOrigin::root(),
+				*b"cpu-ops-per-second______",
+				Perquintill::from_percent(50),
+				bounded_vec![],
+			),
+			Error::<Test, ()>::PoolNameMustBeUnique
+		);
+	});
+}
 
 #[test]
 fn test_single_processor_commit() {

@@ -181,6 +181,7 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
+		PoolNameMustBeUnique,
 		MissingMetricTotal,
 		ProcessorNeverCommitted,
 		InvalidMetric,
@@ -231,6 +232,12 @@ pub mod pallet {
 				let p = pool.as_mut().ok_or(Error::<T, I>::PoolNotFound)?;
 
 				if let Some(name) = new_name {
+					if let Some(maybe_conflicting_pool_id) = Self::metric_pool_lookup(name) {
+						if maybe_conflicting_pool_id != pool_id {
+							Err(Error::<T, I>::PoolNameMustBeUnique)?
+						}
+					}
+
 					<MetricPoolLookup<T, I>>::remove(p.name);
 					<MetricPoolLookup<T, I>>::insert(name, pool_id);
 					p.name = name;
@@ -286,6 +293,9 @@ pub mod pallet {
 			reward_ratio: Perquintill,
 			config: MetricPoolConfigValues,
 		) -> Result<(PoolId, MetricPoolFor<T, I>), DispatchError> {
+			if Self::metric_pool_lookup(name).is_some() {
+				Err(Error::<T, I>::PoolNameMustBeUnique)?
+			}
 			let pool_id = LastMetricPoolId::<T, I>::try_mutate::<_, Error<T, I>, _>(|id| {
 				*id = id.checked_add(1).ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(*id)

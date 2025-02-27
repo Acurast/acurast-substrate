@@ -155,7 +155,7 @@ where
 		remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)>,
 		matcher: &T::AccountId,
 	) -> Result<(), DispatchError> {
-		let matcher_fee_percentage = AssetSplit::get_matcher_percentage(); // TODO: fee will be indexed by version in the future
+		let matcher_fee_percentage = AssetSplit::get_matcher_percentage();
 
 		let mut matcher_reward: T::Balance = 0u8.into();
 		for (job_id, remaining_reward) in remaining_rewards.into_iter() {
@@ -168,7 +168,7 @@ where
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
 		// Extract fee from the matcher reward
-		let fee_percentage = AssetSplit::get_fee_percentage(); // TODO: fee will be indexed by version in the future
+		let fee_percentage = AssetSplit::get_fee_percentage();
 		let fee = fee_percentage.mul_floor(matcher_reward);
 
 		// Subtract the fee from the reward
@@ -177,19 +177,24 @@ where
 		// Transfer fees to Acurast fees manager account
 		let fee_pallet_account: T::AccountId = AssetSplit::pallet_id().into_account_truncating();
 
-		Currency::transfer(
-			&pallet_account,
-			&fee_pallet_account,
-			fee.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
-			Preservation::Preserve,
-		)?;
-		Currency::transfer(
-			&pallet_account,
-			matcher,
-			reward_after_fee
-				.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
-			Preservation::Preserve,
-		)?;
+		if fee.gt(&(0u128.into())) {
+			Currency::transfer(
+				&pallet_account,
+				&fee_pallet_account,
+				fee.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
+				Preservation::Preserve,
+			)?;
+		}
+
+		if reward_after_fee.gt(&(0u128).into()) {
+			Currency::transfer(
+				&pallet_account,
+				matcher,
+				reward_after_fee
+					.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
+				Preservation::Preserve,
+			)?;
+		}
 
 		Ok(())
 	}

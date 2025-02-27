@@ -2,7 +2,7 @@ use frame_support::{
 	ensure,
 	pallet_prelude::*,
 	sp_runtime::{
-		traits::{CheckedAdd, CheckedMul, CheckedSub},
+		traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
 		DispatchError, Permill, SaturatedConversion,
 	},
 	traits::UnixTime,
@@ -72,6 +72,7 @@ impl<T: Config> Pallet<T> {
 
 			// keep track of total fee in assignments to check later if it exceeds reward
 			let mut total_fee: <T as Config>::Balance = 0u8.into();
+			let mut total_reward_per_execution: <T as Config>::Balance = 0u8.into();
 
 			// `slot` is used for detecting duplicate source proposed for distinct slots
 			// TODO: add global (configurable) maximum of jobs assigned. This would limit the weight of `propose_matching` to a constant, since it depends on the number of active matches.
@@ -172,6 +173,10 @@ impl<T: Config> Pallet<T> {
 					)
 					.ok_or(Error::<T>::CalculationOverflow)?;
 
+				total_reward_per_execution = total_reward_per_execution
+					.checked_add(&fee_per_execution)
+					.ok_or(Error::<T>::CalculationOverflow)?;
+
 				// ASSIGN if not yet assigned (equals to CHECK that no duplicate source in a single mutate operation)
 				<StoredMatches<T>>::try_mutate(
 					&planned_execution.source,
@@ -210,9 +215,12 @@ impl<T: Config> Pallet<T> {
 
 			remaining_rewards.push((m.job_id.clone(), diff));
 
-			<StoredTotalAssignedV3<T>>::mutate(|t| {
-				*t = Some(t.unwrap_or(0u128).saturating_add(1));
-			});
+			let total_reward_per_execution: u128 = total_reward_per_execution.into();
+			if total_reward_per_execution > 0 {
+				let avarage_fee_per_execution =
+					total_reward_per_execution / (m.sources.len() as u128);
+				Self::update_average_reward(avarage_fee_per_execution)?;
+			}
 
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
 			Self::deposit_event(Event::JobRegistrationMatched(m.clone()));
@@ -359,14 +367,8 @@ impl<T: Config> Pallet<T> {
 				// CHECK price not exceeding reward
 				ensure!(fee_per_execution <= reward_amount, Error::<T>::InsufficientRewardInMatch);
 
-				let execution_count = registration.schedule.execution_count();
-
 				total_fee = total_fee
-					.checked_add(
-						&fee_per_execution
-							.checked_mul(&execution_count.into())
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					)
+					.checked_add(&fee_per_execution)
 					.ok_or(Error::<T>::CalculationOverflow)?;
 
 				// ASSIGN if not yet assigned (equals to CHECK that no duplicate source in a single mutate operation)
@@ -418,7 +420,9 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// CHECK total fee is not exceeding reward
-			let total_reward_amount = Self::total_reward_amount(&registration)?;
+			let total_reward_amount = reward_amount
+				.checked_mul(&(m.sources.len() as u128).into())
+				.ok_or(Error::<T>::CalculationOverflow)?;
 			let diff = total_reward_amount
 				.checked_sub(&total_fee)
 				.ok_or(Error::<T>::InsufficientRewardInMatch)?;
@@ -428,11 +432,12 @@ impl<T: Config> Pallet<T> {
 
 			remaining_rewards.push((m.job_id.clone(), diff));
 
-			// only update average on first execution's match to not have the average proportionally influenced by singe executions that get matched
-			if m.execution_index == 0 {
-				<StoredTotalAssignedV3<T>>::mutate(|t| {
-					*t = Some(t.unwrap_or(0u128).saturating_add(1));
-				});
+			// only update average on first execution's match to not have the average proportionally influenced by single executions that get matched
+			if m.execution_index == 0 && !total_fee.is_zero() {
+				let avarage_fee_per_execution = total_fee
+					.checked_div(&(m.sources.len() as u128).into())
+					.ok_or(Error::<T>::UnexpectedCheckedCalculation)?;
+				Self::update_average_reward(avarage_fee_per_execution.into())?;
 			}
 
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
@@ -441,6 +446,34 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::JobExecutionMatched(m.clone()));
 		}
 		Ok(remaining_rewards)
+	}
+
+	fn update_average_reward(fee_per_execution: u128) -> Result<(), DispatchError> {
+		let total_assigned = <StoredTotalAssignedV3<T>>::mutate(|t| {
+			let new_value = t.unwrap_or(0u128).saturating_add(1);
+			*t = Some(new_value);
+			new_value
+		});
+		<StoredAverageRewardV3<T>>::try_mutate(|value| {
+			let average_reward = (*value).unwrap_or(0);
+
+			let total_reward = average_reward
+				.checked_mul(total_assigned - 1u128)
+				.ok_or(Error::<T>::CalculationOverflow)?;
+
+			let new_total_rewards = total_reward
+				.checked_add(fee_per_execution.into())
+				.ok_or(Error::<T>::CalculationOverflow)?;
+
+			let new_average_reward = new_total_rewards
+				.checked_div(total_assigned)
+				.ok_or(Error::<T>::CalculationOverflow)?;
+
+			*value = Some(new_average_reward);
+
+			Ok::<_, DispatchError>(())
+		})?;
+		Ok(())
 	}
 
 	fn check_scheduling_window(
@@ -676,16 +709,7 @@ impl<T: Config> Pallet<T> {
 			// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
 			if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
 				// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
-				if !schedule
-					.overlaps(
-						start_delay,
-						other
-							.schedule
-							.range(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					)
-					.ok_or(Error::<T>::CalculationOverflow)?
-				{
+				if !schedule.overlaps(start_delay, other.schedule.range(assignment.start_delay)) {
 					// periods don't overlap so no detail (and expensive) checks are necessary
 					continue;
 				}
@@ -728,10 +752,7 @@ impl<T: Config> Pallet<T> {
 							.checked_add(other.schedule.duration)
 							.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if schedule
-							.overlaps(start_delay, (other_start, other_end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
+						if schedule.overlaps(start_delay, (other_start, other_end)) {
 							Err(Error::<T>::ScheduleOverlapInMatch)?;
 						}
 					},
@@ -743,11 +764,7 @@ impl<T: Config> Pallet<T> {
 							.checked_add(schedule.duration)
 							.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if other
-							.schedule
-							.overlaps(start_delay, (start, end))
-							.ok_or(Error::<T>::CalculationOverflow)?
-						{
+						if other.schedule.overlaps(start_delay, (start, end)) {
 							Err(Error::<T>::ScheduleOverlapInMatch)?;
 						}
 					},
@@ -789,26 +806,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculates if the job ended considering the given assignment.
-	pub(crate) fn actual_schedule_ended(
-		schedule: &Schedule,
-		assignment: &AssignmentFor<T>,
-	) -> Result<bool, Error<T>> {
-		let now = Self::now()?
-			.checked_add(T::ReportTolerance::get())
-			.ok_or(Error::<T>::CalculationOverflow)?;
-		let (_actual_start, actual_end) =
-			schedule.range(assignment.start_delay).ok_or(Error::<T>::CalculationOverflow)?;
-		Ok(actual_end.lt(&now))
-	}
-
-	/// Calculates if the job ended considering the given assignment.
-	fn schedule_ended(schedule: &Schedule) -> Result<bool, Error<T>> {
-		let now = Self::now()?
-			.checked_add(T::ReportTolerance::get())
-			.ok_or(Error::<T>::CalculationOverflow)?;
-		let (_actual_start, actual_end) = schedule
-			.range(schedule.max_start_delay)
-			.ok_or(Error::<T>::CalculationOverflow)?;
+	fn schedule_ended(schedule: &Schedule) -> Result<bool, DispatchError> {
+		let now = Self::now()?.saturating_add(T::ReportTolerance::get());
+		let (_actual_start, actual_end) = schedule.range(schedule.max_start_delay);
 		Ok(actual_end.lt(&now))
 	}
 
@@ -979,8 +979,28 @@ impl<T: Config> Pallet<T> {
 		execution: ExecutionSpecifier,
 		pub_keys: PubKeys,
 	) -> DispatchResultWithPostInfo {
-		let (changed, assignment) = <StoredMatches<T>>::try_mutate(
-			&who,
+		let (changed, assignment) =
+			Self::update_assignment_to_acknowledged(&who, &job_id, execution, pub_keys)?;
+		if changed {
+			Self::update_job_status(&job_id, execution)?;
+			Self::update_next_report_index_on_acknowledge(&job_id, &who, &assignment, execution)?;
+
+			// activate hook so implementing side can react on job assignment
+			T::MarketplaceHooks::assign_job(&job_id, &assignment.pub_keys)?;
+
+			Self::deposit_event(Event::JobRegistrationAssigned(job_id, who, assignment.clone()));
+		}
+		Ok(().into())
+	}
+
+	fn update_assignment_to_acknowledged(
+		processor: &T::AccountId,
+		job_id: &JobId<T::AccountId>,
+		execution: ExecutionSpecifier,
+		pub_keys: PubKeys,
+	) -> Result<(bool, AssignmentFor<T>), DispatchError> {
+		Ok(<StoredMatches<T>>::try_mutate(
+			processor,
 			&job_id,
 			|m| -> Result<(bool, AssignmentFor<T>), Error<T>> {
 				// CHECK that job was matched previously to calling source
@@ -997,55 +1017,89 @@ impl<T: Config> Pallet<T> {
 				assignment.pub_keys = pub_keys;
 				Ok((changed, assignment.to_owned()))
 			},
-		)?;
+		)?)
+	}
 
-		if changed {
-			match execution {
-				ExecutionSpecifier::All => {
-					<StoredJobStatus<T>>::try_mutate(
-						&job_id.0,
-						job_id.1,
-						|s| -> Result<(), Error<T>> {
-							let status = s.ok_or(Error::<T>::JobStatusNotFound)?;
-							*s = Some(match status {
-								JobStatus::Open => {
-									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?
-								},
-								JobStatus::Matched => JobStatus::Assigned(1),
-								JobStatus::Assigned(count) => JobStatus::Assigned(count + 1),
-							});
+	fn update_job_status(
+		job_id: &JobId<T::AccountId>,
+		execution: ExecutionSpecifier,
+	) -> Result<(), DispatchError> {
+		match execution {
+			ExecutionSpecifier::All => {
+				<StoredJobStatus<T>>::try_mutate(
+					&job_id.0,
+					job_id.1,
+					|s| -> Result<(), Error<T>> {
+						let status = s.ok_or(Error::<T>::JobStatusNotFound)?;
+						*s = Some(match status {
+							JobStatus::Open => Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?,
+							JobStatus::Matched => JobStatus::Assigned(1),
+							JobStatus::Assigned(count) => JobStatus::Assigned(count + 1),
+						});
 
-							Ok(())
-						},
-					)?;
-				},
-				ExecutionSpecifier::Index(execution_index) => {
-					let new_status = <StoredJobExecutionStatus<T>>::try_mutate(
-						&job_id,
-						execution_index,
-						|status| -> Result<JobStatus, Error<T>> {
-							*status = match status {
-								JobStatus::Open => {
-									Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?
-								},
-								JobStatus::Matched => JobStatus::Assigned(1),
-								JobStatus::Assigned(count) => JobStatus::Assigned(*count + 1),
-							};
+						Ok(())
+					},
+				)?;
+			},
+			ExecutionSpecifier::Index(execution_index) => {
+				let new_status = <StoredJobExecutionStatus<T>>::try_mutate(
+					&job_id,
+					execution_index,
+					|status| -> Result<JobStatus, Error<T>> {
+						*status = match status {
+							JobStatus::Open => Err(Error::<T>::CannotAcknowledgeWhenNotMatched)?,
+							JobStatus::Matched => JobStatus::Assigned(1),
+							JobStatus::Assigned(count) => JobStatus::Assigned(*count + 1),
+						};
 
-							Ok(*status)
-						},
-					)?;
-					// reflect latest execution's status in StoredJobStatus for completeness
-					<StoredJobStatus<T>>::insert(&job_id.0, job_id.1, new_status);
-				},
-			}
-
-			// activate hook so implementing side can react on job assignment
-			T::MarketplaceHooks::assign_job(&job_id, &assignment.pub_keys)?;
-
-			Self::deposit_event(Event::JobRegistrationAssigned(job_id, who, assignment.clone()));
+						Ok(*status)
+					},
+				)?;
+				// reflect latest execution's status in StoredJobStatus for completeness
+				<StoredJobStatus<T>>::insert(&job_id.0, job_id.1, new_status);
+			},
 		}
-		Ok(().into())
+		Ok::<_, DispatchError>(())
+	}
+
+	fn update_next_report_index_on_acknowledge(
+		job_id: &JobId<T::AccountId>,
+		processor: &T::AccountId,
+		assignment: &AssignmentFor<T>,
+		execution: ExecutionSpecifier,
+	) -> Result<(), DispatchError> {
+		match execution {
+			ExecutionSpecifier::All => {
+				<NextReportIndex<T>>::insert(&job_id, processor, 0);
+				Ok::<_, DispatchError>(())
+			},
+			ExecutionSpecifier::Index(execution_index) => {
+				<NextReportIndex<T>>::try_mutate(job_id, processor, |value| {
+					match value {
+						None => {
+							*value = Some(execution_index);
+						},
+						Some(old_value) => {
+							let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
+								.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
+							let now = Self::now()?;
+							let is_stale = Self::check_report_is_timely(
+								&registration,
+								assignment,
+								now,
+								*old_value,
+							)
+							.is_err();
+							if is_stale {
+								Self::do_update_reputation(processor, assignment, 1)?;
+								*value = Some(execution_index);
+							}
+						},
+					}
+					Ok::<_, DispatchError>(())
+				})
+			},
+		}
 	}
 
 	/// Returns the current timestamp.

@@ -2,7 +2,7 @@
 
 use frame_support::{
 	assert_err, assert_ok,
-	sp_runtime::{bounded_vec, Permill},
+	sp_runtime::{bounded_vec, traits::Scale, Permill},
 	traits::{Hooks, TypedGet},
 };
 
@@ -556,7 +556,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 
 		assert_eq!(24_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()).into(),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 0,
@@ -618,10 +618,20 @@ fn test_deregister_on_assigned_job_for_competing() {
 		let reward1_after_fee = assignment1.fee_per_execution - fee1;
 		let reward2_after_fee = assignment1.fee_per_execution - fee2;
 
+		let matcher_percentage = FeeManagerImpl::get_matcher_percentage();
+		let matcher_payout = matcher_percentage.mul_floor(
+			(registration1.extra.requirements.reward
+				* registration1.extra.requirements.slots as u128)
+				- (assignment1.fee_per_execution + assignment2.fee_per_execution),
+		);
+
+		let matcher_payout_fee = fee_percentage.mul_floor(matcher_payout);
+		let matcher_pauout_after_fee = matcher_payout - matcher_payout_fee;
+
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
 			consumer_initial_balance
-				- (assignment1.fee_per_execution + assignment2.fee_per_execution)
+				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
 		);
 		assert_eq!(
 			Balances::free_balance(&processor_2_account_id()),
@@ -672,6 +682,16 @@ fn test_deregister_on_assigned_job_for_competing() {
 						],
 					}
 				)),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: pallet_fees_account(),
+					amount: matcher_payout_fee,
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: bob_account_id(),
+					amount: matcher_pauout_after_fee,
+				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationAssigned(
 					job_id1.clone(),
 					processor_account_id(),
@@ -722,7 +742,9 @@ fn test_deregister_on_assigned_job_for_competing() {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
 					amount: total_reward
-						- (assignment1.fee_per_execution + assignment2.fee_per_execution)
+						- (assignment1.fee_per_execution
+							+ assignment2.fee_per_execution
+							+ matcher_payout)
 				}),
 				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationRemoved(
 					job_id1.clone()
@@ -815,7 +837,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()).into(),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 0,
@@ -844,16 +866,21 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 
 		later(registration1.schedule.start_time);
 
+		let mut assignment1 =
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
+
 		assert_ok!(AcurastMarketplace::report(
 			RuntimeOrigin::signed(processor_account_id()).into(),
 			job_id1.clone(),
 			ExecutionResult::Success(b"JOB_EXECUTED".to_vec().try_into().unwrap()),
 		));
 
+		assignment1.sla.met = 1;
+
 		later(now + registration1.schedule.interval);
 
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()).into(),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 1,
@@ -875,16 +902,22 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			PubKeys::default(),
 		));
 
-		let assignment1 =
-			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 		let assignment2 =
 			AcurastMarketplace::stored_matches(processor_2_account_id(), job_id1.clone()).unwrap();
+
 		let total_reward = registration1.extra.requirements.reward
 			* (registration1.extra.requirements.slots as u128)
 			* (registration1.schedule.execution_count() as u128);
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
 		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
 		let reward1_after_fee = assignment1.fee_per_execution - fee1;
+		let matcher_percentage = FeeManagerImpl::get_matcher_percentage();
+		let matcher_payout = matcher_percentage
+			.mul_floor(registration1.extra.requirements.reward - assignment1.fee_per_execution)
+			+ matcher_percentage
+				.mul_floor(registration1.extra.requirements.reward - assignment2.fee_per_execution);
+		let matcher_payout_fee = fee_percentage.mul_floor(matcher_payout);
+		let matcher_payout_afer_fee = matcher_payout - matcher_payout_fee;
 
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
@@ -907,7 +940,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		assert_eq!(
 			Balances::free_balance(&alice_account_id()),
 			consumer_initial_balance
-				- (assignment1.fee_per_execution + assignment2.fee_per_execution)
+				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
 		);
 		assert_eq!(
 			Balances::free_balance(&processor_2_account_id()),
@@ -958,6 +991,16 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 						},],
 					}
 				)),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: pallet_fees_account(),
+					amount: matcher_payout_fee / 2
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: bob_account_id(),
+					amount: matcher_payout_afer_fee / 2
+				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationAssigned(
 					job_id1.clone(),
 					processor_account_id(),
@@ -1000,6 +1043,16 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 						},],
 					}
 				)),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: pallet_fees_account(),
+					amount: matcher_payout_fee / 2
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: pallet_acurast_acount(),
+					to: bob_account_id(),
+					amount: matcher_payout_afer_fee / 2
+				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationAssigned(
 					job_id1.clone(),
 					processor_2_account_id(),
@@ -1027,7 +1080,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
 					amount: total_reward
-						- (assignment1.fee_per_execution + assignment2.fee_per_execution)
+						- (assignment1.fee_per_execution
+							+ assignment2.fee_per_execution
+							+ matcher_payout)
 				}),
 				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationRemoved(
 					job_id1.clone()
@@ -1207,11 +1262,18 @@ fn test_match() {
 		));
 		// job budget decreased by reward worth one execution
 		assert_eq!(6784000, AcurastMarketplace::reserved(&job_id1));
-		// average reward only updated at end of job
-		assert_eq!(None, AcurastMarketplace::average_reward());
-		// reputation still ~50%
+		let assignment1 =
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
+		let assignment2 =
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id2.clone()).unwrap();
+		// average reward updated on acknowledged
 		assert_eq!(
-			Permill::from_parts(509_803),
+			Some((assignment1.fee_per_execution + assignment2.fee_per_execution) / 2),
+			AcurastMarketplace::average_reward()
+		);
+		// reputation updated to around ~60%
+		assert_eq!(
+			Permill::from_parts(611_764),
 			BetaReputation::<u128>::normalize(
 				AcurastMarketplace::stored_reputation(processor_account_id()).unwrap()
 			)
@@ -1240,7 +1302,7 @@ fn test_match() {
 		);
 
 		// pretend time moved on
-		later(registration1.schedule.range(0).unwrap().1 - 2000);
+		later(registration1.schedule.range(0).1 - 2000);
 		assert_eq!(3, System::block_number());
 
 		assert_ok!(AcurastMarketplace::report(
@@ -1267,11 +1329,9 @@ fn test_match() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()),
 		);
 		assert_eq!(Some(2), AcurastMarketplace::total_assigned());
-		// average reward only updated at end of job
-		assert_eq!(Some(2510000), AcurastMarketplace::average_reward());
 		// reputation increased
 		assert_eq!(
-			Permill::from_parts(763_424),
+			Permill::from_parts(725_789),
 			BetaReputation::<u128>::normalize(
 				AcurastMarketplace::stored_reputation(processor_account_id()).unwrap()
 			)
@@ -1566,7 +1626,19 @@ fn test_multi_assignments() {
 		// job budget decreased by reward worth one execution
 		assert_eq!(264096000, AcurastMarketplace::reserved(&job_id1));
 		// average reward only updated at end of job
-		assert_eq!(None, AcurastMarketplace::average_reward());
+		assert_eq!(
+			Some(
+				processors
+					.iter()
+					.fold(0u128, |acc, (p, _)| {
+						let asssignment =
+							AcurastMarketplace::stored_matches(p, job_id1.clone()).unwrap();
+						acc + asssignment.fee_per_execution
+					})
+					.div(processors.len() as u128)
+			),
+			AcurastMarketplace::average_reward()
+		);
 		// reputation still ~50%
 		assert_eq!(
 			Permill::from_parts(509_803),
@@ -1632,9 +1704,10 @@ fn test_multi_assignments() {
 		assert_eq!(258996000, AcurastMarketplace::reserved(&job_id1));
 
 		processors.iter().for_each(|(processor, _)| {
-			assert_ok!(AcurastMarketplace::finalize_job(
+			assert_ok!(AcurastMarketplace::report(
 				RuntimeOrigin::signed(processor.clone()).into(),
-				job_id1.clone()
+				job_id1.clone(),
+				ExecutionResult::Success(operation_hash())
 			));
 			assert_eq!(None, AcurastMarketplace::stored_matches(processor, job_id1.clone()),)
 		});
@@ -1899,7 +1972,7 @@ fn test_no_match_insufficient_reputation() {
 }
 
 #[test]
-fn test_more_reports_than_expected() {
+fn test_report_afer_last_report() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
@@ -1996,14 +2069,14 @@ fn test_more_reports_than_expected() {
 		));
 
 		// third report is illegal!
-		later(registration.schedule.range(0).unwrap().1 + 1000);
+		later(registration.schedule.range(0).1 + 1000);
 		assert_err!(
 			AcurastMarketplace::report(
 				RuntimeOrigin::signed(processor_account_id()).into(),
 				job_id.clone(),
 				ExecutionResult::Success(operation_hash())
 			),
-			Error::<Test>::MoreReportsThanExpected
+			Error::<Test>::ReportFromUnassignedSource
 		);
 
 		assert_eq!(

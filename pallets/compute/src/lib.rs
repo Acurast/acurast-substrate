@@ -181,10 +181,9 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		MissingMetricCommit,
+		PoolNameMustBeUnique,
 		MissingMetricTotal,
 		ProcessorNeverCommitted,
-		InvalidMetricEpoch,
 		InvalidMetric,
 		CalculationOverflow,
 		PoolNotFound,
@@ -233,6 +232,12 @@ pub mod pallet {
 				let p = pool.as_mut().ok_or(Error::<T, I>::PoolNotFound)?;
 
 				if let Some(name) = new_name {
+					if let Some(maybe_conflicting_pool_id) = Self::metric_pool_lookup(name) {
+						if maybe_conflicting_pool_id != pool_id {
+							Err(Error::<T, I>::PoolNameMustBeUnique)?
+						}
+					}
+
 					<MetricPoolLookup<T, I>>::remove(p.name);
 					<MetricPoolLookup<T, I>>::insert(name, pool_id);
 					p.name = name;
@@ -288,6 +293,9 @@ pub mod pallet {
 			reward_ratio: Perquintill,
 			config: MetricPoolConfigValues,
 		) -> Result<(PoolId, MetricPoolFor<T, I>), DispatchError> {
+			if Self::metric_pool_lookup(name).is_some() {
+				Err(Error::<T, I>::PoolNameMustBeUnique)?
+			}
 			let pool_id = LastMetricPoolId::<T, I>::try_mutate::<_, Error<T, I>, _>(|id| {
 				*id = id.checked_add(1).ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(*id)
@@ -315,18 +323,24 @@ pub mod pallet {
 
 				let mut total_reward_ratio: Perquintill = Zero::zero();
 				for pool_id in pool_ids {
-					// currently we are strict and expect a commit for each metric, later we might allow partial metrics committed (for backwards compatibility).
-					let commit = Metrics::<T, I>::get(processor, pool_id)
-						.ok_or(Error::<T, I>::MissingMetricCommit)?;
+					// we allow partial metrics committed (for backwards compatibility)
+					let commit = if let Some(c) = Metrics::<T, I>::get(processor, pool_id) {
+						c
+					} else {
+						continue;
+					};
+
 					// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
-					ensure!(commit.epoch == p.committed, Error::<T, I>::InvalidMetricEpoch);
+					if commit.epoch != p.committed {
+						continue;
+					}
 
 					let pool =
 						<MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
 					let reward_ratio = pool.reward.get(claim_epoch);
 
 					// Weight reward according to processor compute relative to total compute for pool identified by `pool_id`.
-					// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = p_epoch - 1`.
+					// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = epoch - 1`.
 					let pool_total: FixedU128 = pool.total.get(claim_epoch);
 
 					// check if we would divide by zero building rational
@@ -391,12 +405,9 @@ pub mod pallet {
 			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 
 			if let Some(p) = Processors::<T, I>::get(processor) {
-				let p_epoch = current_block
-					.saturating_sub(p.epoch_offset)
-					.saturating_sub(T::EpochBase::get())
-					/ T::Epoch::get();
+				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-				(p.committed.saturating_add(One::one()) == p_epoch
+				(p.committed.saturating_add(One::one()) == epoch
 					&& p.claimed < p.committed
 					&& match p.status {
 						ProcessorStatus::WarmupUntil(b) => b <= current_block,
@@ -419,10 +430,11 @@ pub mod pallet {
 		) {
 			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 
-			let (p_epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
+			let (epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
 				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(||
 					// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
 					ProcessorState {
+                        // currently unused, see comment why we initialize this anyways
 						epoch_offset: current_block.saturating_sub(T::EpochBase::get())
 							% T::Epoch::get(),
 						committed: Zero::zero(),
@@ -441,14 +453,11 @@ pub mod pallet {
 					}
 				}
 
-				// The epoch number, which is the latest global epoch that started before or at the current processor epoch.
-				let p_epoch = current_block
-					.saturating_sub(p.epoch_offset)
-					.saturating_sub(T::EpochBase::get())
-					/ T::Epoch::get();
+				// The global epoch number
+				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-				p.committed = p_epoch;
-				(p_epoch, matches!(p.status, ProcessorStatus::Active))
+				p.committed = epoch;
+				(epoch, matches!(p.status, ProcessorStatus::Active))
 			});
 
 			for (pool_id, numerator, denominator) in metrics {
@@ -457,19 +466,16 @@ pub mod pallet {
 					if denominator.is_zero() { One::one() } else { denominator },
 				);
 				let before = Metrics::<T, I>::get(processor, pool_id);
-				if before.map(|m| m.epoch < p_epoch).unwrap_or(true) {
+				// first value committed for `epoch` wins
+				if before.map(|m| m.epoch < epoch).unwrap_or(true) {
 					// insert even if not active for tracability before warmup ended
-					Metrics::<T, I>::insert(
-						processor,
-						pool_id,
-						MetricCommit { epoch: p_epoch, metric },
-					);
+					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
 
 					if active {
 						// sum totals
 						<MetricPools<T, I>>::mutate(pool_id, |pool| {
 							if let Some(pool) = pool.as_mut() {
-								pool.add(p_epoch, metric);
+								pool.add(epoch, metric);
 							}
 						});
 					}

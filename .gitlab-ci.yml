@@ -101,7 +101,7 @@ publish-dockerhub:
 .prepare-dev-benchmarking:
   script:
     - mkdir -p $ROCOCO/
-    - docker build -t $CI_COMMIT_SHA-$ROCOCO-benchmarks --build-arg benchmarks="$ROCOCO" .
+    - docker build -t $CI_COMMIT_SHA-$ROCOCO-benchmarks --build-arg benchmarks="dev" .
     - docker create --name $ROCOCO $CI_COMMIT_SHA-$ROCOCO-benchmarks
     - docker cp "$ROCOCO:/usr/local/bin/acurast-node" $ROCOCO/
     - docker rm $ROCOCO

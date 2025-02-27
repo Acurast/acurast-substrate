@@ -13,7 +13,7 @@ ARG benchmarks=""
 RUN \
 	if [ "${benchmarks}" = "kusama" ] ; then \
 	cargo build --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
-	elif [[ -n "${benchmarks}" ]] ; then \
+	elif [ "${benchmarks}" = "dev" ] ; then \
 	cargo build --features 'runtime-benchmarks' --release ; \
 	elif [ "${chain}" = "kusama" ] ; then \
 	cargo build --no-default-features --features 'acurast-kusama,std,allow-faucet' --release ; \

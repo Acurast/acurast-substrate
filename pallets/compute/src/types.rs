@@ -97,7 +97,10 @@ pub struct MetricCommit<Epoch: Debug> {
 
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
-	/// The offset this processor's epochs have from global epochs. This is **not** aligned with global epochs to ensure commit-claim operations don't overload the chain on same block range of `[global_epoch_start, global_epoch_start + heartbeat_interval]`.
+	/// The offset in blocks this processor's epoch has from current global epoch.
+	///
+	/// **Currently unused**:
+	/// It is **not** aligned with global epochs and could be used in the future to ensure commit-claim operations don't overload the chain on same block range of `[global_epoch_start, global_epoch_start + heartbeat_interval]`.
 	pub epoch_offset: BlockNumber,
 	/// The lastest epoch in which a processor committed.
 	pub committed: Epoch,

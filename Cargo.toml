@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.13.2"
+version = "0.13.3"
 edition = "2021"
 
 [workspace.dependencies]
@@ -65,7 +65,6 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
-pallet-acurast-vesting = { path = "./pallets/vesting", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }

@@ -99,7 +99,7 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hypdrpid");
-	pub const ReportTolerance: u64 = 12000;
+	pub const ReportTolerance: u64 = 70_000;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]

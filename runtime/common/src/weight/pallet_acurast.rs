@@ -63,8 +63,8 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `686`
 		//  Estimated: `7295`
-		// Minimum execution time: 124_990_000 picoseconds.
-		Weight::from_parts(129_019_000, 0)
+		// Minimum execution time: 130_020_000 picoseconds.
+		Weight::from_parts(132_470_000, 0)
 			.saturating_add(Weight::from_parts(0, 7295))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(10))
@@ -81,8 +81,8 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `866`
 		//  Estimated: `38281`
-		// Minimum execution time: 93_950_000 picoseconds.
-		Weight::from_parts(95_260_000, 0)
+		// Minimum execution time: 96_320_000 picoseconds.
+		Weight::from_parts(98_420_000, 0)
 			.saturating_add(Weight::from_parts(0, 38281))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -96,11 +96,11 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `603`
 		//  Estimated: `38281`
-		// Minimum execution time: 36_060_000 picoseconds.
-		Weight::from_parts(37_090_000, 0)
+		// Minimum execution time: 36_811_000 picoseconds.
+		Weight::from_parts(37_660_000, 0)
 			.saturating_add(Weight::from_parts(0, 38281))
-			// Standard Error: 19_876
-			.saturating_add(Weight::from_parts(1_776_393, 0).saturating_mul(x.into()))
+			// Standard Error: 19_169
+			.saturating_add(Weight::from_parts(1_706_321, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -114,8 +114,8 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `174`
 		//  Estimated: `11038`
-		// Minimum execution time: 17_636_423_000 picoseconds.
-		Weight::from_parts(17_660_053_000, 0)
+		// Minimum execution time: 17_593_594_000 picoseconds.
+		Weight::from_parts(17_648_354_000, 0)
 			.saturating_add(Weight::from_parts(0, 11038))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -126,8 +126,8 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 10_680_000 picoseconds.
-		Weight::from_parts(10_910_000, 0)
+		// Minimum execution time: 11_140_000 picoseconds.
+		Weight::from_parts(11_460_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -140,11 +140,11 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `333`
 		//  Estimated: `38281`
-		// Minimum execution time: 24_669_000 picoseconds.
-		Weight::from_parts(25_521_373, 0)
+		// Minimum execution time: 25_190_000 picoseconds.
+		Weight::from_parts(26_055_792, 0)
 			.saturating_add(Weight::from_parts(0, 38281))
-			// Standard Error: 5_228
-			.saturating_add(Weight::from_parts(371_419, 0).saturating_mul(x.into()))
+			// Standard Error: 5_473
+			.saturating_add(Weight::from_parts(371_530, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -158,13 +158,13 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `333`
 		//  Estimated: `38281`
-		// Minimum execution time: 28_400_000 picoseconds.
-		Weight::from_parts(29_110_000, 0)
+		// Minimum execution time: 28_660_000 picoseconds.
+		Weight::from_parts(29_580_000, 0)
 			.saturating_add(Weight::from_parts(0, 38281))
-			// Standard Error: 35_308
-			.saturating_add(Weight::from_parts(6_966_465, 0).saturating_mul(x.into()))
-			// Standard Error: 227_124
-			.saturating_add(Weight::from_parts(6_196_070, 0).saturating_mul(y.into()))
+			// Standard Error: 35_777
+			.saturating_add(Weight::from_parts(7_287_675, 0).saturating_mul(x.into()))
+			// Standard Error: 230_136
+			.saturating_add(Weight::from_parts(6_371_319, 0).saturating_mul(y.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 	}

@@ -4,7 +4,7 @@ use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobModules, StoredAttestation,
+	BoundedDeviceAttestationNonce, JobModules, PoolId, StoredAttestation,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
@@ -156,5 +156,9 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			validity: AttestationValidity { not_before: 0, not_after: u64::MAX },
 		};
 		<StoredAttestation<Runtime>>::insert(account, attestation);
+	}
+
+	fn create_compute_pool() -> PoolId {
+		panic!("pallet_acurast_compute not yet installed for this runtime");
 	}
 }

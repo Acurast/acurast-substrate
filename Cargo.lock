@@ -334,6 +334,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
@@ -410,6 +411,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
@@ -7278,6 +7280,33 @@ dependencies = [
  "sp-std",
  "sp-version",
  "staging-parachain-info",
+]
+
+[[package]]
+name = "pallet-acurast-compute"
+version = "0.13.2"
+dependencies = [
+ "acurast-common",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.4.1",
+ "jsonrpsee 0.16.3",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "pallet-uniques",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
 ]
 
 [[package]]

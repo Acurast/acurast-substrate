@@ -1,18 +1,20 @@
+use crate::AcurastCompute;
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobModules, StoredAttestation,
+	BoundedDeviceAttestationNonce, JobModules, PoolId, StoredAttestation,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
+use sp_runtime::Perquintill;
 use sp_std::vec;
 
-use crate::{AcurastMarketplace, Balance, Balances, BundleId, Runtime};
+use crate::{AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin};
 
 define_benchmarks!(
 	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
@@ -30,6 +32,7 @@ define_benchmarks!(
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
 	[pallet_acurast_vesting, AcurastVesting]
+	[pallet_acurast_compute, AcurastCompute]
 );
 
 fn create_funded_user(
@@ -159,5 +162,16 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			validity: AttestationValidity { not_before: 0, not_after: u64::MAX },
 		};
 		<StoredAttestation<Runtime>>::insert(account, attestation);
+	}
+
+	fn create_compute_pool() -> PoolId {
+		AcurastCompute::create_pool(
+			RuntimeOrigin::root(),
+			*b"cpu-ops-per-second______",
+			Perquintill::from_percent(25),
+			Default::default(),
+		)
+		.expect("Expecting that pool creation always succeeds");
+		AcurastCompute::last_metric_pool_id()
 	}
 }

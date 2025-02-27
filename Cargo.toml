@@ -50,6 +50,8 @@ pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features 
 pallet-acurast-fee-manager = { path = "./pallets/fee-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { path = "./pallets/processor-manager", default-features = false }
+# The Processor Manager pallet holds and manages information about each manager and its processors.
+pallet-acurast-compute = { path = "./pallets/compute", default-features = false }
 # The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy.
 pallet-acurast-hyperdrive = { path = "./pallets/hyperdrive", default-features = false }
 # The Hyperdrive (IBC) pallet enables inter-blockchain-communication (IBC) by bidirectional message passing.

@@ -353,6 +353,16 @@ impl PartialOrd for Version {
 	}
 }
 
+/// Type used for unique identifier of each pool.
+pub type PoolId = u8;
+
+/// A metric specified as `(pool_id, numerator, denominator)`.
+///
+/// A list of metrics are committed after deriving them from performed benchmarks on processor.
+///  
+/// The metric is transformed into a [`FixedU128`] defined by `numerator / denominator`.
+pub type MetricInput = (PoolId, u128, u128);
+
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
 pub struct CU32<const T: u32>;
 impl<const T: u32> Get<u32> for CU32<T> {

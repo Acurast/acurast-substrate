@@ -8,19 +8,8 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("acurast-dev"), DB CACHE: 1024
 
 // Executed Command:
-// ./target/release/acurast-node
-// benchmark
-// pallet
-// --chain=acurast-dev
-// --execution=wasm
-// --wasm-execution=compiled
-// --pallet
-// pallet_acurast_processor_manager
-// --extrinsic
-// *
-// --steps=50
-// --repeat=20
-// --output=./benchmarks/
+// ./target/release/acurast-node benchmark pallet --chain=acurast-dev --wasm-execution=compiled --pallet "pallet_acurast_processor_manager" --extrinsic "*" --steps=50 --repeat=20 --output=./benchmarks/
+
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -143,6 +132,37 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 4990))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:0)
+	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Processors` (r:1 w:1)
+	/// Proof: `AcurastCompute::Processors` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Metrics` (r:1 w:1)
+	/// Proof: `AcurastCompute::Metrics` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[0, 20]`.
+	fn heartbeat_with_metrics(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `823`
+		//  Estimated: `15088`
+		// Minimum execution time: 43_000_000 picoseconds.
+		Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			// Standard Error: 11_459
+			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: Uniques Account (r:1 w:0)
 	/// Proof: Uniques Account (max_values: None, max_size: Some(112), added: 2587, mode: MaxEncodedLen)

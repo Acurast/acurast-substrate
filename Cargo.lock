@@ -341,7 +341,6 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
- "pallet-acurast-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -417,7 +416,6 @@ dependencies = [
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
- "pallet-acurast-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -7469,29 +7467,6 @@ dependencies = [
 [[package]]
 name = "pallet-acurast-rewards-treasury"
 version = "0.13.2"
-dependencies = [
- "acurast-common",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.4.1",
- "log",
- "pallet-balances",
- "pallet-timestamp",
- "pallet-uniques",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-acurast-vesting"
-version = "0.2.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",

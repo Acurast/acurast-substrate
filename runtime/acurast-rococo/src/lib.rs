@@ -11,7 +11,6 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 mod constants;
-mod implementations;
 mod pallets;
 mod types;
 mod utils;
@@ -87,8 +86,6 @@ mod runtime {
 	// Governance stuff.
 	#[runtime::pallet_index(15)]
 	pub type Democracy = pallet_democracy;
-	#[runtime::pallet_index(17)]
-	pub type AcurastVesting = pallet_acurast_vesting;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]

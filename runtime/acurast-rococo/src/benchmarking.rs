@@ -164,9 +164,13 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 	}
 
 	fn create_compute_pool() -> PoolId {
+		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
+		let mut name = *b"cpu-ops-per-second______";
+		name[23] = c[AcurastCompute::last_metric_pool_id() as usize];
+
 		AcurastCompute::create_pool(
 			RuntimeOrigin::root(),
-			*b"cpu-ops-per-second______",
+			name,
 			Perquintill::from_percent(25),
 			Default::default(),
 		)

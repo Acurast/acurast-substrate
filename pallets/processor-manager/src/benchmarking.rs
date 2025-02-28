@@ -134,7 +134,7 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
-			window_length: 1,
+			window_length: 900,
 			tollerance: 1000,
 			min_heartbeats: 1,
 			reward_per_distribution: 347_222_222_222u128.into(),
@@ -153,11 +153,21 @@ benchmarks! {
 			build_number: 1,
 		};
 
-		let pool_id = T::BenchmarkHelper::create_compute_pool();
 		let mut values = Vec::<MetricInput>::new();
 		for i in 0..x {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, i.into(), i.into()));
 		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		run_to_block::<T>(1900u32.into());
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure claim is performed by moving to next epoch, 900 blocks later
+		run_to_block::<T>(2700u32.into());
 	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
 	update_binary_hash {

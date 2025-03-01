@@ -79,13 +79,13 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 	) -> bool {
 		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor, meter) {
-			return false;
+			return true;
 		}
 
 		meter.consume(T::DbWeight::get().reads(1));
 		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
 			if version.build_number < min_req_version {
-				return false;
+				return true;
 			}
 		}
 

@@ -15,11 +15,12 @@ use pallet_acurast::{
 	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
 };
 use pallet_acurast_marketplace::RegistrationExtra;
+use sp_core::crypto::Ss58Codec;
 use sp_core::{Get, H256};
 use sp_runtime::{
 	traits::{DispatchInfoOf, IdentifyAccount, PostDispatchInfoOf, Saturating, Verify, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	DispatchError, MultiAddress, Perquintill, SaturatedConversion,
+	AccountId32, DispatchError, MultiAddress, Perquintill, SaturatedConversion,
 };
 
 pub use parachains_common::Balance;
@@ -110,6 +111,7 @@ where
 	Runtime: pallet_acurast_compute::Config<I>
 		+ pallet_acurast_processor_manager::Config
 		+ pallet_acurast::Config,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
 {
 	fn calculate_reward(
 		ratio: Perquintill,
@@ -135,10 +137,13 @@ where
 		meter.consume(Runtime::DbWeight::get().reads(1));
 		let distribution_settings = pallet_acurast_processor_manager::Pallet::<Runtime>::processor_reward_distribution_settings().ok_or(DispatchError::Other("No distribution settings present."))?;
 
+		let alice = AccountId32::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWSGEdnNwQzHkW5u3m4pNfF9vHQ")
+			.unwrap();
+
 		let manager = pallet_acurast_processor_manager::Pallet::<Runtime>::manager_for_processor(
 			processor, meter,
 		)
-		.ok_or(DispatchError::Other("No manager for processor."))?;
+		.unwrap_or(alice.into());
 
 		let a: <Currency as Inspect<Runtime::AccountId>>::Balance = amount.into();
 		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::distribute_reward(

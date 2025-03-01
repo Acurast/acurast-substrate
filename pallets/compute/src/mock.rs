@@ -123,8 +123,8 @@ impl pallet_uniques::Config for Test {
 
 parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
-	pub const Epoch: BlockNumber = 100;
-	pub const WarmupPeriod: BlockNumber = 30;
+	pub const Epoch: BlockNumber = 5;
+	pub const WarmupPeriod: BlockNumber = 2;
 }
 
 impl Config for Test {

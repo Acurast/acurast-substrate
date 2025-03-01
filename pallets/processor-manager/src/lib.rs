@@ -533,7 +533,7 @@ pub mod pallet {
 
 			let mut meter = WeightMeter::new();
 			meter.consume(T::DbWeight::get().reads(1));
-			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
+			_ = Self::manager_id_for_processor(&who);
 
 			let now = T::UnixTime::now().as_millis();
 

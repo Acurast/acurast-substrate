@@ -11,8 +11,8 @@ use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 
 parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
-	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
+	pub const Epoch: BlockNumber = 10;
+	pub const WarmupPeriod: BlockNumber = 5;
 }
 
 impl pallet_acurast_compute::Config for Runtime {

@@ -116,7 +116,15 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { pools: Default::default(), phantom: Default::default() }
+			let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
+			let mut pools = Vec::<(MetricPoolName, Perquintill, MetricPoolConfigValues)>::new();
+			for i in 1..=15 {
+				let mut name = *b"cpu-ops-per-second______";
+				name[23] = c[i as usize];
+				pools.push((name.clone(), Perquintill::from_percent(5), Default::default()));
+			}
+
+			Self { pools, phantom: Default::default() }
 		}
 	}
 

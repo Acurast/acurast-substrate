@@ -17,15 +17,6 @@ name = "bob"
 validator = true
 command = "polkadot"
 
-[[relaychain.nodes]]
-name = "charlie"
-validator = true
-command = "polkadot"
-
-[[relaychain.nodes]]
-name = "dave"
-validator = true
-command = "polkadot"
 
 [[parachains]]
 id = 2001

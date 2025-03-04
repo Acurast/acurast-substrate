@@ -9,6 +9,7 @@ use frame_support::{
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND, PalletId,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
+use pallet_acurast::AccountId20;
 use sp_runtime::{create_runtime_str, traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
@@ -117,6 +118,13 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
 	pub const HyperdriveIbcFeePalletId: PalletId = PalletId(*b"hyibcfee");
+	pub HyperdriveTokenPalletAccount: AccountId = PalletId(*b"hyptoken").into_account_truncating();
+	pub HyperdriveTokenEthereumContract: AccountId20 = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1").into();
+	pub HyperdriveTokenEthereumVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
+	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
+	pub HyperdriveTokenSolanaContract: AccountId32 = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
+	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
+	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);

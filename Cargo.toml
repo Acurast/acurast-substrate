@@ -56,6 +56,8 @@ pallet-acurast-compute = { path = "./pallets/compute", default-features = false 
 pallet-acurast-hyperdrive = { path = "./pallets/hyperdrive", default-features = false }
 # The Hyperdrive (IBC) pallet enables inter-blockchain-communication (IBC) by bidirectional message passing.
 pallet-acurast-hyperdrive-ibc = { path = "./pallets/hyperdrive-ibc", default-features = false }
+# The Hyperdrive (Token) pallet enables bidirectional token bridging to supported chains.
+pallet-acurast-hyperdrive-token = { path = "./pallets/hyperdrive-token", default-features = false }
 # The Reputation pallet handles the reputation of processors.
 acurast-reputation = { path = "./pallets/marketplace/reputation", default-features = false }
 # The Parachain Staking pallet is the main component for the Proof of Stake consensus

@@ -95,4 +95,15 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: AcurastHyperdriveTezos CurrentAlephZeroContract (r:0 w:1)
+	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
+	fn clean_incoming() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `295`
+		//  Estimated: `7114`
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(21_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7114))
+			.saturating_add(T::DbWeight::get().reads(2))
+	}
 }

@@ -97,7 +97,9 @@ where
 			MultiOrigin::Tezos(_)
 			| MultiOrigin::Ethereum(_)
 			| MultiOrigin::AlephZero(_)
-			| MultiOrigin::Vara(_) => {
+			| MultiOrigin::Vara(_)
+			| MultiOrigin::Ethereum20(_)
+			| MultiOrigin::Solana(_) => {
 				// The availability of these funds was ensured on the target chain side
 				Currency::transfer(
 					&hyperdrive_pallet_account,
@@ -217,9 +219,12 @@ where
 			MultiOrigin::Tezos(_)
 			| MultiOrigin::Ethereum(_)
 			| MultiOrigin::AlephZero(_)
-			| MultiOrigin::Vara(_) => {
+			| MultiOrigin::Vara(_)
+			| MultiOrigin::Ethereum20(_)
+			| MultiOrigin::Solana(_) => {
 				Currency::transfer(
 					&pallet_account,
+					// TODO refunded amount is collected on hyperdrive_pallet_account but not yet refunded to proxy chain
 					&hyperdrive_pallet_account,
 					remaining.saturated_into(),
 					Preservation::Preserve,

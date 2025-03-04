@@ -46,7 +46,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	/// Configures the pallet instance for a specific target chain from which we synchronize state into Acurast.
+	/// Configures the pallet.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type RuntimeEvent: From<Event<Self, I>>
@@ -475,16 +475,18 @@ pub mod pallet {
 
 		/// Sends a message by the given `sender` paid by a potentially different `payer`.
 		///
-		/// **NOTE**: This is an internal function but could be made available
+		/// **NOTE**:
+		///
+		/// * This is an internal function but could be made available
 		/// to other pallets if the authorization for the passed `sender` has been ensured at the caller.
 		/// Be careful to not allow for unintended impersonation.
+		/// * _Exactly-once delivery_ is **not** guaranteed even the `nonce` serves as deduplication during ttl; While, after ttl passed and message fee cannot be claimed by relayer, a _different_ message with same nonce can be sent off, it cannot be guaranteed a relayer received the oracle signatures before and still submits first message to proxy.
 		pub fn do_send_message(
 			sender: SubjectFor<T>,
 			payer: &T::AccountId,
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,
 			payload: Vec<u8>,
-			// pub amount: u128,
 			ttl: BlockNumberFor<T>,
 			fee: BalanceOf<T, I>,
 		) -> Result<OutgoingMessageWithMetaFor<T, I>, Error<T, I>> {

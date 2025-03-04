@@ -55,27 +55,3 @@ args = [
 	"--database=rocksdb",
 	"--block-authoring-duration=2000",
 ]
-
-[[parachains.collators]]
-name = "Charlie"
-command = "acurast-node"
-ws_port = 8803
-rpc_port = 8083
-args = [
-	"-lparachain=debug,runtime=debug",
-	"--pruning=archive",
-	"--database=rocksdb",
-	"--block-authoring-duration=2000",
-]
-
-[[parachains.collators]]
-name = "Dave"
-command = "acurast-node"
-ws_port = 8803
-rpc_port = 8083
-args = [
-	"-lparachain=debug,runtime=debug",
-	"--pruning=archive",
-	"--database=rocksdb",
-	"--block-authoring-duration=2000",
-]

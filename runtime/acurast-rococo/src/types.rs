@@ -21,6 +21,8 @@ use sp_std::prelude::*;
 
 use crate::{AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
 
+pub type AcurastAssetId = u32;
+
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
 pub struct AcurastAccountId(AccountId32);

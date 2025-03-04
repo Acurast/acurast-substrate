@@ -1,6 +1,6 @@
 [package]
-name = "pallet-acurast-hyperdrive-ibc"
-description = "Acurast Hyperdrive enables inter-blockchain-communication (IBC) by bidirectional message passing"
+name = "pallet-acurast-hyperdrive-token"
+description = "The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy."
 authors = { workspace = true }
 version = { workspace = true }
 repository = { workspace = true }
@@ -13,14 +13,17 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = { version = "0.4", default-features = false }
+log = { workspace = true }
 parity-scale-codec = { workspace = true }
 sp-core = { workspace = true }
 hex = { version = "0.4", default-features = false }
-hex-literal = { version = "0.3", default-features = false }
+hex-literal = { version = "0.4", default-features = false }
 
 # Acurast
 pallet-acurast = { path = "../acurast", default-features = false }
+pallet-acurast-hyperdrive-ibc = { workspace = true }
+
+acurast-hyperdrive-substrate-core = { path = "../../hyperdrive/substrate-core", default-features = false }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -35,25 +38,22 @@ rlp = { version = "0.5.2", default-features = false }
 alloy-sol-types = { version = "0.3.1", default-features = false }
 
 # Benchmarks
-frame-benchmarking = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 # Substrate
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-scale-info = { version = "2.2.0", default-features = false, features = [
-	"derive",
-] }
+scale-info = { workspace = true }
 sp-std = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-core = { workspace = true }
 pallet-timestamp = { workspace = true }
-log = "0.4.20"
-pallet-balances = { workspace = true }
+log = { workspace = true }
+
 
 [features]
 default = ["std"]
@@ -66,6 +66,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-acurast/std",
+	"pallet-acurast-hyperdrive-ibc/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -74,10 +75,12 @@ std = [
 	"strum/std",
 	"tezos-core/std",
 	"tezos-michelson/std",
+	"acurast-hyperdrive-substrate-core/std"
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks"
 ]
 try-runtime = ["frame-support/try-runtime"]

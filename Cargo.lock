@@ -22,6 +22,7 @@ dependencies = [
  "ecdsa_vendored",
  "frame-support",
  "hex-literal 0.4.1",
+ "impl-serde 0.5.0",
  "num-bigint",
  "p256",
  "p384_vendored",
@@ -29,6 +30,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sha2 0.10.8",
+ "sp-core",
  "sp-std",
 ]
 
@@ -73,6 +75,7 @@ dependencies = [
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
+ "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
@@ -152,6 +155,7 @@ dependencies = [
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
+ "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
@@ -343,6 +347,7 @@ dependencies = [
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
+ "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
@@ -419,6 +424,7 @@ dependencies = [
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
+ "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-aura",
@@ -5121,6 +5127,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "impl-serde"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a143eada6a1ec4aefa5049037a26a6d597bfd64f8c026d07b77133e02b7dd0b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "impl-trait-for-tuples"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7417,6 +7432,38 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
+ "tezos-core",
+ "tezos-michelson",
+]
+
+[[package]]
+name = "pallet-acurast-hyperdrive-token"
+version = "0.13.4"
+dependencies = [
+ "acurast-hyperdrive-substrate-core",
+ "alloy-sol-types",
+ "derive_more 0.99.18",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.4.1",
+ "log",
+ "once_cell",
+ "pallet-acurast",
+ "pallet-acurast-hyperdrive-ibc",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rlp",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tezos-core",
@@ -10292,7 +10339,7 @@ checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
 dependencies = [
  "fixed-hash",
  "impl-codec",
- "impl-serde",
+ "impl-serde 0.4.0",
  "scale-info",
  "uint",
 ]
@@ -13607,7 +13654,7 @@ dependencies = [
  "futures",
  "hash-db",
  "hash256-std-hasher",
- "impl-serde",
+ "impl-serde 0.4.0",
  "itertools 0.11.0",
  "k256",
  "libsecp256k1",
@@ -13991,7 +14038,7 @@ name = "sp-storage"
 version = "21.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.2#dba2dd59101617aad64d167e400b19e2c35052b1"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.4.0",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -14072,7 +14119,7 @@ name = "sp-version"
 version = "37.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.2#dba2dd59101617aad64d167e400b19e2c35052b1"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.4.0",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",

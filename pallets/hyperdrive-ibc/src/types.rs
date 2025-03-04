@@ -1,9 +1,11 @@
 use crate::Config;
-use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::fungible::Inspect,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_acurast::AccountId20;
+use pallet_acurast::MultiOrigin;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 pub use sp_core::ecdsa::{
 	Public, Signature, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
@@ -17,8 +19,10 @@ pub const SIGNATURES_MAX_LENGTH: u32 = 32;
 pub type Signatures = BoundedVec<(Signature, Public), ConstU32<SIGNATURES_MAX_LENGTH>>;
 
 pub const ORACLE_UPDATES_MAX_LENGTH: u32 = 50;
-
 pub type OracleUpdates<T> = BoundedVec<OracleUpdateFor<T>, ConstU32<ORACLE_UPDATES_MAX_LENGTH>>;
+
+pub const MESSAGES_CLEANUP_MAX_LENGTH: u32 = 50;
+pub type MessagesCleanup = BoundedVec<MessageId, ConstU32<MESSAGES_CLEANUP_MAX_LENGTH>>;
 
 pub type OracleUpdateFor<T> = OracleUpdate<BlockNumberFor<T>>;
 
@@ -83,7 +87,6 @@ pub struct Message<AccountId, Contract> {
 	/// The payload contains also the "endpoint" depending on the destination chain,
 	/// e.g. it can be the encoded extrinsic for layer 0 recipients.
 	pub payload: Payload,
-	// pub amount: u128,
 }
 
 /// A wrapper around an outgoing message containing metadata related to fee handling and TTL.
@@ -102,7 +105,7 @@ pub struct OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract> {
 pub struct IncomingMessageWithMeta<AccountId, BlockNumber, Contract> {
 	pub message: Message<AccountId, Contract>,
 	pub current_block: BlockNumber,
-	pub relayer: AccountId,
+	pub relayer: MultiOrigin<AccountId>,
 }
 
 /// The part of the message that is passed on to final recipient, controlled by
@@ -112,7 +115,6 @@ pub struct MessageBody<AccountId, Contract> {
 	pub sender: Subject<AccountId, Contract>,
 	pub recipient: Subject<AccountId, Contract>,
 	pub payload: Payload,
-	// pub amount: u128,
 }
 
 impl<AccountId, Contract> From<Message<AccountId, Contract>> for MessageBody<AccountId, Contract> {
@@ -126,6 +128,8 @@ pub enum Subject<AccountId, Contract> {
 	Acurast(Layer<AccountId, Contract>),
 	AlephZero(Layer<AccountId32, Contract>),
 	Vara(Layer<AccountId32, Contract>),
+	Ethereum(Layer<AccountId20, AccountId20>),
+	Solana(Layer<AccountId32, AccountId32>),
 }
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]

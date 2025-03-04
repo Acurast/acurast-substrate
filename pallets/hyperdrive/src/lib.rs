@@ -45,7 +45,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	/// Configures the pallet instance for a specific target chain from which we synchronize state into Acurast.
+	/// Configures the pallet instance.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>:
 		frame_system::Config + pallet_acurast::Config + pallet_acurast_hyperdrive_ibc::Config<I>

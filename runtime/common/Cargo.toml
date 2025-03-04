@@ -35,6 +35,7 @@ pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-compute = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
+pallet-acurast-hyperdrive-token = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -132,6 +133,7 @@ std = [
 	"pallet-acurast-compute/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-ibc/std",
+	"pallet-acurast-hyperdrive-token/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -169,6 +171,7 @@ runtime-benchmarks = [
 	"pallet-acurast-compute/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

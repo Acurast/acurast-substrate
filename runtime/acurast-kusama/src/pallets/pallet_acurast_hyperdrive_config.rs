@@ -10,10 +10,12 @@ use pallet_acurast_hyperdrive_ibc::{LayerFor, MessageBody, SubjectFor};
 use polkadot_core_primitives::BlakeTwo256;
 
 use crate::{
-	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastMarketplace, AcurastPalletAccount,
-	AlephZeroContract, AlephZeroContractSelector, Balances, MinDeliveryConfirmationSignatures,
-	MinReceiptConfirmationSignatures, MinTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
-	VaraContract,
+	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastHyperdriveToken, AcurastMarketplace,
+	AcurastPalletAccount, AlephZeroContract, AlephZeroContractSelector, Balances,
+	HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount,
+	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, IncomingTTL,
+	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
+	OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason, VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -56,21 +58,40 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
+	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
-	type MessageProcessor = HyperdriveMessageProcessor<Runtime>;
+	type MessageProcessor = HyperdriveMessageProcessor;
 	type WeightInfo = weights::HyperdriveWeight;
+}
+
+impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+
+	type PalletAccount = HyperdriveTokenPalletAccount;
+	type ParsableAccountId = AcurastAccountId;
+	type Balance = Balance;
+
+	type EthereumVault = HyperdriveTokenEthereumVault;
+	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
+	type SolanaVault = HyperdriveTokenSolanaVault;
+	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
+	type OutgoingTransferTTL = OutgoingTransferTTL;
+
+	type WeightInfo = weights::HyperdriveTokenWeight;
 }
 
 /// Controls routing for incoming HyperdriveIBC messages.
 ///
-/// Currently only forwards messages with recipient [`AcurastPalletAccount`] to AcurastHyperdrive pallet.
-pub struct HyperdriveMessageProcessor<T: pallet_acurast::Config>(PhantomData<T>);
+/// Forwards messages with
+/// * recipient [`AcurastPalletAccount`] to AcurastHyperdrive pallet,
+/// * recipient [`HyperdriveTokenPalletAccount`] to AcurastHyperdriveToken pallet.
+pub struct HyperdriveMessageProcessor;
 impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
-	for HyperdriveMessageProcessor<Runtime>
+	for HyperdriveMessageProcessor
 {
 	fn process(message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
 		if SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
@@ -78,6 +99,11 @@ impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
 		)) == message.recipient
 		{
 			AcurastHyperdrive::process(message)
+		} else if SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
+			HyperdriveTokenPalletAccount::get(),
+		)) == message.recipient
+		{
+			AcurastHyperdriveToken::process(message)
 		} else {
 			// TODO fail this?
 			Ok(().into())

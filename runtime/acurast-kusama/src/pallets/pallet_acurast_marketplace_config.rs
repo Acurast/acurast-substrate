@@ -97,43 +97,6 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		// depending on the origin=target chain to send message to, we search for a supported
 		// processor public key supported on the target
 		match origin {
-			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
-			MultiOrigin::Tezos(_) => {
-				// TODO: reenable
-				// let key = pub_keys
-				// 	.iter()
-				// 	.find(|key| match key {
-				// 		PubKey::SECP256r1(_) => true,
-				// 		_ => false,
-				// 	})
-				// 	.ok_or_else(|| DispatchError::Other("p256 public key does not exist"))?;
-
-				// AcurastHyperdrive::send_to_proxy(Action::AssignJob(
-				// 	job_id_seq.clone(),
-				// 	key.clone(),
-				// ))
-				// .map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to tezos").into())
-
-				Ok(().into())
-			},
-			MultiOrigin::Ethereum(_) => {
-				// TODO: reenable
-				// let key = pub_keys
-				// 	.iter()
-				// 	.find(|key| match key {
-				// 		PubKey::SECP256k1(_) => true,
-				// 		_ => false,
-				// 	})
-				// 	.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
-
-				// AcurastHyperdrive::send_to_proxy(Action::AssignJob(
-				// 	job_id_seq.clone(),
-				// 	key.clone(),
-				// ))
-				// .map_err(|_| DispatchError::Other("Could not send ASSIGN_JOB to ethereum").into())
-
-				Ok(().into())
-			},
 			MultiOrigin::AlephZero(_) => {
 				let key = pub_keys
 					.iter()
@@ -168,6 +131,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 
 				Ok(().into())
 			},
+			_ => Ok(().into()),
 		}
 	}
 
@@ -179,26 +143,6 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 		let (origin, job_id_seq) = job_id;
 
 		match origin {
-			MultiOrigin::Acurast(_) => Ok(().into()), // nothing to be done for Acurast
-			MultiOrigin::Tezos(_) => {
-				// TODO: reenable
-				// AcurastHyperdriveOutgoingTezos::send_message(Action::FinalizeJob(
-				// 	job_id_seq.clone(),
-				// 	refund,
-				// ))
-				// .map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to tezos").into())
-
-				Ok(().into())
-			},
-			MultiOrigin::Ethereum(_) => {
-				// TODO: reenable
-				// HyperdriveOutgoingEthereum::send_message(
-				//     Action::FinalizeJob(job_id_seq.clone(), refund),
-				// )
-				// .map_err(|_| DispatchError::Other("Could not send FINALIZE_JOB to ethereum").into())
-
-				Ok(().into())
-			},
 			MultiOrigin::AlephZero(_) => {
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::AlephZero,
@@ -217,6 +161,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 
 				Ok(().into())
 			},
+			_ => Ok(().into()),
 		}
 	}
 }

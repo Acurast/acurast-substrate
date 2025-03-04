@@ -1,10 +1,15 @@
+mod account20;
+
 #[cfg(feature = "attestation")]
 mod bounded_attestation;
 
 #[cfg(feature = "attestation")]
 pub use bounded_attestation::*;
 
+pub use account20::*;
+
 use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec};
+use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
 use crate::ParameterBound;
@@ -45,9 +50,36 @@ pub type SerialNumber = BoundedVec<u8, ConstU32<SERIAL_NUMBER_MAX_LENGTH>>;
 pub enum MultiOrigin<AcurastAccountId> {
 	Acurast(AcurastAccountId),
 	Tezos(TezosAddressBytes),
+	// TODO #[deprecated(note = "use `Ethereum20` instead")]
 	Ethereum(EthereumAddressBytes),
 	AlephZero(AcurastAccountId),
 	Vara(AcurastAccountId),
+	Ethereum20(AccountId20),
+	Solana(AccountId32),
+}
+
+/// The proxy describes the chain where there is a counter part to this pallet, processing messages we send and also sending messages back. This mostly will be a custom _Hyperdrive Token_ contract on the proxy chain.
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Copy, Clone, Eq, PartialEq, MaxEncodedLen)]
+pub enum ProxyChain {
+	Acurast,
+	Tezos,
+	AlephZero,
+	Vara,
+	Ethereum,
+	Solana,
+}
+
+impl<AcurastAccountId> From<&MultiOrigin<AcurastAccountId>> for ProxyChain {
+	fn from(origin: &MultiOrigin<AcurastAccountId>) -> Self {
+		match origin {
+			MultiOrigin::Acurast(_) => ProxyChain::Acurast,
+			MultiOrigin::Tezos(_) => ProxyChain::Tezos,
+			MultiOrigin::AlephZero(_) => ProxyChain::AlephZero,
+			MultiOrigin::Vara(_) => ProxyChain::Vara,
+			MultiOrigin::Ethereum(_) | MultiOrigin::Ethereum20(_) => ProxyChain::Ethereum,
+			MultiOrigin::Solana(_) => ProxyChain::Solana,
+		}
+	}
 }
 
 pub type TezosAddressBytes = BoundedVec<u8, CU32<36>>;

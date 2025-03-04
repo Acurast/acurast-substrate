@@ -82,7 +82,6 @@ pub struct Message {
 	pub nonce: MessageNonce,
 	pub recipient: Subject,
 	pub payload: Payload,
-	// pub amount: u128,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]

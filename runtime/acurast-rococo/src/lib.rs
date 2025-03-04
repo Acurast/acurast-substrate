@@ -128,6 +128,8 @@ mod runtime {
 	pub type AcurastCompute = pallet_acurast_compute;
 	#[runtime::pallet_index(52)]
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
+	#[runtime::pallet_index(53)]
+	pub type AcurastHyperdriveToken = pallet_acurast_hyperdrive_token<Instance1>;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

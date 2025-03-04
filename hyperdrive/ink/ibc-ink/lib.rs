@@ -660,7 +660,6 @@ pub mod ibc {
 		pub nonce: MessageNonce,
 		pub recipient: Subject,
 		pub payload: Payload,
-		// pub amount: u128,
 	}
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode)]
@@ -669,7 +668,6 @@ pub mod ibc {
 		pub sender: Subject,
 		pub recipient: Subject,
 		pub payload: Payload,
-		// pub amount: u128,
 	}
 
 	impl From<Message> for MessageBody {

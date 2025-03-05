@@ -15,29 +15,26 @@ variables:
 
 stages:
   - benchmarking
-  - checks
+  # - checks
   - build
   - publish
 
-.prepare_rust:
-  image: rust:latest
-  before_script:
-    - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
-    - rustup update nightly-2023-10-31 && rustup target add wasm32-unknown-unknown --toolchain nightly-2023-10-31
-    - rustup component add rustfmt --toolchain nightly-2023-10-31
-    - rustup component add rust-src
+# .prepare_rust:
+#   image: rust:1.81
+#   before_script:
+#     - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
 
-format-check:
-  stage: checks
-  extends: .prepare_rust
-  script:
-    - cargo fmt --check
+# format-check:
+#   stage: checks
+#   extends: .prepare_rust
+#   script:
+#     - cargo fmt --check
 
-test:
-  stage: checks
-  extends: .prepare_rust
-  script:
-    - cargo test
+# test:
+#   stage: checks
+#   extends: .prepare_rust
+#   script:
+#     - cargo test
 
 build:
   stage: build

@@ -1,8 +1,5 @@
-FROM rust:1.75 AS builder
+FROM rust:1.81 AS builder
 RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
-RUN rustup update nightly-2023-10-31
-RUN rustup target add wasm32-unknown-unknown --toolchain nightly-2023-10-31
-RUN rustup component add rust-src --toolchain nightly-2023-10-31
 
 WORKDIR /code
 COPY . .

@@ -130,6 +130,10 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 					let assignment = <StoredMatches<T>>::get(&processor, job_id)
 						.ok_or(Error::<T>::JobNotAssigned)?;
 
+					// Remove match
+					<StoredMatches<T>>::remove(&processor, job_id);
+					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
+
 					if let ExecutionSpecifier::Index(index) = assignment.execution {
 						let next_execution_index =
 							registration.schedule.next_execution_index(assignment.start_delay, now);
@@ -149,9 +153,6 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 							)?;
 						};
 					}
-					// Remove match
-					<StoredMatches<T>>::remove(&processor, job_id);
-					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
 				}
 
 				// The job creator will only receive the amount that could not be divided between the acknowledged processors

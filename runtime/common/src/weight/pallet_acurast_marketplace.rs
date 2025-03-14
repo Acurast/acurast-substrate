@@ -277,4 +277,15 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 37291).saturating_mul(x.into()))
 	}
+
+	fn cleanup_storage(x: u8) -> Weight {
+		Weight::from_parts(13_348_701, 0)
+			.saturating_add(Weight::from_parts(0, 6443))
+			// Standard Error: 62_399
+			.saturating_add(Weight::from_parts(47_230_935, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 49971).saturating_mul(x.into()))
+	}
 }

@@ -53,7 +53,10 @@ pub mod pallet {
 	use reputation::BetaParameters;
 	use sp_std::prelude::*;
 
-	use pallet_acurast::{JobId, JobIdSequence, JobRegistrationFor, MultiOrigin, ParameterBound};
+	use pallet_acurast::{
+		JobId, JobIdSequence, JobRegistrationFor, MultiOrigin, ParameterBound,
+		StoredJobRegistration,
+	};
 
 	use crate::{traits::*, types::*, JobBudget, RewardManager};
 
@@ -538,6 +541,28 @@ pub mod pallet {
 			// pay part of accumulated remaining reward (unspent to consumer) to matcher
 			T::RewardManager::pay_matcher_reward(remaining_rewards, &who)?;
 
+			Ok(().into())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_storage(*max_iterations))]
+		pub fn cleanup_storage(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+			max_iterations: u8,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			let maybe_job = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1);
+			if maybe_job.is_none() && max_iterations > 0 {
+				let mut remaining_iterations = max_iterations;
+				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(&job_id) {
+					<StoredMatches<T>>::remove(&processor, &job_id);
+					remaining_iterations = remaining_iterations - 1;
+					if remaining_iterations == 0 {
+						break;
+					}
+				}
+			}
 			Ok(().into())
 		}
 	}

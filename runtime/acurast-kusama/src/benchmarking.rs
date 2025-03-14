@@ -4,7 +4,8 @@ use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobModules, PoolId, StoredAttestation,
+	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
+	StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
@@ -98,6 +99,10 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 		amount: <Runtime as pallet_acurast_marketplace::Config>::Balance,
 	) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast_marketplace", index, amount)
+	}
+
+	fn remove_job_registration(job_id: &JobId<<Runtime as frame_system::Config>::AccountId>) {
+		<StoredJobRegistration<Runtime>>::remove(&job_id.0, job_id.1);
 	}
 }
 

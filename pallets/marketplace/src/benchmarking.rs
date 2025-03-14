@@ -26,6 +26,7 @@ pub trait BenchmarkHelper<T: Config> {
 	/// Extends the job requirements, defined by benchmarking code in this pallet, with the containing struct RegistrationExtra.
 	fn registration_extra(r: JobRequirementsFor<T>) -> <T as Config>::RegistrationExtra;
 	fn funded_account(index: u32, amount: T::Balance) -> T::AccountId;
+	fn remove_job_registration(job_id: &JobId<T::AccountId>);
 }
 
 pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -101,7 +102,7 @@ pub fn competing_job_registration_with_reward<T: Config>(
 		slots,
 		reward,
 		min_reputation: Some(0),
-		assignment_strategy: AssignmentStrategy::Single(None),
+		assignment_strategy: AssignmentStrategy::Competing,
 		processor_version: None,
 		runtime: Runtime::NodeJS,
 	};
@@ -280,6 +281,62 @@ where
 	Ok((processor, job, job_id))
 }
 
+fn execution_match_helper<T: Config>(
+	consumer: Option<T::AccountId>,
+	target_matches: u8,
+) -> Result<JobId<T::AccountId>, DispatchError>
+where
+	T: pallet_balances::Config + pallet_timestamp::Config,
+	<T as pallet_timestamp::Config>::Moment: From<u64>,
+{
+	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
+	let consumer: T::AccountId =
+		consumer.unwrap_or(<T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into()));
+
+	let job = competing_job_registration_with_reward::<T>(script(), max_slots, 100, 1_000_000);
+
+	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
+
+	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+	let job_id: JobId<T::AccountId> =
+		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
+
+	let needed_matches = target_matches.saturating_div(max_slots) + 1;
+	for i in 0..needed_matches {
+		pallet_timestamp::Pallet::<T>::set_timestamp(
+			(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000).into(),
+		);
+
+		let mut planned_executions: Vec<PlannedExecution<T::AccountId>> = vec![];
+		for _ in 0..max_slots {
+			let processor: T::AccountId =
+				<T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
+			let ad = advertisement::<T>(1, 1_000_000);
+			assert_ok!(AcurastMarketplace::<T>::advertise(
+				RawOrigin::Signed(processor.clone()).into(),
+				ad,
+			));
+			planned_executions.push(PlannedExecution { source: processor, start_delay: 0 });
+		}
+
+		assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
+			RawOrigin::Signed(consumer.clone()).into(),
+			vec![ExecutionMatch {
+				job_id: job_id.clone(),
+				execution_index: i.into(),
+				sources: planned_executions.try_into().unwrap()
+			}]
+			.try_into()
+			.unwrap()
+		));
+	}
+
+	let status = AcurastMarketplace::<T>::stored_job_status(&job_id.0, job_id.1);
+
+	assert_eq!(status, Some(JobStatus::Matched));
+	Ok(job_id)
+}
+
 fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
 	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
 }
@@ -444,6 +501,13 @@ benchmarks! {
 		}
 		pallet_timestamp::Pallet::<T>::set_timestamp((1689418800000u64 + 1).into());
 	}: _(RawOrigin::Signed(consumer), job_ids.try_into().unwrap())
+
+	cleanup_storage {
+		let x in 1..u8::MAX.into();
+		set_timestamp::<T>(1000);
+		let job_id = execution_match_helper::<T>(None, x as u8)?;
+		<T as Config>::BenchmarkHelper::remove_job_registration(&job_id);
+	}: _(RawOrigin::Root, job_id, x as u8)
 
 	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

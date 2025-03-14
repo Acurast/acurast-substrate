@@ -99,6 +99,34 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Account` (r:1 w:1)
+	/// Proof: `Uniques::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::LastManagerId` (r:1 w:1)
+	/// Proof: `AcurastProcessorManager::LastManagerId` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Class` (r:1 w:1)
+	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(190), added: 2665, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:1)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::CollectionMaxSupply` (r:1 w:0)
+	/// Proof: `Uniques::CollectionMaxSupply` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::ClassAccount` (r:0 w:1)
+	/// Proof: `Uniques::ClassAccount` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ManagedProcessors` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ManagedProcessors` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	fn multi_pair_with_manager() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `282`
+		//  Estimated: `3655`
+		// Minimum execution time: 70_640_000 picoseconds.
+		Weight::from_parts(72_580_000, 0)
+			.saturating_add(Weight::from_parts(0, 3655))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(7))
+	}
 	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
 	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	/// Storage: `Uniques::Asset` (r:1 w:0)

@@ -94,7 +94,7 @@ pub fn check_device_attestation(
 }
 
 pub trait PairingProvider<T: pallet_acurast_processor_manager::Config> {
-	fn pairing_for_call(call: &T::RuntimeCall) -> Option<&ProcessorPairingFor<T>>;
+	fn pairing_for_call(call: &T::RuntimeCall) -> Option<(&ProcessorPairingFor<T>, bool)>;
 }
 
 pub fn get_fee_payer<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>>(
@@ -104,17 +104,25 @@ pub fn get_fee_payer<T: pallet_acurast_processor_manager::Config, P: PairingProv
 	let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(who);
 
 	if manager.is_none() {
-		if let Some(pairing) = P::pairing_for_call(call) {
+		if let Some((pairing, is_multi)) = P::pairing_for_call(call) {
 			if pairing.validate_timestamp::<T>() {
-				let counter = pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
-					&pairing.account,
-				)
-				.unwrap_or(0u8.into())
-				.checked_add(&1u8.into());
-				if let Some(counter) = counter {
-					if pairing.validate_signature::<T>(&pairing.account, counter) {
-						manager = Some(pairing.account.clone());
+				let is_valid = if is_multi {
+					pairing.multi_validate_signature::<T>(&pairing.account)
+				} else {
+					let counter =
+						pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
+							&pairing.account,
+						)
+						.unwrap_or(0u8.into())
+						.checked_add(&1u8.into());
+					if let Some(counter) = counter {
+						pairing.validate_signature::<T>(&pairing.account, counter)
+					} else {
+						false
 					}
+				};
+				if is_valid {
+					manager = Some(pairing.account.clone());
 				}
 			}
 		}

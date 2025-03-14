@@ -34,6 +34,8 @@ pub enum MultiSignature {
 	Ed25519WithPrefix(ed25519::Signature, MessagePrefix),
 	/// An ECDSA/SECP256k1 signature with message prefix.
 	K256WithPrefix(ecdsa::Signature, MessagePrefix),
+	/// An Ed25519 signature with message prefix and Base64 encoding.
+	Ed25519WithBase64(ed25519::Signature, MessagePrefix),
 }
 
 impl From<ed25519::Signature> for MultiSignature {
@@ -244,15 +246,15 @@ impl Verify for MultiSignature {
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
 		match (self, signer) {
 			(Self::Ed25519(multi_sig), _) => {
-				let msig: SPMultiSignature = multi_sig.clone().into();
+				let msig: SPMultiSignature = (*multi_sig).into();
 				msig.verify(msg, signer)
 			},
 			(Self::Sr25519(multi_sig), _) => {
-				let msig: SPMultiSignature = multi_sig.clone().into();
+				let msig: SPMultiSignature = (*multi_sig).into();
 				msig.verify(msg, signer)
 			},
 			(Self::Ecdsa(multi_sig), _) => {
-				let msig: SPMultiSignature = multi_sig.clone().into();
+				let msig: SPMultiSignature = (*multi_sig).into();
 				msig.verify(msg, signer)
 			},
 			(Self::P256(ref sig), who) => {
@@ -296,6 +298,14 @@ impl Verify for MultiSignature {
 					},
 					_ => false,
 				}
+			},
+			(Self::Ed25519WithBase64(sig, prefix), _) => {
+				use base64::prelude::*;
+				let encoded = BASE64_STANDARD.encode(msg.get()).into_bytes();
+				let message =
+					[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, encoded.as_slice()].concat();
+				let msig: SPMultiSignature = (*sig).into();
+				msig.verify(&message[..], signer)
 			},
 		}
 	}

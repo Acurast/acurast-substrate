@@ -46,7 +46,10 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
+		sp_runtime::{
+			traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
+			Saturating,
+		},
 		traits::{tokens::Balance, Get, UnixTime},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
@@ -413,8 +416,10 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if let Some(amount) = Self::do_reward_distribution(&who, &version) {
-				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+			if Self::is_elegible_for_reward(&who, &version) {
+				if let Some(amount) = Self::do_reward_distribution(&who) {
+					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+				}
 			}
 
 			Ok(().into())
@@ -530,8 +535,18 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
 			if Self::is_elegible_for_reward(&who, &version) {
-				if let Some(amount) = T::ComputeHooks::commit(&who, metrics.into_iter()) {
-					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+				let total_amount = match (
+					Self::do_reward_distribution(&who),
+					T::ComputeHooks::commit(&who, metrics.into_iter()),
+				) {
+					(Some(h), Some(c)) => Some(h.saturating_add(c)),
+					(Some(h), None) => Some(h),
+					(None, Some(c)) => Some(c),
+					(None, None) => None,
+				};
+
+				if let Some(total_amount) = total_amount {
+					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
 				}
 			}
 

@@ -2,7 +2,7 @@ use acurast_runtime_common::{
 	types::{AccountId, Balance, ExtraFor},
 	weight,
 };
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
+use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::WeightMeter, PalletId};
 use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
@@ -66,7 +66,7 @@ impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerPro
 	fn manager_of(
 		processor: &<Runtime as frame_system::Config>::AccountId,
 	) -> Result<<Runtime as frame_system::Config>::AccountId, DispatchError> {
-		match AcurastProcessorManager::manager_for_processor(processor) {
+		match AcurastProcessorManager::manager_for_processor(processor, &mut WeightMeter::new()) {
 			Some(manager) => Ok(manager),
 			None => Err(DispatchError::Other("Processor without manager.")),
 		}

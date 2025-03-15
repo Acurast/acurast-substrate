@@ -38,6 +38,7 @@ pub mod pallet {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		traits::{tokens::Balance, Currency, Get, InspectLockableCurrency, LockableCurrency},
+		weights::WeightMeter,
 		Parameter,
 	};
 	use frame_system::{
@@ -316,14 +317,18 @@ pub mod pallet {
 		pub(crate) fn do_claim(
 			processor: &T::AccountId,
 			pool_ids: Vec<PoolId>,
+			meter: &mut WeightMeter,
 		) -> Result<Option<T::Balance>, Error<T, I>> {
+			// metering `can_claim`: extra weight of can_claim is zero since all storage points get accessed and counted elsewhere already
 			if let Some(claim_epoch) = Self::can_claim(&processor) {
+				meter.consume(T::DbWeight::get().reads(1));
 				let mut p: ProcessorStateFor<T, I> = Processors::<T, I>::get(processor)
 					.ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
 
 				let mut total_reward_ratio: Perquintill = Zero::zero();
 				for pool_id in pool_ids {
 					// we allow partial metrics committed (for backwards compatibility)
+					meter.consume(T::DbWeight::get().reads(1));
 					let commit = if let Some(c) = Metrics::<T, I>::get(processor, pool_id) {
 						c
 					} else {
@@ -375,6 +380,7 @@ pub mod pallet {
 				match T::ComputeRewardDistributor::distribute_reward(
 					&processor,
 					reward.saturating_add(p.accrued),
+					meter,
 				) {
 					Ok(()) => {
 						p.paid = p.paid.saturating_add(reward);
@@ -393,6 +399,7 @@ pub mod pallet {
 
 				p.claimed = claim_epoch;
 
+				meter.consume(T::DbWeight::get().writes(1));
 				Processors::<T, I>::insert(processor, p);
 
 				Ok(Some(reward))
@@ -427,9 +434,12 @@ pub mod pallet {
 		pub(crate) fn do_commit(
 			processor: &T::AccountId,
 			metrics: impl IntoIterator<Item = (PoolId, u128, u128)>,
+			meter: &mut WeightMeter,
 		) {
+			meter.consume(T::DbWeight::get().reads(1));
 			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 
+			meter.consume(T::DbWeight::get().reads_writes(1, 1));
 			let (epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
 				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(||
 					// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
@@ -465,6 +475,7 @@ pub mod pallet {
 					numerator,
 					if denominator.is_zero() { One::one() } else { denominator },
 				);
+				meter.consume(T::DbWeight::get().reads_writes(1, 1));
 				let before = Metrics::<T, I>::get(processor, pool_id);
 				// first value committed for `epoch` wins
 				if before.map(|m| m.epoch < epoch).unwrap_or(true) {

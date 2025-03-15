@@ -1,4 +1,7 @@
-use frame_support::pallet_prelude::{DispatchResult, Weight};
+use frame_support::{
+	pallet_prelude::{DispatchResult, Weight},
+	weights::WeightMeter,
+};
 
 use crate::Config;
 
@@ -27,9 +30,10 @@ pub trait ProcessorRewardDistributor<T: Config> {
 		manager: &T::AccountId,
 		amount: T::Balance,
 		distributor_account: &T::AccountId,
+		meter: &mut WeightMeter,
 	) -> DispatchResult;
 
-	fn is_elegible_for_reward(processor: &T::AccountId) -> bool;
+	fn is_elegible_for_reward(processor: &T::AccountId, meter: &mut WeightMeter) -> bool;
 }
 
 impl<T: Config> ProcessorRewardDistributor<T> for () {
@@ -37,11 +41,12 @@ impl<T: Config> ProcessorRewardDistributor<T> for () {
 		_manager: &<T>::AccountId,
 		_amount: <T as Config>::Balance,
 		_distributor_account: &<T>::AccountId,
+		_meter: &mut WeightMeter,
 	) -> DispatchResult {
 		Ok(())
 	}
 
-	fn is_elegible_for_reward(_processor: &<T>::AccountId) -> bool {
+	fn is_elegible_for_reward(_processor: &<T>::AccountId, _meter: &mut WeightMeter) -> bool {
 		true
 	}
 }

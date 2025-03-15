@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, weights::WeightMeter};
 use sp_core::bounded_vec;
 use sp_runtime::{FixedU128, Perquintill};
 
@@ -53,7 +53,14 @@ fn test_single_processor_commit() {
 
 		System::set_block_number(10);
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
@@ -67,7 +74,14 @@ fn test_single_processor_commit() {
 		);
 
 		System::set_block_number(39);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -86,7 +100,14 @@ fn test_single_processor_commit() {
 
 		// Warmup is over
 		System::set_block_number(40);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -104,7 +125,14 @@ fn test_single_processor_commit() {
 		);
 
 		System::set_block_number(130);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -123,7 +151,14 @@ fn test_single_processor_commit() {
 
 		// commit different value in same epoch (does not existing values for same epoch since first value is kept)
 		System::set_block_number(170);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 2000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 2000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -147,7 +182,11 @@ fn test_single_processor_commit() {
 		// claim for epoch 1 and commit for epoch 2
 		System::set_block_number(230);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]),
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
 			Some(250000)
 		);
 		assert_eq!(
@@ -231,7 +270,14 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	{
 		System::set_block_number(10);
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::processors(alice_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(40)
@@ -243,7 +289,14 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	{
 		System::set_block_number(20);
 		assert_eq!(Compute::metrics(bob_account_id(), 1), None);
-		assert_eq!(Compute::commit(&bob_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&bob_account_id(),
+				vec![(1u8, 1000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::processors(bob_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(50)
@@ -260,7 +313,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&alice_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+				&mut WeightMeter::new()
 			),
 			None
 		);
@@ -287,7 +341,14 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 
 	// Bob commits values for epoch 1 (where he is active) for only pool 2
 	{
-		assert_eq!(Compute::commit(&bob_account_id(), vec![(2u8, 6000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(
+				&bob_account_id(),
+				vec![(2u8, 6000u128, 1u128)],
+				&mut WeightMeter::new()
+			),
+			None
+		);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 2).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(6000u128, 1u128) }
@@ -333,7 +394,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
-				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
+				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)],
+				&mut WeightMeter::new()
 			),
 			None
 		);
@@ -356,7 +418,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
-				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
+				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)],
+				&mut WeightMeter::new()
 			),
 			None
 		);
@@ -377,7 +440,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&alice_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+				&mut WeightMeter::new()
 			),
 			Some(375000)
 		);
@@ -407,7 +471,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&bob_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+				&mut WeightMeter::new()
 			),
 			Some(375000)
 		);

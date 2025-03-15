@@ -2,7 +2,9 @@ use acurast_common::{ManagerIdProvider, Version};
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
+	weights::WeightMeter,
 };
+use sp_core::Get;
 
 use crate::{
 	Config, Error, LastManagerId, ManagedProcessors, Pallet, ProcessorRewardDistributionWindow,
@@ -11,8 +13,13 @@ use crate::{
 
 impl<T: Config> Pallet<T> {
 	/// Returns the manager account id (if any) for the given processor account.
-	pub fn manager_for_processor(processor_account: &T::AccountId) -> Option<T::AccountId> {
+	pub fn manager_for_processor(
+		processor_account: &T::AccountId,
+		meter: &mut WeightMeter,
+	) -> Option<T::AccountId> {
+		meter.consume(T::DbWeight::get().reads(1));
 		let id = Self::manager_id_for_processor(processor_account)?;
+		meter.consume(T::DbWeight::get().reads(1));
 		<T::ManagerIdProvider>::owner_for(id).ok()
 	}
 
@@ -66,11 +73,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn is_elegible_for_reward(processor: &T::AccountId, version: &Version) -> bool {
-		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
+	pub(crate) fn is_elegible_for_reward(
+		processor: &T::AccountId,
+		version: &Version,
+		meter: &mut WeightMeter,
+	) -> bool {
+		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor, meter) {
 			return false;
 		}
 
+		meter.consume(T::DbWeight::get().reads(1));
 		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
 			if version.build_number < min_req_version {
 				return false;
@@ -80,12 +92,18 @@ impl<T: Config> Pallet<T> {
 		return true;
 	}
 
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
+	pub(crate) fn do_reward_distribution(
+		processor: &T::AccountId,
+		meter: &mut WeightMeter,
+	) -> Option<T::Balance> {
+		meter.consume(T::DbWeight::get().reads(1));
 		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
-			if let Some(manager) = Self::manager_for_processor(processor) {
+			if let Some(manager) = Self::manager_for_processor(processor, meter) {
+				meter.consume(T::DbWeight::get().reads(1));
 				let current_block_number: u32 =
 					<frame_system::Pallet<T>>::block_number().saturated_into();
 
+				meter.consume(T::DbWeight::get().reads(1));
 				if let Some(distribution_window) =
 					Self::processor_reward_distribution_window(processor)
 				{
@@ -101,12 +119,14 @@ impl<T: Config> Pallet<T> {
 								&manager,
 								distribution_settings.reward_per_distribution,
 								&distribution_settings.distributor_account,
+								meter,
 							);
 							if result.is_ok() {
 								distributed_amount =
 									Some(distribution_settings.reward_per_distribution)
 							}
 						}
+						meter.consume(T::DbWeight::get().writes(1));
 						<ProcessorRewardDistributionWindow<T>>::insert(
 							processor,
 							RewardDistributionWindow::new(
@@ -116,12 +136,14 @@ impl<T: Config> Pallet<T> {
 						);
 						return distributed_amount;
 					} else {
+						meter.consume(T::DbWeight::get().writes(1));
 						<ProcessorRewardDistributionWindow<T>>::insert(
 							processor,
 							distribution_window.next(),
 						);
 					}
 				} else {
+					meter.consume(T::DbWeight::get().writes(1));
 					<ProcessorRewardDistributionWindow<T>>::insert(
 						processor,
 						RewardDistributionWindow::new(current_block_number, &distribution_settings),

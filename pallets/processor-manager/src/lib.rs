@@ -44,13 +44,14 @@ pub mod pallet {
 
 	use acurast_common::{ComputeHooks, ListUpdateOperation, ManagerIdProvider, Version};
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo,
+		dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 		pallet_prelude::*,
 		sp_runtime::{
 			traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 			Saturating,
 		},
 		traits::{tokens::Balance, Get, UnixTime},
+		weights::WeightMeter,
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
 	use frame_system::{
@@ -407,22 +408,26 @@ pub mod pallet {
 			version: Version,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			let mut meter = WeightMeter::new();
+			meter.consume(T::DbWeight::get().reads(1));
 			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
 			let now = T::UnixTime::now().as_millis();
 
+			meter.consume(T::DbWeight::get().writes(2));
 			<ProcessorHeartbeat<T>>::insert(&who, now);
 			<ProcessorVersion<T>>::insert(&who, version);
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if Self::is_elegible_for_reward(&who, &version) {
-				if let Some(amount) = Self::do_reward_distribution(&who) {
+			if Self::is_elegible_for_reward(&who, &version, &mut meter) {
+				if let Some(amount) = Self::do_reward_distribution(&who, &mut meter) {
 					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
 				}
 			}
 
-			Ok(().into())
+			Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::Yes })
 		}
 
 		#[pallet::call_index(6)]
@@ -525,19 +530,23 @@ pub mod pallet {
 			metrics: Metrics,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			let mut meter = WeightMeter::new();
+			meter.consume(T::DbWeight::get().reads(1));
 			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
 			let now = T::UnixTime::now().as_millis();
 
+			meter.consume(T::DbWeight::get().writes(2));
 			<ProcessorHeartbeat<T>>::insert(&who, now);
 			<ProcessorVersion<T>>::insert(&who, version);
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if Self::is_elegible_for_reward(&who, &version) {
+			if Self::is_elegible_for_reward(&who, &version, &mut meter) {
 				let total_amount = match (
-					Self::do_reward_distribution(&who),
-					T::ComputeHooks::commit(&who, metrics.into_iter()),
+					Self::do_reward_distribution(&who, &mut meter),
+					T::ComputeHooks::commit(&who, metrics.into_iter(), &mut meter),
 				) {
 					(Some(h), Some(c)) => Some(h.saturating_add(c)),
 					(Some(h), None) => Some(h),
@@ -549,8 +558,7 @@ pub mod pallet {
 					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
 				}
 			}
-
-			Ok(().into())
+			Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::Yes })
 		}
 	}
 }

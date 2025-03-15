@@ -1,6 +1,7 @@
 use frame_support::{
 	sp_runtime::{DispatchError, DispatchResult},
 	traits::Get,
+	weights::WeightMeter,
 };
 use sp_std::{fmt, prelude::*};
 
@@ -32,6 +33,7 @@ pub trait ComputeHooks<AccountId, Balance> {
 	fn commit(
 		processor: &AccountId,
 		metrics: impl IntoIterator<Item = MetricInput>,
+		meter: &mut WeightMeter,
 	) -> Option<Balance>;
 }
 
@@ -39,6 +41,7 @@ impl<AccountId, Balance> ComputeHooks<AccountId, Balance> for () {
 	fn commit(
 		_processor: &AccountId,
 		_metrics: impl IntoIterator<Item = MetricInput>,
+		_meter: &mut WeightMeter,
 	) -> Option<Balance> {
 		None
 	}

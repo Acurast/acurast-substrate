@@ -1,6 +1,7 @@
 use frame_support::{
 	pallet_prelude::{DispatchResult, Weight},
 	sp_runtime::DispatchError,
+	weights::WeightMeter,
 };
 use sp_runtime::{traits::Zero, Perquintill};
 
@@ -18,13 +19,17 @@ pub trait ComputeRewardDistributor<T: Config<I>, I: 'static> {
 		epoch: EpochOf<T, I>,
 	) -> Result<T::Balance, DispatchError>;
 
-	/// Calculates the reward without transferring.
+	/// Distributes the reward by a transfer.
 	///
 	/// # Arguments
 	///
 	/// * `processor` - The processor generating this reward, it will be paid out to manager.
 	/// * `amount` - The amount to distribute (transfer).
-	fn distribute_reward(processor: &T::AccountId, amount: T::Balance) -> DispatchResult;
+	fn distribute_reward(
+		processor: &T::AccountId,
+		amount: T::Balance,
+		meter: &mut WeightMeter,
+	) -> DispatchResult;
 
 	fn is_elegible_for_reward(processor: &T::AccountId) -> bool;
 }
@@ -37,7 +42,11 @@ impl<T: Config<I>, I: 'static> ComputeRewardDistributor<T, I> for () {
 		Ok(Zero::zero())
 	}
 
-	fn distribute_reward(_processor: &T::AccountId, _amount: T::Balance) -> DispatchResult {
+	fn distribute_reward(
+		_processor: &T::AccountId,
+		_amount: T::Balance,
+		_meter: &mut WeightMeter,
+	) -> DispatchResult {
 		Ok(())
 	}
 

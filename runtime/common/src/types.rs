@@ -9,6 +9,7 @@ use frame_support::{
 		tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation},
 		Imbalance, IsType,
 	},
+	weights::WeightMeter,
 };
 use pallet_acurast::{
 	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
@@ -73,7 +74,9 @@ where
 		manager: &Runtime::AccountId,
 		amount: Runtime::Balance,
 		distributor_account: &Runtime::AccountId,
+		meter: &mut WeightMeter,
 	) -> DispatchResult {
+		meter.consume(Runtime::DbWeight::get().reads_writes(2, 2));
 		Currency::transfer(
 			distributor_account,
 			&manager,
@@ -83,7 +86,8 @@ where
 		Ok(())
 	}
 
-	fn is_elegible_for_reward(processor: &Runtime::AccountId) -> bool {
+	fn is_elegible_for_reward(processor: &Runtime::AccountId, meter: &mut WeightMeter) -> bool {
+		meter.consume(Runtime::DbWeight::get().reads(1));
 		ensure_source_verified_and_security_level::<Runtime>(
 			processor,
 			&[AttestationSecurityLevel::StrongBox, AttestationSecurityLevel::TrustedEnvironemnt],
@@ -126,25 +130,29 @@ where
 	fn distribute_reward(
 		processor: &Runtime::AccountId,
 		amount: <Runtime as pallet_acurast_compute::Config<I>>::Balance,
+		meter: &mut WeightMeter,
 	) -> DispatchResult {
+		meter.consume(Runtime::DbWeight::get().reads(1));
 		let distribution_settings = pallet_acurast_processor_manager::Pallet::<Runtime>::processor_reward_distribution_settings().ok_or(DispatchError::Other("No distribution settings present."))?;
 
-		let manager =
-			pallet_acurast_processor_manager::Pallet::<Runtime>::manager_for_processor(processor)
-				.ok_or(DispatchError::Other("No manager for processor."))?;
+		let manager = pallet_acurast_processor_manager::Pallet::<Runtime>::manager_for_processor(
+			processor, meter,
+		)
+		.ok_or(DispatchError::Other("No manager for processor."))?;
 
 		let a: <Currency as Inspect<Runtime::AccountId>>::Balance = amount.into();
 		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::distribute_reward(
             &manager,
             a.into(),
             &distribution_settings.distributor_account,
+            meter
         )?;
 
 		Ok(())
 	}
 
 	fn is_elegible_for_reward(processor: &Runtime::AccountId) -> bool {
-		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::is_elegible_for_reward(processor)
+		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::is_elegible_for_reward(processor, &mut WeightMeter::new())
 	}
 }
 

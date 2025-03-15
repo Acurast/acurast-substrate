@@ -1,6 +1,9 @@
 use frame_support::{
 	traits::IsType,
-	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+	weights::{
+		constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+		WeightMeter,
+	},
 };
 use pallet_acurast::{
 	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
@@ -101,7 +104,10 @@ pub fn get_fee_payer<T: pallet_acurast_processor_manager::Config, P: PairingProv
 	who: &T::AccountId,
 	call: &T::RuntimeCall,
 ) -> <T as frame_system::Config>::AccountId where <T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>{
-	let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(who);
+	let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(
+		who,
+		&mut WeightMeter::new(),
+	);
 
 	if manager.is_none() {
 		if let Some(pairing) = P::pairing_for_call(call) {

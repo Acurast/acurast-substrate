@@ -13,6 +13,7 @@ use frame_support::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, ConstU16,
 	},
+	weights::WeightMeter,
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use sp_core::H256;
@@ -220,6 +221,7 @@ where
 	fn distribute_reward(
 		processor: &T::AccountId,
 		amount: <T as Config<I>>::Balance,
+		_meter: &mut WeightMeter,
 	) -> DispatchResult {
 		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::DistributeReward(
 			processor.clone(),

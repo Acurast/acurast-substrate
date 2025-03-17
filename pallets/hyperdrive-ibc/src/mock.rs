@@ -101,6 +101,7 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub MinTTL: BlockNumberFor<Test> = 20;
+	pub IncomingTTL: BlockNumberFor<Test> = 50;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 }
@@ -108,6 +109,7 @@ parameter_types! {
 impl crate::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
+	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type Currency = Balances;

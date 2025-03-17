@@ -14,9 +14,9 @@ use crate::{
 	AcurastMarketplace, AcurastPalletAccount, AlephZeroContract, AlephZeroContractSelector,
 	Balances, HyperdriveTokenEthereumContract, HyperdriveTokenEthereumFeeVault,
 	HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount, HyperdriveTokenSolanaContract,
-	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, MinDeliveryConfirmationSignatures,
-	MinReceiptConfirmationSignatures, MinTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
-	VaraContract,
+	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, IncomingTTL,
+	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL, Runtime,
+	RuntimeEvent, RuntimeHoldReason, VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -34,6 +34,7 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
+	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type Currency = Balances;

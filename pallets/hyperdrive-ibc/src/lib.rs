@@ -55,6 +55,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type MinTTL: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
+		type IncomingTTL: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
 		type MinDeliveryConfirmationSignatures: Get<u32>;
 		#[pallet::constant]
 		type MinReceiptConfirmationSignatures: Get<u32>;
@@ -371,6 +373,39 @@ pub mod pallet {
 			}
 
 			Ok(())
+		}
+
+		/// Cleans up incoming messages for which [`<T as Config<I>>::IncomingTTL`] passed.
+		#[pallet::call_index(5)]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::clean_incoming())]
+		pub fn clean_incoming(
+			origin: OriginFor<T>,
+			ids: MessagesCleanup,
+		) -> DispatchResultWithPostInfo {
+			let _who = ensure_signed(origin)?;
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let l = ids.len();
+			let mut i = 0usize;
+			for id in ids.iter() {
+				if let Some(message) = <OutgoingMessages<T, I>>::get(&id) {
+					<OutgoingMessages<T, I>>::remove(&id);
+					if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
+						<OutgoingMessagesLookup<T, I>>::remove(
+							&message.message.sender,
+							&message.message.nonce,
+						);
+						i += 1;
+					}
+				}
+			}
+
+			if i == l {
+				Ok(Pays::No.into())
+			} else {
+				Ok(().into())
+			}
 		}
 	}
 

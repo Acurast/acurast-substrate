@@ -18,8 +18,10 @@ pub const SIGNATURES_MAX_LENGTH: u32 = 32;
 pub type Signatures = BoundedVec<(Signature, Public), ConstU32<SIGNATURES_MAX_LENGTH>>;
 
 pub const ORACLE_UPDATES_MAX_LENGTH: u32 = 50;
-
 pub type OracleUpdates<T> = BoundedVec<OracleUpdateFor<T>, ConstU32<ORACLE_UPDATES_MAX_LENGTH>>;
+
+pub const MESSAGES_CLEANUP_MAX_LENGTH: u32 = 50;
+pub type MessagesCleanup = BoundedVec<MessageId, ConstU32<MESSAGES_CLEANUP_MAX_LENGTH>>;
 
 pub type OracleUpdateFor<T> = OracleUpdate<BlockNumberFor<T>>;
 

@@ -157,6 +157,7 @@ parameter_types! {
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 	pub MinTTL: BlockNumber = 20;
+	pub IncomingTTL: BlockNumber = 50;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::AcurastHyperdriveIbc(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);

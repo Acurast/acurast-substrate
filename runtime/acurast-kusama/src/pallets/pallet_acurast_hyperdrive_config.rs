@@ -11,9 +11,9 @@ use polkadot_core_primitives::BlakeTwo256;
 
 use crate::{
 	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastMarketplace, AcurastPalletAccount,
-	AlephZeroContract, AlephZeroContractSelector, Balances, MinDeliveryConfirmationSignatures,
-	MinReceiptConfirmationSignatures, MinTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
-	VaraContract,
+	AlephZeroContract, AlephZeroContractSelector, Balances, IncomingTTL,
+	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL, Runtime,
+	RuntimeEvent, RuntimeHoldReason, VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -56,6 +56,7 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
+	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type Currency = Balances;

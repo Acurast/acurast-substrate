@@ -116,7 +116,7 @@ pub fn competing_job_registration_with_reward<T: Config>(
 			duration,
 			start_time: 1689332400000, // 30.12.2050 13:00
 			end_time: 1689418800000,   // 31.12.2050 13:00 (one day later)
-			interval: 180000,          // 30min
+			interval: 1800000,         // 30min
 			max_start_delay: 5000,
 		},
 		memory: 1_000u32,
@@ -298,10 +298,14 @@ where
 	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
 
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
 
 	let needed_matches = target_matches.saturating_div(max_slots) + 1;
+
+	let mut processor_counter: u32 = 0;
+
 	for i in 0..needed_matches {
 		pallet_timestamp::Pallet::<T>::set_timestamp(
 			(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000).into(),
@@ -309,8 +313,10 @@ where
 
 		let mut planned_executions: Vec<PlannedExecution<T::AccountId>> = vec![];
 		for _ in 0..max_slots {
+			let processor_index = processor_counter;
+			processor_counter += 1;
 			let processor: T::AccountId =
-				<T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
+				<T as Config>::BenchmarkHelper::funded_account(processor_index, u32::MAX.into());
 			let ad = advertisement::<T>(1, 1_000_000);
 			assert_ok!(AcurastMarketplace::<T>::advertise(
 				RawOrigin::Signed(processor.clone()).into(),

@@ -178,10 +178,6 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 ]
 
-try-runtime = [
-	"frame-executive/try-runtime",
-	#	"nimbus-primitives/try-runtime",
-	"frame-try-runtime",
-]
+try-runtime = ["frame-executive/try-runtime", "frame-try-runtime"]
 
 emulation = []

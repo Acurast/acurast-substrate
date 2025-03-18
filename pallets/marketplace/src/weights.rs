@@ -235,7 +235,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 49971).saturating_mul(x.into()))
 	}
 
-	fn cleanup_storage(x: u8) -> Weight {
+	fn cleanup_storage(x: u32) -> Weight {
 		Weight::from_parts(13_348_701, 0)
 			.saturating_add(Weight::from_parts(0, 6443))
 			// Standard Error: 62_399

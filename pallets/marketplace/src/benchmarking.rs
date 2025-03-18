@@ -340,10 +340,12 @@ where
 	Ok(job_id)
 }
 
-fn propose_execution_matching_helper<T: Config>(processor_counter: Option<u32>) -> (JobRegistrationFor<T>, JobId<T::AccountId>, u32)
+fn propose_execution_matching_helper<T: Config>(
+	processor_counter: Option<u32>,
+) -> (JobRegistrationFor<T>, JobId<T::AccountId>, u32)
 where
 	T: pallet_balances::Config + pallet_timestamp::Config,
-	<T as pallet_timestamp::Config>::Moment: From<u64>
+	<T as pallet_timestamp::Config>::Moment: From<u64>,
 {
 	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
 	let consumer: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());

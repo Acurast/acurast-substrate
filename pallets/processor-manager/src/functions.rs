@@ -80,14 +80,7 @@ impl<T: Config> Pallet<T> {
 		return true;
 	}
 
-	pub(crate) fn do_reward_distribution(
-		processor: &T::AccountId,
-		version: &Version,
-	) -> Option<T::Balance> {
-		if !Self::is_elegible_for_reward(processor, version) {
-			return None;
-		}
-
+	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
 		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
 			if let Some(manager) = Self::manager_for_processor(processor) {
 				let current_block_number: u32 =

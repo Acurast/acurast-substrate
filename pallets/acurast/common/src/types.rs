@@ -127,7 +127,7 @@ pub struct Environment<
 	pub variables: BoundedVec<(EnvVarKey<KeyMaxSize>, EnvVarValue<ValueMaxSize>), MaxEnvVars>,
 }
 
-pub const MAX_JOB_MODULES: u32 = 1;
+pub const MAX_JOB_MODULES: u32 = 2;
 
 #[derive(
 	RuntimeDebug,
@@ -145,6 +145,7 @@ pub const MAX_JOB_MODULES: u32 = 1;
 #[serde(rename_all = "camelCase")]
 pub enum JobModule {
 	DataEncryption,
+	LLM,
 }
 
 impl TryFrom<u32> for JobModule {
@@ -375,7 +376,7 @@ pub type PoolId = u8;
 /// A metric specified as `(pool_id, numerator, denominator)`.
 ///
 /// A list of metrics are committed after deriving them from performed benchmarks on processor.
-///  
+///
 /// The metric is transformed into a [`FixedU128`] defined by `numerator / denominator`.
 pub type MetricInput = (PoolId, u128, u128);
 

@@ -75,6 +75,16 @@ benchmarks! {
 		let item = ProcessorPairingFor::<T>::new_with_proof(manager_account, timestamp, signature);
 	}: _(RawOrigin::Signed(processor_account), item)
 
+	multi_pair_with_manager {
+		set_timestamp::<T>(1000);
+		let manager_account = generate_account(0).into();
+		let processor_account = generate_account(1).into();
+		let timestamp = 1657363915002u128;
+		// let message = [manager_account.encode(), timestamp.encode(), 1u128.encode()].concat();
+		let signature = T::BenchmarkHelper::dummy_proof();
+		let item = ProcessorPairingFor::<T>::new_with_proof(manager_account, timestamp, signature);
+	}: _(RawOrigin::Signed(processor_account), item)
+
 	recover_funds {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();

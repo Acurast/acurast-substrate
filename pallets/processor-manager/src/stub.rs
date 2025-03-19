@@ -107,3 +107,14 @@ pub fn generate_signature(
 	.concat();
 	signer.sign(&message).into()
 }
+
+#[cfg(feature = "std")]
+pub fn generate_multi_signature(
+	signer: &sr25519::Pair,
+	account: &AccountId,
+	timestamp: u128,
+) -> MultiSignature {
+	let message =
+		[b"<Bytes>".to_vec(), account.encode(), timestamp.encode(), b"</Bytes>".to_vec()].concat();
+	signer.sign(&message).into()
+}

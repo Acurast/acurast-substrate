@@ -362,6 +362,62 @@ fn test_pair_with_manager() {
 }
 
 #[test]
+fn test_multi_pair_with_manager() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer, manager_account) = generate_pair_account();
+		let (_, processor_account_1) = generate_pair_account();
+		let (_, processor_account_2) = generate_pair_account();
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
+		let timestamp = 1657363915002u128;
+		let signature = generate_multi_signature(&signer, &manager_account, timestamp);
+		let update = ProcessorPairingFor::<Test>::new_with_proof(
+			manager_account.clone(),
+			timestamp,
+			signature,
+		);
+		assert_ok!(AcurastProcessorManager::multi_pair_with_manager(
+			RuntimeOrigin::signed(processor_account_1.clone()),
+			update.clone(),
+		));
+
+		assert_ok!(AcurastProcessorManager::multi_pair_with_manager(
+			RuntimeOrigin::signed(processor_account_2.clone()),
+			update.clone(),
+		));
+
+		assert_eq!(Some(1), AcurastProcessorManager::last_manager_id());
+		assert_eq!(
+			Some(1),
+			AcurastProcessorManager::manager_id_for_processor(&processor_account_1)
+		);
+		assert_eq!(
+			Some(1),
+			AcurastProcessorManager::manager_id_for_processor(&processor_account_2)
+		);
+		assert_eq!(
+			Some(manager_account.clone()),
+			AcurastProcessorManager::manager_for_processor(&processor_account_1)
+		);
+		assert!(AcurastProcessorManager::managed_processors(1, &processor_account_1).is_some());
+		let last_events = events();
+		assert_eq!(
+			last_events[(last_events.len() - 3)..],
+			vec![
+				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(manager_account, 1)),
+				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPaired(
+					processor_account_1,
+					update.clone()
+				)),
+				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPaired(
+					processor_account_2,
+					update
+				)),
+			]
+		);
+	});
+}
+
+#[test]
 fn test_advertise_for_success() {
 	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();

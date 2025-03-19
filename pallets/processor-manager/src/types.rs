@@ -70,6 +70,21 @@ where
 
 		false
 	}
+
+	pub fn multi_validate_signature<T: Config>(&self, account_id: &AccountId) -> bool {
+		if let Some(proof) = &self.proof {
+			let message = [
+				b"<Bytes>".to_vec(),
+				account_id.encode(),
+				proof.timestamp.encode(),
+				b"</Bytes>".to_vec(),
+			]
+			.concat();
+			return proof.signature.verify(message.as_ref(), &self.account.clone().into());
+		}
+
+		false
+	}
 }
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]

@@ -228,6 +228,31 @@ impl<T: Config> Pallet<T> {
 		Ok(remaining_rewards)
 	}
 
+	fn cleanup_previous_execution_matches(current_match: &ExecutionMatchFor<T>) {
+		if current_match.execution_index < 2 {
+			return;
+		}
+		let index_to_cleanup = current_match.execution_index - 2;
+		<StoredJobExecutionStatus<T>>::remove(&current_match.job_id, index_to_cleanup);
+		let mut to_remove: Vec<T::AccountId> = vec![];
+		for (processor, _) in <AssignedProcessors<T>>::iter_prefix(&current_match.job_id) {
+			let maybe_assignment = <StoredMatches<T>>::get(&processor, &current_match.job_id);
+			if let Some(assignment) = maybe_assignment {
+				if let ExecutionSpecifier::Index(index) = assignment.execution {
+					if index <= index_to_cleanup {
+						<StoredMatches<T>>::remove(&processor, &current_match.job_id);
+						to_remove.push(processor);
+					}
+				}
+			} else {
+				to_remove.push(processor);
+			}
+		}
+		for processor in to_remove {
+			<AssignedProcessors<T>>::remove(&current_match.job_id, &processor);
+		}
+	}
+
 	pub(crate) fn process_execution_matching<'a>(
 		matching: impl IntoIterator<Item = &'a ExecutionMatchFor<T>>,
 	) -> MatchingResult<T> {
@@ -281,6 +306,9 @@ impl<T: Config> Pallet<T> {
 
 			// keep track of total fee in assignments to check later if it exceeds reward
 			let mut total_fee: <T as Config>::Balance = 0u8.into();
+
+			// cleanup storage items of previous matches that are not needed anymore
+			Self::cleanup_previous_execution_matches(&m);
 
 			// `slot` is used for detecting duplicate source proposed for distinct slots
 			// TODO: add global (configurable) maximum of jobs assigned. This would limit the weight of `propose_execution_matching` to a constant, since it depends on the number of active matches.

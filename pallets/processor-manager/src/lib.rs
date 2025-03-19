@@ -337,6 +337,38 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::multi_pair_with_manager())]
+		pub fn multi_pair_with_manager(
+			origin: OriginFor<T>,
+			pairing: ProcessorPairingFor<T>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			if !pairing.validate_timestamp::<T>() {
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return Err(Error::<T>::PairingProofExpired)?;
+			}
+
+			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
+			if created {
+				Self::deposit_event(Event::<T>::ManagerCreated(
+					pairing.account.clone(),
+					manager_id,
+				));
+			}
+
+			if !pairing.multi_validate_signature::<T>(&pairing.account) {
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return Err(Error::<T>::InvalidPairingProof)?;
+			}
+			Self::do_add_processor_manager_pairing(&who, manager_id)?;
+
+			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
+
+			Ok(().into())
+		}
+
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::recover_funds())]
 		pub fn recover_funds(

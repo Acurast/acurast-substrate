@@ -192,6 +192,8 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 
 		caller
 	}
+
+	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
 }
 
 pub struct ManagerOf;

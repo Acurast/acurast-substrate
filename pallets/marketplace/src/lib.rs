@@ -545,7 +545,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(< T as Config >::WeightInfo::cleanup_storage((*max_iterations) as u32)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_storage((*max_iterations) as u32))]
 		pub fn cleanup_storage(
 			origin: OriginFor<T>,
 			job_id: JobId<T::AccountId>,

@@ -52,11 +52,17 @@ pub fn advertisement<T: Config>(
 	}
 }
 
+const DAY: u64 = 1000 * 60 * 60 * 24;
+
 pub fn job_registration_with_reward<T: Config>(
 	script: Script,
 	slots: u8,
 	duration: u64,
 	reward_value: u128,
+	memory: u32,
+	network_requests: u32,
+	storage: u32,
+	schedule_shift: Option<u64>,
 	instant_match_processor: Option<PlannedExecution<T::AccountId>>,
 ) -> JobRegistrationFor<T> {
 	let reward: <T as Config>::Balance = reward_value.into();
@@ -72,20 +78,21 @@ pub fn job_registration_with_reward<T: Config>(
 	};
 	let r: <T as Config>::RegistrationExtra = <T as Config>::BenchmarkHelper::registration_extra(r);
 	let r: <T as pallet_acurast::Config>::RegistrationExtra = r.into();
+	let schedule_shift = schedule_shift.unwrap_or(0);
 	JobRegistrationFor::<T> {
 		script,
 		allowed_sources: None,
 		allow_only_verified_sources: false,
 		schedule: Schedule {
 			duration,
-			start_time: 1689332400000, // 30.12.2050 13:00
-			end_time: 1689418800000,   // 31.12.2050 13:00 (one day later)
-			interval: 180000,          // 30min
+			start_time: 1689332400000 + (DAY * schedule_shift), // 30.12.2050 13:00
+			end_time: 1689418800000 + (DAY * schedule_shift),   // 31.12.2050 13:00 (one day later)
+			interval: 180000,                                   // 30min
 			max_start_delay: 5000,
 		},
-		memory: 1_000u32,
-		network_requests: 1,
-		storage: 1_000u32,
+		memory,
+		network_requests,
+		storage,
 		required_modules: JobModules::default(),
 		extra: r,
 	}
@@ -166,7 +173,8 @@ where
 		<T as Config>::BenchmarkHelper::funded_account(account_index, u32::MAX.into());
 	whitelist_account!(caller);
 
-	let job = job_registration_with_reward::<T>(script(), slots, 500, 20100, None);
+	let job =
+		job_registration_with_reward::<T>(script(), slots, 500, 20100, 1000, 1, 1000, None, None);
 
 	(caller, job)
 }
@@ -209,6 +217,10 @@ where
 		1,
 		100,
 		1_000_000,
+		1000,
+		1,
+		1000,
+		None,
 		Some(PlannedExecution { source: processor.clone(), start_delay: 0 }),
 	);
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
@@ -561,6 +573,35 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let job_id = cleanup_storage_helper::<T>(None, x as u8)?;
 	}: _(RawOrigin::Root, job_id, x as u8)
+
+	cleanup_assignments {
+		let x in 1..T::MaxCleanupIterations::get();
+		set_timestamp::<T>(1000);
+		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());
+		let processor = <T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
+		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&consumer)?;
+		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
+		let ad = advertisement::<T>(1, 1_000_000);
+		assert_ok!(
+			AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad)
+		);
+		let mut last_job: Option<JobRegistrationFor<T>> = None;
+		for i in 0..x {
+			let job = job_registration_with_reward::<T>(
+				script(),
+				1,
+				1,
+				1,
+				0, 0, 0,
+				Some(i as u64),
+				Some(PlannedExecution { source: processor.clone(), start_delay: 0 }),
+			);
+			assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+			last_job = Some(job);
+		}
+		let job = last_job.unwrap();
+		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.end_time + 1).into());
+	}: _(RawOrigin::Signed(processor))
 
 	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

@@ -4,7 +4,7 @@ use pallet_acurast::{
 };
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
-use sp_std::prelude::ToOwned;
+use sp_std::prelude::*;
 
 use crate::{
 	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Config, Error,
@@ -158,13 +158,6 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	pub fn do_finalize_job(
-		_job_id: &JobId<T::AccountId>,
-		_processor: &T::AccountId,
-	) -> Result<(), DispatchError> {
-		Ok(())
-	}
-
 	pub(crate) fn check_report_is_timely(
 		registration: &JobRegistrationFor<T>,
 		assignment: &AssignmentFor<T>,
@@ -239,6 +232,51 @@ impl<T: Config> Pallet<T> {
 					processor,
 					BetaParameters { r: beta_params.r, s: beta_params.s },
 				);
+			}
+		}
+		Ok(())
+	}
+
+	pub(crate) fn do_cleanup_assignments(processor: &T::AccountId) -> DispatchResult {
+		let mut remaining_iterations = T::MaxCleanupIterations::get();
+		if remaining_iterations == 0 {
+			return Ok(());
+		}
+		let mut to_remove: Vec<JobId<T::AccountId>> = vec![];
+		let now = Self::now()?;
+		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(processor) {
+			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
+				if job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay)) < now
+				{
+					to_remove.push(job_id);
+				}
+			} else {
+				to_remove.push(job_id);
+			}
+			remaining_iterations = remaining_iterations - 1;
+			if remaining_iterations == 0 {
+				break;
+			}
+		}
+		for job_id in to_remove {
+			<StoredMatches<T>>::remove(processor, &job_id);
+		}
+		Ok(())
+	}
+
+	pub(crate) fn do_cleanup_assignment(
+		processor: &T::AccountId,
+		job_id: &JobId<T::AccountId>,
+	) -> DispatchResult {
+		if let Some(assignment) = <StoredMatches<T>>::get(processor, &job_id) {
+			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
+				let now = Self::now()?;
+				if job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay)) < now
+				{
+					<StoredMatches<T>>::remove(processor, &job_id);
+				}
+			} else {
+				<StoredMatches<T>>::remove(processor, &job_id);
 			}
 		}
 		Ok(())

@@ -575,7 +575,6 @@ benchmarks! {
 	}: _(RawOrigin::Root, job_id, x as u8)
 
 	cleanup_assignments {
-		let x in 1..T::MaxCleanupIterations::get();
 		set_timestamp::<T>(1000);
 		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());
 		let processor = <T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
@@ -586,7 +585,7 @@ benchmarks! {
 			AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad)
 		);
 		let mut last_job: Option<JobRegistrationFor<T>> = None;
-		for i in 0..x {
+		for i in 0..T::MaxCleanupIterations::get() {
 			let job = job_registration_with_reward::<T>(
 				script(),
 				1,

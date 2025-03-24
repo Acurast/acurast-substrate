@@ -28,6 +28,7 @@ define_benchmarks!(
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
+	[pallet_acurast_compute, AcurastCompute]
 );
 
 fn create_funded_user(

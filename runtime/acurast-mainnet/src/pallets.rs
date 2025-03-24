@@ -1,5 +1,6 @@
 mod cumulus_configs;
 mod frame_system_config;
+mod pallet_acurast_compute_config;
 mod pallet_acurast_config;
 mod pallet_acurast_fee_manager_config;
 mod pallet_acurast_hyperdrive_config;

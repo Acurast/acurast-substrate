@@ -240,6 +240,7 @@ impl Config for Test {
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type MaxCleanupIterations = frame_support::traits::ConstU32<200>;
 	type RegistrationExtra = ExtraFor<Test>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;

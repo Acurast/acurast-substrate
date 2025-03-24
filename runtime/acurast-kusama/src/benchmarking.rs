@@ -11,10 +11,13 @@ use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
+use sp_runtime::Perquintill;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
-use crate::{AcurastMarketplace, Balance, Balances, BundleId, Runtime};
+use crate::{
+	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
+};
 
 define_benchmarks!(
 	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
@@ -29,6 +32,7 @@ define_benchmarks!(
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
+	[pallet_acurast_compute, AcurastCompute]
 );
 
 fn create_funded_user(
@@ -69,7 +73,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 				min_reputation: None,
 				assignment_strategy: AssignmentStrategy::Single(if instant_match {
 					Some(
-						vec![PlannedExecution { source: Self::funded_account(0), start_delay: 0 }]
+						vec![PlannedExecution { source: processor, start_delay: 0 }]
 							.try_into()
 							.unwrap(),
 					)
@@ -165,6 +169,17 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 	}
 
 	fn create_compute_pool() -> PoolId {
-		panic!("pallet_acurast_compute not yet installed for this runtime");
+		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
+		let mut name = *b"cpu-ops-per-second______";
+		name[23] = c[AcurastCompute::last_metric_pool_id() as usize];
+
+		AcurastCompute::create_pool(
+			RuntimeOrigin::root(),
+			name,
+			Perquintill::from_percent(25),
+			Default::default(),
+		)
+		.expect("Expecting that pool creation always succeeds");
+		AcurastCompute::last_metric_pool_id()
 	}
 }

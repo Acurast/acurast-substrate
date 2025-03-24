@@ -109,6 +109,8 @@ pub mod pallet {
 		type RewardManager: RewardManager<Self>;
 		/// Hook to act on marketplace related state transitions.
 		type MarketplaceHooks: MarketplaceHooks<Self>;
+		#[pallet::constant]
+		type MaxCleanupIterations: Get<u32>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
@@ -503,7 +505,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::do_finalize_job(&job_id, &who)?;
+			Self::do_cleanup_assignment(&who, &job_id)?;
 
 			Self::deposit_event(Event::JobFinalized(job_id));
 			Ok(().into())
@@ -563,6 +565,14 @@ pub mod pallet {
 					}
 				}
 			}
+			Ok(().into())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_assignments())]
+		pub fn cleanup_assignments(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			Self::do_cleanup_assignments(&who)?;
 			Ok(().into())
 		}
 	}

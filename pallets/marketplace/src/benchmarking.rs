@@ -461,7 +461,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time + job.schedule.interval + job.schedule.duration).into());
+		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.nth_start_time(0, job.schedule.execution_count() - 1).unwrap() + job.schedule.duration).into());
 	}: _(RawOrigin::Signed(processor), job_id, ExecutionResult::Success(vec![0u8].try_into().unwrap()))
 
 	propose_matching {

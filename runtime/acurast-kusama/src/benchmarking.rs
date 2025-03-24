@@ -73,7 +73,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 				min_reputation: None,
 				assignment_strategy: AssignmentStrategy::Single(if instant_match {
 					Some(
-						vec![PlannedExecution { source: Self::funded_account(0), start_delay: 0 }]
+						vec![PlannedExecution { source: processor, start_delay: 0 }]
 							.try_into()
 							.unwrap(),
 					)

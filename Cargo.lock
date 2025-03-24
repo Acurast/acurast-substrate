@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "asn1",
  "base64 0.13.1",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -68,6 +68,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
@@ -120,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-mainnet-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -145,6 +146,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
@@ -197,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-mainnet-runtime",
@@ -276,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -309,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -321,6 +323,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
  "derive_more 0.99.18",
@@ -334,13 +337,13 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
- "pallet-acurast-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -387,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -410,12 +413,12 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
- "pallet-acurast-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -2751,6 +2754,22 @@ dependencies = [
  "sp-externalities",
  "sp-runtime-interface",
  "sp-trie",
+]
+
+[[package]]
+name = "cumulus-primitives-storage-weight-reclaim"
+version = "8.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.16.2#dba2dd59101617aad64d167e400b19e2c35052b1"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
+ "docify",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5636,7 +5655,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7258,7 +7277,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -7281,8 +7300,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-acurast-compute"
+version = "0.13.3"
+dependencies = [
+ "acurast-common",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.4.1",
+ "jsonrpsee 0.16.3",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "pallet-uniques",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
+]
+
+[[package]]
 name = "pallet-acurast-fee-manager"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7299,7 +7345,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-fulfillment-receiver"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7315,7 +7361,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
@@ -7347,7 +7393,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-ibc"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "alloy-sol-types",
  "derive_more 0.99.18",
@@ -7377,7 +7423,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-reputation",
  "base64 0.13.1",
@@ -7413,7 +7459,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7439,30 +7485,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.13.2"
-dependencies = [
- "acurast-common",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.4.1",
- "log",
- "pallet-balances",
- "pallet-timestamp",
- "pallet-uniques",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-acurast-vesting"
-version = "0.2.0"
+version = "0.13.3"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -16058,7 +16081,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

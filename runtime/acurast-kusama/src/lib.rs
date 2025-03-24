@@ -124,6 +124,8 @@ mod runtime {
 	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]
 	pub type AcurastRewardsTreasury = pallet_acurast_rewards_treasury;
+	#[runtime::pallet_index(48)]
+	pub type AcurastCompute = pallet_acurast_compute;
 	#[runtime::pallet_index(52)]
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 }
@@ -353,7 +355,7 @@ impl_runtime_apis! {
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
-		fn on_runtime_upgrade(checks: bool) -> (Weight, Weight) {
+		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			log::info!("try-runtime::on_runtime_upgrade parachain-acurast.");
 			let weight = Executive::try_runtime_upgrade(checks).unwrap();
 			(weight, RuntimeBlockWeights::get().max_block)

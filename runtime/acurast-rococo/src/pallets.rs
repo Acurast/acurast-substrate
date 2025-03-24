@@ -1,12 +1,12 @@
 mod cumulus_configs;
 mod frame_system_config;
+mod pallet_acurast_compute_config;
 mod pallet_acurast_config;
 mod pallet_acurast_fee_manager_config;
 mod pallet_acurast_hyperdrive_config;
 mod pallet_acurast_marketplace_config;
 mod pallet_acurast_processor_manager_config;
 mod pallet_acurast_rewards_treasury_config;
-mod pallet_acurast_vesting_config;
 mod pallet_aura_config;
 mod pallet_authorship_config;
 mod pallet_balances_config;

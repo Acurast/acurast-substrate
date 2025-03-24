@@ -4,7 +4,7 @@ use crate::stub::{alice_account_id, generate_account};
 
 use super::*;
 
-use acurast_common::{ListUpdateOperation, Version};
+use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version};
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	sp_runtime::{
@@ -21,6 +21,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn advertisement() -> T::Advertisement;
 	fn funded_account(index: u32) -> T::AccountId;
 	fn attest_account(account: &T::AccountId);
+	fn create_compute_pool() -> PoolId;
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -65,6 +66,16 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), updates.try_into().unwrap())
 
 	pair_with_manager {
+		set_timestamp::<T>(1000);
+		let manager_account = generate_account(0).into();
+		let processor_account = generate_account(1).into();
+		let timestamp = 1657363915002u128;
+		// let message = [manager_account.encode(), timestamp.encode(), 1u128.encode()].concat();
+		let signature = T::BenchmarkHelper::dummy_proof();
+		let item = ProcessorPairingFor::<T>::new_with_proof(manager_account, timestamp, signature);
+	}: _(RawOrigin::Signed(processor_account), item)
+
+	multi_pair_with_manager {
 		set_timestamp::<T>(1000);
 		let manager_account = generate_account(0).into();
 		let processor_account = generate_account(1).into();
@@ -124,6 +135,50 @@ benchmarks! {
 			build_number: 1,
 		};
 	}: _(RawOrigin::Signed(caller), version)
+
+	heartbeat_with_metrics {
+		let x in 0 .. METRICS_MAX_LENGTH;
+
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+			window_length: 900,
+			tollerance: 1000,
+			min_heartbeats: 1,
+			reward_per_distribution: 347_222_222_222u128.into(),
+			distributor_account: T::BenchmarkHelper::funded_account(0),
+		};
+		<ProcessorRewardDistributionWindow<T>>::insert(
+			caller.clone(),
+			RewardDistributionWindow::new(0, &distribution_settings),
+		);
+		run_to_block::<T>(100u32.into());
+		Pallet::<T>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(distribution_settings))?;
+		let update = generate_pairing_update_add::<T>(0);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+
+		let mut values = Vec::<MetricInput>::new();
+		for i in 0..x {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
+			values.push((pool_id, i.into(), i.into()));
+		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		run_to_block::<T>(1900u32.into());
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure claim is performed by moving to next epoch, 900 blocks later
+		run_to_block::<T>(2700u32.into());
+	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
 	update_binary_hash {
 		set_timestamp::<T>(1000);

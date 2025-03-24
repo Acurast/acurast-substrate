@@ -127,7 +127,7 @@ pub struct Environment<
 	pub variables: BoundedVec<(EnvVarKey<KeyMaxSize>, EnvVarValue<ValueMaxSize>), MaxEnvVars>,
 }
 
-pub const MAX_JOB_MODULES: u32 = 1;
+pub const MAX_JOB_MODULES: u32 = 2;
 
 #[derive(
 	RuntimeDebug,
@@ -145,6 +145,7 @@ pub const MAX_JOB_MODULES: u32 = 1;
 #[serde(rename_all = "camelCase")]
 pub enum JobModule {
 	DataEncryption,
+	LLM,
 }
 
 impl TryFrom<u32> for JobModule {
@@ -242,35 +243,51 @@ impl Schedule {
 			.checked_add(self.interval.checked_mul(execution_index)?)
 	}
 
-	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
-		if now < self.start_time {
-			return Some(0);
+	pub fn next_execution_index(&self, start_delay: u64, now: u64) -> u64 {
+		self.current_execution_index(start_delay, now)
+			.map(|value| value + 1)
+			.unwrap_or(0)
+	}
+
+	pub fn current_execution_index(&self, start_delay: u64, now: u64) -> Option<u64> {
+		let actual_start = self.start_time.saturating_add(start_delay);
+		if now < actual_start {
+			return None;
 		}
-		Some((now.saturating_sub(self.start_time.checked_add(start_delay)?) / self.interval) + 1)
+		let max_index = self.execution_count() - 1;
+		Some(((now - actual_start) / self.interval).min(max_index))
+	}
+
+	pub fn actual_start(&self, start_delay: u64) -> u64 {
+		self.start_time.saturating_add(start_delay)
+	}
+
+	pub fn actual_end(&self, actual_start: u64) -> u64 {
+		let count = self.execution_count();
+		if count > 0 {
+			actual_start
+				.saturating_add((count - 1).saturating_mul(self.interval))
+				.saturating_add(self.duration)
+		} else {
+			actual_start
+		}
 	}
 
 	/// Range of a schedule from first execution's start to end of last execution, respecting `start_delay`.
 	///
 	/// Example:
 	/// ___□□■■_□□■■_□□■■__.range(2) -> (3, 17)
-	pub fn range(&self, start_delay: u64) -> Option<(u64, u64)> {
-		let actual_start = self.start_time.checked_add(start_delay)?;
-		let count = self.execution_count();
-		let actual_end = if count > 0 {
-			actual_start
-				.checked_add((count - 1).checked_mul(self.interval)?)?
-				.checked_add(self.duration)?
-		} else {
-			actual_start
-		};
-		Some((actual_start, actual_end))
+	pub fn range(&self, start_delay: u64) -> (u64, u64) {
+		let actual_start = self.actual_start(start_delay);
+		let actual_end = self.actual_end(actual_start);
+		(actual_start, actual_end)
 	}
 
-	pub fn overlaps(&self, start_delay: u64, bounds: (u64, u64)) -> Option<bool> {
+	pub fn overlaps(&self, start_delay: u64, bounds: (u64, u64)) -> bool {
 		let (a, b) = bounds;
-		let (start, end) = self.range(start_delay)?;
+		let (start, end) = self.range(start_delay);
 		if b <= a || start == end || b <= start || end <= a {
-			return Some(false);
+			return false;
 		}
 
 		// if query interval `[a, b]` starts before, we can pretend it only starts at `start`
@@ -287,9 +304,9 @@ impl Schedule {
 			// OR
 			//   ╭b  ╭a    ╭b'
 			// ■■■■______■■■■______
-			Some(b < a || a < self.duration || l >= self.interval)
+			b < a || a < self.duration || l >= self.interval
 		} else {
-			Some(false)
+			false
 		}
 	}
 }
@@ -352,6 +369,16 @@ impl PartialOrd for Version {
 		self.build_number.partial_cmp(&other.build_number)
 	}
 }
+
+/// Type used for unique identifier of each pool.
+pub type PoolId = u8;
+
+/// A metric specified as `(pool_id, numerator, denominator)`.
+///
+/// A list of metrics are committed after deriving them from performed benchmarks on processor.
+///
+/// The metric is transformed into a [`FixedU128`] defined by `numerator / denominator`.
+pub type MetricInput = (PoolId, u128, u128);
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
 pub struct CU32<const T: u32>;

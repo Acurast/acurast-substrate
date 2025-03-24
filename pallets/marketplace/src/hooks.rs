@@ -125,18 +125,20 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				let now = Self::now()?;
 
 				// Pay reward to the processor and clear matching data
-				for (processor, _) in <AssignedProcessors<T>>::iter_prefix(job_id) {
+				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					// find assignment
 					let assignment = <StoredMatches<T>>::get(&processor, job_id)
 						.ok_or(Error::<T>::JobNotAssigned)?;
 
+					// Remove match
+					<StoredMatches<T>>::remove(&processor, job_id);
+					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
+
 					if let ExecutionSpecifier::Index(index) = assignment.execution {
 						let next_execution_index =
 							registration.schedule.next_execution_index(assignment.start_delay, now);
-						if let Some(next_index) = next_execution_index {
-							if index != next_index {
-								continue;
-							}
+						if index != next_execution_index {
+							continue;
 						}
 					}
 
@@ -151,23 +153,16 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 							)?;
 						};
 					}
-					// Remove match
-					<StoredMatches<T>>::remove(&processor, job_id);
-					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
 				}
 
 				// The job creator will only receive the amount that could not be divided between the acknowledged processors
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
-				let _ = <AssignedProcessors<T>>::clear_prefix(
+				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
+				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(job_id, 10, None);
+				let _ = <NextReportIndex<T>>::clear_prefix(
 					job_id,
 					<T as pallet_acurast::Config>::MaxSlots::get(),
-					None,
-				);
-				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
-				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-					job_id,
-					registration.schedule.execution_count() as u32,
 					None,
 				);
 			},

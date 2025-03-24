@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.13.2"
+version = "0.13.3"
 edition = "2021"
 
 [workspace.dependencies]
@@ -50,6 +50,8 @@ pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features 
 pallet-acurast-fee-manager = { path = "./pallets/fee-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { path = "./pallets/processor-manager", default-features = false }
+# The Processor Manager pallet holds and manages information about each manager and its processors.
+pallet-acurast-compute = { path = "./pallets/compute", default-features = false }
 # The Hyperdrive pallet enables the Acurast protocol cross-chain. It prepares data to be sent to the Acurast proxy on a target chain and interprets received messages from that proxy.
 pallet-acurast-hyperdrive = { path = "./pallets/hyperdrive", default-features = false }
 # The Hyperdrive (IBC) pallet enables inter-blockchain-communication (IBC) by bidirectional message passing.
@@ -63,7 +65,6 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
-pallet-acurast-vesting = { path = "./pallets/vesting", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }
@@ -184,6 +185,7 @@ cumulus-primitives-core = { git = "https://github.com/paritytech/polkadot-sdk", 
 cumulus-primitives-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
 cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
 cumulus-primitives-aura = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
+cumulus-primitives-storage-weight-reclaim = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
 parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
 parachain-info = { package = "staging-parachain-info", git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
 

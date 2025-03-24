@@ -39,4 +39,6 @@ pub trait WeightInfo {
 	fn acknowledge_execution_match() -> Weight;
 	fn finalize_job() -> Weight;
 	fn finalize_jobs(x: u32) -> Weight;
+	fn cleanup_storage(x: u32) -> Weight;
+	fn cleanup_assignments() -> Weight;
 }

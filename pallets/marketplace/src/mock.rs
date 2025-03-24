@@ -99,7 +99,7 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hypdrpid");
-	pub const ReportTolerance: u64 = 12000;
+	pub const ReportTolerance: u64 = 70_000;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
@@ -192,6 +192,8 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 
 		caller
 	}
+
+	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
 }
 
 pub struct ManagerOf;
@@ -238,6 +240,7 @@ impl Config for Test {
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
+	type MaxCleanupIterations = frame_support::traits::ConstU32<200>;
 	type RegistrationExtra = ExtraFor<Test>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;

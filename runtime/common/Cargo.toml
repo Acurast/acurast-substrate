@@ -32,9 +32,9 @@ pallet-acurast-marketplace = { workspace = true }
 pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
+pallet-acurast-compute = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
-pallet-acurast-vesting = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -129,9 +129,9 @@ std = [
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
+	"pallet-acurast-compute/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-ibc/std",
-	"pallet-acurast-vesting/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -166,9 +166,9 @@ runtime-benchmarks = [
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
+	"pallet-acurast-compute/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
-	"pallet-acurast-vesting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
@@ -178,10 +178,6 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 ]
 
-try-runtime = [
-	"frame-executive/try-runtime",
-	#	"nimbus-primitives/try-runtime",
-	"frame-try-runtime",
-]
+try-runtime = ["frame-executive/try-runtime", "frame-try-runtime"]
 
 emulation = []

@@ -28,6 +28,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MaxProposedMatches = ConstU32<10>;
 	type MaxProposedExecutionMatches = ConstU32<10>;
 	type MaxFinalizeJobs = ConstU32<10>;
+	type MaxCleanupIterations = ConstU32<200>;
 	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;

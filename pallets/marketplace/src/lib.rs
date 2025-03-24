@@ -53,7 +53,10 @@ pub mod pallet {
 	use reputation::BetaParameters;
 	use sp_std::prelude::*;
 
-	use pallet_acurast::{JobId, JobIdSequence, JobRegistrationFor, MultiOrigin, ParameterBound};
+	use pallet_acurast::{
+		JobId, JobIdSequence, JobRegistrationFor, MultiOrigin, ParameterBound,
+		StoredJobRegistration,
+	};
 
 	use crate::{traits::*, types::*, JobBudget, RewardManager};
 
@@ -96,7 +99,7 @@ pub mod pallet {
 		/// hence `now <= currentmillis <= now + ReportTolerance`.
 		///
 		/// Should be at least the worst case block time. Otherwise valid reports that are included near the end of a block
-		/// would be considered outide of the agreed schedule despite being within schedule.
+		/// would be considered outside of the agreed schedule despite being within schedule.
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
@@ -106,6 +109,8 @@ pub mod pallet {
 		type RewardManager: RewardManager<Self>;
 		/// Hook to act on marketplace related state transitions.
 		type MarketplaceHooks: MarketplaceHooks<Self>;
+		#[pallet::constant]
+		type MaxCleanupIterations: Get<u32>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
@@ -214,6 +219,17 @@ pub mod pallet {
 	#[pallet::getter(fn job_budgets)]
 	pub type JobBudgets<T: Config> =
 		StorageMap<_, Blake2_128, JobId<T::AccountId>, T::Balance, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_report_index)]
+	pub type NextReportIndex<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		JobId<T::AccountId>,
+		Blake2_128Concat,
+		T::AccountId,
+		u64,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -476,7 +492,7 @@ pub mod pallet {
 				},
 			}
 
-			Self::deposit_event(Event::Reported(job_id, who, assignment.clone()));
+			Self::deposit_event(Event::Reported(job_id, who, assignment));
 			Ok(().into())
 		}
 
@@ -489,7 +505,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::do_finalize_job(&job_id, &who)?;
+			Self::do_cleanup_assignment(&who, &job_id)?;
 
 			Self::deposit_event(Event::JobFinalized(job_id));
 			Ok(().into())
@@ -520,10 +536,43 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			matches: BoundedVec<ExecutionMatchFor<T>, <T as Config>::MaxProposedExecutionMatches>,
 		) -> DispatchResultWithPostInfo {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
-			Self::process_execution_matching(&matches)?;
+			let remaining_rewards = Self::process_execution_matching(&matches)?;
 
+			// pay part of accumulated remaining reward (unspent to consumer) to matcher
+			T::RewardManager::pay_matcher_reward(remaining_rewards, &who)?;
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_storage((*max_iterations) as u32))]
+		pub fn cleanup_storage(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+			max_iterations: u8,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			let maybe_job = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1);
+			if maybe_job.is_none() && max_iterations > 0 {
+				let mut remaining_iterations = max_iterations;
+				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(&job_id) {
+					<StoredMatches<T>>::remove(&processor, &job_id);
+					remaining_iterations = remaining_iterations - 1;
+					if remaining_iterations == 0 {
+						break;
+					}
+				}
+			}
+			Ok(().into())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_assignments())]
+		pub fn cleanup_assignments(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			Self::do_cleanup_assignments(&who)?;
 			Ok(().into())
 		}
 	}

@@ -4,15 +4,19 @@ use frame_support::{assert_ok, traits::tokens::currency::Currency};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobModules, StoredAttestation,
+	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
+	StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 use sp_core::crypto::UncheckedFrom;
+use sp_runtime::Perquintill;
 use sp_std::vec;
 
-use crate::{AcurastMarketplace, Balance, Balances, BundleId, Runtime};
+use crate::{
+	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
+};
 
 define_benchmarks!(
 	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
@@ -27,6 +31,7 @@ define_benchmarks!(
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
+	[pallet_acurast_compute, AcurastCompute]
 );
 
 fn create_funded_user(
@@ -98,6 +103,10 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 	) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast_marketplace", index, amount)
 	}
+
+	fn remove_job_registration(job_id: &JobId<<Runtime as frame_system::Config>::AccountId>) {
+		<StoredJobRegistration<Runtime>>::remove(&job_id.0, job_id.1);
+	}
 }
 
 impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
@@ -156,5 +165,20 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			validity: AttestationValidity { not_before: 0, not_after: u64::MAX },
 		};
 		<StoredAttestation<Runtime>>::insert(account, attestation);
+	}
+
+	fn create_compute_pool() -> PoolId {
+		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
+		let mut name = *b"cpu-ops-per-second______";
+		name[23] = c[AcurastCompute::last_metric_pool_id() as usize];
+
+		AcurastCompute::create_pool(
+			RuntimeOrigin::root(),
+			name,
+			Perquintill::from_percent(25),
+			Default::default(),
+		)
+		.expect("Expecting that pool creation always succeeds");
+		AcurastCompute::last_metric_pool_id()
 	}
 }

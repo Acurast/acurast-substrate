@@ -52,6 +52,7 @@ pub type SignedExtra = (
 	CheckNonce<Runtime, ProcessorPairingProvider>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -129,13 +130,15 @@ pub struct ProcessorPairingProvider;
 impl PairingProvider<Runtime> for ProcessorPairingProvider {
 	fn pairing_for_call(
 		call: &<Runtime as frame_system::Config>::RuntimeCall,
-	) -> Option<&ProcessorPairingFor<Runtime>> {
-		if let RuntimeCall::AcurastProcessorManager(
-			pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
-		) = call
-		{
-			return Some(pairing);
+	) -> Option<(&ProcessorPairingFor<Runtime>, bool)> {
+		match call {
+			RuntimeCall::AcurastProcessorManager(
+				pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
+			) => Some((pairing, false)),
+			RuntimeCall::AcurastProcessorManager(
+				pallet_acurast_processor_manager::Call::multi_pair_with_manager { pairing },
+			) => Some((pairing, true)),
+			_ => None,
 		}
-		None
 	}
 }

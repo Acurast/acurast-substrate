@@ -1,4 +1,5 @@
 use crate::{stub::*, *};
+use acurast_common::ManagerIdProvider;
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -121,6 +122,7 @@ impl Config for Test {
 	type Proof = MultiSignature;
 	type ManagerId = AssetId;
 	type ManagerIdProvider = AcurastManagerIdProvider;
+	type ComputeHooks = ();
 	type ProcessorAssetRecovery = AcurastProcessorAssetRecovery;
 	type MaxPairingUpdates = ConstU32<5>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
@@ -152,10 +154,16 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn attest_account(account: &<Test>::AccountId) {}
+
+	fn create_compute_pool() -> PoolId {
+		panic!("pallet_acurast_compute not yet installed for this runtime");
+	}
 }
 
 pub struct AcurastManagerIdProvider;
-impl ManagerIdProvider<Test> for AcurastManagerIdProvider {
+impl ManagerIdProvider<<Test as frame_system::Config>::AccountId, <Test as Config>::ManagerId>
+	for AcurastManagerIdProvider
+{
 	fn create_manager_id(
 		id: <Test as Config>::ManagerId,
 		owner: &<Test as frame_system::Config>::AccountId,

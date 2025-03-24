@@ -1,4 +1,4 @@
-use acurast_common::{ListUpdate, Version};
+use acurast_common::{ListUpdate, MetricInput, Version};
 use core::fmt::Debug;
 use frame_support::{
 	pallet_prelude::*,
@@ -62,6 +62,21 @@ where
 				account_id.encode(),
 				proof.timestamp.encode(),
 				counter.encode(),
+				b"</Bytes>".to_vec(),
+			]
+			.concat();
+			return proof.signature.verify(message.as_ref(), &self.account.clone().into());
+		}
+
+		false
+	}
+
+	pub fn multi_validate_signature<T: Config>(&self, account_id: &AccountId) -> bool {
+		if let Some(proof) = &self.proof {
+			let message = [
+				b"<Bytes>".to_vec(),
+				account_id.encode(),
+				proof.timestamp.encode(),
 				b"</Bytes>".to_vec(),
 			]
 			.concat();
@@ -149,6 +164,13 @@ pub struct RewardDistributionSettings<Balance, AccountId> {
 	pub reward_per_distribution: Balance,
 	pub distributor_account: AccountId,
 }
+
+pub const METRICS_MAX_LENGTH: u32 = 20;
+
+/// A list of benchmarked values of a processor for a (sub)set of known metrics.
+///
+/// Specified as `(pool_name, numerator, denominator)`.
+pub type Metrics = BoundedVec<MetricInput, ConstU32<METRICS_MAX_LENGTH>>;
 
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]

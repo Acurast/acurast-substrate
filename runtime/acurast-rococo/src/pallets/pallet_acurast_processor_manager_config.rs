@@ -13,8 +13,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastMarketplace, Balances, ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent,
-	Uniques,
+	AcurastCompute, AcurastMarketplace, Balances, ManagerCollectionId, RootAccountId, Runtime,
+	RuntimeEvent, Uniques,
 };
 
 impl pallet_acurast_processor_manager::Config for Runtime {
@@ -22,6 +22,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Proof = Signature;
 	type ManagerId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
+	type ComputeHooks = AcurastCompute;
 	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
@@ -48,7 +49,12 @@ impl pallet_acurast_processor_manager::AdvertisementHandler<Runtime> for Adverti
 }
 
 pub struct AcurastManagerIdProvider;
-impl pallet_acurast_processor_manager::ManagerIdProvider<Runtime> for AcurastManagerIdProvider {
+impl
+	pallet_acurast::ManagerIdProvider<
+		<Runtime as frame_system::Config>::AccountId,
+		<Runtime as pallet_acurast_processor_manager::Config>::ManagerId,
+	> for AcurastManagerIdProvider
+{
 	fn create_manager_id(
 		id: <Runtime as pallet_acurast_processor_manager::Config>::ManagerId,
 		owner: &<Runtime as frame_system::Config>::AccountId,

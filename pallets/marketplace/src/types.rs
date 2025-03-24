@@ -194,6 +194,29 @@ pub struct Assignment<Reward> {
 	pub execution: ExecutionSpecifier,
 }
 
+impl<Reward> Assignment<Reward> {
+	pub fn is_competing(&self) -> bool {
+		if let ExecutionSpecifier::Index(_) = self.execution {
+			return true;
+		}
+		false
+	}
+
+	pub fn is_single(&self) -> bool {
+		if let ExecutionSpecifier::All = self.execution {
+			return true;
+		}
+		false
+	}
+
+	pub fn execution_index(&self) -> Option<u64> {
+		if let ExecutionSpecifier::Index(index) = self.execution {
+			return Some(index);
+		}
+		None
+	}
+}
+
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -303,6 +326,24 @@ pub struct JobRequirements<
 	pub processor_version: Option<ProcessorVersionRequirements<Version, MaxVersions>>,
 	/// The required runtime
 	pub runtime: Runtime,
+}
+
+impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: ParameterBound>
+	JobRequirements<Reward, AccountId, MaxSlots, Version, MaxVersions>
+{
+	pub fn is_competing(&self) -> bool {
+		if let AssignmentStrategy::Competing = self.assignment_strategy {
+			return true;
+		}
+		false
+	}
+
+	pub fn is_single(&self) -> bool {
+		if let AssignmentStrategy::Single(_) = self.assignment_strategy {
+			return true;
+		}
+		false
+	}
 }
 
 #[derive(

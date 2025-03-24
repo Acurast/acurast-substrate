@@ -42,11 +42,14 @@ pub type ProcessorList<T> =
 pub mod pallet {
 	use core::ops::Div;
 
-	use acurast_common::{ListUpdateOperation, Version};
+	use acurast_common::{ComputeHooks, ListUpdateOperation, ManagerIdProvider, Version};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
+		sp_runtime::{
+			traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
+			Saturating,
+		},
 		traits::{tokens::Balance, Get, UnixTime},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
@@ -60,7 +63,7 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BinaryHash, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
+		traits::*, BinaryHash, Metrics, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
 		RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
 	};
 
@@ -71,7 +74,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type Proof: Parameter + Member + Verify + MaxEncodedLen;
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
-		type ManagerIdProvider: ManagerIdProvider<Self>;
+		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
+		type ComputeHooks: ComputeHooks<Self::AccountId, Self::Balance>;
 		type ProcessorAssetRecovery: ProcessorAssetRecovery<Self>;
 		type MaxPairingUpdates: Get<u32>;
 		type MaxProcessorsInSetUpdateInfo: Get<u32>;
@@ -336,6 +340,38 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::multi_pair_with_manager())]
+		pub fn multi_pair_with_manager(
+			origin: OriginFor<T>,
+			pairing: ProcessorPairingFor<T>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			if !pairing.validate_timestamp::<T>() {
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return Err(Error::<T>::PairingProofExpired)?;
+			}
+
+			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
+			if created {
+				Self::deposit_event(Event::<T>::ManagerCreated(
+					pairing.account.clone(),
+					manager_id,
+				));
+			}
+
+			if !pairing.multi_validate_signature::<T>(&pairing.account) {
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return Err(Error::<T>::InvalidPairingProof)?;
+			}
+			Self::do_add_processor_manager_pairing(&who, manager_id)?;
+
+			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
+
+			Ok(().into())
+		}
+
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::recover_funds())]
 		pub fn recover_funds(
@@ -412,8 +448,10 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if let Some(amount) = Self::do_reward_distribution(&who, &version) {
-				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+			if Self::is_elegible_for_reward(&who, &version) {
+				if let Some(amount) = Self::do_reward_distribution(&who) {
+					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
+				}
 			}
 
 			Ok(().into())
@@ -497,6 +535,52 @@ pub mod pallet {
 			ensure_root(origin)?;
 			<ProcessorMinVersionForReward<T>>::insert(version.platform, version.build_number);
 			Self::deposit_event(Event::<T>::MinProcessorVersionForRewardUpdated(version));
+
+			Ok(().into())
+		}
+
+		/// Heartbeats with version and metrics.
+		///
+		/// # Errros
+		///
+		/// This extrinsic **skips errors** arising due to governance misconfiguration or processor version mismatch which e.g. could result in metrics provided for an inexistent pool.
+		///
+		/// # Events
+		///
+		/// We do not emit separate `ProcessorHeartbeatWithMetrics` for backwards compatibility of clients.
+		/// The version field allows to know if this event (and the potential subsequent ProcessorRewardSent) is emitted from [`Self::heartbeat_with_version`] or [`Self::heartbeat_with_metrics`] .
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::heartbeat_with_metrics(metrics.len() as u32))]
+		pub fn heartbeat_with_metrics(
+			origin: OriginFor<T>,
+			version: Version,
+			metrics: Metrics,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
+
+			let now = T::UnixTime::now().as_millis();
+
+			<ProcessorHeartbeat<T>>::insert(&who, now);
+			<ProcessorVersion<T>>::insert(&who, version);
+
+			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
+
+			if Self::is_elegible_for_reward(&who, &version) {
+				let total_amount = match (
+					Self::do_reward_distribution(&who),
+					T::ComputeHooks::commit(&who, metrics.into_iter()),
+				) {
+					(Some(h), Some(c)) => Some(h.saturating_add(c)),
+					(Some(h), None) => Some(h),
+					(None, Some(c)) => Some(c),
+					(None, None) => None,
+				};
+
+				if let Some(total_amount) = total_amount {
+					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
+				}
+			}
 
 			Ok(().into())
 		}

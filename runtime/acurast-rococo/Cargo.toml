@@ -31,10 +31,10 @@ pallet-acurast-marketplace = { workspace = true }
 pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
+pallet-acurast-compute = { workspace = true }
 pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
-pallet-acurast-vesting = { workspace = true }
 pallet-collator-selection = { workspace = true }
 
 acurast-runtime-common = { workspace = true }
@@ -95,6 +95,7 @@ cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-timestamp = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachains-common = { workspace = true }
 parachain-info = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
@@ -113,6 +114,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-timestamp/std",
 	"cumulus-primitives-utility/std",
+    "cumulus-primitives-storage-weight-reclaim/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -136,7 +138,7 @@ std = [
 	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
-	"pallet-acurast-vesting/std",
+	"pallet-acurast-compute/std",
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-ibc/std",
 	"acurast-runtime-common/std",
@@ -174,7 +176,7 @@ runtime-benchmarks = [
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
-	"pallet-acurast-vesting/runtime-benchmarks",
+	"pallet-acurast-compute/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

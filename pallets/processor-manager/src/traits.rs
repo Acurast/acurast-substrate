@@ -1,15 +1,6 @@
-use frame_support::{
-	pallet_prelude::{DispatchResult, Weight},
-	sp_runtime::DispatchError,
-};
+use frame_support::pallet_prelude::{DispatchResult, Weight};
 
 use crate::Config;
-
-pub trait ManagerIdProvider<T: Config> {
-	fn create_manager_id(id: T::ManagerId, owner: &T::AccountId) -> DispatchResult;
-	fn manager_id_for(owner: &T::AccountId) -> Result<T::ManagerId, DispatchError>;
-	fn owner_for(manager_id: T::ManagerId) -> Result<T::AccountId, DispatchError>;
-}
 
 pub trait ProcessorAssetRecovery<T: Config> {
 	fn recover_assets(
@@ -33,7 +24,7 @@ impl<T: Config> AdvertisementHandler<T> for () {
 
 pub trait ProcessorRewardDistributor<T: Config> {
 	fn distribute_reward(
-		processor: &T::AccountId,
+		manager: &T::AccountId,
 		amount: T::Balance,
 		distributor_account: &T::AccountId,
 	) -> DispatchResult;
@@ -43,7 +34,7 @@ pub trait ProcessorRewardDistributor<T: Config> {
 
 impl<T: Config> ProcessorRewardDistributor<T> for () {
 	fn distribute_reward(
-		_processor: &<T>::AccountId,
+		_manager: &<T>::AccountId,
 		_amount: <T as Config>::Balance,
 		_distributor_account: &<T>::AccountId,
 	) -> DispatchResult {
@@ -59,9 +50,11 @@ impl<T: Config> ProcessorRewardDistributor<T> for () {
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;
 	fn pair_with_manager() -> Weight;
+	fn multi_pair_with_manager() -> Weight;
 	fn recover_funds() -> Weight;
 	fn heartbeat() -> Weight;
 	fn heartbeat_with_version() -> Weight;
+	fn heartbeat_with_metrics(x: u32) -> Weight;
 	fn advertise_for() -> Weight;
 	fn update_binary_hash() -> Weight;
 	fn update_api_version() -> Weight;

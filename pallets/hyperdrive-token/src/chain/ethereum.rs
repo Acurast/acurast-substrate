@@ -11,23 +11,23 @@ use super::*;
 use crate::{Action, ActionDecoder, ActionEncoder, RawAction};
 
 const fn action_id_range() -> ops::Range<usize> {
-	3 * 8..4 * 8
+	0..4
 }
 
 const fn amount_range() -> ops::Range<usize> {
-	32 + 3 * 8..32 + 4 * 8
+	4..20
 }
 
 const fn asset_id_range() -> ops::Range<usize> {
-	2 * 32 + 3 * 8..2 * 32 + 4 * 8
+	20..24
 }
 
 const fn transfer_nonce_range() -> ops::Range<usize> {
-	3 * 32 + 3 * 8..3 * 32 + 4 * 8
+	24..28
 }
 
 const fn dest_range() -> ops::Range<usize> {
-	4 * 32 + 12..4 * 32 + 32
+	28..48
 }
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
@@ -47,11 +47,11 @@ where
 	type Error = ActionDecoderError;
 
 	fn decode(encoded: &[u8]) -> Result<Action<AccountId>, Self::Error> {
-		if encoded.len() != 160 {
+		if encoded.len() != 48 {
 			Err(Self::Error::CouldNotDecodeAction)?;
 		}
 		let raw_action: RawAction = u32::from_be_bytes(
-			encoded[3 * 8..4 * 8]
+			encoded[action_id_range()]
 				.try_into()
 				.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
 		)
@@ -70,7 +70,7 @@ where
 
 		match raw_action {
 			RawAction::TransferToken => {
-				let amount: u32 = u32::from_be_bytes(
+				let amount = u128::from_be_bytes(
 					encoded[amount_range()]
 						.try_into()
 						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
@@ -91,8 +91,8 @@ where
 						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
 				)?;
 				Ok(Action::TransferToken(
-					amount as u128,
-					(asset_id != 0u32).then_some(asset_id as u128),
+					amount,
+					(asset_id != 0u32).then_some(asset_id),
 					transfer_nonce,
 					MultiOrigin::Acurast(dest),
 				))
@@ -111,7 +111,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 		Ok(match action {
 			Action::TransferToken(amount, asset_id, transfer_nonce, dest) => match dest {
 				MultiOrigin::Ethereum20(account_id) => {
-					let mut buffer = vec![0u8; 32];
+					let mut buffer = vec![0u8; 48];
 
 					let raw_action: RawAction = action.into();
 					let raw_action_encoded: u32 = raw_action.into();

@@ -22,7 +22,7 @@ pub enum Action<AccountId> {
 	/// * Using None for asset_id stands for the native token.
 	/// * The `transfer_nonce` is used to identify and order transfers **per proxy**. Note that the [`pallet_acurast_hyperdrive_ibc::Message.id`] does change on each send retry, therefore this nonce is required for deduplication of transfers.
 	///   Even though hyperdrive_ibc allows to resend messages with same nonce after ttl expired, _Exactly-once delivery_ is and cannot be guaranteed.
-	TransferToken(u128, Option<u128>, TransferNonce, MultiOrigin<AccountId>),
+	TransferToken(u128, Option<u32>, TransferNonce, MultiOrigin<AccountId>),
 	/// A noop action that solely suits the purpose of testing that messages get sent.
 	Noop,
 }

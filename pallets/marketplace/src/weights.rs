@@ -246,14 +246,14 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 49971).saturating_mul(x.into()))
 	}
 
-	fn cleanup_assignments(x: u32) -> Weight {
-		Weight::from_parts(13_348_701, 0)
-			.saturating_add(Weight::from_parts(0, 6443))
-			// Standard Error: 62_399
-			.saturating_add(Weight::from_parts(47_230_935, 0).saturating_mul(x.into()))
+	fn cleanup_assignments(x: u32, ) -> Weight {
+		Weight::from_parts(24_380_858, 0)
+			.saturating_add(Weight::from_parts(0, 1493))
+			// Standard Error: 12_405
+			.saturating_add(Weight::from_parts(15_736_544, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(x.into())))
-			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(x.into())))
-			.saturating_add(Weight::from_parts(0, 49971).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 37292).saturating_mul(x.into()))
 	}
 }

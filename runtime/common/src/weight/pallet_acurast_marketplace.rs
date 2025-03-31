@@ -287,20 +287,25 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 1303).saturating_mul(x.into()))
 	}
+	/// Storage: `AcurastMarketplace::StoredMatches` (r:100 w:100)
+	/// Proof: `AcurastMarketplace::StoredMatches` (`max_values`: None, `max_size`: Some(345), added: 2820, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredJobRegistration` (r:100 w:0)
+	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34817), added: 37292, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastMarketplace::StoredMatches` (r:201 w:200)
-	/// Proof: `AcurastMarketplace::StoredMatches` (`max_values`: None, `max_size`: Some(345), added: 2820, mode: `MaxEncodedLen`)
-	/// Storage: `Acurast::StoredJobRegistration` (r:200 w:0)
-	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34817), added: 37292, mode: `MaxEncodedLen`)
-	fn cleanup_assignments(x: u32) -> Weight {
+	/// The range of component `x` is `[1, 100]`.
+	fn cleanup_assignments(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `69610`
-		//  Estimated: `7459390`
-		// Minimum execution time: 2_912_540_000 picoseconds.
-		Weight::from_parts(2_973_271_000, 0)
-			.saturating_add(Weight::from_parts(0, 7459390))
-			.saturating_add(T::DbWeight::get().reads(402))
-			.saturating_add(T::DbWeight::get().writes(200))
+		//  Measured:  `606 + x * (344 ±0)`
+		//  Estimated: `1493 + x * (37292 ±0)`
+		// Minimum execution time: 35_220_000 picoseconds.
+		Weight::from_parts(24_380_858, 0)
+			.saturating_add(Weight::from_parts(0, 1493))
+			// Standard Error: 12_405
+			.saturating_add(Weight::from_parts(15_736_544, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 37292).saturating_mul(x.into()))
 	}
 }

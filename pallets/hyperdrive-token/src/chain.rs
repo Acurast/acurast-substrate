@@ -8,7 +8,9 @@ pub mod ethereum;
 /// Errors returned by decoders.
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
 pub enum ActionDecoderError {
-	CouldNotDecodeAction,
+	InvalidAction,
+	UnsupportedAction,
+	InvalidActionPayload,
 	CouldNotConvertAccountId,
 }
 

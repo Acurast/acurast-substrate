@@ -47,16 +47,16 @@ where
 	type Error = ActionDecoderError;
 
 	fn decode(encoded: &[u8]) -> Result<Action<AccountId>, Self::Error> {
-		if encoded.len() != 48 {
-			Err(Self::Error::CouldNotDecodeAction)?;
+		if encoded.len() < 4 {
+			Err(Self::Error::InvalidAction)?;
 		}
 		let raw_action: RawAction = u32::from_be_bytes(
 			encoded[action_id_range()]
 				.try_into()
-				.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
+				.map_err(|_| ActionDecoderError::UnsupportedAction)?,
 		)
 		.try_into()
-		.map_err(|_err| Self::Error::CouldNotDecodeAction)?;
+		.map_err(|_err| Self::Error::UnsupportedAction)?;
 
 		fn convert_account_id<Account, AccountConverter: TryFrom<Vec<u8>> + Into<Account>>(
 			bytes: &[u8; 32],
@@ -70,25 +70,29 @@ where
 
 		match raw_action {
 			RawAction::TransferToken => {
+				if encoded.len() != 48 {
+					Err(Self::Error::InvalidActionPayload)?;
+				}
+
 				let amount = u128::from_be_bytes(
 					encoded[amount_range()]
 						.try_into()
-						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
+						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
 				);
 				let asset_id: u32 = u32::from_be_bytes(
 					encoded[asset_id_range()]
 						.try_into()
-						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
+						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
 				);
 				let transfer_nonce = u32::from_be_bytes(
 					encoded[transfer_nonce_range()]
 						.try_into()
-						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
+						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
 				);
 				let dest = convert_account_id::<AccountId, AccountConverter>(
 					encoded[dest_range()]
 						.try_into()
-						.map_err(|_| ActionDecoderError::CouldNotDecodeAction)?,
+						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
 				)?;
 				Ok(Action::TransferToken(
 					amount,
@@ -116,7 +120,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 					let raw_action: RawAction = action.into();
 					let raw_action_encoded: u32 = raw_action.into();
 					buffer[action_id_range()].copy_from_slice(&raw_action_encoded.to_be_bytes());
-					buffer[amount_range()].copy_from_slice(&(*amount as u32).to_be_bytes());
+					buffer[amount_range()].copy_from_slice(&(*amount).to_be_bytes());
 					buffer[asset_id_range()]
 						.copy_from_slice(&(asset_id.unwrap_or_default()).to_be_bytes());
 					buffer[transfer_nonce_range()].copy_from_slice(&transfer_nonce.to_be_bytes());

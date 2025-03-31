@@ -293,7 +293,7 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 	/// Proof: `AcurastMarketplace::StoredMatches` (`max_values`: None, `max_size`: Some(345), added: 2820, mode: `MaxEncodedLen`)
 	/// Storage: `Acurast::StoredJobRegistration` (r:200 w:0)
 	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34817), added: 37292, mode: `MaxEncodedLen`)
-	fn cleanup_assignments() -> Weight {
+	fn cleanup_assignments(x: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `69610`
 		//  Estimated: `7459390`

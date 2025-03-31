@@ -237,29 +237,12 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_cleanup_assignments(processor: &T::AccountId) -> DispatchResult {
-		let mut remaining_iterations = T::MaxCleanupIterations::get();
-		if remaining_iterations == 0 {
-			return Ok(());
-		}
-		let mut to_remove: Vec<JobId<T::AccountId>> = vec![];
-		let now = Self::now()?;
-		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(processor) {
-			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
-				if job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay)) < now
-				{
-					to_remove.push(job_id);
-				}
-			} else {
-				to_remove.push(job_id);
-			}
-			remaining_iterations = remaining_iterations - 1;
-			if remaining_iterations == 0 {
-				break;
-			}
-		}
-		for job_id in to_remove {
-			<StoredMatches<T>>::remove(processor, &job_id);
+	pub(crate) fn do_cleanup_assignments(
+		processor: &T::AccountId,
+		job_ids: Vec<JobId<T::AccountId>>,
+	) -> DispatchResult {
+		for job_id in job_ids {
+			Self::do_cleanup_assignment(processor, &job_id)?;
 		}
 		Ok(())
 	}

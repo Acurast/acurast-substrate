@@ -110,7 +110,7 @@ pub mod pallet {
 		/// Hook to act on marketplace related state transitions.
 		type MarketplaceHooks: MarketplaceHooks<Self>;
 		#[pallet::constant]
-		type MaxCleanupIterations: Get<u32>;
+		type MaxJobCleanups: Get<u32>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
@@ -569,10 +569,13 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(10)]
-		#[pallet::weight(< T as Config >::WeightInfo::cleanup_assignments())]
-		pub fn cleanup_assignments(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_assignments(job_ids.len() as u32))]
+		pub fn cleanup_assignments(
+			origin: OriginFor<T>,
+			job_ids: BoundedVec<JobId<T::AccountId>, T::MaxJobCleanups>,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_cleanup_assignments(&who)?;
+			Self::do_cleanup_assignments(&who, job_ids.into())?;
 			Ok(().into())
 		}
 	}

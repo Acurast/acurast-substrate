@@ -256,10 +256,12 @@ impl<T: Config> Pallet<T> {
 				let now = Self::now()?;
 				if job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay)) < now
 				{
-					<StoredMatches<T>>::remove(processor, &job_id);
+					<StoredMatches<T>>::remove(processor, job_id);
+					<AssignedProcessors<T>>::remove(job_id, processor);
 				}
 			} else {
-				<StoredMatches<T>>::remove(processor, &job_id);
+				<StoredMatches<T>>::remove(processor, job_id);
+				<AssignedProcessors<T>>::remove(job_id, processor);
 			}
 		}
 		Ok(())

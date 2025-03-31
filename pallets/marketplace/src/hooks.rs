@@ -127,31 +127,30 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				// Pay reward to the processor and clear matching data
 				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					// find assignment
-					let assignment = <StoredMatches<T>>::get(&processor, job_id)
-						.ok_or(Error::<T>::JobNotAssigned)?;
-
-					// Remove match
-					<StoredMatches<T>>::remove(&processor, job_id);
+					let assignment = <StoredMatches<T>>::take(&processor, job_id);
 					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
 
-					if let ExecutionSpecifier::Index(index) = assignment.execution {
-						let next_execution_index =
-							registration.schedule.next_execution_index(assignment.start_delay, now);
-						if index != next_execution_index {
-							continue;
+					if let Some(assignment) = assignment {
+						if let ExecutionSpecifier::Index(index) = assignment.execution {
+							let next_execution_index = registration
+								.schedule
+								.next_execution_index(assignment.start_delay, now);
+							if index != next_execution_index {
+								continue;
+							}
 						}
-					}
 
-					// Compensate processor for acknowledging the job
-					if assignment.acknowledged {
-						// the manager might have unpaired the processor in which case reward payment is skipped
-						if let Ok(manager) = T::ManagerProvider::manager_of(&processor) {
-							T::RewardManager::pay_reward(
-								job_id,
-								assignment.fee_per_execution,
-								&manager,
-							)?;
-						};
+						// Compensate processor for acknowledging the job
+						if assignment.acknowledged {
+							// the manager might have unpaired the processor in which case reward payment is skipped
+							if let Ok(manager) = T::ManagerProvider::manager_of(&processor) {
+								T::RewardManager::pay_reward(
+									job_id,
+									assignment.fee_per_execution,
+									&manager,
+								)?;
+							};
+						}
 					}
 				}
 

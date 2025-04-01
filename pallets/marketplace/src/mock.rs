@@ -192,8 +192,6 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 
 		caller
 	}
-
-	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
 }
 
 pub struct ManagerOf;
@@ -240,7 +238,7 @@ impl Config for Test {
 	type MaxProposedMatches = frame_support::traits::ConstU32<10>;
 	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
-	type MaxCleanupIterations = frame_support::traits::ConstU32<200>;
+	type MaxJobCleanups = frame_support::traits::ConstU32<100>;
 	type RegistrationExtra = ExtraFor<Test>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
@@ -267,6 +265,8 @@ impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
 
 		caller
 	}
+
+	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

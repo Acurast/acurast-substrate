@@ -254,8 +254,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(assignment) = <StoredMatches<T>>::get(processor, &job_id) {
 			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
 				let now = Self::now()?;
-				if job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay)) < now
-				{
+				let job_end_time =
+					job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay))
+						+ T::ReportTolerance::get();
+				if job_end_time < now {
 					<StoredMatches<T>>::remove(processor, job_id);
 					<AssignedProcessors<T>>::remove(job_id, processor);
 				}

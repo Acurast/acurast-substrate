@@ -100,17 +100,12 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
 				// Remove matching data and increase processor capacity
-				for (p, _) in <AssignedProcessors<T>>::iter_prefix(job_id) {
+				for (p, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					<StoredMatches<T>>::remove(&p, job_id);
 
 					<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
 				}
 
-				let _ = <AssignedProcessors<T>>::clear_prefix(
-					job_id,
-					<T as pallet_acurast::Config>::MaxSlots::get(),
-					None,
-				);
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
 				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
 					job_id,

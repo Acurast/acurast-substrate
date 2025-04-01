@@ -575,6 +575,7 @@ benchmarks! {
 	}: _(RawOrigin::Root, job_id, x as u8)
 
 	cleanup_assignments {
+		let x in 1 .. T::MaxJobCleanups::get();
 		set_timestamp::<T>(1000);
 		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());
 		let processor = <T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
@@ -585,7 +586,8 @@ benchmarks! {
 			AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad)
 		);
 		let mut last_job: Option<JobRegistrationFor<T>> = None;
-		for i in 0..T::MaxCleanupIterations::get() {
+		let mut job_ids: Vec<JobId<T::AccountId>> = vec![];
+		for i in 0..x {
 			let job = job_registration_with_reward::<T>(
 				script(),
 				1,
@@ -596,11 +598,13 @@ benchmarks! {
 				Some(PlannedExecution { source: processor.clone(), start_delay: 0 }),
 			);
 			assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+			let job_id_sequence = Acurast::<T>::job_id_sequence();
+			job_ids.push((MultiOrigin::Acurast(consumer.clone()), job_id_sequence));
 			last_job = Some(job);
 		}
 		let job = last_job.unwrap();
 		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.end_time + 1).into());
-	}: _(RawOrigin::Signed(processor))
+	}: _(RawOrigin::Signed(processor), job_ids.try_into().unwrap())
 
 	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

@@ -246,10 +246,14 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 49971).saturating_mul(x.into()))
 	}
 
-	fn cleanup_assignments() -> Weight {
-		Weight::from_parts(37_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 62025))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(3))
+	fn cleanup_assignments(x: u32, ) -> Weight {
+		Weight::from_parts(24_380_858, 0)
+			.saturating_add(Weight::from_parts(0, 1493))
+			// Standard Error: 12_405
+			.saturating_add(Weight::from_parts(15_736_544, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 37292).saturating_mul(x.into()))
 	}
 }

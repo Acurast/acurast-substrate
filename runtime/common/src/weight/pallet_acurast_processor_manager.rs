@@ -319,4 +319,11 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn set_management_endpoint() -> Weight {
+        Weight::from_parts(18_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4990))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+    }
 }

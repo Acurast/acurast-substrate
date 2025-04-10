@@ -237,5 +237,12 @@ benchmarks! {
 		let version = Version { platform: 0, build_number: 100 };
 	}: _(RawOrigin::Root, version)
 
+	set_management_endpoint {
+		set_timestamp::<T>(1000);
+		let endpoint: Endpoint = b"https://my-management-endpoint.io".to_vec().try_into().unwrap();
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+	}: _(RawOrigin::Signed(caller), Some(endpoint))
+
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
 }

@@ -320,10 +320,28 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
+	/// Storage: `Uniques::Account` (r:1 w:1)
+	/// Proof: `Uniques::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::LastManagerId` (r:1 w:1)
+	/// Proof: `AcurastProcessorManager::LastManagerId` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Class` (r:1 w:1)
+	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(190), added: 2665, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:1)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::CollectionMaxSupply` (r:1 w:0)
+	/// Proof: `Uniques::CollectionMaxSupply` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::ClassAccount` (r:0 w:1)
+	/// Proof: `Uniques::ClassAccount` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ManagementEndpoint` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ManagementEndpoint` (`max_values`: None, `max_size`: Some(234), added: 2709, mode: `MaxEncodedLen`)
 	fn set_management_endpoint() -> Weight {
-        Weight::from_parts(18_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4990))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-    }
+		// Proof Size summary in bytes:
+		//  Measured:  `188`
+		//  Estimated: `3655`
+		// Minimum execution time: 54_550_000 picoseconds.
+		Weight::from_parts(56_280_000, 0)
+			.saturating_add(Weight::from_parts(0, 3655))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
 }

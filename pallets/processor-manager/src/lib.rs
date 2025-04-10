@@ -63,8 +63,8 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BinaryHash, Metrics, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
-		RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
+		traits::*, BinaryHash, Endpoint, Metrics, ProcessorList, ProcessorPairingFor,
+		ProcessorUpdatesFor, RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
 	};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -199,6 +199,11 @@ pub mod pallet {
 	#[pallet::getter(fn processor_min_version_for_reward)]
 	pub(super) type ProcessorMinVersionForReward<T: Config> =
 		StorageMap<_, Blake2_128Concat, u32, u32>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn management_endpoint)]
+	pub(super) type ManagementEndpoint<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::ManagerId, Endpoint>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -580,6 +585,23 @@ pub mod pallet {
 				if let Some(total_amount) = total_amount {
 					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
 				}
+			}
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::set_management_endpoint())]
+		pub fn set_management_endpoint(
+			origin: OriginFor<T>,
+			endpoint: Option<Endpoint>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let (manager_id, _) = Self::do_get_or_create_manager_id(&who)?;
+			if let Some(endpoint) = endpoint {
+				<ManagementEndpoint<T>>::insert(manager_id, endpoint);
+			} else {
+				<ManagementEndpoint<T>>::remove(manager_id);
 			}
 
 			Ok(().into())

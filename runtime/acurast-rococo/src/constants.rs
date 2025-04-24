@@ -127,17 +127,18 @@ parameter_types! {
 	pub const BundleId: &'static [u8] = b"GV2452922R.com.acurast.executor";
 	pub const CoreSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
 	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub const LiteSolSignatureDigest: &'static [u8] = hex_literal::hex!("e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc").as_slice();
 	pub PackageNames: Vec<&'static [u8]> = vec![
 		CorePackageNameDevnet::get(),
 		LitePackageNameDevnet::get(),
 		CorePackageNameTestnet::get(),
-		LitePackageNameTestnet::get()
+		LitePackageNameTestnet::get(),
 	];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
 	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get()];
 	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get()];
-	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get()];
-	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get()];
+	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
+	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 	pub const ManagerCollectionId: u128 = 0;

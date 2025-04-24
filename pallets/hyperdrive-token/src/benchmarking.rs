@@ -1,129 +1,127 @@
-use frame_benchmarking::{benchmarks_instance_pallet, whitelist_account, whitelisted_caller};
+//! Benchmarking setup for pallet-acurast-hyperdrive-token
+#![cfg(feature = "runtime-benchmarks")]
+
+use frame_benchmarking::benchmarks_instance_pallet;
 use frame_support::assert_ok;
-use frame_system::RawOrigin;
-use sp_core::{crypto::AccountId32, H256};
-use sp_std::{iter, prelude::*};
 
 pub use crate::stub::*;
-use crate::{chain::tezos::TezosProof, types::*, Pallet as AcurastHyperdrive};
-use core::marker::PhantomData;
+use crate::Pallet as AcurastHyperdriveToken;
+use frame_benchmarking::whitelist_account;
 use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::RawOrigin;
 use hex_literal::hex;
+use pallet_acurast::{AccountId20, MultiOrigin, ProxyChain};
+use pallet_balances::Pallet as Balances;
+use sp_core::crypto::AccountId32;
+use sp_core::*;
+use sp_runtime::traits::StaticLookup;
+use sp_std::prelude::*;
 
 use super::*;
 
-fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
+fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
+	frame_system::Pallet::<T>::set_block_number(new_block);
+}
+
+pub fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
-}
-
-fn assert_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
-}
-
-fn update_state_transmitters_helper<T: Config<I>, I: 'static>(
-	l: usize,
-	submit: bool,
-) -> (T::AccountId, StateTransmitterUpdates<T>)
-where
-	T::AccountId: From<AccountId32>,
-	BlockNumberFor<T>: From<u32>,
-{
-	let caller: T::AccountId = whitelisted_caller();
-	whitelist_account!(caller);
-
-	let actions = StateTransmitterUpdates::<T>::try_from(
-		iter::repeat(StateTransmitterUpdate::Add(
-			caller.clone(),
-			ActivityWindow { start_block: 0.into(), end_block: 100.into() },
-		))
-		.take(l)
-		.collect::<Vec<StateTransmitterUpdateFor<T>>>(),
-	)
-	.unwrap();
-
-	if submit {
-		let call = AcurastHyperdrive::<T, I>::update_state_transmitters(
-			RawOrigin::Root.into(),
-			actions.clone(),
-		);
-		assert_ok!(call);
-	}
-
-	(caller, actions)
 }
 
 benchmarks_instance_pallet! {
 	where_clause {
 		where
-		T: Config<I>,
+		T: Config<I> + pallet_acurast_hyperdrive_ibc::Config<I> + pallet_balances::Config,
+		MultiOrigin<T::AccountId>: From<MultiOrigin<AccountId32>>,
 		T::AccountId: From<AccountId32>,
-		BlockNumberFor<T>: From<u32>,
-		T: Config<I, Proof = TezosProof<<T as Config<I>>::ParsableAccountId, <T as frame_system::Config>::AccountId>>,
-		<T as Config<I>>::TargetChainBlockNumber: From<u64>,
-		<T as Config<I>>::TargetChainHash: From<H256>,
-	}
-	update_state_transmitters {
-		let l in 0 .. STATE_TRANSMITTER_UPDATES_MAX_LENGTH;
-
-		// just create the data, do not submit the actual call (it gets executed by the benchmark call)
-		let (account, actions) = update_state_transmitters_helper::<T, I>(l as usize, false);
-	}: _(RawOrigin::Root, actions.clone())
-	verify {
-		assert_last_event::<T, I>(Event::StateTransmittersUpdate{
-					added: iter::repeat((
-							account.into(),
-							ActivityWindow {
-								start_block: 0.into(),
-								end_block: 100.into()
-							}
-						))
-						.take(l as usize)
-						.collect::<Vec<(T::AccountId, ActivityWindow<BlockNumberFor<T>>)>>(),
-					updated: vec![],
-					removed: vec![],
-				}.into());
+		<T as pallet_balances::Config>::Balance: From<u128>,
+		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<AccountId32> + From<T::AccountId>,
 	}
 
-	submit_state_merkle_root {
-		// add the transmitters and submit before benchmarked extrinsic
-		let (caller, _) = update_state_transmitters_helper::<T, I>(1, true);
-	}: _(RawOrigin::Signed(caller.clone()), 1.into(), HASH.into())
-	verify {
-		 assert_event::<T, I>(Event::StateMerkleRootSubmitted{
-					source: caller.clone(),
-					snapshot: 1.into(),
-					state_merkle_root: HASH.into()
-				}.into());
-	}
+	transfer_native {
+		let initial_balance = 1000 * UNIT;
+		let amount_to_transfer = 1 * UNIT;
+		let fee_amount = 2 * MILLIUNIT;
 
-	submit_message {
-		<MessageSequenceId::<T, I>>::set(74);
-		let (caller, _) = update_state_transmitters_helper::<T, I>(1, true);
-		let proof_items: StateProof<H256> = vec![].try_into().unwrap();
-		let key = StateKey::try_from(hex!("05008b01").to_vec()).unwrap();
-		let value = StateValue::try_from(hex!("050707010000000c52454749535445525f4a4f4207070a00000016000016e64994c2ddbd293695b63e4cade029d3c8b5e30a000000ec050707030a0707050902000000250a00000020d80a8b0d800a3320528693947f7317871b2d51e5f3c8f3d0d4e4f7e6938ed68f070707070509020000002907070a00000020d80a8b0d800a3320528693947f7317871b2d51e5f3c8f3d0d4e4f7e6938ed68f00000707050900000707008080e898a9bf8d0700010707001d0707000107070001070702000000000707070700b40707070080cfb1eca062070700a0a9070707000000a0a5aaeca06207070a00000035697066733a2f2f516d536e317252737a444b354258634e516d4e367543767a4d376858636548555569426b61777758396b534d474b0000").to_vec()).unwrap();
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
 
-		let proof = TezosProof::<<T as crate::Config<I>>::ParsableAccountId, <T as frame_system::Config>::AccountId> {
-			items: proof_items,
-			path: key,
-			value,
-			marker: PhantomData::default()
-		};
-		let snapshot_root_1 = H256(hex!(
-			"8303857bb23c1b072d9b52409fffe7cf6de57c33b2776c7de170ec94d01f02fc"
+		// Arrange: initial balances and configuration
+		assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), caller.clone().into(), initial_balance.into()));
+			assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+			assert_ok!(Balances::<T>::force_set_balance(
+			RawOrigin::Root.into(),
+			ethereum_fee_vault().into(),
+			initial_balance.into(),
 		));
-		assert_ok!(AcurastHyperdrive::<T, I>::submit_state_merkle_root(RawOrigin::Signed(caller.clone()).into(), 1.into(), snapshot_root_1.into()));
-		let proxy_address = ProxyAddress::try_from(hex!("050a000000160199651cbe1a155a5c8e5af7d6ea5c3f48eebb8c9c00").to_vec()).unwrap();
-		assert_ok!(AcurastHyperdrive::<T, I>::update_aleph_zero_contract(RawOrigin::Root.into(), proxy_address));
-	}: _(RawOrigin::Signed(caller), 1u8.into(), proof)
+		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
 
-	update_aleph_zero_contract {
-		let owner: ProxyAddress = proxy_address();
-	}: _(RawOrigin::Root, owner)
+		let amount_to_transfer = 1 * UNIT;
+		let fee_amount = 2 * MILLIUNIT;
 
-	update_vara_contract {
-		let owner: ProxyAddress = proxy_address();
-	}: _(RawOrigin::Root, owner)
+		run_to_block::<T, I>(100u32.into());
+	}: {
+		assert_ok!(AcurastHyperdriveToken::<T, I>::transfer_native(RawOrigin::Signed(caller).into(), ethereum_dest().into(), amount_to_transfer.into(), fee_amount.into()));
+	}
 
-	impl_benchmark_test_suite!(AcurastHyperdrive, crate::mock::new_test_ext(), mock::Test);
+	retry_transfer_native {
+		let initial_balance = 1000 * UNIT;
+		let amount_to_transfer = 1 * UNIT;
+		let fee_amount = 2 * MILLIUNIT;
+		let retry_fee_amount = 3 * MILLIUNIT;
+
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+
+		// Arrange: initial balances and configuration
+		assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), caller.clone().into(), initial_balance.into()));
+			assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+			assert_ok!(Balances::<T>::force_set_balance(
+			RawOrigin::Root.into(),
+			ethereum_fee_vault().into(),
+			initial_balance.into(),
+		));
+		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
+
+		run_to_block::<T, I>(100u32.into());
+		assert_ok!(AcurastHyperdriveToken::<T, I>::transfer_native(
+			RawOrigin::Signed(caller.clone()).into(),
+			ethereum_dest().into(),
+			amount_to_transfer.into(),
+			fee_amount.into(),
+		));
+
+		run_to_block::<T, I>(116u32.into());
+	}: {
+
+		assert_ok!(AcurastHyperdriveToken::<T, I>::retry_transfer_native(RawOrigin::Signed(caller).into(),
+		ProxyChain::Ethereum,
+		0,
+		retry_fee_amount.into()));
+	}
+
+	update_ethereum_contract {
+		run_to_block::<T, I>(100u32.into());
+
+		let new_contract = AccountId20(hex!("1111111111111111111111111111111111111111"));
+	}: _(RawOrigin::Root,
+		new_contract.clone())
+	verify {
+		assert_last_event::<T, I>(Event::EthereumContractUpdated{ contract: new_contract.into() }.into());
+	}
+
+	update_solana_contract {
+		run_to_block::<T, I>(100u32.into());
+
+		let new_contract = AccountId32::new([5u8; 32]);
+	}: _(RawOrigin::Root,
+		new_contract.clone())
+	verify {
+		assert_last_event::<T, I>(Event::SolanaContractUpdated { contract: new_contract.into() }.into());
+	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

@@ -48,6 +48,7 @@ sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
+pallet-balances = { workspace = true }
 
 [dev-dependencies]
 sp-runtime = { workspace = true }

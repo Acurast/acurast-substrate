@@ -11,7 +11,6 @@ use sp_core::crypto::AccountId32;
 use sp_core::*;
 use sp_std::prelude::*;
 
-pub use crate::stub::*;
 use crate::types::*;
 use crate::Pallet as Compute;
 
@@ -39,7 +38,6 @@ benchmarks_instance_pallet! {
 		run_to_block::<T, I>(100u32.into());
 
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
-		let caller: T::AccountId = alice_account_id().into();
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		for i in 0..x {
 			let mut config_name = *b"iterations______________";

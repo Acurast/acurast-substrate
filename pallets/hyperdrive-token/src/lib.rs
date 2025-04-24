@@ -13,8 +13,8 @@ mod stub;
 #[cfg(test)]
 mod tests;
 
-//#[cfg(feature = "runtime-benchmarks")]
-//mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod traits;
 
 pub mod chain;

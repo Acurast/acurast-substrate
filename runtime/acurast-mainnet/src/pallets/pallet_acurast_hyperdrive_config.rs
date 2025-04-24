@@ -56,7 +56,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
 
-	type WeightInfo = weights::HyperdriveTokenWeight;
+	type WeightInfo = weight::pallet_acurast_hyperdrive_token::WeightInfo<Runtime>;
 }
 
 pub struct AcurastActionExecutor<T: pallet_acurast::Config>(PhantomData<T>);

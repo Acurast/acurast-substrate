@@ -172,6 +172,9 @@ pub const METRICS_MAX_LENGTH: u32 = 20;
 /// Specified as `(pool_name, numerator, denominator)`.
 pub type Metrics = BoundedVec<MetricInput, ConstU32<METRICS_MAX_LENGTH>>;
 
+pub const MAX_ENDPOINT_LENGTH: u32 = 200;
+pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
+
 /// Runtime API error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(

@@ -14,6 +14,7 @@ parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
 # Substrate
 frame-support = { workspace = true }
+sp-core = { workspace = true }
 sp-std = { workspace = true }
 # Attestation
 asn1 = { version = "0.15.5", default-features = false, optional = true }
@@ -24,6 +25,7 @@ num-bigint = { version = "0.4.3", default-features = false, optional = true }
 ecdsa-vendored = { package = "ecdsa_vendored", path = "../p384/ecdsa", default-features = false, optional = true }
 serde = { version = "1.0.188", default-features = false, features = ["derive"] }
 chrono = { version = "^0.4", default-features = false, optional = true }
+impl-serde = { version = "0.5.0", default-features = false }
 
 [dev-dependencies]
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
@@ -34,6 +36,7 @@ default = ["std"]
 std = [
     "frame-support/std",
     "sp-std/std",
+    "sp-core/std",
     "parity-scale-codec/std",
     "scale-info/std",
     "asn1?/std",

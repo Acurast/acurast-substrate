@@ -21,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("acurast-parachain"),
 	impl_name: create_runtime_str!("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 54,
+	spec_version: 63,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -117,6 +117,11 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
 	pub const HyperdriveIbcFeePalletId: PalletId = PalletId(*b"hyibcfee");
+	pub HyperdriveTokenPalletAccount: AccountId = PalletId(*b"hyptoken").into_account_truncating();
+	pub HyperdriveTokenEthereumVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
+	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
+	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
+	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
@@ -127,17 +132,18 @@ parameter_types! {
 	pub const BundleId: &'static [u8] = b"GV2452922R.com.acurast.executor";
 	pub const CoreSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
 	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
+	pub const LiteSolSignatureDigest: &'static [u8] = hex_literal::hex!("e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc").as_slice();
 	pub PackageNames: Vec<&'static [u8]> = vec![
 		CorePackageNameDevnet::get(),
 		LitePackageNameDevnet::get(),
 		CorePackageNameTestnet::get(),
-		LitePackageNameTestnet::get()
+		LitePackageNameTestnet::get(),
 	];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
 	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get()];
 	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get()];
-	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get()];
-	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get()];
+	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
+	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 	pub const ManagerCollectionId: u128 = 0;
@@ -148,10 +154,11 @@ parameter_types! {
 	pub VaraContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into(); // TODO(vara)
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
-	pub MinTTL: BlockNumber = 20;
+	pub MinTTL: BlockNumber = 15;
+	pub IncomingTTL: BlockNumber = 50;
+	pub OutgoingTransferTTL: BlockNumber = 15;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
-	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::AcurastHyperdriveIbc(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
 
 	pub const Epoch: BlockNumber = 131072;
 	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();

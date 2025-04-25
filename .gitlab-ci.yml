@@ -117,7 +117,7 @@ run-canary-benchmarks:
     #  copy over binary
     - gcloud compute scp --zone=$VM_ZONE $KUSAMA/acurast-node acurast-benchmark:/acurast-node
     # run benchmarks
-    - gcloud compute ssh acurast-benchmark --zone=$VM_ZONE --command="mkdir -p /benchmarks; touch /benchmarks/pallet_acurast_fee_manager.rs /benchmarks/pallet_acurast.rs /benchmarks/pallet_acurast_processor_manager.rs /benchmarks/pallet_acurast_marketplace.rs /benchmarks/pallet_acurast_compute.rs; /acurast-node benchmark pallet --chain=acurast-kusama --execution=wasm --wasm-execution=compiled --pallet "*" --extrinsic "*" --steps=50 --repeat=20 --output=/benchmarks/"
+    - gcloud compute ssh acurast-benchmark --zone=$VM_ZONE --command="mkdir -p /benchmarks; touch /benchmarks/pallet_acurast_fee_manager.rs /benchmarks/pallet_acurast.rs /benchmarks/pallet_acurast_processor_manager.rs /benchmarks/pallet_acurast_marketplace.rs /benchmarks/pallet_acurast_compute.rs /benchmarks/pallet_acurast_hyperdrive_token.rs; /acurast-node benchmark pallet --chain=acurast-kusama --execution=wasm --wasm-execution=compiled --pallet "*" --extrinsic "*" --steps=50 --repeat=20 --output=/benchmarks/"
     # copy over benchmarks
     - gcloud compute scp --zone=$VM_ZONE --recurse acurast-benchmark:/benchmarks $KUSAMA/
 
@@ -143,7 +143,7 @@ run-dev-benchmarks:
     #  copy over binary
     - gcloud compute scp --zone=$VM_ZONE $ROCOCO/acurast-node acurast-benchmark:/acurast-node
     # run benchmarks
-    - gcloud compute ssh acurast-benchmark --zone=$VM_ZONE --command="mkdir -p /benchmarks; touch /benchmarks/pallet_acurast_fee_manager.rs /benchmarks/pallet_acurast.rs /benchmarks/pallet_acurast_processor_manager.rs /benchmarks/pallet_acurast_marketplace.rs /benchmarks/pallet_acurast_compute.rs; /acurast-node benchmark pallet --chain=acurast-dev --execution=wasm --wasm-execution=compiled --pallet "*" --extrinsic "*" --steps=50 --repeat=20 --output=/benchmarks/"
+    - gcloud compute ssh acurast-benchmark --zone=$VM_ZONE --command="mkdir -p /benchmarks; touch /benchmarks/pallet_acurast_fee_manager.rs /benchmarks/pallet_acurast.rs /benchmarks/pallet_acurast_processor_manager.rs /benchmarks/pallet_acurast_marketplace.rs /benchmarks/pallet_acurast_compute.rs /benchmarks/pallet_acurast_hyperdrive_token.rs; /acurast-node benchmark pallet --chain=acurast-dev --execution=wasm --wasm-execution=compiled --pallet "*" --extrinsic "*" --steps=50 --repeat=20 --output=/benchmarks/"
     # copy over benchmarks
     - gcloud compute scp --zone=$VM_ZONE --recurse acurast-benchmark:/benchmarks $ROCOCO/
 

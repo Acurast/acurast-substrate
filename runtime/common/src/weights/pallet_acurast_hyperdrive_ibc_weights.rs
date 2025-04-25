@@ -25,4 +25,8 @@ impl WeightInfo for HyperdriveWeight {
 		// TODO benchmark this
 		DbWeight::get().reads_writes(3, 3)
 	}
+	fn clean_incoming() -> Weight {
+		// TODO benchmark this
+		DbWeight::get().reads_writes(3, 3)
+	}
 }

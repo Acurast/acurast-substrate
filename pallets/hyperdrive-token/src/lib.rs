@@ -112,6 +112,9 @@ pub mod pallet {
 		SolanaContractUpdated {
 			contract: AccountId32,
 		},
+		PalletEnabled {
+			enabled: bool,
+		},
 	}
 
 	#[pallet::error]
@@ -129,6 +132,7 @@ pub mod pallet {
 		UnknownTransferRetry,
 		InvalidTransferRetry,
 		MissingContractConfiguration,
+		NotEnabled,
 	}
 
 	impl<T: Config<I>, I: 'static> From<pallet_acurast_hyperdrive_ibc::Error<T, I>> for Error<T, I> {
@@ -148,6 +152,10 @@ pub mod pallet {
 			Error::<T, I>::EthereumMessageEncoderError(e as u8)
 		}
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn enabled)]
+	pub type Enabled<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ethereum_contract)]
@@ -205,6 +213,7 @@ pub mod pallet {
 			amount: T::Balance,
 			fee: T::Balance,
 		) -> DispatchResult {
+			Self::ensure_enabled()?;
 			let source = ensure_signed(origin)?;
 			let proxy: ProxyChain = (&dest).into();
 			let transfer_nonce =
@@ -225,6 +234,7 @@ pub mod pallet {
 			transfer_nonce: TransferNonce,
 			fee: T::Balance,
 		) -> DispatchResult {
+			Self::ensure_enabled()?;
 			let source = ensure_signed(origin)?;
 			let (prev_source, prev_recipient, prev_amount) =
 				OutgoingTransfers::<T, I>::get(proxy, transfer_nonce)
@@ -268,6 +278,15 @@ pub mod pallet {
 			Self::deposit_event(Event::SolanaContractUpdated { contract });
 			Ok(())
 		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::set_enabled())]
+		pub fn set_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+			ensure_root(origin)?;
+			<Enabled<T, I>>::set(Some(enabled));
+			Self::deposit_event(Event::PalletEnabled { enabled });
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
@@ -289,6 +308,14 @@ pub mod pallet {
 				)),
 				_ => Err(Error::InvalidRecipient),
 			}
+		}
+
+		fn ensure_enabled() -> Result<(), Error<T, I>> {
+			let enabled = Self::enabled().unwrap_or_default();
+			if !enabled {
+				return Err(Error::<T, I>::NotEnabled);
+			}
+			Ok(())
 		}
 
 		/// Sends a message with a [`Action::TransferToken`] over Hyperdrive.

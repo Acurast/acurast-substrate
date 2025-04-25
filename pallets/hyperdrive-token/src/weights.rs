@@ -43,7 +43,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-    
+
     /// Storage: AcurastHyperdriveTezos CurrentVaraContract (r:0 w:1)
 	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
 	fn retry_transfer_native() -> Weight {
@@ -67,10 +67,20 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	
+
     /// Storage: AcurastHyperdriveTezos CurrentVaraContract (r:0 w:1)
 	/// Proof: AcurastHyperdriveTezos CurrentVaraContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
 	fn update_solana_contract() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 8_000_000 picoseconds.
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	fn set_enabled() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

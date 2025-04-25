@@ -7,8 +7,8 @@ use sp_runtime::AccountId32;
 use sp_tracing::try_init_simple;
 
 use crate::{
-	mock::*, stub::*, Error, EthereumContract, Event, NextTransferNonce, OutgoingTransfers,
-	SolanaContract,
+	mock::*, stub::*, Enabled, Error, EthereumContract, Event, NextTransferNonce,
+	OutgoingTransfers, SolanaContract,
 };
 
 #[test]
@@ -41,6 +41,7 @@ fn test_transfer_native_success() {
 
 		NextTransferNonce::<Test>::set(ProxyChain::Ethereum, initial_nonce);
 		EthereumContract::<Test>::set(Some(ethereum_token_contract()));
+		Enabled::<Test>::set(Some(true));
 
 		// Act
 		System::set_block_number(initial_block);

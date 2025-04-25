@@ -6,4 +6,5 @@ pub trait WeightInfo {
 	fn retry_transfer_native() -> Weight;
 	fn update_ethereum_contract() -> Weight;
 	fn update_solana_contract() -> Weight;
+	fn set_enabled() -> Weight;
 }

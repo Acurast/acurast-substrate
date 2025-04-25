@@ -6,12 +6,8 @@ pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
-// #[cfg(test)]
-// mod mock;
-// #[cfg(any(test, feature = "runtime-benchmarks"))]
-// mod stub;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 // #[cfg(feature = "runtime-benchmarks")]
 // mod benchmarking;
@@ -36,6 +32,7 @@ pub mod pallet {
 		transactional,
 	};
 	use frame_system::pallet_prelude::*;
+	use pallet_acurast::MultiOrigin;
 	use sp_arithmetic::traits::{Saturating, Zero};
 	use sp_runtime::traits::{Hash, Verify};
 	use sp_std::{prelude::*, vec};
@@ -46,7 +43,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	/// Configures the pallet instance for a specific target chain from which we synchronize state into Acurast.
+	/// Configures the pallet.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type RuntimeEvent: From<Event<Self, I>>
@@ -54,6 +51,8 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type MinTTL: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
+		type IncomingTTL: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
 		type MinDeliveryConfirmationSignatures: Get<u32>;
 		#[pallet::constant]
@@ -325,9 +324,10 @@ pub mod pallet {
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,
 			payload: Payload,
+			relayer: MultiOrigin<T::AccountId>,
 			signatures: Signatures,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let _who = ensure_signed(origin)?;
 
 			ensure!(
 				matches!(recipient, SubjectFor::<T>::Acurast(_)),
@@ -355,7 +355,7 @@ pub mod pallet {
 			let message_with_meta = IncomingMessageWithMetaFor::<T> {
 				message: message.clone(),
 				current_block,
-				relayer: who.clone(),
+				relayer,
 			};
 			<IncomingMessages<T, I>>::insert(id, message_with_meta.clone());
 			<IncomingMessagesLookup<T, I>>::insert(&recipient, &id, ());
@@ -371,6 +371,39 @@ pub mod pallet {
 			}
 
 			Ok(())
+		}
+
+		/// Cleans up incoming messages for which [`<T as Config<I>>::IncomingTTL`] passed.
+		#[pallet::call_index(5)]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::clean_incoming())]
+		pub fn clean_incoming(
+			origin: OriginFor<T>,
+			ids: MessagesCleanup,
+		) -> DispatchResultWithPostInfo {
+			let _who = ensure_signed(origin)?;
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let l = ids.len();
+			let mut i = 0usize;
+			for id in ids.iter() {
+				if let Some(message) = <IncomingMessages<T, I>>::get(&id) {
+					<IncomingMessages<T, I>>::remove(&id);
+					if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
+						<IncomingMessagesLookup<T, I>>::remove(
+							&message.message.sender,
+							&message.message.nonce,
+						);
+						i += 1;
+					}
+				}
+			}
+
+			if i == l {
+				Ok(Pays::No.into())
+			} else {
+				Ok(().into())
+			}
 		}
 	}
 
@@ -475,16 +508,18 @@ pub mod pallet {
 
 		/// Sends a message by the given `sender` paid by a potentially different `payer`.
 		///
-		/// **NOTE**: This is an internal function but could be made available
+		/// **NOTE**:
+		///
+		/// * This is an internal function but could be made available
 		/// to other pallets if the authorization for the passed `sender` has been ensured at the caller.
 		/// Be careful to not allow for unintended impersonation.
+		/// * _Exactly-once delivery_ is **not** guaranteed even the `nonce` serves as deduplication during ttl; While, after ttl passed and message fee cannot be claimed by relayer, a _different_ message with same nonce can be sent off, it cannot be guaranteed a relayer received the oracle signatures before and still submits first message to proxy.
 		pub fn do_send_message(
 			sender: SubjectFor<T>,
 			payer: &T::AccountId,
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,
 			payload: Vec<u8>,
-			// pub amount: u128,
 			ttl: BlockNumberFor<T>,
 			fee: BalanceOf<T, I>,
 		) -> Result<OutgoingMessageWithMetaFor<T, I>, Error<T, I>> {

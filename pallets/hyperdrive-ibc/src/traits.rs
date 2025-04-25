@@ -7,4 +7,5 @@ pub trait WeightInfo {
 	fn confirm_message_delivery() -> Weight;
 	fn remove_message() -> Weight;
 	fn receive_message() -> Weight;
+	fn clean_incoming() -> Weight;
 }

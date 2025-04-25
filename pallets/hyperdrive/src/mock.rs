@@ -40,10 +40,10 @@ parameter_types! {
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 
-    pub MinTTL: BlockNumber = 20;
+    pub MinTTL: BlockNumber = 15;
+    pub IncomingTTL: BlockNumber = 50;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
-	pub const HyperdriveHoldReason: RuntimeHoldReason = RuntimeHoldReason::AcurastHyperdriveIbc(pallet_acurast_hyperdrive_ibc::HoldReason::OutgoingMessageFee);
 }
 
 // Configure a mock runtime to test the pallet.
@@ -120,12 +120,13 @@ impl crate::Config<Instance1> for Test {
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
     type MinTTL = MinTTL;
+    type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
-	type MessageProcessor = HyperdriveMessageProcessor<Runtime>;
+	type MessageProcessor = HyperdriveMessageProcessor;
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 

@@ -9,7 +9,6 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].
 	/// If a job for the same `(accountId, script)` was previously registered, it will be overwritten.
 	fn register_hook(
-		_who: &MultiOrigin<T::AccountId>,
 		job_id: &JobId<T::AccountId>,
 		registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo {

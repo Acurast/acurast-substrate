@@ -42,4 +42,7 @@ pub trait WeightInfo {
 	fn finalize_jobs(x: u32) -> Weight;
 	fn cleanup_storage(x: u32) -> Weight;
 	fn cleanup_assignments(x: u32) -> Weight;
+	fn edit_script() -> Weight;
+	fn transfer_editor() -> Weight;
+	fn deploy() -> Weight;
 }

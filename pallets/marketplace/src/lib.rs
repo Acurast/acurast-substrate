@@ -41,7 +41,7 @@ pub mod pallet {
 		ensure,
 		pallet_prelude::*,
 		sp_runtime::{
-			traits::{CheckedAdd, CheckedSub},
+			traits::{CheckedAdd, CheckedSub, Hash},
 			FixedPointOperand, FixedU128,
 		},
 		traits::tokens::Balance,
@@ -52,8 +52,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use pallet_acurast::{
-		JobId, JobIdSequence, JobRegistrationFor, MultiOrigin, ParameterBound,
-		StoredJobRegistration,
+		JobId, JobIdSequence, JobRegistrationFor, Metrics, MultiOrigin, ParameterBound, Script,
+		ScriptMutability, StoredJobRegistration,
 	};
 
 	use crate::{traits::*, types::*, JobBudget, RewardManager};
@@ -109,6 +109,10 @@ pub mod pallet {
 		type MarketplaceHooks: MarketplaceHooks<Self>;
 		#[pallet::constant]
 		type MaxJobCleanups: Get<u32>;
+		/// The hashing system (algorithm) being used to hash deployments (owner + script) (e.g. Blake2).
+		type DeploymentHashing: Hash<Output = DeploymentHash> + TypeInfo;
+		/// The hashing system (algorithm) being used to generate key ids for deployments (e.g. Blake2).
+		type KeyIdHashing: Hash<Output = KeyId> + TypeInfo;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
@@ -229,6 +233,46 @@ pub mod pallet {
 		u64,
 	>;
 
+	/// Editors are accounts with the right to update a job's script. They are stored as a map [`JobId`] -> [`T::AccountId`] `(editor)`.
+	///
+	/// If a job has an editor it makes the Job's script as well as other information kept in the script bundle, such as restart policy, editable.
+	///
+	/// A job's editor defaults to the job's owner but can be transferred to one or multiple accounts (including multisig accounts).
+	/// The transfer of the editor role has to be initiate by the current editor.
+	/// Thus if the original owner (and editor) transfers this permission he also looses the permission to assign the editors. This is so to ensure a specific entity, the editor, has control
+	/// over what gets executed under usage of a set of keys (identified by a key ID).
+	#[pallet::storage]
+	#[pallet::getter(fn editors)]
+	pub type Editors<T: Config> =
+		StorageMap<_, Blake2_128Concat, JobId<T::AccountId>, T::AccountId>;
+
+	/// Key IDs stored as a map [`JobId`] -> [`KeyId`].
+	///
+	/// Key IDs are hashes that are used to lookup (sets of) keys on processor. The same key ID will produce the same set of keys on the same processor (until processor's key store is reset).
+	#[pallet::storage]
+	#[pallet::getter(fn job_key_ids)]
+	pub type JobKeyIds<T: Config> = StorageMap<_, Blake2_128Concat, JobId<T::AccountId>, KeyId>;
+
+	/// Deployment hashes stored as a map [`MultiOrigin`] -> [`JobIdSequence`] -> [`KeyId`]. The key is split up to allow for bulk deletion.
+	#[pallet::storage]
+	#[pallet::getter(fn deployment_hashes)]
+	pub type DeploymentHashes<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128,
+		MultiOrigin<T::AccountId>,
+		Blake2_128,
+		JobIdSequence,
+		DeploymentHash,
+	>;
+
+	/// Key IDs for future job registrations (continuing the deployments), reusing keys stored as a map [`DeploymentHash`] -> [`KeyId`].
+	///
+	/// The key of this map is of type [`DeploymentHash`] to ensure future job deployments of same owner + script will result in same key ID,
+	/// even if the job that lead to the creation of this key ID has ended or was cancelled.
+	#[pallet::storage]
+	#[pallet::getter(fn deployment_key_ids)]
+	pub type DeploymentKeyIds<T: Config> = StorageMap<_, Identity, DeploymentHash, KeyId>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -250,6 +294,12 @@ pub mod pallet {
 		JobFinalized(JobId<T::AccountId>),
 		/// A registration was successfully matched. [Match]
 		JobExecutionMatched(ExecutionMatchFor<T>),
+		/// Job script edited. [job_id]
+		JobScriptEdited(JobId<T::AccountId>),
+		/// Editor transferred. [job_id, new_editor]
+		EditorTransferred(JobId<T::AccountId>, T::AccountId),
+		/// Job became immutable since editor was cleared. [job_id]
+		JobBecameImmutable(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -358,6 +408,26 @@ pub mod pallet {
 		ProcessorCpuScoreMismatch,
 		/// Match failed because a processor does not meet the mininum metrics. [pool_id]
 		ProcessorMinMetricsNotMet(u8),
+		/// A Key id for a job was not found
+		KeyIdNotFound,
+		/// Job not found.
+		JobNotFound,
+		/// The provided script value is not valid. The value needs to be and ipfs:// url.
+		InvalidScriptValue,
+		/// Job to extend not found.
+		JobForKeyReuseNotFound,
+		/// A immutable job cannot be edited.
+		ImmutableJobCannotBeEdited,
+		/// A immutable job cannot be made mutable.
+		ImmutableJobCannotBeMadeMutable,
+		/// A mutable job can only be edited by the current editor.
+		OnlyEditorCanEditScript,
+		/// Only editor can transfer editing permissions.
+		OnlyEditorCanTransferEditor,
+		/// A mutable job can be made immutable only by the editor.
+		OnlyEditorCanMakeImmutable,
+		/// A mutable job can only be extended (new job registered reusing keys) by same owner.
+		OnlyOwnerCanExtendJob,
 	}
 
 	#[pallet::hooks]
@@ -577,6 +647,207 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_cleanup_assignments(&who, job_ids.into())?;
 			Ok(().into())
+		}
+
+		/// Registers a deployment, optionally transfering (reusing) keys from a previously registered job, inheriting its editor.
+		///
+		/// When `reuse_keys_from` is provided, the registration attempts to reuse keys from the previously registered job `j`.
+		/// If the script is different from original job, the keys are transferred, meaning no other job can reuse them
+		/// (but the original job will use them until the end of its lifetime).
+		///
+		/// Some rules have to be followed:
+		///
+		/// - if this job is mutable then the `j` has to be mutable
+		/// - the owners of this job and `j` need to match
+		/// - the editors of this job and `j` need to match
+		///
+		/// This extrinsic could replace [`Self::register`] since this extrinsic has the same effect if `registration_type ==` [`ScriptMutability::Immutable`] and `reuse_keys_from == None`.
+		#[pallet::call_index(11)]
+		#[pallet::weight(< T as Config >::WeightInfo::deploy())]
+		pub fn deploy(
+			origin: OriginFor<T>,
+			registration: JobRegistrationFor<T>,
+			mutability: ScriptMutability<T::AccountId>,
+			reuse_keys_from: Option<JobId<T::AccountId>>,
+			min_metrics: Option<Metrics>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			let multi_origin = MultiOrigin::Acurast(who.clone());
+			let job_id = (multi_origin, pallet_acurast::Pallet::<T>::next_job_id());
+
+			let deployment_hash = T::DeploymentHashing::hash(
+				&(job_id.0.clone(), (&registration.script).clone()).encode(),
+			);
+
+			match mutability.clone() {
+				ScriptMutability::Immutable => {
+					if let Some(original_job_id) = reuse_keys_from {
+						// For jobs registered after editors were introduced: recover original deployment hash to check if script changed (without the need of old script being present in pallet_acurast -> StoredJobRegistration)
+						if let Some(original_deployment_hash) =
+							<DeploymentHashes<T>>::get(&original_job_id.0, original_job_id.1)
+						{
+							ensure!(
+								original_deployment_hash == deployment_hash,
+								Error::<T>::ImmutableJobCannotBeEdited
+							);
+						}
+						// if None, it's not an error since the user tries to extend a job registered before job editors were introduced
+						// for backwards compatibility not changing the behaviour, we rely on the key reuse by the hashing on the processor
+
+						ensure!(
+							<Editors<T>>::get(&original_job_id).is_none(),
+							Error::<T>::ImmutableJobCannotBeMadeMutable
+						);
+					}
+					// in None we might still reuse keys implicitly by registering the same script
+				},
+				ScriptMutability::Mutable(editor_) => {
+					let (derived_editor, key_id) = if let Some(original_job_id) = reuse_keys_from {
+						// we disallow a change of owner in the current permission model
+						ensure!(original_job_id.0 == job_id.0, Error::<T>::OnlyOwnerCanExtendJob);
+
+						// every mutable job must have an entry in Editors since it got deployed after editors were introduced
+						let original_job_editor = <Editors<T>>::get(&original_job_id)
+							.ok_or(Error::<T>::ImmutableJobCannotBeEdited)?;
+						let derived_editor = if let Some(editor) = editor_ {
+							// attempt to set potentially different editor so check if allowed
+
+							ensure!(
+								job_id.0 == MultiOrigin::Acurast(original_job_editor.clone())
+									|| original_job_editor == editor,
+								Error::<T>::OnlyEditorCanTransferEditor
+							);
+
+							editor
+						} else {
+							// keep same editor for new job
+							original_job_editor.clone()
+						};
+
+						// recover original deployment hash to check if script changed (without the need of old script being present in pallet_acurast -> StoredJobRegistration)
+						let original_deployment_hash =
+							<DeploymentHashes<T>>::get(&original_job_id.0, original_job_id.1)
+								.ok_or(Error::<T>::JobForKeyReuseNotFound)?;
+
+						// we allow the script to change, but only if the owner is also the editor
+						ensure!(
+							job_id.0 == MultiOrigin::Acurast(original_job_editor)
+								|| original_deployment_hash == deployment_hash,
+							Error::<T>::OnlyEditorCanEditScript
+						);
+
+						let key_id = Self::transfer_key_id(
+							&original_job_id,
+							original_deployment_hash,
+							deployment_hash,
+						)?;
+
+						(derived_editor, key_id)
+					} else {
+						// to create a new unique key_id without using randomness, we hash the full job id and the script
+						// (we want to make sure that even the same owner can not reuse the keys from a previous deployment without explicitly using ScriptMutability::MutableTransferKeysFrom)
+						let key_id = T::KeyIdHashing::hash(&job_id.encode());
+						(editor_.unwrap_or(who), key_id)
+					};
+					<Editors<T>>::insert(&job_id, derived_editor);
+
+					<DeploymentKeyIds<T>>::insert(&deployment_hash, key_id);
+
+					// we only ever write once to his map on the creation of the job, so the key_id is immutable for the lifetime of a job
+					<JobKeyIds<T>>::insert(&job_id, key_id);
+				},
+			};
+
+			// insert deployment hash
+			<DeploymentHashes<T>>::insert(&job_id.0, &job_id.1, deployment_hash);
+
+			pallet_acurast::Pallet::<T>::register_for(job_id, registration, min_metrics)
+		}
+
+		/// Edits a job's script. Preserves the set of keys used on processors.
+		#[pallet::call_index(12)]
+		#[pallet::weight(< T as Config >::WeightInfo::edit_script())]
+		pub fn edit_script(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+			script: Script,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			let editor =
+				<Editors<T>>::get(&job_id).ok_or(Error::<T>::ImmutableJobCannotBeEdited)?;
+			ensure!(editor == who, Error::<T>::OnlyEditorCanTransferEditor);
+
+			ensure!(pallet_acurast::is_valid_script(&script), Error::<T>::InvalidScriptValue);
+
+			let old_script =
+				<StoredJobRegistration<T>>::mutate(&job_id.0, job_id.1, |registration| {
+					if let Some(r) = registration.as_mut() {
+						let old_script = r.script.clone();
+						(*r).script = script.clone();
+						Some(old_script)
+					} else {
+						None
+					}
+				})
+				.ok_or(Error::<T>::JobNotFound)?;
+
+			// resets the key ID for old deployment hash and inserts the updated deployment
+			let original_deployment_hash =
+				T::DeploymentHashing::hash(&(job_id.0.clone(), old_script).encode());
+			let updated_deployment_hash =
+				T::DeploymentHashing::hash(&(job_id.0.clone(), script).encode());
+
+			let _key_id =
+				Self::transfer_key_id(&job_id, original_deployment_hash, updated_deployment_hash)?;
+			// DO NOT update JobKeyIds to keep using previous keys DESPITE the job script update
+
+			Self::deposit_event(Event::JobScriptEdited(job_id));
+			Ok(().into())
+		}
+
+		/// Transfers the editor role for a job.
+		#[pallet::call_index(13)]
+		#[pallet::weight(< T as Config >::WeightInfo::transfer_editor())]
+		pub fn transfer_editor(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+			new_editor: Option<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			let editor =
+				<Editors<T>>::get(&job_id).ok_or(Error::<T>::ImmutableJobCannotBeEdited)?;
+			ensure!(editor == who, Error::<T>::OnlyEditorCanEditScript);
+
+			if let Some(e) = new_editor {
+				<Editors<T>>::insert(&job_id, e.clone());
+				Self::deposit_event(Event::EditorTransferred(job_id, e));
+			} else {
+				<Editors<T>>::remove(&job_id);
+				Self::deposit_event(Event::JobBecameImmutable(job_id));
+			}
+
+			Ok(().into())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn transfer_key_id(
+			job_id: &JobId<T::AccountId>,
+			original_deployment_hash: DeploymentHash,
+			updated_deployment_hash: DeploymentHash,
+		) -> Result<KeyId, Error<T>> {
+			let key_id = <JobKeyIds<T>>::get(job_id).ok_or(Error::<T>::KeyIdNotFound)?;
+			<DeploymentKeyIds<T>>::mutate(original_deployment_hash, |id_| {
+				// clear only if still pointing to the keyId of the job updated
+				if Some(key_id) == *id_ {
+					*id_ = None
+				}
+			});
+			<DeploymentKeyIds<T>>::insert(&updated_deployment_hash, key_id);
+			Ok(key_id)
 		}
 	}
 

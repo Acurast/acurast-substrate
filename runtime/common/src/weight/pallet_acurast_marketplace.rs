@@ -322,4 +322,64 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 37292).saturating_mul(x.into()))
 	}
+	/// Storage: `Acurast::LocalJobIdSequence` (r:1 w:1)
+	/// Proof: `Acurast::LocalJobIdSequence` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::Editors` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::Editors` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::DeploymentHashes` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::DeploymentHashes` (`max_values`: None, `max_size`: Some(64), added: 2539, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobKeyIds` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::JobKeyIds` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::DeploymentKeyIds` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::DeploymentKeyIds` (`max_values`: None, `max_size`: Some(64), added: 2539, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::StoredJobStatus` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::StoredJobStatus` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobBudgets` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::JobBudgets` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredJobRegistration` (r:0 w:1)
+	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34817), added: 37292, mode: `MaxEncodedLen`)
+	fn deploy() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1045`
+		//  Estimated: `3593`
+		// Minimum execution time: 130_110_000 picoseconds.
+		Weight::from_parts(133_071_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(9))
+	}
+	/// Storage: `AcurastMarketplace::Editors` (r:1 w:0)
+	/// Proof: `AcurastMarketplace::Editors` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredJobRegistration` (r:1 w:1)
+	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34817), added: 37292, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobKeyIds` (r:1 w:0)
+	/// Proof: `AcurastMarketplace::JobKeyIds` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::DeploymentKeyIds` (r:1 w:2)
+	/// Proof: `AcurastMarketplace::DeploymentKeyIds` (`max_values`: None, `max_size`: Some(64), added: 2539, mode: `MaxEncodedLen`)
+	fn edit_script() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `822`
+		//  Estimated: `38282`
+		// Minimum execution time: 42_550_000 picoseconds.
+		Weight::from_parts(43_560_000, 0)
+			.saturating_add(Weight::from_parts(0, 38282))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `AcurastMarketplace::Editors` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::Editors` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	fn transfer_editor() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `310`
+		//  Estimated: `3567`
+		// Minimum execution time: 18_930_000 picoseconds.
+		Weight::from_parts(19_550_000, 0)
+			.saturating_add(Weight::from_parts(0, 3567))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

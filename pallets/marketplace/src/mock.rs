@@ -3,7 +3,7 @@ use frame_support::traits::fungible;
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
-		traits::{AccountIdConversion, IdentityLookup},
+		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 		BuildStorage, DispatchError, Percent,
 	},
 	PalletId,
@@ -248,6 +248,8 @@ impl Config for Test {
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>>;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = ();
+	type DeploymentHashing = BlakeTwo256;
+	type KeyIdHashing = BlakeTwo256;
 	type WeightInfo = weights::WeightInfo<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;

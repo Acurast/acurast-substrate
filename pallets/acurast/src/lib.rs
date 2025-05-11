@@ -432,7 +432,7 @@ pub mod pallet {
 
 			<StoredJobRegistration<T>>::insert(&job_id.0, job_id.1, registration.clone());
 
-			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
+			<T as Config>::JobHooks::register_hook(&job_id, &registration)?;
 
 			Self::deposit_event(Event::JobRegistrationStored(registration, job_id.clone()));
 			Ok(().into())

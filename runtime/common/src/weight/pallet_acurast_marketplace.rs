@@ -312,4 +312,34 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 37292).saturating_mul(x.into()))
 	}
+    fn edit_script() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `724`
+		//  Estimated: `7296`
+		// Minimum execution time: 126_080_000 picoseconds.
+		Weight::from_parts(131_160_000, 0)
+			.saturating_add(Weight::from_parts(0, 7296))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(10))
+	}
+    fn transfer_editor() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `724`
+		//  Estimated: `7296`
+		// Minimum execution time: 126_080_000 picoseconds.
+		Weight::from_parts(131_160_000, 0)
+			.saturating_add(Weight::from_parts(0, 7296))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(10))
+	}
+    fn deploy() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `724`
+		//  Estimated: `7296`
+		// Minimum execution time: 126_080_000 picoseconds.
+		Weight::from_parts(131_160_000, 0)
+			.saturating_add(Weight::from_parts(0, 7296))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(10))
+	}
 }

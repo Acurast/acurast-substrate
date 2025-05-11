@@ -1,4 +1,5 @@
 use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec, PalletError};
+use sp_core::H256;
 use sp_std::prelude::*;
 
 use pallet_acurast::{
@@ -18,6 +19,9 @@ pub(crate) const EXECUTION_FAILURE_MESSAGE_MAX_LENGTH: u32 = 1024;
 pub type ExecutionOperationHash = BoundedVec<u8, ConstU32<EXECUTION_OPERATION_HASH_MAX_LENGTH>>;
 pub type ExecutionFailureMessage = BoundedVec<u8, ConstU32<EXECUTION_FAILURE_MESSAGE_MAX_LENGTH>>;
 pub type PlannedExecutions<AccountId, MaxSlots> = BoundedVec<PlannedExecution<AccountId>, MaxSlots>;
+
+pub type DeploymentHash = H256;
+pub type KeyId = H256;
 
 pub type JobRegistrationForMarketplace<T> = JobRegistration<
 	<T as frame_system::Config>::AccountId,

@@ -134,10 +134,6 @@ pub fn competing_job_registration_with_reward<T: Config>(
 	}
 }
 
-pub fn script() -> Script {
-	SCRIPT_BYTES.to_vec().try_into().unwrap()
-}
-
 fn advertise_helper<T: Config>(
 	account_index: u32,
 	submit: bool,
@@ -182,7 +178,7 @@ where
 fn register_submit_helper<T: Config>(
 	account_index: u32,
 	slots: u8,
-) -> (T::AccountId, JobRegistrationFor<T>, JobIdSequence)
+) -> (T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)
 where
 	T: pallet_balances::Config,
 {
@@ -192,8 +188,30 @@ where
 	let register_call =
 		Acurast::<T>::register(RawOrigin::Signed(caller.clone().into()).into(), job.clone());
 	assert_ok!(register_call);
-	let job_id = Acurast::<T>::job_id_sequence();
+	let job_id_seq = Acurast::<T>::job_id_sequence();
+	let job_id: JobId<T::AccountId> = (MultiOrigin::Acurast(caller.clone()), job_id_seq);
 
+	(caller, job, job_id)
+}
+
+fn deploy_submit_helper<T: Config>(
+	account_index: u32,
+	slots: u8,
+) -> (T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)
+where
+	T: pallet_balances::Config,
+{
+	let (caller, job): (T::AccountId, JobRegistrationFor<T>) =
+		register_helper::<T>(account_index, slots);
+
+	assert_ok!(AcurastMarketplace::<T>::deploy(
+		RawOrigin::Signed(caller.clone().into()).into(),
+		job.clone(),
+		pallet_acurast::ScriptMutability::Mutable(Some(caller.clone())),
+		None
+	));
+	let job_id_seq = Acurast::<T>::job_id_sequence();
+	let job_id = (MultiOrigin::Acurast(caller.clone()), job_id_seq);
 	(caller, job, job_id)
 }
 
@@ -469,7 +487,7 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, 1_000_000_000_000u64.into());
 		whitelist_account!(caller);
-		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobIdSequence)> = vec![];
+		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)> = vec![];
 		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get();
 		for i in 0..x {
 			registered_jobs.push(register_submit_helper::<T>(i, max_slots as u8));
@@ -486,7 +504,7 @@ benchmarks! {
 				(&mut processor_ids).push(account_id);
 			}
 			Match {
-				job_id: (MultiOrigin::Acurast(account_id), job_id),
+				job_id,
 				sources: processor_ids.into_iter().map(|account_id| PlannedExecution {
 					source: account_id,
 					start_delay: 0
@@ -605,6 +623,36 @@ benchmarks! {
 		let job = last_job.unwrap();
 		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.end_time + 1).into());
 	}: _(RawOrigin::Signed(processor), job_ids.try_into().unwrap())
+
+	// benchmark the worst case performance with mutable job that reuses keys
+	deploy {
+		let (_, _, original_job_id) = deploy_submit_helper::<T>(0, 1);
+
+		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
+		let (caller, job): (T::AccountId, JobRegistrationFor<T>) =
+			register_helper::<T>(0, max_slots);
+
+		let job_id_seq = Acurast::<T>::job_id_sequence();
+		let job_id: JobId<T::AccountId> = (MultiOrigin::Acurast(caller.clone()), job_id_seq);
+
+	}: {
+		assert_ok!(AcurastMarketplace::<T>::deploy(RawOrigin::Signed(caller.clone()).into(), job, pallet_acurast::ScriptMutability::Mutable(Some(caller)), Some(original_job_id)));
+	}
+
+	edit_script {
+		let (caller, _, job_id) = deploy_submit_helper::<T>(0, 1);
+	}: {
+		assert_ok!(AcurastMarketplace::<T>::edit_script(RawOrigin::Signed(caller.clone()).into(), job_id, script_random_value()));
+	}
+
+	transfer_editor {
+		let (caller, _, job_id) = deploy_submit_helper::<T>(0, 1);
+
+		let new_editor: T::AccountId =
+		<T as Config>::BenchmarkHelper::funded_account(1, u32::MAX.into());
+	}: {
+		assert_ok!(AcurastMarketplace::<T>::transfer_editor(RawOrigin::Signed(caller.clone()).into(), job_id, Some(new_editor)));
+	}
 
 	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

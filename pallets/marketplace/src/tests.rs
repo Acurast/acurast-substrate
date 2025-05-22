@@ -2181,7 +2181,7 @@ fn test_report_afer_last_report() {
 }
 
 #[test]
-fn test_deploy_extend_same_editor() {
+fn test_deploy_reuse_keys_same_editor() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
@@ -2269,7 +2269,8 @@ fn test_deploy_extend_same_editor() {
 		assert_ok!(AcurastMarketplace::deploy(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration1.clone(),
-			pallet_acurast::ScriptMutability::Mutable(None)
+			pallet_acurast::ScriptMutability::Mutable(None),
+			None,
 		));
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
@@ -2288,7 +2289,8 @@ fn test_deploy_extend_same_editor() {
 		assert_ok!(AcurastMarketplace::deploy(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration2,
-			pallet_acurast::ScriptMutability::MutableTransferKeysFrom(job_id1.clone(),)
+			pallet_acurast::ScriptMutability::Mutable(None),
+			Some(job_id1.clone())
 		));
 
 		// job key is same for job1 and job2
@@ -2302,7 +2304,7 @@ fn test_deploy_extend_same_editor() {
 }
 
 #[test]
-fn test_deploy_extend_different_editor() {
+fn test_deploy_reuse_keys_different_editor() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
@@ -2388,7 +2390,8 @@ fn test_deploy_extend_different_editor() {
 		assert_ok!(AcurastMarketplace::deploy(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration1.clone(),
-			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id()))
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			None,
 		));
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
@@ -2407,7 +2410,8 @@ fn test_deploy_extend_different_editor() {
 		assert_ok!(AcurastMarketplace::deploy(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration2,
-			pallet_acurast::ScriptMutability::MutableTransferKeysFrom(job_id1.clone(),)
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			Some(job_id1.clone()),
 		));
 
 		// job key is same for job1 and job2
@@ -2419,7 +2423,7 @@ fn test_deploy_extend_different_editor() {
 }
 
 #[test]
-fn test_deploy_extend_different_editor_script_edit_fails() {
+fn test_deploy_reuse_keys_different_editor_script_edit_fails() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 
 	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
@@ -2505,7 +2509,8 @@ fn test_deploy_extend_different_editor_script_edit_fails() {
 		assert_ok!(AcurastMarketplace::deploy(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration1.clone(),
-			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id()))
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			None,
 		));
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
@@ -2523,7 +2528,8 @@ fn test_deploy_extend_different_editor_script_edit_fails() {
 			AcurastMarketplace::deploy(
 				RuntimeOrigin::signed(alice_account_id()).into(),
 				registration2,
-				pallet_acurast::ScriptMutability::MutableTransferKeysFrom(job_id1.clone(),)
+				pallet_acurast::ScriptMutability::Mutable(None),
+				Some(job_id1)
 			),
 			Error::<Test>::OnlyEditorCanEditScript
 		);

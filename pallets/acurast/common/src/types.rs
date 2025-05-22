@@ -158,12 +158,8 @@ pub enum ScriptMutability<AccountId> {
 	Immutable,
 	/// Creates a mutable job given an optional distinct `editor` from `owner`.
 	///
-	/// The `editor` defaults to the job owner if not provided.
+	/// If not provided, the `editor` defaults to the job owner or the job keys are transferred from.
 	Mutable(Option<AccountId>),
-	/// Creates a mutable job extending a previously registered job identified by `original_job_id`, inheriting its editor
-	///
-	/// The registration attempts to transfer and reuse keys from the previously registered job, if it is mutable and the owners match **and** the editors match.
-	MutableTransferKeysFrom(JobId<AccountId>),
 }
 
 pub const PUB_KEYS_MAX_LENGTH: u32 = 33;

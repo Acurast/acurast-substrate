@@ -253,15 +253,24 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
-	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
-	let feeless_check_result =
-		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
-			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+	let feeless_checks = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let feeless_check =
+		feeless_checks.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			if let Some(check) = feeless_check {
+				quote::quote_spanned!(span => #check)
 			} else {
-				quote::quote!(false)
+				quote::quote_spanned!(span => |_origin, #( #arg_name, )*| { false })
 			}
 		});
+
+	let deprecation = match crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		def.call.as_ref().map(|call| call.attrs.as_ref()).unwrap_or(&[]),
+		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
 
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
@@ -297,6 +306,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::PartialEqNoBound,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 		)]
 		#[codec(encode_bound())]
@@ -363,7 +373,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 							>::pays_fee(&__pallet_base_weight, ( #( #args_name, )* ));
 
 							#frame_support::dispatch::DispatchInfo {
-								weight: __pallet_weight,
+								call_weight: __pallet_weight,
+								extension_weight: Default::default(),
 								class: __pallet_class,
 								pays_fee: __pallet_pays_fee,
 							}
@@ -384,7 +395,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#feeless_check_result
+							let feeless_check = #feeless_check;
+							feeless_check(origin, #( #args_name, )*)
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
@@ -463,7 +475,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
-				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
+					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
 			}
 		}
 	)

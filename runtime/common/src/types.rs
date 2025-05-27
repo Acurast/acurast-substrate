@@ -6,7 +6,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
 		fungible::{Balanced, Credit, Debt, Inspect, Mutate},
-		tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation},
+		tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
 		Imbalance, IsType,
 	},
 };
@@ -230,4 +230,33 @@ where
 		}
 		Ok(())
 	}
+
+	fn can_withdraw_fee(
+		who: &<Runtime>::AccountId,
+		call: &<Runtime>::RuntimeCall,
+		_dispatch_info: &DispatchInfoOf<<Runtime>::RuntimeCall>,
+		fee: Self::Balance,
+		_tip: Self::Balance,
+	) -> Result<(), TransactionValidityError> {
+        if fee.is_zero() {
+			return Ok(())
+		}
+
+		let fee_payer = get_fee_payer::<Runtime, P>(who, call);
+
+		match F::can_withdraw(&fee_payer, fee) {
+			WithdrawConsequence::Success => Ok(()),
+			_ => Err(InvalidTransaction::Payment.into()),
+		}
+    }
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn endow_account(who: &<Runtime>::AccountId, amount: Self::Balance) {
+        let _ = F::deposit(who, amount, Precision::BestEffort);
+    }
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn minimum_balance() -> Self::Balance {
+        F::minimum_balance()
+    }
 }

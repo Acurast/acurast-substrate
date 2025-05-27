@@ -36,6 +36,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	#[doc = " that collators aren\'t expected to have node versions that supply the included block"]
 	#[doc = " in the relay-chain state proof."]
 	type ConsensusHook = ConsensusHook;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Self>;
 }
 
 /// Runtime configuration for cumulus_pallet_aura_ext.

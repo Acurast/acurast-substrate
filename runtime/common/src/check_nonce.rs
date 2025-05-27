@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use frame_support::{dispatch::DispatchInfo, traits::IsType};
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, IdentifyAccount, One, SignedExtension, Verify, Zero},
@@ -14,7 +14,7 @@ use sp_std::prelude::*;
 
 use crate::utils::{get_fee_payer, PairingProvider};
 
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(Runtime, P))]
 pub struct CheckNonce<
 	Runtime: frame_system::Config + pallet_acurast_processor_manager::Config,

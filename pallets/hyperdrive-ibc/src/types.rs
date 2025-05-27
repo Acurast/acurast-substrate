@@ -56,7 +56,9 @@ pub const PAYLOAD_MAX_LENGTH: u32 = 1024;
 pub type Payload = BoundedVec<u8, ConstU32<PAYLOAD_MAX_LENGTH>>;
 
 /// Defines the transmitter activity window.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct ActivityWindow<BlockNumber> {
 	/// From this block on, the transmitter is permitted to submit Merkle roots.
 	pub start_block: BlockNumber,
@@ -70,7 +72,7 @@ impl<BlockNumber: From<u8>> Default for ActivityWindow<BlockNumber> {
 	}
 }
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
 pub enum OracleUpdate<BlockNumber> {
 	Add(Public, ActivityWindow<BlockNumber>),
 	Remove(Public),
@@ -78,7 +80,9 @@ pub enum OracleUpdate<BlockNumber> {
 }
 
 /// The message (without metadata) that gets signed by oracle and verified by recipient.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct Message<AccountId, Contract> {
 	pub id: MessageId,
 	pub sender: Subject<AccountId, Contract>,
@@ -90,7 +94,9 @@ pub struct Message<AccountId, Contract> {
 }
 
 /// A wrapper around an outgoing message containing metadata related to fee handling and TTL.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract> {
 	pub message: Message<AccountId, Contract>,
 	pub current_block: BlockNumber,
@@ -101,7 +107,9 @@ pub struct OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract> {
 }
 
 /// A wrapper around an outgoing message containing metadata related to TTL.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct IncomingMessageWithMeta<AccountId, BlockNumber, Contract> {
 	pub message: Message<AccountId, Contract>,
 	pub current_block: BlockNumber,
@@ -123,7 +131,17 @@ impl<AccountId, Contract> From<Message<AccountId, Contract>> for MessageBody<Acc
 	}
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+)]
 pub enum Subject<AccountId, Contract> {
 	Acurast(Layer<AccountId, Contract>),
 	AlephZero(Layer<AccountId32, Contract>),
@@ -132,7 +150,17 @@ pub enum Subject<AccountId, Contract> {
 	Solana(Layer<AccountId32, AccountId32>),
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+)]
 pub enum Layer<AccountId, C> {
 	/// A sender/recipient extrinsic. In case of a sender, it should hold the pallet_account of either this pallet
 	/// if `hyperdrive_ibc::send_message`-extrinsic sent the message or the (internal) caller of `hyperdrive_ibc::do_send_message`.
@@ -143,7 +171,17 @@ pub enum Layer<AccountId, C> {
 /// A contract call acting as a sender/recipient of a message.
 ///
 /// See how to invoke another contract: https://use.ink/4.x/basics/cross-contract-calling#callbuilder
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+)]
 pub struct ContractCall<C> {
 	pub contract: C,
 	/// Selector for the message of `contract` to send payload to,

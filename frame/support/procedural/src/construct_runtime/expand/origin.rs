@@ -44,7 +44,7 @@ pub fn expand_outer_origin(
 					 be constructed: pallet `{}` must have generic `Origin`",
 					name
 				);
-				return Err(syn::Error::new(name.span(), msg))
+				return Err(syn::Error::new(name.span(), msg));
 			}
 
 			caller_variants.extend(expand_origin_caller_variant(
@@ -161,7 +161,7 @@ pub fn expand_outer_origin(
 			}
 
 			fn filter_call(&self, call: &Self::Call) -> bool {
-				match self.caller {
+				match &self.caller {
 					// Root bypasses all filters
 					OriginCaller::system(#system_path::Origin::<#runtime>::Root) => true,
 					OriginCaller::system(#system_path::Origin::<#runtime>::Signed(sender)) => {

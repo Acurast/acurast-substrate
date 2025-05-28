@@ -1,12 +1,14 @@
 use core::marker::PhantomData;
 
-use crate::utils::{get_fee_payer, PairingProvider};
+use crate::utils::{FeePayer, FeePayerProvider, PairingProvider};
 use acurast_p256_crypto::MultiSignature;
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
 		fungible::{Balanced, Credit, Debt, Inspect, Mutate},
-		tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
+		tokens::{
+			imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence,
+		},
 		Imbalance, IsType,
 	},
 };
@@ -180,7 +182,7 @@ where
 			return Ok(None);
 		}
 
-		let fee_payer = get_fee_payer::<Runtime, P>(who, call);
+		let fee_payer = FeePayer::<Runtime, P>::fee_payer(who, call);
 
 		match F::withdraw(
 			&fee_payer,
@@ -242,7 +244,7 @@ where
 			return Ok(())
 		}
 
-		let fee_payer = get_fee_payer::<Runtime, P>(who, call);
+		let fee_payer = FeePayer::<Runtime, P>::fee_payer(who, call);
 
 		match F::can_withdraw(&fee_payer, fee) {
 			WithdrawConsequence::Success => Ok(()),

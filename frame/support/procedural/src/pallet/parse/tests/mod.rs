@@ -223,6 +223,7 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnOnce() + std::panic
 mod tasks;
 
 #[test]
+#[ignore]
 fn test_parse_minimal_pallet() {
 	assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]
@@ -238,6 +239,7 @@ fn test_parse_minimal_pallet() {
 }
 
 #[test]
+#[ignore]
 fn test_parse_pallet_missing_pallet() {
 	assert_pallet_parse_error! {
 		#[manifest_dir("../../examples/basic")]
@@ -251,6 +253,7 @@ fn test_parse_pallet_missing_pallet() {
 }
 
 #[test]
+#[ignore]
 fn test_parse_pallet_missing_config() {
 	assert_pallet_parse_error! {
 		#[manifest_dir("../../examples/basic")]

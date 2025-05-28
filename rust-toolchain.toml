@@ -1,6 +1,6 @@
 [toolchain]
 channel = "1.84.1"
-targets = ["wasm32-unknown-unknown"]
+targets = ["wasm32v1-none"]
 components = [
 	"rustfmt",
 	"cargo",

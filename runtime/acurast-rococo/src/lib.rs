@@ -74,6 +74,8 @@ mod runtime {
 	pub type Multisig = pallet_multisig;
 	#[runtime::pallet_index(8)]
 	pub type Utility = pallet_utility;
+	#[runtime::pallet_index(9)]
+	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
 
 	// Monetary stuff.
 	#[runtime::pallet_index(10)]

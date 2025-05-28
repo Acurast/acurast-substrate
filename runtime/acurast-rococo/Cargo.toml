@@ -44,6 +44,7 @@ acurast-runtime-common = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
+frame-support-procedural = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -164,6 +165,7 @@ std = [
 	"xcm/std",
 	"acurast-p256-crypto/std",
 	"pallet-collator-selection/std",
+	"frame-support-procedural/std",
 	"cumulus-primitives-aura/std",
 ]
 
@@ -201,3 +203,5 @@ try-runtime = [
 	"frame-try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",
 ]
+
+allow-faucet = ["frame-support-procedural/allow-faucet"]

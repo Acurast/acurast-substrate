@@ -339,6 +339,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
+ "frame-support-procedural",
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",

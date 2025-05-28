@@ -6,7 +6,7 @@ use acurast_runtime_common::{
 	},
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
-	utils::PairingProvider,
+	utils::{FeePayer, PairingProvider},
 	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
@@ -50,7 +50,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		CheckNonce<Runtime>,
+		CheckNonce<Runtime, FeePayer<Runtime, ProcessorPairingProvider>>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),

@@ -195,6 +195,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
+	"acurast-runtime-common/runtime-benchmarks",
 ]
 
 try-runtime = [

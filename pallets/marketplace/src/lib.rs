@@ -21,8 +21,6 @@ mod hooks;
 mod match_checker;
 mod migration;
 pub mod payments;
-#[cfg(feature = "std")]
-pub mod rpc;
 pub mod traits;
 pub mod types;
 mod utils;
@@ -30,7 +28,7 @@ pub mod weights;
 
 pub(crate) use pallet::STORAGE_VERSION;
 
-use pallet_acurast::{Attestation, Environment, JobId, MultiOrigin, ParameterBound};
+use pallet_acurast::{JobId, MultiOrigin, ParameterBound};
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -655,30 +653,5 @@ pub mod pallet {
 
 			Ok(())
 		}
-	}
-}
-
-sp_api::decl_runtime_apis! {
-	/// API to interact with Acurast marketplace pallet.
-	pub trait MarketplaceRuntimeApi<Reward: parity_scale_codec::Codec, AccountId: parity_scale_codec::Codec, Extra: parity_scale_codec::Codec, MaxAllowedSources: ParameterBound, MaxEnvVars: ParameterBound, EnvKeyMaxSize: ParameterBound, EnvValueMaxSize: ParameterBound> {
-		 fn filter_matching_sources(
-			registration: PartialJobRegistration<Reward, AccountId, MaxAllowedSources>,
-			sources: Vec<AccountId>,
-			consumer: Option<MultiOrigin<AccountId>>,
-			latest_seen_after: Option<u128>,
-		) -> Result<Vec<AccountId>, RuntimeApiError>;
-
-		fn job_environment(
-			job_id: JobId<AccountId>,
-			source: AccountId,
-		) -> Result<Option<Environment<MaxEnvVars, EnvKeyMaxSize, EnvValueMaxSize>>, RuntimeApiError>;
-
-		fn matched_jobs(
-			source: AccountId,
-		) -> Result<Vec<JobAssignment<Reward, AccountId, MaxAllowedSources, Extra>>, RuntimeApiError>;
-
-		fn attestation(
-			source: AccountId,
-		) -> Result<Option<Attestation>, RuntimeApiError>;
 	}
 }

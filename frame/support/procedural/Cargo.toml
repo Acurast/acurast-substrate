@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-procedural"
-version = "33.0.0"
+version = "33.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,13 +20,13 @@ cfg-expr = { version = "0.15.5" }
 derive-syn-parse = { version = "0.2.0" }
 docify = { version = "0.2.9" }
 expander = { version = "2.0.0" }
-frame-support-procedural-tools = { git = "https://github.com/paritytech/polkadot-sdk", default-features = true, tag = "polkadot-v1.18.4" }
+frame-support-procedural-tools = { git = "https://github.com/paritytech/polkadot-sdk", default-features = true, tag = "polkadot-v1.18.5" }
 itertools = { version = "0.11" }
 macro_magic = { version = "0.5.1", features = ["proc_support"] }
 proc-macro-warning = { version = "1.0.0", default-features = false }
 proc-macro2 = { version = "1.0.86" }
 quote = { version = "1.0.37" }
-sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.4" }
+sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 syn = { version = "2.0.87", features = ["full", "parsing", "visit-mut"] }
 
 [dev-dependencies]
@@ -41,7 +41,7 @@ regex = { version = "1.10.2" }
 scale-info = { features = ["derive"], workspace = true }
 sp-core = { default-features = false, workspace = true }
 sp-io = { default-features = false, workspace = true }
-sp-metadata-ir = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.4" }
+sp-metadata-ir = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 sp-runtime = { features = [
 	"serde",
 ], default-features = false, workspace = true }

@@ -9,7 +9,7 @@ use frame_support::{
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND, PalletId,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use sp_runtime::{create_runtime_str, traits::AccountIdConversion, AccountId32, Perbill};
+use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
@@ -18,10 +18,10 @@ use crate::{deposit, RuntimeHoldReason, RUNTIME_API_VERSIONS};
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("acurast-parachain"),
-	impl_name: create_runtime_str!("acurast-parachain"),
+	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
+	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 63,
+	spec_version: 66,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,

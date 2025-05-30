@@ -172,7 +172,7 @@ parameter_types! {
 	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
-	pub MaximumSchedulerWeight: Weight = Weight::from_parts(10_000_000, 0);
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
 
 	// One storage item; key size is 32; value is size 4+4+16+20 bytes = 44 bytes.

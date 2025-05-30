@@ -1,4 +1,4 @@
-FROM rust:1.81 AS builder
+FROM rust:1.84.1 AS builder
 RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
 
 WORKDIR /code

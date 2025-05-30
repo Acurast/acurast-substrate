@@ -199,6 +199,9 @@ impl_runtime_apis! {
 		) {
 			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
+			use frame_system_benchmarking::Pallet as SystemBench;
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use super::*;
 
 			let mut list = Vec::<BenchmarkList>::new();
@@ -213,6 +216,9 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkError, BenchmarkBatch};
+			use frame_system_benchmarking::Pallet as SystemBench;
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use super::*;
 
 			impl frame_system_benchmarking::Config for Runtime {

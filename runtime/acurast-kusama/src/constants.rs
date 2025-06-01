@@ -21,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 25,
+	spec_version: 26,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,

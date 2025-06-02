@@ -38,6 +38,7 @@ pub type SerialNumber = BoundedVec<u8, ConstU32<SERIAL_NUMBER_MAX_LENGTH>>;
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -59,7 +60,18 @@ pub enum MultiOrigin<AcurastAccountId> {
 }
 
 /// The proxy describes the chain where there is a counter part to this pallet, processing messages we send and also sending messages back. This mostly will be a custom _Hyperdrive Token_ contract on the proxy chain.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Copy, Clone, Eq, PartialEq, MaxEncodedLen)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	MaxEncodedLen,
+)]
 pub enum ProxyChain {
 	Acurast,
 	Tezos,
@@ -92,16 +104,28 @@ pub type JobIdSequence = u128;
 pub type JobId<AcurastAccountId> = (MultiOrigin<AcurastAccountId>, JobIdSequence);
 
 /// The allowed sources update operation.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Copy)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Copy,
+)]
 pub enum ListUpdateOperation {
 	Add,
 	Remove,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct ListUpdate<T>
 where
-	T: Encode + Decode + TypeInfo + MaxEncodedLen + Clone + PartialEq,
+	T: Encode + Decode + DecodeWithMemTracking + TypeInfo + MaxEncodedLen + Clone + PartialEq,
 {
 	/// The update operation.
 	pub operation: ListUpdateOperation,
@@ -115,7 +139,9 @@ pub type AllowedSourcesUpdate<AccountId> = ListUpdate<AccountId>;
 pub type CertificateRevocationListUpdate = ListUpdate<SerialNumber>;
 
 /// Structure representing a job registration.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
@@ -145,7 +171,9 @@ pub type EnvVarKey<KeyMaxSize> = BoundedVec<u8, KeyMaxSize>;
 pub type EnvVarValue<ValueMaxSize> = BoundedVec<u8, ValueMaxSize>;
 
 /// Structure representing execution environment variables encrypted for a specific processor.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Environment<
@@ -165,6 +193,7 @@ pub const MAX_JOB_MODULES: u32 = 2;
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -209,6 +238,7 @@ pub type JobModules = BoundedVec<JobModule, ConstU32<MAX_JOB_MODULES>>;
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -382,7 +412,18 @@ impl Iterator for ScheduleIter {
 	}
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Version {

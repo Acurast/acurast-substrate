@@ -19,15 +19,15 @@ use crate::{
 };
 
 define_benchmarks!(
-	// TODO uncomment with fixed version of cumulus-pallet-parachain-system that includes PR https://github.com/paritytech/cumulus/pull/2766/files
-	// [frame_system, SystemBench::<Runtime>]
-	// [pallet_timestamp, Timestamp]
-	// [pallet_multisig, Multisig]
-	// [pallet_balances, Balances]
+	[frame_system, SystemBench::<Runtime>]
+	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
+	[pallet_timestamp, Timestamp]
+	[pallet_multisig, Multisig]
+	[pallet_balances, Balances]
 	// [pallet_democracy, Democracy]
-	// [pallet_collator_selection, CollatorSelection]
-	// [pallet_session, SessionBench::<Runtime>]
-	// [cumulus_pallet_xcmp_queue, XcmpQueue]
+	[pallet_collator_selection, CollatorSelection]
+	[pallet_session, SessionBench::<Runtime>]
+	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
 	[pallet_acurast_fee_manager, AcurastFeeManager]

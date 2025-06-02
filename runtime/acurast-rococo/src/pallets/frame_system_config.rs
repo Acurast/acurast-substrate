@@ -11,7 +11,7 @@ use crate::{
 };
 
 // Configure FRAME pallets to include in runtime.
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Nonce = Nonce;
@@ -26,6 +26,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtensionsWeightInfo =
+		acurast_runtime_common::weight::frame_system_extensions::WeightInfo<Self>;
 }
 
 /// Runtime configuration for parachain_info.

@@ -11,11 +11,9 @@ pub mod p256 {
 	mod app {
 		use sp_application_crypto::app_crypto;
 
-		use crate::core::p256;
-
 		use super::P256;
 
-		app_crypto!(p256, P256);
+		app_crypto!(super, P256);
 	}
 
 	pub use app::{Public as AppPublic, Signature as AppSignature};

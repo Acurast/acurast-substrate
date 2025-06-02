@@ -4,7 +4,16 @@ use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Debug;
 
 #[derive(
-	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
 )]
 pub struct ProvisionalBuffer<Epoch: Ord + Debug, Value: Copy + Default + Debug> {
 	current: Value,

@@ -20,13 +20,8 @@ use std::sync::Arc;
 pub use acurast_runtime_common::types::{AccountId, Balance, BlockNumber, Hash, Nonce};
 use acurast_runtime_common::{
 	opaque::{Block, Header},
-	types::{
-		AuraId, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars, MaxSlots,
-		MaxVersions,
-	},
+	types::AuraId,
 };
-use pallet_acurast::Version;
-use pallet_acurast_marketplace::RegistrationExtra;
 use sc_client_api::{KeysIter, MerkleValue, PairsIter};
 use sp_consensus::BlockStatus;
 use sp_runtime::{
@@ -51,16 +46,7 @@ pub trait RuntimeApiCollection:
 	+ sp_api::Metadata<Block>
 	+ sp_offchain::OffchainWorkerApi<Block>
 	+ sp_session::SessionKeys<Block>
-	+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
-		Block,
-		Balance,
-		AccountId,
-		RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
-		MaxAllowedSources,
-		MaxEnvVars,
-		EnvKeyMaxSize,
-		EnvValueMaxSize,
-	> + sp_consensus_aura::AuraApi<Block, AuraId>
+	+ sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 	+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
 {
@@ -75,16 +61,7 @@ impl<Api> RuntimeApiCollection for Api where
 		+ sp_api::Metadata<Block>
 		+ sp_offchain::OffchainWorkerApi<Block>
 		+ sp_session::SessionKeys<Block>
-		+ pallet_acurast_marketplace::MarketplaceRuntimeApi<
-			Block,
-			Balance,
-			AccountId,
-			RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
-			MaxAllowedSources,
-			MaxEnvVars,
-			EnvKeyMaxSize,
-			EnvValueMaxSize,
-		> + sp_consensus_aura::AuraApi<Block, AuraId>
+		+ sp_consensus_aura::AuraApi<Block, AuraId>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
 {
@@ -94,30 +71,30 @@ impl<Api> RuntimeApiCollection for Api where
 #[derive(Clone)]
 pub enum ClientVariant {
 	#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
-	Testnet(Arc<ParachainClient<acurast_rococo_runtime::RuntimeApi>>),
+	Testnet(Arc<ParachainClient<acurast_rococo_runtime::apis::RuntimeApi>>),
 	#[cfg(feature = "acurast-kusama")]
-	Canary(Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi>>),
+	Canary(Arc<ParachainClient<acurast_kusama_runtime::apis::RuntimeApi>>),
 	#[cfg(feature = "acurast-mainnet")]
-	Mainnet(Arc<ParachainClient<acurast_mainnet_runtime::RuntimeApi>>),
+	Mainnet(Arc<ParachainClient<acurast_mainnet_runtime::apis::RuntimeApi>>),
 }
 
 #[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
-impl From<Arc<ParachainClient<acurast_rococo_runtime::RuntimeApi>>> for ClientVariant {
-	fn from(client: Arc<ParachainClient<acurast_rococo_runtime::RuntimeApi>>) -> Self {
+impl From<Arc<ParachainClient<acurast_rococo_runtime::apis::RuntimeApi>>> for ClientVariant {
+	fn from(client: Arc<ParachainClient<acurast_rococo_runtime::apis::RuntimeApi>>) -> Self {
 		Self::Testnet(client)
 	}
 }
 
 #[cfg(feature = "acurast-kusama")]
-impl From<Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi>>> for ClientVariant {
-	fn from(client: Arc<ParachainClient<acurast_kusama_runtime::RuntimeApi>>) -> Self {
+impl From<Arc<ParachainClient<acurast_kusama_runtime::apis::RuntimeApi>>> for ClientVariant {
+	fn from(client: Arc<ParachainClient<acurast_kusama_runtime::apis::RuntimeApi>>) -> Self {
 		Self::Canary(client)
 	}
 }
 
 #[cfg(feature = "acurast-mainnet")]
-impl From<Arc<ParachainClient<acurast_mainnet_runtime::RuntimeApi>>> for ClientVariant {
-	fn from(client: Arc<ParachainClient<acurast_mainnet_runtime::RuntimeApi>>) -> Self {
+impl From<Arc<ParachainClient<acurast_mainnet_runtime::apis::RuntimeApi>>> for ClientVariant {
+	fn from(client: Arc<ParachainClient<acurast_mainnet_runtime::apis::RuntimeApi>>) -> Self {
 		Self::Mainnet(client)
 	}
 }

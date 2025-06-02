@@ -34,13 +34,33 @@ pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub enum ModifyMetricPoolConfig {
 	Replace(MetricPoolConfigValues),
 	Update(MetricPoolUpdateOperations),
 }
 
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub struct MetricPoolUpdateOperations {
 	pub add: MetricPoolConfigValues,
 	pub remove: BoundedVec<MetricPoolConfigName, ConstU32<CONFIG_VALUES_MAX_LENGTH>>,
@@ -48,7 +68,16 @@ pub struct MetricPoolUpdateOperations {
 
 /// A processor's possible stati.
 #[derive(
-	Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, Clone, Copy, PartialEq, Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
 )]
 pub enum ProcessorStatus<BlockNumber: Debug> {
 	/// The benchmarked metric was committed but is in warmup and becomes active at the given block number.
@@ -59,7 +88,17 @@ pub enum ProcessorStatus<BlockNumber: Debug> {
 	Active,
 }
 
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub struct MetricPool<
 	Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
 	Value: Copy + Default + Debug,

@@ -15,13 +15,8 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 use acurast_runtime_common::{
 	opaque::Block,
-	types::{
-		AccountId, Balance, EnvKeyMaxSize, EnvValueMaxSize, MaxAllowedSources, MaxEnvVars,
-		MaxSlots, MaxVersions, Nonce,
-	},
+	types::{AccountId, Balance, Nonce},
 };
-use pallet_acurast::Version;
-use pallet_acurast_marketplace::{MarketplaceRuntimeApi, RegistrationExtra};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
@@ -49,16 +44,6 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: MarketplaceRuntimeApi<
-		Block,
-		Balance,
-		AccountId,
-		RegistrationExtra<Balance, AccountId, MaxSlots, Version, MaxVersions>,
-		MaxAllowedSources,
-		MaxEnvVars,
-		EnvKeyMaxSize,
-		EnvValueMaxSize,
-	>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -69,6 +54,5 @@ where
 
 	module.merge(System::new(client.clone(), pool).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	//module.merge(Marketplace::<_, Block>::new(client).into_rpc())?;
 	Ok(module)
 }

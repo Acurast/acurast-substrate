@@ -5,7 +5,7 @@ pub mod p256 {
 		ecdsa::{recoverable, VerifyingKey},
 		elliptic_curve, EncodedPoint, PublicKey, SecretKey,
 	};
-	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+	use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	use scale_info::TypeInfo;
 	#[cfg(feature = "std")]
 	use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -31,6 +31,7 @@ pub mod p256 {
 		Copy,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		PassByInner,
 		MaxEncodedLen,
 		TypeInfo,
@@ -156,7 +157,17 @@ pub mod p256 {
 	type Seed = [u8; SEED_LENGTH];
 
 	/// A signature (a 512-bit value, plus 8 bits for recovery ID).
-	#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		MaxEncodedLen,
+		PassByInner,
+		TypeInfo,
+		PartialEq,
+		Eq,
+		Hash,
+	)]
 	pub struct Signature(pub [u8; SIGNATURE_LENGTH]);
 
 	impl sp_application_crypto::Signature for Signature {}

@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use frame_support::{
 	traits::IsType,
 	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -93,40 +95,48 @@ pub fn check_device_attestation(
 	false
 }
 
+pub trait FeePayerProvider<T: frame_system::Config> {
+	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
+}
+
 pub trait PairingProvider<T: pallet_acurast_processor_manager::Config> {
 	fn pairing_for_call(call: &T::RuntimeCall) -> Option<(&ProcessorPairingFor<T>, bool)>;
 }
 
-pub fn get_fee_payer<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>>(
-	who: &T::AccountId,
-	call: &T::RuntimeCall,
-) -> <T as frame_system::Config>::AccountId where <T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>{
-	let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(who);
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct FeePayer<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>>(
+	PhantomData<(T, P)>,
+);
 
-	if manager.is_none() {
-		if let Some((pairing, is_multi)) = P::pairing_for_call(call) {
-			if pairing.validate_timestamp::<T>() {
-				let is_valid = if is_multi {
-					pairing.multi_validate_signature::<T>(&pairing.account)
-				} else {
-					let counter =
-						pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
-							&pairing.account,
-						)
-						.unwrap_or(0u8.into())
-						.checked_add(&1u8.into());
-					if let Some(counter) = counter {
-						pairing.validate_signature::<T>(&pairing.account, counter)
+impl<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>> FeePayerProvider<T> for FeePayer<T, P> where <T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId> {
+    fn fee_payer(account: &<T as frame_system::Config>::AccountId, call: &<T as frame_system::Config>::RuntimeCall) -> <T as frame_system::Config>::AccountId {
+        let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(account);
+
+		if manager.is_none() {
+			if let Some((pairing, is_multi)) = P::pairing_for_call(call) {
+				if pairing.validate_timestamp::<T>() {
+					let is_valid = if is_multi {
+						pairing.multi_validate_signature::<T>(&pairing.account)
 					} else {
-						false
+						let counter =
+							pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
+								&pairing.account,
+							)
+							.unwrap_or(0u8.into())
+							.checked_add(&1u8.into());
+						if let Some(counter) = counter {
+							pairing.validate_signature::<T>(&pairing.account, counter)
+						} else {
+							false
+						}
+					};
+					if is_valid {
+						manager = Some(pairing.account.clone());
 					}
-				};
-				if is_valid {
-					manager = Some(pairing.account.clone());
 				}
 			}
 		}
-	}
 
-	manager.unwrap_or(who.clone())
+		manager.unwrap_or(account.clone())
+    }
 }

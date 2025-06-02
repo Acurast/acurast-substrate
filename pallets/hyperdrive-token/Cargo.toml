@@ -74,15 +74,16 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"strum/std",
+	"pallet-balances/std",
 	"tezos-core/std",
 	"tezos-michelson/std",
-	"acurast-hyperdrive-substrate-core/std"
+	"acurast-hyperdrive-substrate-core/std",
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
-    "pallet-balances/runtime-benchmarks"
+	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]

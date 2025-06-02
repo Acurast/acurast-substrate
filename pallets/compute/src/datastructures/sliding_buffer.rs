@@ -13,9 +13,19 @@ use sp_runtime::traits::{Debug, One};
 /// * If you write to `epoch + 1`, slot for `epoch - 1` gets lost.
 /// * If you write to `epoch + x` for `x > 1`, both slots get lost.
 ///
-/// Whenever a slot is reset, the default of `Value` is used. You can provide `Option<V>` as `Value` if you like to distinguish between `0` and no value.  
+/// Whenever a slot is reset, the default of `Value` is used. You can provide `Option<V>` as `Value` if you like to distinguish between `0` and no value.
 /// ```
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub struct SlidingBuffer<
 	Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
 	Value: Copy + Default + Debug,

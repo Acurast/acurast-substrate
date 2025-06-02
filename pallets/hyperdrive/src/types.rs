@@ -21,7 +21,16 @@ pub enum ProxyChain {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq, EnumString, IntoStaticStr,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+	EnumString,
+	IntoStaticStr,
 )]
 pub enum RawIncomingAction {
 	#[strum(serialize = "REGISTER_JOB")]
@@ -107,7 +116,7 @@ pub trait ActionExecutor<T: pallet_acurast::Config> {
 }
 
 /// Tracks the progress during `submit_message`, intended to be included in events.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
 pub enum ProcessMessageResult {
 	ParsingValueFailed,
 	ActionFailed(RawIncomingAction),

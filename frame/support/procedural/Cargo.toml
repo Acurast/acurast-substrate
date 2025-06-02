@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-procedural"
-version = "30.0.3"
+version = "33.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,41 +15,51 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-derive-syn-parse = { version = "0.2.0" }
-docify = { version = "0.2.8" }
 Inflector = { version = "0.11.4" }
 cfg-expr = { version = "0.15.5" }
+derive-syn-parse = { version = "0.2.0" }
+docify = { version = "0.2.9" }
+expander = { version = "2.0.0" }
+frame-support-procedural-tools = { git = "https://github.com/paritytech/polkadot-sdk", default-features = true, tag = "polkadot-v1.18.5" }
 itertools = { version = "0.11" }
-proc-macro2 = { version = "1.0.64" }
-quote = { version = "1.0.37" }
-syn = { version = "2.0.65", features = ["full", "parsing", "visit-mut"] }
-frame-support-procedural-tools = { git = "https://github.com/paritytech/polkadot-sdk", default-features = true, tag = "polkadot-v1.16.2" }
 macro_magic = { version = "0.5.1", features = ["proc_support"] }
 proc-macro-warning = { version = "1.0.0", default-features = false }
-expander = { version = "2.0.0" }
-sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
+proc-macro2 = { version = "1.0.86" }
+quote = { version = "1.0.37" }
+sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+syn = { version = "2.0.87", features = ["full", "parsing", "visit-mut"] }
 
 [dev-dependencies]
-codec = { version = "3.6.12", features = [
+parity-scale-codec = { features = [
 	"derive",
 	"max-encoded-len",
-], default-features = false, package = "parity-scale-codec" }
-regex = { version = "1.10.2" }
-sp-metadata-ir = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
-scale-info = { version = "2.11.1", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", features = [
-	"serde",
-], default-features = false, tag = "polkadot-v1.16.2" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.16.2" }
+], workspace = true }
+frame-support = { default-features = false, workspace = true }
+frame-system = { default-features = false, workspace = true }
 pretty_assertions = { version = "1.3.0" }
+regex = { version = "1.10.2" }
+scale-info = { features = ["derive"], workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-metadata-ir = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+sp-runtime = { features = [
+	"serde",
+], default-features = false, workspace = true }
 static_assertions = { version = "1.1.0", default-features = false }
 
 [features]
 default = ["std"]
-std = ["sp-crypto-hashing/std"]
+std = [
+	"parity-scale-codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-crypto-hashing/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
+]
 no-metadata-docs = []
 experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of

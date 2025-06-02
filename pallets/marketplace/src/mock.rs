@@ -59,6 +59,7 @@ impl ExtBuilder {
 				(processor_account_id(), INITIAL_BALANCE),
 				(processor_2_account_id(), INITIAL_BALANCE),
 			],
+			dev_accounts: None,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -143,6 +144,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 impl parachain_info::Config for Test {}

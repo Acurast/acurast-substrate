@@ -42,6 +42,7 @@ pub type ExecutionMatchFor<T> =
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -79,7 +80,17 @@ impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: Paramete
 }
 
 /// The resource advertisement by a source containing pricing and capacity announcements.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub struct Advertisement<AccountId, Reward, MaxAllowedConsumers: Get<u32>> {
 	/// The reward token accepted. Understood as one-of per job assigned.
 	pub pricing: Pricing<Reward>,
@@ -119,7 +130,18 @@ pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBou
 /// Defines the scheduling window in which to accept matches for this pricing,
 /// either as an absolute end time (in milliseconds since Unix Epoch)
 /// or as a time delta (in milliseconds) added to the current time.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Copy)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Copy,
+)]
 pub enum SchedulingWindow {
 	/// Latest accepted end time of any matched job in milliseconds since Unix Epoch.
 	End(u64),
@@ -131,7 +153,17 @@ pub enum SchedulingWindow {
 
 /// Pricing listing cost per resource unit and slash on SLA violation.
 /// Specified in specific asset that is payed out or deducted from stake on complete fulfillment.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub struct Pricing<Reward> {
 	/// Fee per millisecond in [reward_asset].
 	pub fee_per_millisecond: Reward,
@@ -152,6 +184,7 @@ pub type PricingFor<T> = Pricing<<T as Config>::Balance>;
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -174,7 +207,9 @@ pub enum ExecutionSpecifier {
 /// It's intended use is as part of a storage map that includes the job's and source's ID in its key.
 ///
 /// The pricing agreed at the time of matching is stored along with an assignment.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Assignment<Reward> {
@@ -235,7 +270,17 @@ pub type PubKeyBytes = BoundedVec<u8, ConstU32<PUB_KEYS_MAX_LENGTH>>;
 pub type PubKeys = BoundedVec<PubKey, ConstU32<NUMBER_OF_PUB_KEYS>>;
 
 /// The public key revealed by a processor.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum PubKey {
@@ -257,7 +302,16 @@ pub type JobAssignmentFor<T> = JobAssignment<
 
 /// The allowed sources update operation.
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Copy, PalletError,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Copy,
+	PalletError,
 )]
 pub enum JobStatus {
 	/// Status after a job got registered.
@@ -278,7 +332,17 @@ impl Default for JobStatus {
 /// Keeps track of the SLA during and after a job's schedule is completed.
 ///
 /// Also used to ensure that Acurast does not accept more than the expected number of reports (and pays out no more rewards).
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Copy)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Copy,
+)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct SLA {
@@ -299,6 +363,7 @@ pub type JobRequirementsFor<T> = JobRequirements<
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -350,6 +415,7 @@ impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: Paramete
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -367,6 +433,7 @@ pub enum ProcessorVersionRequirements<Version, MaxVersions: ParameterBound> {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -386,6 +453,7 @@ pub enum Runtime {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -411,7 +479,17 @@ pub enum AssignmentStrategy<AccountId, MaxSlots: ParameterBound> {
 }
 
 /// A (one-sided) matching of a job to sources such that the requirements of both sides, consumer and source, are met.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Eq,
+	PartialEq,
+)]
 pub struct Match<AccountId, MaxSlots: ParameterBound> {
 	/// The job to match.
 	pub job_id: JobId<AccountId>,
@@ -424,6 +502,7 @@ pub struct Match<AccountId, MaxSlots: ParameterBound> {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -478,6 +557,7 @@ pub struct PartialJobRegistration<Reward, AccountId, MaxAllowedSources: Get<u32>
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -493,7 +573,9 @@ pub struct PlannedExecution<AccountId> {
 	pub start_delay: u64,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub enum ExecutionResult {
 	/// Success with operation hash.
 	Success(ExecutionOperationHash),

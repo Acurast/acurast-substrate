@@ -45,7 +45,7 @@ pub type SignatureDigestSet = BoundedVec<Digest, ConstU32<SIGNATURE_DIGEST_SET_M
 pub type PackageInfoSet = BoundedVec<BoundedAttestationPackageInfo, ConstU32<16>>;
 
 /// Structure representing a submitted attestation chain.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
 pub struct AttestationChain {
 	/// An ordered array of [CertificateInput]s describing a valid chain from known root certificate to attestation certificate.
 	pub certificate_chain: CertificateChainInput,
@@ -53,7 +53,16 @@ pub struct AttestationChain {
 
 /// Structure representing a stored attestation.
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct Attestation {
 	pub cert_ids: ValidatingCertIds,
@@ -65,6 +74,7 @@ pub struct Attestation {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -80,7 +90,16 @@ pub struct AttestationValidity {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub enum BoundedAttestationContent {
 	KeyDescription(BoundedKeyDescription),
@@ -103,7 +122,16 @@ impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedDeviceAttestation {
 	pub key_usage_properties: BoundedDeviceAttestationKeyUsageProperties,
@@ -124,7 +152,16 @@ impl TryFrom<DeviceAttestation<'_>> for BoundedDeviceAttestation {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedDeviceAttestationKeyUsageProperties {
 	pub t4: Option<i64>,
@@ -165,7 +202,16 @@ impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedDeviceAttestationDeviceOSInformation {
 	pub t1400: Option<BoundedVec<u8, ConstU32<16>>>,
@@ -194,7 +240,16 @@ impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedDeviceAttestationNonce {
 	pub nonce: Option<BoundedVec<u8, ConstU32<32>>>,
@@ -209,7 +264,16 @@ impl TryFrom<DeviceAttestationNonce<'_>> for BoundedDeviceAttestationNonce {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedKeyDescription {
 	pub attestation_security_level: AttestationSecurityLevel,
@@ -303,6 +367,7 @@ impl TryFrom<asn::KeyDescriptionKeyMint<'_>> for BoundedKeyDescription {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -330,7 +395,16 @@ impl From<asn::SecurityLevel> for AttestationSecurityLevel {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Serialize, Deserialize,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedAuthorizationList {
 	pub purpose: Option<Purpose>,
@@ -836,6 +910,7 @@ impl TryFrom<asn::AuthorizationListKeyMint<'_>> for BoundedAuthorizationList {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -885,6 +960,7 @@ impl TryFrom<asn::RootOfTrust<'_>> for BoundedRootOfTrust {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -915,6 +991,7 @@ impl From<asn::VerifiedBootState> for VerifiedBootState {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
@@ -954,6 +1031,7 @@ impl<'a> TryFrom<asn::AttestationApplicationId<'a>> for BoundedAttestationApplic
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,

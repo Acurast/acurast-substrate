@@ -140,6 +140,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = HoldReason;
 	type RuntimeFreezeReason = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 // Build genesis storage according to the mock runtime.

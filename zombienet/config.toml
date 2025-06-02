@@ -6,16 +6,16 @@ default_command = "polkadot"
 default_args = ["-lparachain=debug"]
 chain = "rococo-local"
 
-[[relaychain.nodes]]
-name = "alice"
-validator = true
-command = "polkadot"
-ws_port = 9944
-
-[[relaychain.nodes]]
-name = "bob"
-validator = true
-command = "polkadot"
+#[[relaychain.nodes]]
+#name = "alice"
+#validator = true
+#command = "polkadot"
+#ws_port = 9944
+#
+#[[relaychain.nodes]]
+#name = "bob"
+#validator = true
+#command = "polkadot"
 
 [[relaychain.nodes]]
 name = "charlie"
@@ -41,7 +41,7 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=2000",
+	"--max-runtime-instances=32",
 ]
 
 [[parachains.collators]]
@@ -53,5 +53,5 @@ args = [
 	"-lparachain=debug,runtime=debug",
 	"--pruning=archive",
 	"--database=rocksdb",
-	"--block-authoring-duration=2000",
+	"--max-runtime-instances=32",
 ]

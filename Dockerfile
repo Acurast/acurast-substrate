@@ -30,6 +30,7 @@ RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	libssl1.1 \
 	ca-certificates && \
+	update-ca-certificates \
 	# apt cleanup
 	apt-get autoremove -y && \
 	apt-get clean && \

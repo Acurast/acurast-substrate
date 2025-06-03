@@ -26,21 +26,15 @@ FROM docker.io/library/ubuntu:22.04
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
 COPY --from=builder /code/chain-specs /chain-specs
 
-RUN apt-get update && \
-	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+RUN apt update && \
+	DEBIAN_FRONTEND=noninteractive apt install -y \
 	ca-certificates && \
-	update-ca-certificates \
-	# apt cleanup
-	apt-get autoremove -y && \
-	apt-get clean && \
-	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
+	update-ca-certificates && \
 	useradd -m -u 1000 -U -s /bin/sh -d /app app && \
 	mkdir -p /data /app/.local/share && \
 	chown -R app:app /data && \
 	ln -s /data /app/.local/share/app && \
 	# unclutter and minimize the attack surface
-	rm -rf /usr/bin /usr/sbin && \
 	# check if executable works in this container
 	/usr/local/bin/acurast-node --version
 

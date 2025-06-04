@@ -64,12 +64,10 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 	fn execute(action: ParsedAction<Runtime>) -> DispatchResultWithPostInfo {
 		match action {
 			ParsedAction::RegisterJob(job_id, registration) => {
-				Acurast::register_for(job_id, registration.into())
+				Acurast::register_for(job_id, registration, None)
 			},
 			ParsedAction::DeregisterJob(job_id) => Acurast::deregister_for(job_id),
-			ParsedAction::FinalizeJob(job_ids) => {
-				AcurastMarketplace::finalize_jobs_for(job_ids.into_iter())
-			},
+			ParsedAction::FinalizeJob(job_ids) => AcurastMarketplace::finalize_jobs_for(job_ids),
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
 				Acurast::set_environment_for(job_id, environments)?;
 				Ok(().into())

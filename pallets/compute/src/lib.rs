@@ -397,7 +397,7 @@ pub mod pallet {
 
 				Ok(Some(reward))
 			} else {
-				return Ok(None);
+				Ok(None)
 			}
 		}
 
@@ -413,7 +413,7 @@ pub mod pallet {
 						ProcessorStatus::WarmupUntil(b) => b <= current_block,
 						ProcessorStatus::Active => true,
 					})
-				.then(|| p.committed)
+				.then_some(p.committed)
 			} else {
 				None
 			}

@@ -8,7 +8,7 @@ pub use bounded_attestation::*;
 
 pub use account20::*;
 
-use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec};
+use frame_support::{pallet_prelude::*, sp_runtime::FixedU128, storage::bounded_vec::BoundedVec};
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
@@ -452,6 +452,43 @@ pub type PoolId = u8;
 ///
 /// The metric is transformed into a [`FixedU128`] defined by `numerator / denominator`.
 pub type MetricInput = (PoolId, u128, u128);
+
+pub const METRICS_MAX_LENGTH: u32 = 20;
+
+/// A list of benchmarked values of a processor for a (sub)set of known metrics.
+///
+/// Specified as `(pool_name, numerator, denominator)`.
+pub type Metrics = BoundedVec<MetricInput, ConstU32<METRICS_MAX_LENGTH>>;
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+)]
+pub struct MinMetric {
+	pub pool_id: PoolId,
+	pub value: FixedU128,
+}
+
+impl From<MetricInput> for MinMetric {
+	fn from(value: MetricInput) -> Self {
+		let (pool_id, numerator, denominator) = value;
+		let metric = FixedU128::from_rational(
+			numerator,
+			if denominator.is_zero() { One::one() } else { denominator },
+		);
+		Self { pool_id, value: metric }
+	}
+}
+
+pub type MinMetrics = BoundedVec<MinMetric, ConstU32<METRICS_MAX_LENGTH>>;
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
 pub struct CU32<const T: u32>;

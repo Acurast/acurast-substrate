@@ -74,6 +74,7 @@ impl<T> Error<T> {
 			Error::ReputationNotFound => false,
 			Error::JobNotAssigned => false,
 			Error::JobCannotBeFinalized => false,
+			Error::ProcessorMinMetricsNotMet => true,
 
 			Error::__Ignore(_, _) => false,
 		}

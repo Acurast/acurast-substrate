@@ -352,10 +352,12 @@ pub mod pallet {
 		JobCannotBeFinalized,
 		/// Nested Acurast error.
 		PalletAcurast(pallet_acurast::Error<T>),
-		/// Processor version mismatch
+		/// Processor version mismatch.
 		ProcessorVersionMismatch,
-		/// Processor CPU score mismatch
+		/// Processor CPU score mismatch.
 		ProcessorCpuScoreMismatch,
+		/// Match failed because a processor does not meet the mininum metrics.
+		ProcessorMinMetricsNotMet,
 	}
 
 	#[pallet::hooks]
@@ -557,7 +559,7 @@ pub mod pallet {
 				let mut remaining_iterations = max_iterations;
 				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(&job_id) {
 					<StoredMatches<T>>::remove(&processor, &job_id);
-					remaining_iterations = remaining_iterations - 1;
+					remaining_iterations -= 1;
 					if remaining_iterations == 0 {
 						break;
 					}

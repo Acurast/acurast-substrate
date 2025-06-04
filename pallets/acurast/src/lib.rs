@@ -145,17 +145,17 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A registration was successfully stored. [registration, job_id]
+		/// A registration was successfully stored. [job_id]
 		JobRegistrationStored(JobId<T::AccountId>),
 		/// A registration was successfully removed. [job_id]
 		JobRegistrationRemoved(JobId<T::AccountId>),
-		/// The allowed sources have been updated. [who, old_registration, updates]
+		/// The allowed sources have been updated. [who]
 		AllowedSourcesUpdated(JobId<T::AccountId>),
-		/// An attestation was successfully stored. [attestation, who]
+		/// An attestation was successfully stored. [who]
 		AttestationStored(T::AccountId),
-		/// The certificate revocation list has been updated. [who, updates]
+		/// The certificate revocation list has been updated. [who]
 		CertificateRevocationListUpdated,
-		/// The execution environment has been updated. [job_id, sources]
+		/// The execution environment has been updated. [job_id]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>),
 		/// Migration started.
 		V5MigrationStarted,

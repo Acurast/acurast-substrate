@@ -27,7 +27,7 @@ mod benchmarking;
 
 const LOG_TARGET: &str = "runtime::acurast_compute";
 
-pub(crate) type EpochOf<T, I> = <T as Config<I>>::BlockNumber;
+pub type EpochOf<T, I> = <T as Config<I>>::BlockNumber;
 
 #[frame_support::pallet]
 pub mod pallet {

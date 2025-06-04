@@ -57,12 +57,13 @@ pallet-acurast-processor-manager = { path = "../processor-manager", default-feat
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
 hex-literal = "0.3"
 serde_json = "1.0.85"
-
+pallet-acurast-compute = { workspace = true, features = ["std"] }
 sp-version = { workspace = true, features = ["std"] }
 sp-core = { workspace = true, features = ["std"] }
 pallet-balances = { workspace = true, features = ["std"] }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
+pallet-uniques = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]

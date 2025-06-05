@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use datastructures::*;
+pub use datastructures::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;

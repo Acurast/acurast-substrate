@@ -64,6 +64,7 @@ pallet-balances = { workspace = true, features = ["std"] }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 pallet-uniques = { workspace = true, features = ["std"] }
+pallet-acurast-processor-manager = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]

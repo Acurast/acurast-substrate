@@ -109,9 +109,6 @@ impl<T: Config> Pallet<T> {
 					planned_execution.start_delay,
 				)?;
 
-				// CHECK memory sufficient
-				ensure!(ad.max_memory >= registration.memory, Error::<T>::MaxMemoryExceededInMatch);
-
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(
 					&ad,
@@ -342,9 +339,6 @@ impl<T: Config> Pallet<T> {
 					now,
 					planned_execution.start_delay,
 				)?;
-
-				// CHECK memory sufficient
-				ensure!(ad.max_memory >= registration.memory, Error::<T>::MaxMemoryExceededInMatch);
 
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(

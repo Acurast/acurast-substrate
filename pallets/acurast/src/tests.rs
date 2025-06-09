@@ -4,11 +4,11 @@ use frame_support::{assert_err, assert_ok, BoundedVec};
 use hex_literal::hex;
 use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 
-use acurast_common::{Environment, MultiOrigin};
+use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
 	mock::*, utils::validate_and_extract_attestation, AllowedSourcesUpdate, AttestationChain,
-	CertificateRevocationListUpdate, Error, ListUpdateOperation, SerialNumber,
+	CertificateRevocationListUpdate, Error, ListUpdateOperation, RequiredMinMetrics, SerialNumber,
 };
 
 #[test]
@@ -27,6 +27,61 @@ fn test_job_registration() {
 				MultiOrigin::Acurast(alice_account_id()),
 				initial_job_id + 1
 			)
+		);
+
+		assert_ok!(Acurast::deregister(
+			RuntimeOrigin::signed(alice_account_id()),
+			Acurast::job_id_sequence()
+		));
+
+		assert_eq!(
+			None,
+			Acurast::stored_job_registration(
+				MultiOrigin::Acurast(alice_account_id()),
+				initial_job_id + 1
+			)
+		);
+
+		assert_eq!(
+			events(),
+			[
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStored((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				))),
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationRemoved((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				)))
+			]
+		);
+	});
+}
+
+#[test]
+fn test_job_registration_2() {
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+
+		let registration = job_registration(None, false);
+		let register_call = Acurast::register_with_min_metrics(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+			bounded_vec![(1, 1, 2)],
+		);
+		assert_ok!(register_call);
+
+		assert_eq!(
+			Some(registration.clone()),
+			Acurast::stored_job_registration(
+				MultiOrigin::Acurast(alice_account_id()),
+				initial_job_id + 1
+			)
+		);
+
+		assert_eq!(
+			Some(bounded_vec![MinMetric::from((1, 1, 2))]),
+			Acurast::min_metrics((MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1))
 		);
 
 		assert_ok!(Acurast::deregister(

@@ -4,7 +4,7 @@ use crate::stub::{alice_account_id, generate_account};
 
 use super::*;
 
-use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version};
+use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version, METRICS_MAX_LENGTH};
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	sp_runtime::{

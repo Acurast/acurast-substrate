@@ -51,7 +51,8 @@ hex-literal = { version = "0.4", optional = true }
 parachain-info = { workspace = true, optional = true }
 pallet-balances = { workspace = true, optional = true }
 parachains-common = { workspace = true, optional = true }
-pallet-acurast-processor-manager = { path = "../processor-manager", default-features = false, optional = true }
+pallet-acurast-processor-manager = { workspace = true, optional = true }
+pallet-acurast-compute = { workspace = true, optional = true }
 
 [dev-dependencies]
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
@@ -80,6 +81,7 @@ runtime-benchmarks = [
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-acurast-compute/runtime-benchmarks",
 ]
 
 std = [

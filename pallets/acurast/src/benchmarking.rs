@@ -106,9 +106,15 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), job.clone())
 	verify {
 		assert_last_event::<T>(Event::<T>::JobRegistrationStored(
-			job, (MultiOrigin::Acurast(caller), 1)
+			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}
+
+	register_with_min_metrics {
+		set_timestamp::<T>(1000);
+		let (caller, job) = register_job::<T>(false, true);
+		let min_metrics: Metrics = vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)].try_into().unwrap();
+	}: _(RawOrigin::Signed(caller.clone()), job.clone(), min_metrics)
 
 	deregister {
 		set_timestamp::<T>(1000);
@@ -137,7 +143,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, updates.clone())
 	verify {
 		assert_last_event::<T>(Event::AllowedSourcesUpdated(
-			(MultiOrigin::Acurast(caller), 1), job, updates
+			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}
 
@@ -149,7 +155,6 @@ benchmarks! {
 	verify {
 		let attestation = validate_and_extract_attestation::<T>(&processor_account, &attestation_chain).unwrap();
 		assert_last_event::<T>(Event::AttestationStored(
-			attestation,
 			processor_account,
 		).into());
 	}
@@ -183,7 +188,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, account("processor", 0, SEED), env.clone())
 	verify {
 		assert_last_event::<T>(Event::ExecutionEnvironmentsUpdated(
-			(MultiOrigin::Acurast(caller), 1), vec![account("processor", 0, SEED)]
+			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}
 

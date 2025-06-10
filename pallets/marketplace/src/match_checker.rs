@@ -503,32 +503,32 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn check_scheduling_window(
-		scheduling_window: &SchedulingWindow,
-		schedule: &Schedule,
-		now: u64,
-		start_delay: u64,
+		_scheduling_window: &SchedulingWindow,
+		_schedule: &Schedule,
+		_now: u64,
+		_start_delay: u64,
 	) -> Result<(), Error<T>> {
-		match scheduling_window {
-			SchedulingWindow::End(end) => {
-				ensure!(
-					*end >= schedule
-						.end_time
-						.checked_add(start_delay)
-						.ok_or(Error::<T>::CalculationOverflow)?,
-					Error::<T>::SchedulingWindowExceededInMatch
-				);
-			},
-			SchedulingWindow::Delta(delta) => {
-				ensure!(
-					now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
-						>= schedule
-							.end_time
-							.checked_add(start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					Error::<T>::SchedulingWindowExceededInMatch
-				);
-			},
-		}
+		//match scheduling_window {
+		//	SchedulingWindow::End(end) => {
+		//		ensure!(
+		//			*end >= schedule
+		//				.end_time
+		//				.checked_add(start_delay)
+		//				.ok_or(Error::<T>::CalculationOverflow)?,
+		//			Error::<T>::SchedulingWindowExceededInMatch
+		//		);
+		//	},
+		//	SchedulingWindow::Delta(delta) => {
+		//		ensure!(
+		//			now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
+		//				>= schedule
+		//					.end_time
+		//					.checked_add(start_delay)
+		//					.ok_or(Error::<T>::CalculationOverflow)?,
+		//			Error::<T>::SchedulingWindowExceededInMatch
+		//		);
+		//	},
+		//}
 
 		Ok(())
 	}

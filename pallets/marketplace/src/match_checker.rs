@@ -609,11 +609,11 @@ impl<T: Config> Pallet<T> {
 			let Some(metric) =
 				T::ProcessorInfoProvider::last_processor_metric(processor, min_metric.pool_id)
 			else {
-				return Err(Error::<T>::ProcessorMinMetricsNotMet);
+				return Err(Error::<T>::ProcessorMinMetricsNotMet(min_metric.pool_id));
 			};
 
 			if metric < min_metric.value {
-				return Err(Error::<T>::ProcessorMinMetricsNotMet);
+				return Err(Error::<T>::ProcessorMinMetricsNotMet(min_metric.pool_id));
 			}
 		}
 

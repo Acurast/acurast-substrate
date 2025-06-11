@@ -356,8 +356,8 @@ pub mod pallet {
 		ProcessorVersionMismatch,
 		/// Processor CPU score mismatch.
 		ProcessorCpuScoreMismatch,
-		/// Match failed because a processor does not meet the mininum metrics.
-		ProcessorMinMetricsNotMet,
+		/// Match failed because a processor does not meet the mininum metrics. [pool_id]
+		ProcessorMinMetricsNotMet(u8),
 	}
 
 	#[pallet::hooks]

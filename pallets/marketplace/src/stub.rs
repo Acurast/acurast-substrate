@@ -8,7 +8,7 @@ use pallet_acurast::{AttestationChain, Script, SerialNumber};
 use crate::*;
 
 pub type AccountId = AccountId32;
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 
 pub type Balance = u128;
 

@@ -4,11 +4,11 @@ use frame_support::{assert_err, assert_ok, BoundedVec};
 use hex_literal::hex;
 use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 
-use acurast_common::{Environment, MultiOrigin};
+use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
 	mock::*, utils::validate_and_extract_attestation, AllowedSourcesUpdate, AttestationChain,
-	CertificateRevocationListUpdate, Error, ListUpdateOperation, SerialNumber,
+	CertificateRevocationListUpdate, Error, ListUpdateOperation, RequiredMinMetrics, SerialNumber,
 };
 
 #[test]
@@ -45,10 +45,65 @@ fn test_job_registration() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(crate::Event::JobRegistrationStored(
-					registration.clone(),
-					(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1)
-				)),
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				))),
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationRemoved((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				)))
+			]
+		);
+	});
+}
+
+#[test]
+fn test_job_registration_2() {
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+
+		let registration = job_registration(None, false);
+		let register_call = Acurast::register_with_min_metrics(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+			bounded_vec![(1, 1, 2)],
+		);
+		assert_ok!(register_call);
+
+		assert_eq!(
+			Some(registration.clone()),
+			Acurast::stored_job_registration(
+				MultiOrigin::Acurast(alice_account_id()),
+				initial_job_id + 1
+			)
+		);
+
+		assert_eq!(
+			Some(bounded_vec![MinMetric::from((1, 1, 2))]),
+			Acurast::min_metrics((MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1))
+		);
+
+		assert_ok!(Acurast::deregister(
+			RuntimeOrigin::signed(alice_account_id()),
+			Acurast::job_id_sequence()
+		));
+
+		assert_eq!(
+			None,
+			Acurast::stored_job_registration(
+				MultiOrigin::Acurast(alice_account_id()),
+				initial_job_id + 1
+			)
+		);
+
+		assert_eq!(
+			events(),
+			[
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				))),
 				RuntimeEvent::Acurast(crate::Event::JobRegistrationRemoved((
 					MultiOrigin::Acurast(alice_account_id()),
 					initial_job_id + 1
@@ -192,20 +247,18 @@ fn test_update_allowed_sources() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(crate::Event::JobRegistrationStored(
-					registration_1.clone(),
-					(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1)
-				)),
-				RuntimeEvent::Acurast(crate::Event::AllowedSourcesUpdated(
-					(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1),
-					registration_1,
-					updates_1.try_into().unwrap()
-				)),
-				RuntimeEvent::Acurast(crate::Event::AllowedSourcesUpdated(
-					(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1),
-					registration_2,
-					updates_2.try_into().unwrap()
-				))
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				))),
+				RuntimeEvent::Acurast(crate::Event::AllowedSourcesUpdatedV2((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				),)),
+				RuntimeEvent::Acurast(crate::Event::AllowedSourcesUpdatedV2((
+					MultiOrigin::Acurast(alice_account_id()),
+					initial_job_id + 1
+				),))
 			]
 		);
 	});
@@ -251,10 +304,10 @@ fn test_update_allowed_sources_failure() {
 
 		assert_eq!(
 			events(),
-			[RuntimeEvent::Acurast(crate::Event::JobRegistrationStored(
-				registration.clone(),
-				(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1)
-			)),]
+			[RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2((
+				MultiOrigin::Acurast(alice_account_id()),
+				initial_job_id + 1
+			))),]
 		);
 	});
 }
@@ -276,10 +329,7 @@ fn test_submit_attestation() {
 
 		assert_eq!(
 			events(),
-			[RuntimeEvent::Acurast(crate::Event::AttestationStored(
-				attestation,
-				processor_account_id()
-			))]
+			[RuntimeEvent::Acurast(crate::Event::AttestationStoredV2(processor_account_id()))]
 		);
 	});
 }
@@ -489,20 +539,16 @@ fn test_update_revocation_list_assign_job() {
 			updates.clone().try_into().unwrap(),
 		));
 
-		let attestation =
-			validate_and_extract_attestation::<Test>(&processor_account_id(), &chain).unwrap();
+		assert_ok!(validate_and_extract_attestation::<Test>(&processor_account_id(), &chain));
 
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(crate::Event::AttestationStored(
-					attestation,
-					processor_account_id()
-				)),
-				RuntimeEvent::Acurast(crate::Event::JobRegistrationStored(
-					registration.clone(),
-					(MultiOrigin::Acurast(bob_account_id()), initial_job_id + 1)
-				)),
+				RuntimeEvent::Acurast(crate::Event::AttestationStoredV2(processor_account_id())),
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2((
+					MultiOrigin::Acurast(bob_account_id()),
+					initial_job_id + 1
+				))),
 				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated),
 			]
 		);
@@ -548,14 +594,10 @@ fn test_set_environment() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(crate::Event::JobRegistrationStored(
-					registration.clone(),
-					job_id.clone()
-				)),
-				RuntimeEvent::Acurast(crate::Event::ExecutionEnvironmentsUpdated(
-					job_id.clone(),
-					vec![bob_account_id()]
-				)),
+				RuntimeEvent::Acurast(crate::Event::JobRegistrationStoredV2(job_id.clone())),
+				RuntimeEvent::Acurast(
+					crate::Event::ExecutionEnvironmentsUpdatedV2(job_id.clone(),)
+				),
 			]
 		);
 	});

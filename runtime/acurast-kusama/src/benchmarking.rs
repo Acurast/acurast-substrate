@@ -1,10 +1,11 @@
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
+use frame_system::RawOrigin;
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, PoolId, StoredAttestation,
 	StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
@@ -49,9 +50,9 @@ fn create_funded_user(
 }
 
 pub struct AcurastBenchmarkHelper;
-
 impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn registration_extra(instant_match: bool) -> ExtraFor<Runtime> {
+		setup_pools();
 		let processor = Self::funded_account(0);
 		let ad = Advertisement {
 			pricing: Pricing {
@@ -67,6 +68,10 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			available_modules: JobModules::default(),
 		};
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
+		AcurastCompute::commit(
+			&processor,
+			vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+		);
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
 				slots: 1,
@@ -90,6 +95,45 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast", index, 1 << 60)
 	}
+}
+
+fn setup_pools() {
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_single_core______",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_multi_core_______",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_total____________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_speed____________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_avail________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_speed________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
 }
 
 impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {

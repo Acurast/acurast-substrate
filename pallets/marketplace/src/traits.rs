@@ -1,6 +1,6 @@
 use crate::{Config, Error, PartialJobRegistrationForMarketplace};
-use frame_support::{pallet_prelude::DispatchError, weights::Weight};
-use pallet_acurast::JobRegistrationFor;
+use frame_support::{pallet_prelude::DispatchError, sp_runtime::FixedU128, weights::Weight};
+use pallet_acurast::{JobRegistrationFor, PoolId};
 
 /// Trait used to lookup the manager of a given processor account.
 pub trait ManagerProvider<T: frame_system::Config> {
@@ -11,6 +11,7 @@ pub trait ManagerProvider<T: frame_system::Config> {
 pub trait ProcessorInfoProvider<T: frame_system::Config + crate::Config> {
 	fn last_seen(processor: &T::AccountId) -> Option<u128>;
 	fn processor_version(processor: &T::AccountId) -> Option<T::ProcessorVersion>;
+	fn last_processor_metric(processor: &T::AccountId, pool_id: PoolId) -> Option<FixedU128>;
 }
 
 /// Manages each job's budget by reserving/unreserving rewards that are externally strored, e.g. on a pallet account in `pallet_balances`.

@@ -160,4 +160,11 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn register_with_min_metrics() -> Weight {
+	    Weight::from_parts(78_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 35808))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(9))
+	}
 }

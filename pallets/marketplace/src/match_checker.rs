@@ -10,7 +10,7 @@ use frame_support::{
 use itertools::Itertools;
 use pallet_acurast::{
 	utils::{ensure_source_verified, ensure_source_verified_and_of_type},
-	JobId, JobRegistrationFor, ProcessorType, Schedule, StoredJobRegistration,
+	JobId, JobRegistrationFor, ProcessorType, RequiredMinMetrics, Schedule, StoredJobRegistration,
 };
 use reputation::{BetaReputation, ReputationEngine};
 
@@ -109,9 +109,6 @@ impl<T: Config> Pallet<T> {
 					planned_execution.start_delay,
 				)?;
 
-				// CHECK memory sufficient
-				ensure!(ad.max_memory >= registration.memory, Error::<T>::MaxMemoryExceededInMatch);
-
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(
 					&ad,
@@ -144,6 +141,8 @@ impl<T: Config> Pallet<T> {
 					&requirements.processor_version,
 					&planned_execution.source,
 				)?;
+
+				Self::check_min_metrics(&m.job_id, &planned_execution.source)?;
 
 				// CHECK schedule
 				Self::fits_schedule(
@@ -308,7 +307,7 @@ impl<T: Config> Pallet<T> {
 			let mut total_fee: <T as Config>::Balance = 0u8.into();
 
 			// cleanup storage items of previous matches that are not needed anymore
-			Self::cleanup_previous_execution_matches(&m);
+			Self::cleanup_previous_execution_matches(m);
 
 			// `slot` is used for detecting duplicate source proposed for distinct slots
 			// TODO: add global (configurable) maximum of jobs assigned. This would limit the weight of `propose_execution_matching` to a constant, since it depends on the number of active matches.
@@ -340,9 +339,6 @@ impl<T: Config> Pallet<T> {
 					now,
 					planned_execution.start_delay,
 				)?;
-
-				// CHECK memory sufficient
-				ensure!(ad.max_memory >= registration.memory, Error::<T>::MaxMemoryExceededInMatch);
 
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(
@@ -376,6 +372,8 @@ impl<T: Config> Pallet<T> {
 					&requirements.processor_version,
 					&planned_execution.source,
 				)?;
+
+				Self::check_min_metrics(&m.job_id, &planned_execution.source)?;
 
 				// CHECK schedule
 				Self::fits_schedule(
@@ -490,7 +488,7 @@ impl<T: Config> Pallet<T> {
 				.ok_or(Error::<T>::CalculationOverflow)?;
 
 			let new_total_rewards = total_reward
-				.checked_add(fee_per_execution.into())
+				.checked_add(fee_per_execution)
 				.ok_or(Error::<T>::CalculationOverflow)?;
 
 			let new_average_reward = new_total_rewards
@@ -505,32 +503,32 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn check_scheduling_window(
-		scheduling_window: &SchedulingWindow,
-		schedule: &Schedule,
-		now: u64,
-		start_delay: u64,
+		_scheduling_window: &SchedulingWindow,
+		_schedule: &Schedule,
+		_now: u64,
+		_start_delay: u64,
 	) -> Result<(), Error<T>> {
-		match scheduling_window {
-			SchedulingWindow::End(end) => {
-				ensure!(
-					*end >= schedule
-						.end_time
-						.checked_add(start_delay)
-						.ok_or(Error::<T>::CalculationOverflow)?,
-					Error::<T>::SchedulingWindowExceededInMatch
-				);
-			},
-			SchedulingWindow::Delta(delta) => {
-				ensure!(
-					now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
-						>= schedule
-							.end_time
-							.checked_add(start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?,
-					Error::<T>::SchedulingWindowExceededInMatch
-				);
-			},
-		}
+		//match scheduling_window {
+		//	SchedulingWindow::End(end) => {
+		//		ensure!(
+		//			*end >= schedule
+		//				.end_time
+		//				.checked_add(start_delay)
+		//				.ok_or(Error::<T>::CalculationOverflow)?,
+		//			Error::<T>::SchedulingWindowExceededInMatch
+		//		);
+		//	},
+		//	SchedulingWindow::Delta(delta) => {
+		//		ensure!(
+		//			now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
+		//				>= schedule
+		//					.end_time
+		//					.checked_add(start_delay)
+		//					.ok_or(Error::<T>::CalculationOverflow)?,
+		//			Error::<T>::SchedulingWindowExceededInMatch
+		//		);
+		//	},
+		//}
 
 		Ok(())
 	}
@@ -596,6 +594,29 @@ impl<T: Config> Pallet<T> {
 				return Err(Error::<T>::ProcessorVersionMismatch);
 			}
 		}
+		Ok(())
+	}
+
+	fn check_min_metrics(
+		job_id: &JobId<T::AccountId>,
+		processor: &T::AccountId,
+	) -> Result<(), Error<T>> {
+		let Some(min_metrics) = <RequiredMinMetrics<T>>::get(job_id) else {
+			return Ok(());
+		};
+
+		for min_metric in min_metrics {
+			let Some(metric) =
+				T::ProcessorInfoProvider::last_processor_metric(processor, min_metric.pool_id)
+			else {
+				return Err(Error::<T>::ProcessorMinMetricsNotMet(min_metric.pool_id));
+			};
+
+			if metric < min_metric.value {
+				return Err(Error::<T>::ProcessorMinMetricsNotMet(min_metric.pool_id));
+			}
+		}
+
 		Ok(())
 	}
 
@@ -978,6 +999,7 @@ impl<T: Config> Pallet<T> {
 				None,
 			);
 			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
+			<RequiredMinMetrics<T>>::remove(&job_id);
 
 			Self::deposit_event(Event::JobFinalized(job_id.clone()));
 		}

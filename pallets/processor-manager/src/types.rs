@@ -1,4 +1,4 @@
-use acurast_common::{ListUpdate, MetricInput, Version};
+use acurast_common::{ListUpdate, Version};
 use core::fmt::Debug;
 use frame_support::{
 	pallet_prelude::*,
@@ -196,13 +196,6 @@ pub struct RewardDistributionSettings<Balance, AccountId> {
 	pub reward_per_distribution: Balance,
 	pub distributor_account: AccountId,
 }
-
-pub const METRICS_MAX_LENGTH: u32 = 20;
-
-/// A list of benchmarked values of a processor for a (sub)set of known metrics.
-///
-/// Specified as `(pool_name, numerator, denominator)`.
-pub type Metrics = BoundedVec<MetricInput, ConstU32<METRICS_MAX_LENGTH>>;
 
 pub const MAX_ENDPOINT_LENGTH: u32 = 200;
 pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;

@@ -2,14 +2,15 @@
 
 use frame_support::{
 	assert_err, assert_ok,
-	sp_runtime::{bounded_vec, traits::Scale, Permill},
+	sp_runtime::{bounded_vec, traits::Scale, Permill, Perquintill},
 	traits::{Hooks, TypedGet},
 };
 
 use pallet_acurast::{
-	utils::validate_and_extract_attestation, Attestation, JobModules, JobRegistrationFor,
-	MultiOrigin, Schedule,
+	utils::validate_and_extract_attestation, Attestation, ComputeHooks, JobModules,
+	JobRegistrationFor, MultiOrigin, Schedule,
 };
+use pallet_acurast_compute::{MetricPool, ProvisionalBuffer, SlidingBuffer};
 use reputation::{BetaReputation, ReputationEngine};
 
 use crate::{
@@ -114,8 +115,7 @@ fn test_valid_deregister() {
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -250,8 +250,7 @@ fn test_deregister_on_matched_job() {
 					to: pallet_acurast_acount(),
 					amount: 24_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -433,8 +432,7 @@ fn test_deregister_on_assigned_job() {
 					to: pallet_acurast_acount(),
 					amount: total_reward
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationAssigned(
@@ -668,8 +666,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 					to: pallet_acurast_acount(),
 					amount: total_reward
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobExecutionMatched(
@@ -977,8 +974,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 					to: pallet_acurast_acount(),
 					amount: total_reward
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobExecutionMatched(
@@ -1162,8 +1158,7 @@ fn test_match() {
 			RuntimeOrigin::signed(processor_account_id()).into(),
 			chain.clone()
 		));
-		let attestation =
-			validate_and_extract_attestation::<Test>(&processor_account_id(), &chain).unwrap();
+		assert_ok!(validate_and_extract_attestation::<Test>(&processor_account_id(), &chain));
 
 		assert_ok!(AcurastMarketplace::advertise(
 			RuntimeOrigin::signed(processor_account_id()).into(),
@@ -1184,12 +1179,22 @@ fn test_match() {
 			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
+		assert_ok!(AcurastCompute::create_pool(
+			RuntimeOrigin::root(),
+			*b"cpu-ops-per-second______",
+			Perquintill::from_percent(25),
+			bounded_vec![],
+		));
+		let pool_id = AcurastCompute::last_metric_pool_id();
+		let _ = AcurastCompute::commit(&processor_account_id(), vec![(pool_id, 1, 2)]);
+
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
 
-		assert_ok!(Acurast::register(
+		assert_ok!(Acurast::register_with_min_metrics(
 			RuntimeOrigin::signed(alice_account_id()).into(),
 			registration1.clone(),
+			bounded_vec![(pool_id, 1, 4)],
 		));
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(Acurast::register(
@@ -1363,21 +1368,28 @@ fn test_match() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Acurast(pallet_acurast::Event::AttestationStored(
-					attestation,
+				RuntimeEvent::Acurast(pallet_acurast::Event::AttestationStoredV2(
 					processor_account_id()
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::AdvertisementStored(
 					ad.clone(),
 					processor_account_id()
 				)),
+				RuntimeEvent::AcurastCompute(pallet_acurast_compute::Event::PoolCreated(
+					1,
+					MetricPool {
+						config: bounded_vec![],
+						name: *b"cpu-ops-per-second______",
+						reward: ProvisionalBuffer::new(Perquintill::from_percent(25)),
+						total: SlidingBuffer::new(0),
+					}
+				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: alice_account_id(),
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone(),
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -1385,8 +1397,7 @@ fn test_match() {
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration2.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id2.clone(),
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationMatched(job_match1)),
@@ -1849,8 +1860,7 @@ fn test_no_match_schedule_overlap() {
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id1.clone()
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -1858,10 +1868,10 @@ fn test_no_match_schedule_overlap() {
 					to: pallet_acurast_acount(),
 					amount: 18_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration2.clone(),
-					(job_id2.0.clone(), job_id2.1.clone())
-				)),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2((
+					job_id2.0.clone(),
+					job_id2.1.clone()
+				))),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationMatched(m)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
@@ -1961,8 +1971,7 @@ fn test_no_match_insufficient_reputation() {
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration1.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id.clone()
 				)),
 				// no match event for job
@@ -2091,8 +2100,7 @@ fn test_report_afer_last_report() {
 					to: pallet_acurast_acount(),
 					amount: 12_000_000
 				}),
-				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStored(
-					registration.clone(),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2(
 					job_id.clone()
 				)),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationMatched(m)),

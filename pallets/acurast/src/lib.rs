@@ -126,6 +126,11 @@ pub mod pallet {
 	pub type StoredAttestation<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Attestation>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn min_metrics)]
+	pub type RequiredMinMetrics<T: Config> =
+		StorageMap<_, Blake2_128Concat, JobId<T::AccountId>, MinMetrics>;
+
 	/// Certificate revocation list storage.
 	#[pallet::storage]
 	#[pallet::getter(fn stored_revoked_certificate)]
@@ -152,7 +157,7 @@ pub mod pallet {
 		),
 		/// An attestation was successfully stored. [attestation, who]
 		AttestationStored(Attestation, T::AccountId),
-		/// The certificate revocation list has been updated. [who, updates]
+		/// The certificate revocation list has been updated. [who]
 		CertificateRevocationListUpdated,
 		/// The execution environment has been updated. [job_id, sources]
 		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
@@ -162,6 +167,14 @@ pub mod pallet {
 		V5MigrationProgress(u32),
 		/// Migration completed.
 		V5MigrationCompleted,
+		/// A registration was successfully stored. [job_id]
+		JobRegistrationStoredV2(JobId<T::AccountId>),
+		/// The allowed sources have been updated. [who]
+		AllowedSourcesUpdatedV2(JobId<T::AccountId>),
+		/// An attestation was successfully stored. [who]
+		AttestationStoredV2(T::AccountId),
+		/// The execution environment has been updated. [job_id]
+		ExecutionEnvironmentsUpdatedV2(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -212,6 +225,8 @@ pub mod pallet {
 		AttestationPublicKeyDoesNotMatchSource,
 		/// Calling a job hook produced an error.
 		JobHookFailed,
+		/// The min metrics list exceeded the max length.
+		TooManyMinMetrics,
 	}
 
 	#[pallet::hooks]
@@ -233,7 +248,20 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who);
 			let job_id = (multi_origin, Self::next_job_id());
-			Self::register_for(job_id, registration)
+			Self::register_for(job_id, registration, None)
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(< T as Config >::WeightInfo::register_with_min_metrics())]
+		pub fn register_with_min_metrics(
+			origin: OriginFor<T>,
+			registration: JobRegistrationFor<T>,
+			min_metrics: Metrics,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let multi_origin = MultiOrigin::Acurast(who);
+			let job_id = (multi_origin, Self::next_job_id());
+			Self::register_for(job_id, registration, Some(min_metrics))
 		}
 
 		/// Deregisters a job for the given script.
@@ -298,7 +326,7 @@ pub mod pallet {
 
 			<T as Config>::JobHooks::update_allowed_sources_hook(&who, &job_id, &updates)?;
 
-			Self::deposit_event(Event::AllowedSourcesUpdated(job_id, registration, updates));
+			Self::deposit_event(Event::AllowedSourcesUpdatedV2(job_id));
 
 			Ok(().into())
 		}
@@ -333,7 +361,7 @@ pub mod pallet {
 			ensure_not_revoked::<T>(&attestation)?;
 
 			<StoredAttestation<T>>::insert(&who, attestation.clone());
-			Self::deposit_event(Event::AttestationStored(attestation, who));
+			Self::deposit_event(Event::AttestationStoredV2(who));
 
 			Ok(().into())
 		}
@@ -419,6 +447,7 @@ pub mod pallet {
 		pub fn register_for(
 			job_id: JobId<T::AccountId>,
 			registration: JobRegistrationFor<T>,
+			min_metrics: Option<Metrics>,
 		) -> DispatchResultWithPostInfo {
 			ensure!(is_valid_script(&registration.script), Error::<T>::InvalidScriptValue);
 			if let Some(allowed_sources) = &registration.allowed_sources {
@@ -431,10 +460,19 @@ pub mod pallet {
 			}
 
 			<StoredJobRegistration<T>>::insert(&job_id.0, job_id.1, registration.clone());
+			if let Some(metrics) = min_metrics {
+				let metrics: MinMetrics = metrics
+					.into_iter()
+					.map(MinMetric::from)
+					.collect::<Vec<_>>()
+					.try_into()
+					.map_err(|_| Error::<T>::TooManyMinMetrics)?;
+				<RequiredMinMetrics<T>>::insert(&job_id, metrics);
+			}
 
 			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
 
-			Self::deposit_event(Event::JobRegistrationStored(registration, job_id.clone()));
+			Self::deposit_event(Event::JobRegistrationStoredV2(job_id.clone()));
 			Ok(().into())
 		}
 
@@ -442,6 +480,7 @@ pub mod pallet {
 			<T as Config>::JobHooks::deregister_hook(&job_id)?;
 			Self::clear_environment_for(&job_id);
 			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
+			<RequiredMinMetrics<T>>::remove(&job_id);
 			Self::deposit_event(Event::JobRegistrationRemoved(job_id));
 			Ok(().into())
 		}
@@ -450,17 +489,13 @@ pub mod pallet {
 			job_id: JobId<T::AccountId>,
 			environments: BoundedVec<(T::AccountId, EnvironmentFor<T>), T::MaxSlots>,
 		) -> Result<(), Error<T>> {
-			let sources = environments
-				.into_iter()
-				.map(|(source, env)| {
-					let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-						.ok_or(Error::<T>::JobRegistrationNotFound)?;
-					<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
-					Ok(source)
-				})
-				.collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
+			for (source, env) in environments {
+				let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
+					.ok_or(Error::<T>::JobRegistrationNotFound)?;
+				<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
+			}
 
-			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id, sources));
+			Self::deposit_event(Event::ExecutionEnvironmentsUpdatedV2(job_id));
 
 			Ok(())
 		}

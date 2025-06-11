@@ -3,7 +3,7 @@ use frame_support::{
 	assert_ok,
 	sp_runtime::{
 		traits::{IdentifyAccount, Verify},
-		DispatchError,
+		DispatchError, Perquintill,
 	},
 	traits::IsType,
 };
@@ -13,9 +13,10 @@ use sp_std::prelude::*;
 
 use crate::Config;
 use pallet_acurast::{
-	JobId, JobIdSequence, JobModules, JobRegistrationFor, MultiOrigin, Pallet as Acurast, Schedule,
-	Script,
+	ComputeHooks, JobId, JobIdSequence, JobModules, JobRegistrationFor, MultiOrigin,
+	Pallet as Acurast, Schedule, Script,
 };
+use pallet_acurast_compute::Pallet as AcurastCompute;
 
 pub use crate::stub::*;
 use crate::Pallet as AcurastMarketplace;
@@ -143,7 +144,7 @@ fn advertise_helper<T: Config>(
 	submit: bool,
 ) -> (T::AccountId, AdvertisementFor<T>)
 where
-	T: pallet_balances::Config,
+	T: pallet_balances::Config + pallet_acurast_compute::Config,
 {
 	let caller: T::AccountId =
 		<T as Config>::BenchmarkHelper::funded_account(account_index, u32::MAX.into());
@@ -157,6 +158,10 @@ where
 			ad.clone(),
 		);
 		assert_ok!(register_call);
+		let _ = AcurastCompute::<T>::commit(
+			&caller,
+			vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+		);
 	}
 
 	(caller, ad)
@@ -179,18 +184,62 @@ where
 	(caller, job)
 }
 
+fn setup_pools<T: pallet_acurast_compute::Config>() {
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_single_core______",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_multi_core_______",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_total____________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_speed____________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_avail________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::<T>::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_speed________",
+		Perquintill::from_percent(15),
+		vec![].try_into().unwrap(),
+	));
+}
+
 fn register_submit_helper<T: Config>(
 	account_index: u32,
 	slots: u8,
 ) -> (T::AccountId, JobRegistrationFor<T>, JobIdSequence)
 where
-	T: pallet_balances::Config,
+	T: pallet_balances::Config + pallet_acurast_compute::Config,
 {
 	let (caller, job): (T::AccountId, JobRegistrationFor<T>) =
 		register_helper::<T>(account_index, slots);
 
-	let register_call =
-		Acurast::<T>::register(RawOrigin::Signed(caller.clone().into()).into(), job.clone());
+	let register_call = Acurast::<T>::register_with_min_metrics(
+		RawOrigin::Signed(caller.clone().into()).into(),
+		job.clone(),
+		vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)]
+			.try_into()
+			.unwrap(),
+	);
 	assert_ok!(register_call);
 	let job_id = Acurast::<T>::job_id_sequence();
 
@@ -298,7 +347,7 @@ fn cleanup_storage_helper<T: Config>(
 	target_matches: u8,
 ) -> Result<JobId<T::AccountId>, DispatchError>
 where
-	T: pallet_balances::Config + pallet_timestamp::Config,
+	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
 {
 	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
@@ -356,7 +405,7 @@ fn propose_execution_matching_helper<T: Config>(
 	processor_counter: Option<u32>,
 ) -> (JobRegistrationFor<T>, JobId<T::AccountId>, u32)
 where
-	T: pallet_balances::Config + pallet_timestamp::Config,
+	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
 {
 	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
@@ -365,7 +414,13 @@ where
 
 	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
 
-	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+	assert_ok!(Acurast::<T>::register_with_min_metrics(
+		RawOrigin::Signed(consumer.clone()).into(),
+		job.clone(),
+		vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)]
+			.try_into()
+			.unwrap(),
+	));
 
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
@@ -429,7 +484,7 @@ where
 
 benchmarks! {
 	where_clause {  where
-		T: pallet_acurast::Config + pallet_balances::Config + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config,
+		T: pallet_acurast::Config + pallet_balances::Config + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config + pallet_acurast_compute::Config,
 		<T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 	}
 
@@ -471,6 +526,7 @@ benchmarks! {
 		whitelist_account!(caller);
 		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobIdSequence)> = vec![];
 		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get();
+		setup_pools::<T>();
 		for i in 0..x {
 			registered_jobs.push(register_submit_helper::<T>(i, max_slots as u8));
 		}
@@ -503,6 +559,7 @@ benchmarks! {
 		let mut registered_jobs: Vec<(JobRegistrationFor<T>, JobId<T::AccountId>)> = vec![];
 		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get();
 		let mut current_account_index: u32 = 0;
+		setup_pools::<T>();
 		for i in 0..x {
 			let (job, job_id, index) = propose_execution_matching_helper::<T>(Some(current_account_index));
 			registered_jobs.push((job, job_id));

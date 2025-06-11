@@ -145,24 +145,36 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A registration was successfully stored. [job_id]
-		JobRegistrationStored(JobId<T::AccountId>),
+		/// A registration was successfully stored. [registration, job_id]
+		JobRegistrationStored(JobRegistrationFor<T>, JobId<T::AccountId>),
 		/// A registration was successfully removed. [job_id]
 		JobRegistrationRemoved(JobId<T::AccountId>),
-		/// The allowed sources have been updated. [who]
-		AllowedSourcesUpdated(JobId<T::AccountId>),
-		/// An attestation was successfully stored. [who]
-		AttestationStored(T::AccountId),
+		/// The allowed sources have been updated. [who, old_registration, updates]
+		AllowedSourcesUpdated(
+			JobId<T::AccountId>,
+			JobRegistrationFor<T>,
+			BoundedVec<AllowedSourcesUpdate<T::AccountId>, <T as Config>::MaxAllowedSources>,
+		),
+		/// An attestation was successfully stored. [attestation, who]
+		AttestationStored(Attestation, T::AccountId),
 		/// The certificate revocation list has been updated. [who]
 		CertificateRevocationListUpdated,
-		/// The execution environment has been updated. [job_id]
-		ExecutionEnvironmentsUpdated(JobId<T::AccountId>),
+		/// The execution environment has been updated. [job_id, sources]
+		ExecutionEnvironmentsUpdated(JobId<T::AccountId>, Vec<T::AccountId>),
 		/// Migration started.
 		V5MigrationStarted,
 		/// Migration progressed. [migrations]
 		V5MigrationProgress(u32),
 		/// Migration completed.
 		V5MigrationCompleted,
+		/// A registration was successfully stored. [job_id]
+		JobRegistrationStoredV2(JobId<T::AccountId>),
+		/// The allowed sources have been updated. [who]
+		AllowedSourcesUpdatedV2(JobId<T::AccountId>),
+		/// An attestation was successfully stored. [who]
+		AttestationStoredV2(T::AccountId),
+		/// The execution environment has been updated. [job_id]
+		ExecutionEnvironmentsUpdatedV2(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -314,7 +326,7 @@ pub mod pallet {
 
 			<T as Config>::JobHooks::update_allowed_sources_hook(&who, &job_id, &updates)?;
 
-			Self::deposit_event(Event::AllowedSourcesUpdated(job_id));
+			Self::deposit_event(Event::AllowedSourcesUpdatedV2(job_id));
 
 			Ok(().into())
 		}
@@ -349,7 +361,7 @@ pub mod pallet {
 			ensure_not_revoked::<T>(&attestation)?;
 
 			<StoredAttestation<T>>::insert(&who, attestation.clone());
-			Self::deposit_event(Event::AttestationStored(who));
+			Self::deposit_event(Event::AttestationStoredV2(who));
 
 			Ok(().into())
 		}
@@ -460,7 +472,7 @@ pub mod pallet {
 
 			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
 
-			Self::deposit_event(Event::JobRegistrationStored(job_id.clone()));
+			Self::deposit_event(Event::JobRegistrationStoredV2(job_id.clone()));
 			Ok(().into())
 		}
 
@@ -483,7 +495,7 @@ pub mod pallet {
 				<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
 			}
 
-			Self::deposit_event(Event::ExecutionEnvironmentsUpdated(job_id));
+			Self::deposit_event(Event::ExecutionEnvironmentsUpdatedV2(job_id));
 
 			Ok(())
 		}

@@ -13,9 +13,10 @@ use sp_std::prelude::*;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastFeeManager, AcurastHyperdrive, AcurastMarketplace, AcurastMatcherFeeManager,
-	AcurastPalletId, AcurastProcessorManager, Balances, FeeManagerPalletId,
-	HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance, Runtime, RuntimeEvent,
+	AcurastCompute, AcurastFeeManager, AcurastHyperdrive, AcurastMarketplace,
+	AcurastMatcherFeeManager, AcurastPalletId, AcurastProcessorManager, Balances,
+	FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance,
+	Runtime, RuntimeEvent,
 };
 
 /// Runtime configuration for pallet_acurast_marketplace.
@@ -85,6 +86,14 @@ impl pallet_acurast_marketplace::traits::ProcessorInfoProvider<Runtime>
 	) -> Option<<Runtime as pallet_acurast::Config>::ProcessorVersion> {
 		AcurastProcessorManager::processor_version(processor)
 	}
+
+	fn last_processor_metric(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+		pool_id: pallet_acurast::PoolId,
+	) -> Option<sp_runtime::FixedU128> {
+		let metric = AcurastCompute::metrics(&processor, pool_id)?;
+		Some(metric.metric)
+	}
 }
 
 pub struct HyperdriveOutgoingMarketplaceHooks;
@@ -99,15 +108,12 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::AlephZero(_) => {
 				let key = pub_keys
 					.iter()
-					.find(|key| match key {
-						PubKey::SECP256k1(_) => true,
-						_ => false,
-					})
-					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+					.find(|key| matches!(key, PubKey::SECP256k1(_)))
+					.ok_or(DispatchError::Other("k256 public key does not exist"))?;
 
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::AlephZero,
-					IncomingAction::AssignJob(job_id_seq.clone(), key.clone()),
+					IncomingAction::AssignJob(*job_id_seq, key.clone()),
 					&HyperdriveIbcFeePalletAccount::get(),
 				)?;
 
@@ -116,15 +122,12 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::Vara(_) => {
 				let key = pub_keys
 					.iter()
-					.find(|key| match key {
-						PubKey::SECP256k1(_) => true,
-						_ => false,
-					})
-					.ok_or_else(|| DispatchError::Other("k256 public key does not exist"))?;
+					.find(|key| matches!(key, PubKey::SECP256k1(_)))
+					.ok_or(DispatchError::Other("k256 public key does not exist"))?;
 
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::Vara,
-					IncomingAction::AssignJob(job_id_seq.clone(), key.clone()),
+					IncomingAction::AssignJob(*job_id_seq, key.clone()),
 					&HyperdriveIbcFeePalletAccount::get(),
 				)?;
 
@@ -145,7 +148,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::AlephZero(_) => {
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::AlephZero,
-					IncomingAction::FinalizeJob(job_id_seq.clone(), refund),
+					IncomingAction::FinalizeJob(*job_id_seq, refund),
 					&HyperdriveIbcFeePalletAccount::get(),
 				)?;
 
@@ -154,7 +157,7 @@ impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
 			MultiOrigin::Vara(_) => {
 				AcurastHyperdrive::send_to_proxy(
 					ProxyChain::Vara,
-					IncomingAction::FinalizeJob(job_id_seq.clone(), refund),
+					IncomingAction::FinalizeJob(*job_id_seq, refund),
 					&HyperdriveIbcFeePalletAccount::get(),
 				)?;
 

@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use datastructures::*;
+pub use datastructures::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
@@ -27,7 +27,7 @@ mod benchmarking;
 
 const LOG_TARGET: &str = "runtime::acurast_compute";
 
-pub(crate) type EpochOf<T, I> = <T as Config<I>>::BlockNumber;
+pub type EpochOf<T, I> = <T as Config<I>>::BlockNumber;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -397,7 +397,7 @@ pub mod pallet {
 
 				Ok(Some(reward))
 			} else {
-				return Ok(None);
+				Ok(None)
 			}
 		}
 
@@ -413,7 +413,7 @@ pub mod pallet {
 						ProcessorStatus::WarmupUntil(b) => b <= current_block,
 						ProcessorStatus::Active => true,
 					})
-				.then(|| p.committed)
+				.then_some(p.committed)
 			} else {
 				None
 			}

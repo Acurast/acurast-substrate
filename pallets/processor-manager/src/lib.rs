@@ -42,7 +42,7 @@ pub type ProcessorList<T> =
 pub mod pallet {
 	use core::ops::Div;
 
-	use acurast_common::{ComputeHooks, ListUpdateOperation, ManagerIdProvider, Version};
+	use acurast_common::{ComputeHooks, ListUpdateOperation, ManagerIdProvider, Metrics, Version};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
@@ -63,8 +63,8 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BinaryHash, Endpoint, Metrics, ProcessorList, ProcessorPairingFor,
-		ProcessorUpdatesFor, RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
+		traits::*, BinaryHash, Endpoint, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
+		RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
 	};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.

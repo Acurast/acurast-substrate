@@ -165,6 +165,30 @@ pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
 	pub extra: Extra,
 }
 
+/// Types of script mutability to choose from during registration of a job.
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub enum ScriptMutability<AccountId> {
+	/// Creates an immutable job whose script cannot be modified — neither by updating the job nor by registering a new one.
+	Immutable,
+	/// Creates a mutable job given an optional distinct `editor` from `owner`.
+	///
+	/// If not provided, the `editor` defaults to the job owner or the job keys are transferred from.
+	Mutable(Option<AccountId>),
+}
+
 pub const PUB_KEYS_MAX_LENGTH: u32 = 33;
 pub type PubKeyBytes = BoundedVec<u8, ConstU32<PUB_KEYS_MAX_LENGTH>>;
 pub type EnvVarKey<KeyMaxSize> = BoundedVec<u8, KeyMaxSize>;

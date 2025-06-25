@@ -7,7 +7,7 @@ use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
 use sp_core::{ConstU32, ConstU64};
-use sp_runtime::{AccountId32, DispatchError};
+use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -40,6 +40,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type ManagerProvider = ManagerProvider;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
+	type DeploymentHashing = BlakeTwo256;
+	type KeyIdHashing = BlakeTwo256;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

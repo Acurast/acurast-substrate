@@ -1,4 +1,4 @@
-use acurast_common::{Attestation, JobId, MultiOrigin};
+use acurast_common::{Attestation, JobId};
 use frame_support::{dispatch::DispatchResultWithPostInfo, weights::Weight};
 use sp_std::prelude::*;
 
@@ -47,7 +47,6 @@ pub trait WeightInfo {
 /// Allows to hook additional logic for various job related extrinsics.
 pub trait JobHooks<T: Config> {
 	fn register_hook(
-		who: &MultiOrigin<T::AccountId>,
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
 		registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo;
@@ -63,7 +62,6 @@ pub trait JobHooks<T: Config> {
 
 impl<T: Config> JobHooks<T> for () {
 	fn register_hook(
-		_who: &MultiOrigin<T::AccountId>,
 		_job_id: &JobId<<T as frame_system::Config>::AccountId>,
 		_registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo {

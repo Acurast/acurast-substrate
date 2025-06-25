@@ -470,7 +470,7 @@ pub mod pallet {
 				<RequiredMinMetrics<T>>::insert(&job_id, metrics);
 			}
 
-			<T as Config>::JobHooks::register_hook(&job_id.0, &job_id, &registration)?;
+			<T as Config>::JobHooks::register_hook(&job_id, &registration)?;
 
 			Self::deposit_event(Event::JobRegistrationStoredV2(job_id.clone()));
 			Ok(().into())

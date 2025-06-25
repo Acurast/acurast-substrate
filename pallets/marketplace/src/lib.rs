@@ -408,24 +408,22 @@ pub mod pallet {
 		ProcessorCpuScoreMismatch,
 		/// Match failed because a processor does not meet the mininum metrics. [pool_id]
 		ProcessorMinMetricsNotMet(u8),
-		/// A Key id for a job was not found
-		KeyIdNotFound,
+		/// Keys cannot be reused from the job requested, maybe because they were already transferred away.
+		CannotReuseKeysFrom,
 		/// Job not found.
 		JobNotFound,
 		/// The provided script value is not valid. The value needs to be and ipfs:// url.
 		InvalidScriptValue,
-		/// Job to extend not found.
+		/// Job to reuse keys from was not found.
 		JobForKeyReuseNotFound,
 		/// A immutable job cannot be edited.
 		ImmutableJobCannotBeEdited,
-		/// A immutable job cannot be made mutable.
-		ImmutableJobCannotBeMadeMutable,
+		/// A mutable job cannot be made immutable during.
+		MutableJobCannotBeMadeImmutable,
 		/// A mutable job can only be edited by the current editor.
 		OnlyEditorCanEditScript,
 		/// Only editor can transfer editing permissions.
 		OnlyEditorCanTransferEditor,
-		/// A mutable job can be made immutable only by the editor.
-		OnlyEditorCanMakeImmutable,
 		/// A mutable job can only be extended (new job registered reusing keys) by same owner.
 		OnlyOwnerCanExtendJob,
 	}
@@ -697,7 +695,7 @@ pub mod pallet {
 
 						ensure!(
 							<Editors<T>>::get(&original_job_id).is_none(),
-							Error::<T>::ImmutableJobCannotBeMadeMutable
+							Error::<T>::MutableJobCannotBeMadeImmutable
 						);
 					}
 					// in None we might still reuse keys implicitly by registering the same script
@@ -746,7 +744,6 @@ pub mod pallet {
 						(derived_editor, key_id)
 					} else {
 						// to create a new unique key_id without using randomness, we hash the full job id and the script
-						// (we want to make sure that even the same owner can not reuse the keys from a previous deployment without explicitly using ScriptMutability::MutableTransferKeysFrom)
 						let key_id = T::KeyIdHashing::hash(&job_id.encode());
 						(editor_.unwrap_or(who), key_id)
 					};
@@ -839,13 +836,15 @@ pub mod pallet {
 			original_deployment_hash: DeploymentHash,
 			updated_deployment_hash: DeploymentHash,
 		) -> Result<KeyId, Error<T>> {
-			let key_id = <JobKeyIds<T>>::get(job_id).ok_or(Error::<T>::KeyIdNotFound)?;
-			<DeploymentKeyIds<T>>::mutate(original_deployment_hash, |id_| {
+			let key_id = <DeploymentKeyIds<T>>::mutate(original_deployment_hash, |id_| {
 				// clear only if still pointing to the keyId of the job updated
-				if Some(key_id) == *id_ {
-					*id_ = None
+				if let Some(id) = *id_ {
+					*id_ = None;
+					Ok(id)
+				} else {
+					Err(Error::<T>::CannotReuseKeysFrom)
 				}
-			});
+			})?;
 			<DeploymentKeyIds<T>>::insert(&updated_deployment_hash, key_id);
 			Ok(key_id)
 		}

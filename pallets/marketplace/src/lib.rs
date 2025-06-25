@@ -735,11 +735,8 @@ pub mod pallet {
 							Error::<T>::OnlyEditorCanEditScript
 						);
 
-						let key_id = Self::transfer_key_id(
-							&original_job_id,
-							original_deployment_hash,
-							deployment_hash,
-						)?;
+						let key_id =
+							Self::transfer_key_id(original_deployment_hash, deployment_hash)?;
 
 						(derived_editor, key_id)
 					} else {
@@ -796,8 +793,7 @@ pub mod pallet {
 			let updated_deployment_hash =
 				T::DeploymentHashing::hash(&(job_id.0.clone(), script).encode());
 
-			let _key_id =
-				Self::transfer_key_id(&job_id, original_deployment_hash, updated_deployment_hash)?;
+			let _key_id = Self::transfer_key_id(original_deployment_hash, updated_deployment_hash)?;
 			// DO NOT update JobKeyIds to keep using previous keys DESPITE the job script update
 
 			Self::deposit_event(Event::JobScriptEdited(job_id));
@@ -832,7 +828,6 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn transfer_key_id(
-			job_id: &JobId<T::AccountId>,
 			original_deployment_hash: DeploymentHash,
 			updated_deployment_hash: DeploymentHash,
 		) -> Result<KeyId, Error<T>> {

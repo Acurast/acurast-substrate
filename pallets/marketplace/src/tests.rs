@@ -100,7 +100,9 @@ fn test_valid_deregister() {
 			job_id1.1,
 		));
 
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the remaining budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -224,7 +226,9 @@ fn test_deregister_on_matched_job() {
 		assert_eq!(Balances::free_balance(&alice_account_id()), 100_000_000);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -402,7 +406,9 @@ fn test_deregister_on_assigned_job() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -643,7 +649,9 @@ fn test_deregister_on_assigned_job_for_competing() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -951,7 +959,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -1361,7 +1371,9 @@ fn test_match() {
 		));
 
 		// Job no longer assigned after finalization
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 		// the remaining budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
 		// but job2 still have full budget

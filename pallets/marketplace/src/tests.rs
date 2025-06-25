@@ -6,12 +6,14 @@ use frame_support::{
 	traits::{Hooks, TypedGet},
 };
 
+use hex_literal::hex;
 use pallet_acurast::{
 	utils::validate_and_extract_attestation, Attestation, ComputeHooks, JobModules,
 	JobRegistrationFor, MultiOrigin, Schedule,
 };
 use pallet_acurast_compute::{MetricPool, ProvisionalBuffer, SlidingBuffer};
 use reputation::{BetaReputation, ReputationEngine};
+use sp_core::H256;
 
 use crate::{
 	mock::*, payments::JobBudget, stub::*, AdvertisementRestriction, Assignment,
@@ -98,7 +100,9 @@ fn test_valid_deregister() {
 			job_id1.1,
 		));
 
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the remaining budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -222,7 +226,9 @@ fn test_deregister_on_matched_job() {
 		assert_eq!(Balances::free_balance(&alice_account_id()), 100_000_000);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -400,7 +406,9 @@ fn test_deregister_on_assigned_job() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -641,7 +649,9 @@ fn test_deregister_on_assigned_job_for_competing() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -949,7 +959,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		);
 
 		// Job got removed after the deregister call
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 
 		// the full budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
@@ -1359,7 +1371,9 @@ fn test_match() {
 		));
 
 		// Job no longer assigned after finalization
-		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),);
+		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
+		// Job KeyID got removed
+		assert_eq!(None, AcurastMarketplace::job_key_ids(&job_id1));
 		// the remaining budget got refunded
 		assert_eq!(0, AcurastMarketplace::reserved(&job_id1));
 		// but job2 still have full budget
@@ -2182,6 +2196,368 @@ fn test_report_afer_last_report() {
 					}
 				)),
 			]
+		);
+	});
+}
+
+#[test]
+fn test_deploy_reuse_keys_same_editor() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration1 = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+	let registration2 = JobRegistrationFor::<Test> {
+		script: script_random_value(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 10_000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	let key_id =
+		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
+	let deployhemt_hash1 =
+		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
+	let deployhemt_hash2: H256 =
+		H256::from_slice(&hex!("ff24e620db6e914a3b38895978438dd453579c867f5125e74d8cf68ae244f8c1"));
+
+	ExtBuilder::default().build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+
+		// pretend current time
+		later(now);
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()).into(),
+			ad.clone(),
+		));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			ad.clone(),
+		));
+
+		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
+			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(AcurastMarketplace::deploy(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			registration1.clone(),
+			pallet_acurast::ScriptMutability::Mutable(None),
+			None,
+			None
+		));
+
+		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
+		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+
+		// deregister job1 to demonstrate that even then we can extend job1 with job2
+		assert_ok!(Acurast::deregister(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			job_id1.1
+		));
+
+		// register different script as extension
+		let job_id2: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
+			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
+		assert_ok!(AcurastMarketplace::deploy(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			registration2,
+			pallet_acurast::ScriptMutability::Mutable(None),
+			Some(job_id1.clone()),
+			None
+		));
+
+		// job key is same for job1 and job2
+		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id2.clone()));
+		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
+		// job1's deployment key no longer points to any KeyId
+		assert_eq!(None, AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+		// the new deployment_hash of job2 now points to the key_id previously "owned" by the predecessor deployment
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash2));
+	});
+}
+
+#[test]
+fn test_deploy_reuse_keys_different_editor() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration1 = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+	let registration2 = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 10_000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	let key_id =
+		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
+	let deployhemt_hash =
+		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
+
+	ExtBuilder::default().build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+
+		// pretend current time
+		later(now);
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()).into(),
+			ad.clone(),
+		));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			ad.clone(),
+		));
+
+		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
+			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(AcurastMarketplace::deploy(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			registration1.clone(),
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			None,
+			None
+		));
+
+		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
+		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash));
+
+		// deregister job1 to demonstrate that even then we can extend job1 with job2
+		assert_ok!(Acurast::deregister(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			job_id1.1
+		));
+
+		// register same script as extension (is possible even job1's editor is not equals owner)
+		let job_id2: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
+			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
+		assert_ok!(AcurastMarketplace::deploy(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			registration2,
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			Some(job_id1.clone()),
+			None
+		));
+
+		// job key is same for job1 and job2
+		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id2.clone()));
+		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
+		// job1's equal job2's deployment key still point to same key_id
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash));
+	});
+}
+
+#[test]
+fn test_deploy_reuse_keys_different_editor_script_edit_fails() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	// 1000 is the smallest amount accepted by T::AssetTransactor::lock_asset for the asset used
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration1 = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+	let registration2 = JobRegistrationFor::<Test> {
+		script: script_random_value(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 10_000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	let key_id =
+		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
+	let deployhemt_hash1 =
+		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
+
+	ExtBuilder::default().build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+
+		// pretend current time
+		later(now);
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()).into(),
+			ad.clone(),
+		));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			ad.clone(),
+		));
+
+		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
+			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(AcurastMarketplace::deploy(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			registration1.clone(),
+			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
+			None,
+			None
+		));
+
+		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
+		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+
+		// deregister job1 to demonstrate that even then we can extend job1 with job2
+		assert_ok!(Acurast::deregister(
+			RuntimeOrigin::signed(alice_account_id()).into(),
+			job_id1.1
+		));
+
+		// register different script fails because editor of job1 is not equals owner
+		assert_err!(
+			AcurastMarketplace::deploy(
+				RuntimeOrigin::signed(alice_account_id()).into(),
+				registration2,
+				pallet_acurast::ScriptMutability::Mutable(None),
+				Some(job_id1),
+				None
+			),
+			Error::<Test>::OnlyEditorCanEditScript
 		);
 	});
 }

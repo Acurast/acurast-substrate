@@ -105,7 +105,7 @@ benchmarks! {
 		let (caller, job) = register_job::<T>(false, true);
 	}: _(RawOrigin::Signed(caller.clone()), job.clone())
 	verify {
-		assert_last_event::<T>(Event::<T>::JobRegistrationStored(
+		assert_last_event::<T>(Event::<T>::JobRegistrationStoredV2(
 			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}
@@ -142,7 +142,7 @@ benchmarks! {
 		let updates: BoundedVec<AllowedSourcesUpdate<T::AccountId>, <T as Config>::MaxAllowedSources> = updates.try_into().unwrap();
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, updates.clone())
 	verify {
-		assert_last_event::<T>(Event::AllowedSourcesUpdated(
+		assert_last_event::<T>(Event::AllowedSourcesUpdatedV2(
 			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}
@@ -154,7 +154,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(processor_account.clone()), attestation_chain.clone())
 	verify {
 		let attestation = validate_and_extract_attestation::<T>(&processor_account, &attestation_chain).unwrap();
-		assert_last_event::<T>(Event::AttestationStored(
+		assert_last_event::<T>(Event::AttestationStoredV2(
 			processor_account,
 		).into());
 	}
@@ -187,7 +187,7 @@ benchmarks! {
 		let local_job_id = 1;
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, account("processor", 0, SEED), env.clone())
 	verify {
-		assert_last_event::<T>(Event::ExecutionEnvironmentsUpdated(
+		assert_last_event::<T>(Event::ExecutionEnvironmentsUpdatedV2(
 			(MultiOrigin::Acurast(caller), 1)
 		).into());
 	}

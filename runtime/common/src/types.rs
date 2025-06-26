@@ -76,12 +76,14 @@ where
 		amount: Runtime::Balance,
 		distributor_account: &Runtime::AccountId,
 	) -> DispatchResult {
-		Currency::transfer(
-			distributor_account,
-			&manager,
-			amount.saturated_into(),
-			Preservation::Preserve,
-		)?;
+		if amount > Runtime::Balance::zero() {
+			Currency::transfer(
+				distributor_account,
+				&manager,
+				amount.saturated_into(),
+				Preservation::Preserve,
+			)?;
+		}
 		Ok(())
 	}
 

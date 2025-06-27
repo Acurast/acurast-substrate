@@ -794,6 +794,7 @@ pub mod pallet {
 				T::DeploymentHashing::hash(&(job_id.0.clone(), script).encode());
 
 			let _key_id = Self::transfer_key_id(original_deployment_hash, updated_deployment_hash)?;
+			<DeploymentHashes<T>>::insert(&job_id.0, &job_id.1, &updated_deployment_hash);
 			// DO NOT update JobKeyIds to keep using previous keys DESPITE the job script update
 
 			Self::deposit_event(Event::JobScriptEdited(job_id));

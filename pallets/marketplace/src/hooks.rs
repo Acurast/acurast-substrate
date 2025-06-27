@@ -9,7 +9,6 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].
 	/// If a job for the same `(accountId, script)` was previously registered, it will be overwritten.
 	fn register_hook(
-		_who: &MultiOrigin<T::AccountId>,
 		job_id: &JobId<T::AccountId>,
 		registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo {
@@ -85,6 +84,9 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 			<StoredJobStatus<T>>::get(&job_id.0, job_id.1).ok_or(Error::<T>::JobStatusNotFound)?;
 		let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 			.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
+
+		<JobKeyIds<T>>::remove(&job_id);
+
 		match job_status {
 			JobStatus::Open => {
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;

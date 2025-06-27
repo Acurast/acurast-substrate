@@ -84,7 +84,12 @@ pub mod pallet {
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
-		type Balance: Parameter + IsType<u128> + Div + Balance + MaybeSerializeDeserialize;
+		type Balance: Parameter
+			+ IsType<u128>
+			+ Div
+			+ Balance
+			+ MaybeSerializeDeserialize
+			+ PartialOrd;
 		type ProcessorRewardDistributor: ProcessorRewardDistributor<Self>;
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]

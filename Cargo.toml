@@ -16,7 +16,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2021"
 
 [workspace.dependencies]

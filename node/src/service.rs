@@ -74,25 +74,6 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	}
 }
 
-#[cfg(feature = "acurast-mainnet")]
-pub mod mainnet {
-	use sc_executor::NativeVersion;
-
-	pub struct AcurastExecutor;
-
-	impl sc_executor::NativeExecutionDispatch for AcurastExecutor {
-		type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-			acurast_mainnet_runtime::api::dispatch(method, data)
-		}
-
-		fn native_version() -> NativeVersion {
-			acurast_mainnet_runtime::native_version()
-		}
-	}
-}
-
 pub type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
 pub type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, ParachainExecutor>;
 pub type ParachainBackend = TFullBackend<Block>;

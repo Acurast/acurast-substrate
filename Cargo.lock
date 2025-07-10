@@ -7847,6 +7847,7 @@ dependencies = [
 name = "pallet-acurast-marketplace"
 version = "0.18.2"
 dependencies = [
+ "acurast-common",
  "acurast-reputation",
  "base64 0.13.1",
  "frame-benchmarking",

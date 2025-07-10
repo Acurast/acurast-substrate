@@ -158,6 +158,7 @@ parameter_types! {
 	pub const ReportTolerance: u64 = 120_000;
 
 	pub const ManagerCollectionId: u128 = 0;
+	pub const CommitmentCollectionId: u128 = 1;
 
 	/// The acurast contract on the aleph zero network
 	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();

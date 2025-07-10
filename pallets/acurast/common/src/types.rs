@@ -561,13 +561,15 @@ impl<'de, const T: u32> Deserialize<'de> for CU32<T> {
 	}
 }
 
-pub struct ElegibleRewardAccountLookup<AccountId, EA, VP, ML>(PhantomData<(AccountId, EA, VP, ML)>);
+pub struct ManagerProviderForEligibleProcessor<AccountId, EA, VP, ML>(
+	PhantomData<(AccountId, EA, VP, ML)>,
+);
 impl<
 		AccountId,
 		EA: EnsureAttested<AccountId>,
 		VP: ProcessorVersionProvider<AccountId>,
 		ML: AccountLookup<AccountId>,
-	> AccountLookup<AccountId> for ElegibleRewardAccountLookup<AccountId, EA, VP, ML>
+	> AccountLookup<AccountId> for ManagerProviderForEligibleProcessor<AccountId, EA, VP, ML>
 {
 	fn lookup(processor: &AccountId) -> Option<AccountId> {
 		if !EA::ensure_attested(processor).is_ok() {

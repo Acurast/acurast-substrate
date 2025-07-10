@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 			<ProcessorRewardDistributionWindow<T>>::remove(processor);
 			return None;
 		}
-		let Some(manager) = T::EligibleRewardAccountLookup::lookup(processor) else {
+		let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
 			<ProcessorRewardDistributionWindow<T>>::remove(processor);
 			return None;
 		};

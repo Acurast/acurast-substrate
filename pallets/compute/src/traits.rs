@@ -51,6 +51,15 @@ pub trait WeightInfo {
 	fn modify_pool_same_config() -> Weight;
 	fn modify_pool_replace_config(x: u32) -> Weight;
 	fn modify_pool_update_config(x: u32) -> Weight;
+	fn offer_delegation() -> Weight;
+	fn withdraw_delegation_offer() -> Weight;
+	fn accept_delegation() -> Weight;
+	fn cooldown_delegation() -> Weight;
+	fn end_delegation() -> Weight;
+	fn stake() -> Weight;
+	fn cooldown_stake() -> Weight;
+	fn unstake() -> Weight;
+	fn commit_compute() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -67,6 +76,42 @@ impl WeightInfo for () {
 	}
 
 	fn modify_pool_update_config(_x: u32) -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn offer_delegation() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn withdraw_delegation_offer() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn accept_delegation() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn cooldown_delegation() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn end_delegation() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn stake() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn cooldown_stake() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn unstake() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn commit_compute() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 }

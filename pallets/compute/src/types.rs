@@ -19,6 +19,7 @@ pub type ProcessorStateFor<T, I> = ProcessorState<
 >;
 pub type ProcessorStatusFor<T, I> = ProcessorStatus<<T as Config<I>>::BlockNumber>;
 pub type MetricCommitFor<T, I> = MetricCommit<<T as Config<I>>::BlockNumber>;
+pub type StakeFor<T, I> = Stake<<T as Config<I>>::BlockNumber, <T as Config<I>>::Balance>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 pub type MetricPoolConfigValues =
@@ -33,6 +34,12 @@ pub type Metric = FixedU128;
 pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
+
+pub type DelegationOfferFor<T, I> =
+	DelegationOffer<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type DelegatorStateFor<T, I> =
+	DelegatorState<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type DelegateeTotalFor<T, I> = DelegateeTotal<<T as Config<I>>::Balance>;
 
 #[derive(
 	Encode,
@@ -141,12 +148,12 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// **Currently unused**:
 	/// It is **not** aligned with global epochs and could be used in the future to ensure commit-claim operations don't overload the chain on same block range of `[global_epoch_start, global_epoch_start + heartbeat_interval]`.
 	pub epoch_offset: BlockNumber,
-	/// The lastest epoch in which a processor committed.
+	/// The latest epoch in which a processor committed.
 	pub committed: Epoch,
-	/// The lastest epoch for which a processor claimed.
+	/// The latest epoch for which a processor claimed.
 	pub claimed: Epoch,
 	pub status: ProcessorStatus<BlockNumber>,
-	/// The amount accrued but not paid out.
+	/// The amount accrued but not yet paid out.
 	///
 	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
 	///
@@ -154,4 +161,57 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	pub accrued: Balance,
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
 	pub paid: Balance,
+}
+
+/// A manager's commitment of stake. The respected commitment is min(commitment, 0.8 * latest-18-epoch-average).
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct ManagerCommitment<Era: Debug> {
+	/// Era until the manager commits this compute.
+	pub to_era: Era,
+	/// Total metric a manager commits to over all his processors.
+	pub total: Metric,
+}
+
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct DelegationOffer<Balance: Debug, BlockNumber: Debug> {
+	pub amount: Balance,
+	pub cooldown_period: BlockNumber,
+}
+
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct DelegatorState<Balance: Debug, BlockNumber: Debug> {
+	pub amount: Balance,
+	/// The amount accrued but not yet paid out or compound to amount.
+	///
+	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
+	pub accrued: Balance,
+	pub cooldown_period: BlockNumber,
+	pub cooldown_started: Option<BlockNumber>,
+}
+
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct DelegateeTotal<Balance: Debug + Default> {
+	pub amount: Balance,
+	pub weight: Balance,
+	pub count: u8,
+}
+
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct Stake<BlockNumber: Debug, Balance: Debug> {
+	/// The staked amount.
+	pub amount: Balance,
+	/// The amount accrued but not yet paid out or compound to amount.
+	///
+	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
+	pub accrued: Balance,
+	pub cooldown_period: BlockNumber,
+	pub cooldown_started: Option<BlockNumber>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum LockReason<ManagerId> {
+	Staking,
+	Delegation(ManagerId),
 }

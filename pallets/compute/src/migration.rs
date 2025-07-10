@@ -8,11 +8,12 @@ use frame_support::{
 	},
 	weights::Weight,
 };
+use sp_runtime::traits::Zero;
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(1, &migrate_to_v1::<T, I>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(2, &migrate_to_v2::<T, I>)];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -26,24 +27,25 @@ pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
 	weight + T::DbWeight::get().writes(1)
 }
 
-/// Adds `config` to [`MetricPool`];
-pub fn migrate_to_v1<T: Config<I>, I: 'static>() -> Weight {
+/// Adds `max_stake_metric_ratio` to [`MetricPool`];
+pub fn migrate_to_v2<T: Config<I>, I: 'static>() -> Weight {
 	let mut weight = Weight::zero();
 	weight = weight.saturating_add(
 		T::DbWeight::get().reads(<MetricPools<T, I>>::iter_values().count() as u64),
 	);
-	<MetricPools<T, I>>::translate_values::<v0::MetricPoolFor<T>, _>(|old| {
+	<MetricPools<T, I>>::translate_values::<v1::MetricPoolFor<T>, _>(|old| {
 		Some(MetricPoolFor::<T> {
-			config: Default::default(),
+			config: old.config,
 			name: old.name,
 			reward: old.reward,
 			total: old.total,
+			max_stake_metric_ratio: Zero::zero(),
 		})
 	});
 	weight
 }
 
-pub mod v0 {
+pub mod v1 {
 	use core::ops::Add;
 
 	use super::*;
@@ -61,6 +63,7 @@ pub mod v0 {
 		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
 		Value: Copy + Default + Debug,
 	> {
+		pub config: MetricPoolConfigValues,
 		pub name: MetricPoolName,
 		pub reward: ProvisionalBuffer<Epoch, Value>,
 		pub total: SlidingBuffer<Epoch, FixedU128>,

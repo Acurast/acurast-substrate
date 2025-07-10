@@ -11,7 +11,7 @@ use frame_support::{
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		AsEnsureOriginWithArg, ConstU16,
+		AsEnsureOriginWithArg, ConstU16, LockIdentifier,
 	},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
@@ -122,21 +122,39 @@ impl pallet_uniques::Config for Test {
 }
 
 parameter_types! {
-	pub const EpochBase: BlockNumber = 0;
 	pub const Epoch: BlockNumber = 100;
+	pub const EpochBase: BlockNumber = 0;
+	pub const Era: BlockNumber = 300;
 	pub const WarmupPeriod: BlockNumber = 30;
+	 pub const MaxDelegations: u8 = 20;
+	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
+	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
+	pub const MinDelegation: Balance = 1;
+	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(10);
+	pub const MinStake: Balance = 1 * UNIT;
+
+	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerId = AssetId;
 	type ManagerIdProvider = AcurastManagerIdProvider;
-	type EpochBase = EpochBase;
 	type Epoch = Epoch;
+	type EpochBase = EpochBase;
+	type Era = Era;
+	type MaxPools = ConstU32<30>;
+	type MaxDelegations = MaxDelegations;
+	type MinCooldownPeriod = MinCooldownPeriod;
+	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type MinDelegation = MinDelegation;
+	type MaxDelegationRatio = MaxDelegationRatio;
+	type MinStake = MinStake;
 	type WarmupPeriod = WarmupPeriod;
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
 	type Currency = Balances;
+	type LockIdentifier = ComputeStakingLockId;
 	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
 	type WeightInfo = ();
 }

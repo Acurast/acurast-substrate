@@ -18,6 +18,12 @@ pub trait ManagerIdProvider<AccountId, ManagerId> {
 	fn owner_for(manager_id: ManagerId) -> Result<AccountId, DispatchError>;
 }
 
+pub trait CommitmentIdProvider<AccountId, CommitmentId> {
+	fn create_commitment_id(id: CommitmentId, owner: &AccountId) -> DispatchResult;
+	fn commitment_id_for(owner: &AccountId) -> Result<CommitmentId, DispatchError>;
+	fn owner_for(commitment_id: CommitmentId) -> Result<AccountId, DispatchError>;
+}
+
 /// A trait to describe hooks the `pallet_acruast_compute` provides.
 pub trait ComputeHooks<AccountId, Balance> {
 	/// Commits compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.

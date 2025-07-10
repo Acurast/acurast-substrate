@@ -10,7 +10,7 @@ use frame_support::{
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable},
-		AsEnsureOriginWithArg,
+		AsEnsureOriginWithArg, LockIdentifier,
 	},
 	PalletId,
 };
@@ -204,9 +204,17 @@ impl pallet_uniques::Config for Test {
 }
 
 parameter_types! {
-	pub const EpochBase: BlockNumber = 0;
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
+	pub const EpochBase: BlockNumber = 0;
+	pub const Era: BlockNumber = 1800; // 3 hours
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
+	 pub const MaxDelegations: u8 = 20;
+	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
+	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
+	pub const MinDelegation: Balance = 1;
+	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(10);
+	pub const MinStake: Balance = 1 * UNIT;
+	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 }
 
 impl pallet_acurast_compute::Config for Test {
@@ -215,10 +223,19 @@ impl pallet_acurast_compute::Config for Test {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
+	type Era = Era;
+	type MaxPools = ConstU32<30>;
+	type MaxDelegations = MaxDelegations;
+	type MinCooldownPeriod = MinCooldownPeriod;
+	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type MinDelegation = MinDelegation;
+	type MaxDelegationRatio = MaxDelegationRatio;
+	type MinStake = MinStake;
 	type WarmupPeriod = WarmupPeriod;
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
 	type Currency = Balances;
+	type LockIdentifier = ComputeStakingLockId;
 	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
 	type WeightInfo = ();
 }

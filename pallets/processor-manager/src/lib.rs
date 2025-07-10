@@ -71,7 +71,7 @@ pub mod pallet {
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
-		type EligibleRewardAccountLookup: AccountLookup<Self::AccountId>;
+		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
 		type Currency: Currency<Self::AccountId>;
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]

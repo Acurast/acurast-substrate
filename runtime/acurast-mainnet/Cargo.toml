@@ -36,7 +36,7 @@ pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-hyperdrive-token = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
-pallet-collator-selection = { workspace = true }
+pallet-acurast-candidate-preselection = { workspace = true }
 
 acurast-runtime-common = { workspace = true }
 
@@ -61,6 +61,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -142,6 +143,7 @@ std = [
 	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-hyperdrive-token/std",
+	"pallet-acurast-candidate-preselection/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
@@ -182,6 +184,7 @@ runtime-benchmarks = [
 	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
+	"pallet-acurast-candidate-preselection/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

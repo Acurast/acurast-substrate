@@ -71,6 +71,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
@@ -151,6 +152,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
@@ -344,6 +346,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
@@ -7643,6 +7646,29 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-balances",
+ "pallet-timestamp",
+ "parachains-common",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
+ "staging-parachain-info",
+]
+
+[[package]]
+name = "pallet-acurast-candidate-preselection"
+version = "0.16.0"
+dependencies = [
+ "acurast-common",
+ "base64 0.13.1",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.4.1",
+ "log",
  "pallet-timestamp",
  "parachains-common",
  "parity-scale-codec",

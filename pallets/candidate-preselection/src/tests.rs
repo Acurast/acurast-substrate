@@ -25,12 +25,8 @@ fn test_add_remove_candidate() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::CandidatePreselection(crate::Event::CandidateAdded(
-					alice_account_id()
-				)),
-				RuntimeEvent::CandidatePreselection(crate::Event::CandidateRemoved(
-					alice_account_id()
-				)),
+				RuntimeEvent::CandidatePreselection(crate::Event::CandidateAdded(account_id())),
+				RuntimeEvent::CandidatePreselection(crate::Event::CandidateRemoved(account_id())),
 			]
 		);
 	});

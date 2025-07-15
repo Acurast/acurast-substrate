@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, ValidatorRegistration},
-	weights::Weight,
 };
 use sp_core::H256;
 use sp_io;
@@ -13,7 +12,6 @@ use crate::*;
 
 pub type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type Balance = u128;
 
 pub struct ExtBuilder;
 

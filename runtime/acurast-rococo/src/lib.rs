@@ -113,6 +113,8 @@ mod runtime {
 	pub type AcurastRewardsTreasury = pallet_acurast_rewards_treasury;
 	#[runtime::pallet_index(48)]
 	pub type AcurastCompute = pallet_acurast_compute;
+	#[runtime::pallet_index(49)]
+	pub type AcurastCandidatePreselection = pallet_acurast_candidate_preselection;
 	#[runtime::pallet_index(52)]
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 	#[runtime::pallet_index(53)]

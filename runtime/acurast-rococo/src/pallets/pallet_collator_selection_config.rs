@@ -2,8 +2,8 @@ use acurast_runtime_common::types::AccountId;
 use frame_system::EnsureRoot;
 
 use crate::{
-	Balances, MaxCandidates, MaxInvulnerables, MinCandidates, Period, PotId, Runtime, RuntimeEvent,
-	Session,
+	AcurastCandidatePreselection, Balances, MaxCandidates, MaxInvulnerables, MinCandidates, Period,
+	PotId, Runtime, RuntimeEvent,
 };
 
 // We allow root only to execute privileged collator selection operations.
@@ -22,6 +22,6 @@ impl pallet_collator_selection::Config for Runtime {
 	type KickThreshold = Period;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ValidatorRegistration = Session;
+	type ValidatorRegistration = AcurastCandidatePreselection;
 	type WeightInfo = ();
 }

@@ -15,7 +15,8 @@ use crate::{
 	HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount,
 	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, IncomingTTL,
 	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
-	OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason, VaraContract,
+	OperationalFeeAccount, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
+	VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -52,6 +53,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 
 	type EthereumVault = HyperdriveTokenEthereumVault;
 	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
+	type OperationalFeeAccount = OperationalFeeAccount;
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;

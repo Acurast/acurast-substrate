@@ -8,6 +8,7 @@ use sp_std::prelude::*;
 use strum_macros::{EnumString, IntoStaticStr};
 
 pub type TransferNonce = u64;
+pub type EnableNonce = u32;
 
 pub const TRANSFER_RECIPIENT_MAX_LENGTH: u32 = 64;
 /// The recipient of a transfer, on Acurast or proxy chain. The length depends on the chain the transfer is received on.
@@ -25,6 +26,7 @@ pub enum Action<AccountId> {
 	TransferToken(u128, Option<u32>, TransferNonce, MultiOrigin<AccountId>),
 	/// A noop action that solely suits the purpose of testing that messages get sent.
 	Noop,
+	SetEnabled(bool),
 }
 
 impl<AccountId> From<&Action<AccountId>> for RawAction {
@@ -32,6 +34,7 @@ impl<AccountId> From<&Action<AccountId>> for RawAction {
 		match action {
 			Action::TransferToken(_, _, _, _) => RawAction::TransferToken,
 			Action::Noop => RawAction::Noop,
+			Action::SetEnabled(_) => RawAction::SetEnabled,
 		}
 	}
 }
@@ -43,6 +46,8 @@ impl<AccountId> From<&Action<AccountId>> for RawAction {
 pub enum RawAction {
 	#[strum(serialize = "TRANS")]
 	TransferToken,
+	#[strum(serialize = "ENABLED")]
+	SetEnabled,
 	#[strum(serialize = "NOOP")]
 	Noop = 255,
 }

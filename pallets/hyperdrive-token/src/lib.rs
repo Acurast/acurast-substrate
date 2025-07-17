@@ -86,6 +86,8 @@ pub mod pallet {
 		type SolanaVault: Get<Self::AccountId>;
 		#[pallet::constant]
 		type SolanaFeeVault: Get<Self::AccountId>;
+		#[pallet::constant]
+		type OperationalFeeAccount: Get<Self::AccountId>;
 
 		#[pallet::constant]
 		type OutgoingTransferTTL: Get<BlockNumberFor<Self>>;
@@ -133,6 +135,7 @@ pub mod pallet {
 		InvalidTransferRetry,
 		MissingContractConfiguration,
 		NotEnabled,
+		UnsupportedAction,
 	}
 
 	impl<T: Config<I>, I: 'static> From<pallet_acurast_hyperdrive_ibc::Error<T, I>> for Error<T, I> {
@@ -201,6 +204,11 @@ pub mod pallet {
 	#[pallet::getter(fn incoming_transfer_nonces)]
 	pub type IncomingTransferNonces<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Identity, ProxyChain, Identity, TransferNonce, ()>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_enable_nonce)]
+	pub type NextEnableNonce<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, EnableNonce, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -285,6 +293,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 			<Enabled<T, I>>::set(Some(enabled));
 			Self::deposit_event(Event::PalletEnabled { enabled });
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::enable_proxy_chain())]
+		pub fn enable_proxy_chain(
+			origin: OriginFor<T>,
+			proxy_chain: ProxyChain,
+			enabled: bool,
+			fee: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_enable(T::OperationalFeeAccount::get(), proxy_chain, enabled, fee)?;
 			Ok(())
 		}
 	}
@@ -403,6 +424,52 @@ pub mod pallet {
 			Ok(transfer_nonce)
 		}
 
+		fn do_enable(
+			source: T::AccountId,
+			proxy: ProxyChain,
+			enabled: bool,
+			fee: T::Balance,
+		) -> Result<(), Error<T, I>> {
+			// recipient is the message recipient, not the recipient of amount which is `dest`
+			let (recipient, _vault, fee_vault) = Self::proxy_params(&proxy)?;
+
+			if !fee.is_zero() {
+				// hyperdrive-ibc reserves the fee on the payer's account, but we want the reserves being on a central per-proxy pallet account,
+				// since these fees can never be recovered to the source of a transfer (can only be retried with usually higher fee/ttl)
+				T::Currency::transfer(
+                	&source,
+                    &fee_vault,
+                    fee.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(),
+                    Preservation::Preserve,
+                ).map_err(|e| {
+                    log::error!(
+                        target: "runtime::acurast_hyperdrive_token",
+                        "error in do_transfer_native; transfer to fee_vault: {:?}",
+                        e,
+                    );
+                    Error::<T, I>::TransferToVaultFailed
+                })?;
+			}
+
+			let action = Action::SetEnabled(enabled);
+			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
+
+			let nonce = Self::next_enable_nonce().unwrap_or(0);
+			NextEnableNonce::<T, I>::put(nonce + 1);
+
+			let _ = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
+				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
+				&fee_vault.into(),
+				T::MessageIdHashing::hash_of(&nonce),
+				recipient,
+				encoded,
+				T::OutgoingTransferTTL::get(),
+				fee.into(),
+			)?;
+
+			Ok(())
+		}
+
 		/// Executes an parsed action from a _valid_ incoming Hyperdrive (IBC) message to this pallet.
 		///
 		/// NOTE: _valid_ means that the Hyperdrive (IBC) sender and recipient have already been validated in [`MessageProcessor::process`] implementation of this pallet.
@@ -450,6 +517,7 @@ pub mod pallet {
 					}
 				},
 				Action::Noop => Ok(().into()),
+				_ => Err(Error::<T, I>::UnsupportedAction)?,
 			}
 		}
 	}

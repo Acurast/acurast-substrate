@@ -454,13 +454,16 @@ pub mod pallet {
 			let action = Action::SetEnabled(enabled);
 			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
 
+			let nonce_prefix = b"enable";
 			let nonce = Self::next_enable_nonce().unwrap_or(0);
 			NextEnableNonce::<T, I>::put(nonce + 1);
+			let complete_nonce =
+				&[nonce_prefix.as_slice(), nonce.to_be_bytes().as_slice()].concat();
 
 			let _ = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
 				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
 				&fee_vault.into(),
-				T::MessageIdHashing::hash_of(&nonce),
+				T::MessageIdHashing::hash_of(complete_nonce),
 				recipient,
 				encoded,
 				T::OutgoingTransferTTL::get(),

@@ -134,5 +134,28 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::PalletEnabled { enabled: true }.into());
 	}
 
+	enable_proxy_chain {
+		let initial_balance = 1000 * UNIT;
+		let fee_amount = 2 * MILLIUNIT;
+
+		let fee_payer: T::AccountId = T::OperationalFeeAccount::get();
+
+		assert_ok!(AcurastHyperdriveToken::<T, I>::set_enabled(RawOrigin::Root.into(), true));
+
+		// Arrange: initial balances and configuration
+		assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), fee_payer.clone().into(), initial_balance.into()));
+			assert_ok!(
+			Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+			assert_ok!(Balances::<T>::force_set_balance(
+			RawOrigin::Root.into(),
+			ethereum_fee_vault().into(),
+			initial_balance.into(),
+		));
+		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
+
+		run_to_block::<T, I>(100u32.into());
+	}: _(RawOrigin::Root, ProxyChain::Ethereum, true, fee_amount.into())
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

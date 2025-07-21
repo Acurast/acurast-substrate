@@ -1,5 +1,6 @@
 use core::ops::Add;
 
+use acurast_common::PoolId;
 use frame_support::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Debug, One, Saturating},
@@ -20,6 +21,7 @@ pub type ProcessorStateFor<T, I> = ProcessorState<
 pub type ProcessorStatusFor<T, I> = ProcessorStatus<<T as Config<I>>::BlockNumber>;
 pub type MetricCommitFor<T, I> = MetricCommit<<T as Config<I>>::BlockNumber>;
 pub type StakeFor<T, I> = Stake<<T as Config<I>>::BlockNumber, <T as Config<I>>::Balance>;
+pub type ManagerCommitmentFor<T, I> = ManagerCommitment<<T as Config<I>>::Era>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 pub type MetricPoolConfigValues =
@@ -166,10 +168,12 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 /// A manager's commitment of stake. The respected commitment is min(commitment, 0.8 * latest-18-epoch-average).
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct ManagerCommitment<Era: Debug> {
+	/// Pool.
+	pub pool_id: PoolId,
+	/// Total metric a manager commits to over all his processors.
+	pub metric: Metric,
 	/// Era until the manager commits this compute.
 	pub to_era: Era,
-	/// Total metric a manager commits to over all his processors.
-	pub total: Metric,
 }
 
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]

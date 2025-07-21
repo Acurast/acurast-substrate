@@ -444,11 +444,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::offer_delegation())]
 		pub fn offer_delegation(
 			origin: OriginFor<T>,
-			manager_id: T::ManagerId,
+			manager: T::AccountId,
 			amount: T::Balance,
 			cooldown_period: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
 
 			ensure!(amount >= T::MinDelegation::get(), Error::<T, I>::BelowMinDelegation);
 			ensure!(
@@ -491,9 +492,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::withdraw_delegation_offer())]
 		pub fn withdraw_delegation_offer(
 			origin: OriginFor<T>,
-			manager_id: T::ManagerId,
+			manager: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
 
 			let prev_offer = DelegationOffers::<T, I>::take(&who, manager_id)
 				.ok_or(Error::<T, I>::NoOfferFound)?;
@@ -558,9 +560,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cooldown_delegation())]
 		pub fn cooldown_delegation(
 			origin: OriginFor<T>,
-			manager_id: T::ManagerId,
+			manager: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
 			Self::cooldown_delegation_for(&who, manager_id)?;
 			Self::deposit_event(Event::<T, I>::DelegationCooldownStarted(who, manager_id));
 			Ok(().into())
@@ -570,9 +573,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::end_delegation())]
 		pub fn end_delegation(
 			origin: OriginFor<T>,
-			manager_id: T::ManagerId,
+			manager: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
 			Self::end_delegation_for(&who, manager_id)?;
 			Self::deposit_event(Event::<T, I>::DelegationEnded(who, manager_id));
 			Ok(().into())
@@ -617,10 +621,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::commit_compute())]
 		pub fn commit_compute(
 			origin: OriginFor<T>,
-			manager_id: T::ManagerId,
-			_commitment: BoundedVec<(PoolId, Metric), <T as Config<I>>::MaxPools>, // TODO add own constant
+			commitment: BoundedVec<ManagerCommitmentFor<T, I>, <T as Config<I>>::MaxPools>,
 		) -> DispatchResultWithPostInfo {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+
+			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
 
 			// let _pool = Self::pools(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
 

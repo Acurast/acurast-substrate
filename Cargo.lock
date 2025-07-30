@@ -424,6 +424,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "log",
  "pallet-acurast",
+ "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
  "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",

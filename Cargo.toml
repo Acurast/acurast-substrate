@@ -16,7 +16,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.16.0"
+version = "0.16.1"
 edition = "2021"
 
 [workspace.dependencies]
@@ -45,6 +45,7 @@ futures = "0.3.21"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }
+acurast-common = { path = "./pallets/acurast/common", default-features = false }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
 pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features = false }
 # This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
@@ -67,6 +68,7 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 # The Collator Selection pallet is used to select collators for the parachain. (PoA)
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
+pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselection", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }

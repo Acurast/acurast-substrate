@@ -25,7 +25,7 @@ define_benchmarks!(
 	[pallet_multisig, Multisig]
 	[pallet_balances, Balances]
 	// [pallet_democracy, Democracy]
-	[pallet_collator_selection, CollatorSelection]
+	//[pallet_collator_selection, CollatorSelection]
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]
@@ -35,6 +35,7 @@ define_benchmarks!(
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
 	[pallet_acurast_compute, AcurastCompute]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
+	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
 );
 
 fn create_funded_user(

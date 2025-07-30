@@ -141,9 +141,8 @@ parameter_types! {
 	pub const MaxAuthorities: u32 = 100_000;
 
 	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const MaxCandidates: u32 = 1000;
-	pub const MinCandidates: u32 = 5;
-	pub const SessionLength: BlockNumber = 6 * HOURS;
+	pub const MaxCandidates: u32 = 20;
+	pub const MinCandidates: u32 = 4;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
 	pub Admins: Vec<AccountId> = vec![];

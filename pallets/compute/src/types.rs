@@ -4,7 +4,7 @@ use acurast_common::PoolId;
 use frame_support::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Debug, One, Saturating},
-	FixedU128, Perquintill,
+	FixedU128, Perbill, Perquintill,
 };
 
 use crate::{
@@ -21,7 +21,6 @@ pub type ProcessorStateFor<T, I> = ProcessorState<
 pub type ProcessorStatusFor<T, I> = ProcessorStatus<<T as Config<I>>::BlockNumber>;
 pub type MetricCommitFor<T, I> = MetricCommit<<T as Config<I>>::BlockNumber>;
 pub type StakeFor<T, I> = Stake<<T as Config<I>>::BlockNumber, <T as Config<I>>::Balance>;
-pub type ManagerCommitmentFor<T, I> = ManagerCommitment<<T as Config<I>>::Era>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 pub type MetricPoolConfigValues =
@@ -37,10 +36,8 @@ pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
 
-pub type DelegationOfferFor<T, I> =
-	DelegationOffer<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
-pub type DelegatorStateFor<T, I> =
-	DelegatorState<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type StakerStateFor<T, I> =
+	StakerState<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
 pub type DelegateeTotalFor<T, I> = DelegateeTotal<<T as Config<I>>::Balance>;
 
 #[derive(
@@ -165,31 +162,44 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	pub paid: Balance,
 }
 
-/// A manager's commitment of stake. The respected commitment is min(commitment, 0.8 * latest-18-epoch-average).
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct ManagerCommitment<Era: Debug> {
-	/// Pool.
+/// A manager's commitment of compute and stake to a specific pool.
+///
+/// The maximum commitment possible to state is `min(commitment, 0.8 * latest-completed-era-average)`.
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
+pub struct ComputeCommitment {
+	/// Identifies pool this commitment as made for.
 	pub pool_id: PoolId,
-	/// Total metric a manager commits to over all his processors.
+	/// Total metric a manager commits to over all his processors to the specific pool.
 	pub metric: Metric,
-	/// Era until the manager commits this compute.
-	pub to_era: Era,
 }
 
+/// The state for any staker, both compute provider and delegator.
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct DelegationOffer<Balance: Debug, BlockNumber: Debug> {
-	pub amount: Balance,
-	pub cooldown_period: BlockNumber,
-}
-
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct DelegatorState<Balance: Debug, BlockNumber: Debug> {
+pub struct StakerState<Balance: Debug, BlockNumber: Debug> {
+	/// The amount delegated.
 	pub amount: Balance,
 	/// The amount accrued but not yet paid out or compound to amount.
 	///
 	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
 	pub accrued: Balance,
+	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
+	///
+	/// Cooldown has to be multiple of era length, but is stored in blocks to ensure era length could be adapted.
+	/// The cooldown is only started at next era after cooldown initiation.
+	///
+	/// For delegators' [`StakeState`], the cooldown is always shorter then the cooldown of the delegatee, the compute provider (and staker).
 	pub cooldown_period: BlockNumber,
+	/// If in cooldown, when the cooldown was initiated.
 	pub cooldown_started: Option<BlockNumber>,
 }
 
@@ -200,6 +210,14 @@ pub struct DelegateeTotal<Balance: Debug + Default> {
 	pub amount: Balance,
 	pub weight: Balance,
 	pub count: u8,
+}
+
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct ManagerPreferences {
+	#[codec(compact)]
+	pub commission: Perbill,
 }
 
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]

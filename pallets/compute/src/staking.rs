@@ -100,7 +100,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let state = <Delegations<T, I>>::try_mutate(
 			who,
 			manager_id,
-			|s_| -> Result<DelegatorStateFor<T, I>, Error<T, I>> {
+			|s_| -> Result<StakerStateFor<T, I>, Error<T, I>> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
 				let cooldown_start = s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
 				ensure!(

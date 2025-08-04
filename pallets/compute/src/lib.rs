@@ -103,7 +103,7 @@ pub mod pallet {
 		/// The minimum cooldown period for delegators in number of blocks.
 		#[pallet::constant]
 		type MinCooldownPeriod: Get<<Self as Config<I>>::BlockNumber>;
-		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`DelegatorState`]`::cooldown_period / MaxCooldownPeriod`.
+		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`StakerState`]`::cooldown_period / MaxCooldownPeriod`.
 		#[pallet::constant]
 		type MaxCooldownPeriod: Get<<Self as Config<I>>::BlockNumber>;
 		/// The minimum possible delegated amount to a manager. There is no maximum for the amount which a delegator can offer, but it's still limited by the [`Self::MaxDelegationRatio`].
@@ -218,7 +218,17 @@ pub mod pallet {
 		T::ManagerId,
 		Identity,
 		PoolId,
-		ManagerCommitment<T::BlockNumber>,
+		Metric,
+	>;
+	
+    /// The commitments of compute given by managers. They are limited by a ratio of what was measured as max in last completed era.
+	#[pallet::storage]
+	#[pallet::getter(fn preferences)]
+	pub(super) type Preferences<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Identity,
+		T::ManagerId,
+		ManagerPreferences,
 	>;
 
 	/// The measured metrics average by pool as a map `(manager, pool) -> block % T::Era -> metric`.
@@ -233,19 +243,7 @@ pub mod pallet {
 		SlidingBuffer<EraOf<T, I>, Metric>,
 	>;
 
-	/// Pending delegations waiting for acceptance by manager as a map `delegator` -> `manager_id` -> [`DelegationOffer`].
-	#[pallet::storage]
-	#[pallet::getter(fn delegation_offers)]
-	pub(super) type DelegationOffers<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Identity,
-		T::ManagerId,
-		DelegationOfferFor<T, I>,
-	>;
-
-	/// Delegations as a map `delegator` -> `manager_id` -> [`DelegatorState`].
+	/// Delegations as a map `delegator` -> `manager_id` -> [`StakerState`].
 	#[pallet::storage]
 	#[pallet::getter(fn delegations)]
 	pub(super) type Delegations<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -254,7 +252,7 @@ pub mod pallet {
 		T::AccountId,
 		Identity,
 		T::ManagerId,
-		DelegatorStateFor<T, I>,
+		StakerStateFor<T, I>,
 	>;
 
 	/// State by manager holding stake and related state.
@@ -295,12 +293,8 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// PoolCreated. [pool_id, pool_state]
 		PoolCreated(PoolId, MetricPoolFor<T, I>),
-		/// An account offered delegation to a manager. [delegator, manager_id]
-		DelegationOffered(T::AccountId, T::ManagerId),
-		/// An account withdrew delegation to a manager. [delegator, manager_id]
-		DelegationOfferWithdrew(T::AccountId, T::ManagerId),
-		/// A manager accepted a delegation by an account. [delegator, manager_id]
-		DelegationAccepted(T::AccountId, T::ManagerId),
+		/// An account started delegation to a manager. [delegator, manager_id]
+		Delegated(T::AccountId, T::ManagerId),
 		/// An account started the cooldown for an accepted delegation. [delegator, manager_id]
 		DelegationCooldownStarted(T::AccountId, T::ManagerId),
 		/// An account passed cooldown and ended delegation. [delegator, manager_id]
@@ -325,7 +319,6 @@ pub mod pallet {
 		CalculationOverflow,
 		PoolNotFound,
 		RewardUpdateInvalid,
-		AlreadyOffered,
 		AlreadyDelegating,
 		CooldownAlreadyStarted,
 		NoOfferFound,
@@ -441,8 +434,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::offer_delegation())]
-		pub fn offer_delegation(
+		#[pallet::weight(T::WeightInfo::delegate())]
+		pub fn delegate(
 			origin: OriginFor<T>,
 			manager: T::AccountId,
 			amount: T::Balance,
@@ -466,95 +459,75 @@ pub mod pallet {
 
 			let _ = T::ManagerIdProvider::owner_for(manager_id)?;
 
-			DelegationOffers::<T, I>::try_mutate::<_, _, _, Error<T, I>, _>(
+			Delegations::<T, I>::try_mutate::<_, _, _, Error<T, I>, _>(
 				&who,
 				manager_id,
 				|offer| {
 					if offer.is_some() {
-						Err(Error::<T, I>::AlreadyOffered)?;
+						Err(Error::<T, I>::AlreadyDelegating)?;
 					}
-					*offer = Some(DelegationOffer { amount, cooldown_period });
+					*offer = Some(StakerState { amount,
+                        accrued: Zero::zero(),
+                        cooldown_period,
+                        cooldown_started: None,
+                    });
 					Ok(())
 				},
 			)?;
 
-			ensure!(
-				<Delegations<T, I>>::get(&who, manager_id).is_none(),
-				Error::<T, I>::AlreadyDelegating
-			);
-
-			Self::deposit_event(Event::<T, I>::DelegationOffered(who, manager_id));
+			Self::deposit_event(Event::<T, I>::Delegated(who, manager_id));
 
 			Ok(().into())
 		}
 
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::withdraw_delegation_offer())]
-		pub fn withdraw_delegation_offer(
-			origin: OriginFor<T>,
-			manager: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
+		// #[pallet::call_index(4)]
+		// #[pallet::weight(T::WeightInfo::accept_delegation())]
+		// pub fn accept_delegation(
+		// 	origin: OriginFor<T>,
+		// 	delegator: T::AccountId,
+		// ) -> DispatchResultWithPostInfo {
+		// 	let who = ensure_signed(origin)?;
+		// 	let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
 
-			let prev_offer = DelegationOffers::<T, I>::take(&who, manager_id)
-				.ok_or(Error::<T, I>::NoOfferFound)?;
+		// 	let offer = <DelegationOffers<T, I>>::try_mutate::<_, _, _, Error<T, I>, _>(
+		// 		&delegator,
+		// 		manager_id,
+		// 		|offer_| Ok(offer_.take().ok_or(Error::<T, I>::NoOfferFound)?),
+		// 	)?;
 
-			Self::unlock_funds(&who, prev_offer.amount);
+		// 	let state = StakerState {
+		// 		amount: offer.amount,
+		// 		accrued: T::Balance::zero(),
+		// 		cooldown_period: offer.cooldown_period,
+		// 		cooldown_started: None,
+		// 	};
+		// 	let w = Self::delegator_weight(&state);
+		// 	<Delegations<T, I>>::insert(who.clone(), manager_id, state);
 
-			Self::deposit_event(Event::<T, I>::DelegationOfferWithdrew(who, manager_id));
+		// 	ensure!(
+		// 		Self::delegation_ratio(&who, manager_id) >= T::MaxDelegationRatio::get(),
+		// 		Error::<T, I>::MaxDelegationRatioExceeded
+		// 	);
 
-			Ok(().into())
-		}
+		// 	<DelegateeTotals<T, I>>::try_mutate::<_, _, Error<T, I>, _>(manager_id, |t| {
+		// 		ensure!(t.count < T::MaxDelegations::get(), Error::<T, I>::MaxDelegationsExceeded);
+		// 		*t = DelegateeTotal {
+		// 			amount: t.amount.saturating_add(offer.amount),
+		// 			weight: t.weight.saturating_add(w),
+		// 			count: t.count.saturating_add(1u8),
+		// 		};
+		// 		Ok(())
+		// 	})?;
 
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::accept_delegation())]
-		pub fn accept_delegation(
-			origin: OriginFor<T>,
-			delegator: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
+		// 	<DelegatorTotals<T, I>>::try_mutate::<_, _, Error<T, I>, _>(delegator, |amount| {
+		// 		*amount = amount.saturating_add(offer.amount);
+		// 		Ok(())
+		// 	})?;
 
-			let offer = <DelegationOffers<T, I>>::try_mutate::<_, _, _, Error<T, I>, _>(
-				&delegator,
-				manager_id,
-				|offer_| Ok(offer_.take().ok_or(Error::<T, I>::NoOfferFound)?),
-			)?;
+		// 	Self::deposit_event(Event::<T, I>::DelegationAccepted(who, manager_id));
 
-			let state = DelegatorState {
-				amount: offer.amount,
-				accrued: T::Balance::zero(),
-				cooldown_period: offer.cooldown_period,
-				cooldown_started: None,
-			};
-			let w = Self::delegator_weight(&state);
-			<Delegations<T, I>>::insert(who.clone(), manager_id, state);
-
-			ensure!(
-				Self::delegation_ratio(&who, manager_id) >= T::MaxDelegationRatio::get(),
-				Error::<T, I>::MaxDelegationRatioExceeded
-			);
-
-			<DelegateeTotals<T, I>>::try_mutate::<_, _, Error<T, I>, _>(manager_id, |t| {
-				ensure!(t.count < T::MaxDelegations::get(), Error::<T, I>::MaxDelegationsExceeded);
-				*t = DelegateeTotal {
-					amount: t.amount.saturating_add(offer.amount),
-					weight: t.weight.saturating_add(w),
-					count: t.count.saturating_add(1u8),
-				};
-				Ok(())
-			})?;
-
-			<DelegatorTotals<T, I>>::try_mutate::<_, _, Error<T, I>, _>(delegator, |amount| {
-				*amount = amount.saturating_add(offer.amount);
-				Ok(())
-			})?;
-
-			Self::deposit_event(Event::<T, I>::DelegationAccepted(who, manager_id));
-
-			Ok(().into())
-		}
+		// 	Ok(().into())
+		// }
 
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::cooldown_delegation())]
@@ -584,7 +557,7 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::stake())]
-		pub fn stake(origin: OriginFor<T>, amount: T::Balance) -> DispatchResultWithPostInfo {
+		pub fn stake(origin: OriginFor<T>, amount: T::Balance, cooldown_period: T::BlockNumber) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
@@ -621,7 +594,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::commit_compute())]
 		pub fn commit_compute(
 			origin: OriginFor<T>,
-			commitment: BoundedVec<ManagerCommitmentFor<T, I>, <T as Config<I>>::MaxPools>,
+			commitment: BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -783,7 +756,7 @@ pub mod pallet {
 			}
 		}
 
-		pub fn delegator_weight(state: &DelegatorStateFor<T, I>) -> T::Balance {
+		pub fn delegator_weight(state: &StakerStateFor<T, I>) -> T::Balance {
 			(state
 				.amount
 				.saturated_into::<u128>()

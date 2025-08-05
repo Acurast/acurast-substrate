@@ -13,6 +13,7 @@ use sp_runtime::Perquintill;
 
 use crate::{Balances, Runtime, RuntimeEvent};
 
+use super::pallet_acurast_marketplace_config::ManagerProvider;
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 
 parameter_types! {
@@ -32,6 +33,7 @@ parameter_types! {
 impl pallet_acurast_compute::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerId = u128;
+	type ManagerProvider = ManagerProvider;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;

@@ -1,9 +1,9 @@
 use core::iter::once;
 
+use crate::*;
+use acurast_common::ManagerProvider;
 use frame_support::{ensure, pallet_prelude::*};
 use pallet_acurast::{AllowedSourcesUpdate, JobHooks, JobRegistrationFor, StoredJobRegistration};
-
-use crate::*;
 
 impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].

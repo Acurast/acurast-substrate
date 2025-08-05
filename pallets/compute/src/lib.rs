@@ -35,7 +35,7 @@ pub type EraOf<T, I> = <T as Config<I>>::BlockNumber;
 pub mod pallet {
 	use core::ops::{Div, Rem};
 
-	use acurast_common::{ManagerIdProvider, PoolId};
+	use acurast_common::{ManagerIdProvider, ManagerProvider, PoolId};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
@@ -74,6 +74,7 @@ pub mod pallet {
 			+ Copy
 			+ CheckedAdd
 			+ From<u128>;
+		type ManagerProvider: ManagerProvider<Self::AccountId>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
 		/// How long an epoch lasts, which describes the length of the commit-reward cycle length for active processors.
 		///

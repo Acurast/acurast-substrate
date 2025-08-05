@@ -139,6 +139,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerId = AssetId;
+	type ManagerProvider = ManagerOf;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
@@ -192,6 +193,16 @@ impl ManagerIdProvider<<Test as frame_system::Config>::AccountId, <Test as Confi
 		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
 			"Onwer for provided Manager ID not found",
 		))
+	}
+}
+
+pub struct ManagerOf;
+
+impl ManagerProvider<AccountId> for ManagerOf {
+	fn manager_of(
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> Result<<Test as frame_system::Config>::AccountId, DispatchError> {
+		Ok(owner.clone())
 	}
 }
 

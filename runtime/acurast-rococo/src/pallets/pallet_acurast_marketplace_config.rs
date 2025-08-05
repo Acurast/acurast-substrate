@@ -64,7 +64,7 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 }
 
 pub struct ManagerProvider;
-impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerProvider {
+impl pallet_acurast::ManagerProvider<AccountId32> for ManagerProvider {
 	fn manager_of(
 		processor: &<Runtime as frame_system::Config>::AccountId,
 	) -> Result<<Runtime as frame_system::Config>::AccountId, DispatchError> {

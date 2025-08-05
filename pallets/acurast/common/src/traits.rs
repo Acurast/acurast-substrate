@@ -43,3 +43,8 @@ impl<AccountId, Balance> ComputeHooks<AccountId, Balance> for () {
 		None
 	}
 }
+
+/// Trait used to lookup the manager of a given processor account.
+pub trait ManagerProvider<AccountId> {
+	fn manager_of(processor: &AccountId) -> Result<AccountId, DispatchError>;
+}

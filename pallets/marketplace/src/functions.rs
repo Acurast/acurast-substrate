@@ -8,10 +8,11 @@ use sp_std::prelude::*;
 
 use crate::{
 	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Config, Error,
-	ExecutionSpecifier, JobRequirementsFor, ManagerProvider, NextReportIndex, Pallet,
-	RewardManager, StorageTracker, StoredAdvertisementPricing, StoredAdvertisementRestriction,
-	StoredAverageRewardV3, StoredMatches, StoredReputation, StoredStorageCapacity,
+	ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager, StorageTracker,
+	StoredAdvertisementPricing, StoredAdvertisementRestriction, StoredAverageRewardV3,
+	StoredMatches, StoredReputation, StoredStorageCapacity,
 };
+use acurast_common::ManagerProvider;
 
 impl<T: Config> Pallet<T> {
 	pub fn do_advertise(

@@ -20,6 +20,7 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
+use acurast_common::ManagerProvider;
 use pallet_acurast::{JobModules, ManagerIdProvider, CU32};
 
 use crate::{stub::*, *};

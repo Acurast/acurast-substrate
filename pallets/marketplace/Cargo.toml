@@ -43,6 +43,7 @@ xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
 
 # Acurast
+acurast-common = { path = "../acurast/common", default-features = false }
 pallet-acurast = { path = "../acurast", default-features = false }
 acurast-reputation = { path = "./reputation", default-features = false }
 

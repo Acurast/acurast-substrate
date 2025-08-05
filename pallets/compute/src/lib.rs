@@ -222,16 +222,16 @@ pub mod pallet {
 	pub(super) type Preferences<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::ManagerId, ManagerPreferences>;
 
-	/// The measured metrics average by pool as a map `(manager, pool) -> block % T::Era -> metric`.
+	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager -> pool -> sliding_buffer[block % T::Era -> (metric, avg_count)]`.
 	#[pallet::storage]
-	#[pallet::getter(fn metrics_history)]
-	pub(super) type MetricsHistory<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	#[pallet::getter(fn metrics_era_average)]
+	pub(super) type MetricsEraAverage<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Identity,
 		T::ManagerId,
 		Identity,
 		PoolId,
-		SlidingBuffer<EraOf<T, I>, Metric>,
+		SlidingBuffer<EraOf<T, I>, (Metric, u32)>,
 	>;
 
 	/// Delegations as a map `delegator` -> `manager_id` -> [`StakerState`].
@@ -802,6 +802,8 @@ pub mod pallet {
 				matches!(p.status, ProcessorStatus::Active)
 			});
 
+			let era = current_block / T::Era::get();
+
 			for (pool_id, numerator, denominator) in metrics {
 				let metric = FixedU128::from_rational(
 					numerator,
@@ -810,6 +812,8 @@ pub mod pallet {
 				let before = Metrics::<T, I>::get(processor, pool_id);
 				// first value committed for `epoch` wins
 				if before.map(|m| m.epoch < epoch).unwrap_or(true) {
+					let prev_metric_commit = Metrics::<T, I>::get(processor, pool_id);
+
 					// insert even if not active for tracability before warmup ended
 					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
 
@@ -820,6 +824,44 @@ pub mod pallet {
 								pool.add(epoch, metric);
 							}
 						});
+					}
+
+					// update moving average over all processors of a manager for era (not epoch!)
+					// we have to be careful to not count a metric twice into average by same processor in one era
+					// this is possible by checking if last epoch committed in `Metrics` was in current or previous era (! not epoch)
+					let update_average = if let Some(c) = prev_metric_commit {
+						let first_block_of_prev_commit_epoch = c
+							.epoch
+							.saturating_mul(T::Epoch::get())
+							.saturating_add(T::EpochBase::get());
+						if first_block_of_prev_commit_epoch / T::Era::get() != era {
+							true
+						} else {
+							false
+						}
+					} else {
+						false
+					};
+
+					if update_average {
+						if let Ok(manager) = T::ManagerProvider::manager_of(processor) {
+							if let Ok(manager_id) = T::ManagerIdProvider::manager_id_for(&manager) {
+								<MetricsEraAverage<T, I>>::mutate(manager_id, pool_id, |avg_| {
+									if avg_.is_none() {
+										// creates the buffer with defaults, so 0 average and 0 avg_count
+										*avg_ = Some(SlidingBuffer::new(Zero::zero()));
+									}
+
+									let avg = avg_.as_mut().unwrap();
+									avg.mutate(epoch, |(v, c)| {
+										*v = v.saturating_mul(FixedU128::from_u32(*c));
+										*v = v.saturating_add(metric);
+										*c += 1u32;
+										*v = *v / FixedU128::from_u32(*c);
+									});
+								});
+							}
+						}
 					}
 				}
 			}

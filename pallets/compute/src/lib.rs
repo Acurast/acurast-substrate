@@ -212,24 +212,14 @@ pub mod pallet {
 	/// The commitments of compute given by managers. They are limited by a ratio of what was measured as max in last completed era.
 	#[pallet::storage]
 	#[pallet::getter(fn compute_commitments)]
-	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		Identity,
-		T::ManagerId,
-		Identity,
-		PoolId,
-		Metric,
-	>;
-	
-    /// The commitments of compute given by managers. They are limited by a ratio of what was measured as max in last completed era.
+	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
+		StorageDoubleMap<_, Identity, T::ManagerId, Identity, PoolId, Metric>;
+
+	/// The preferences set by managers.
 	#[pallet::storage]
 	#[pallet::getter(fn preferences)]
-	pub(super) type Preferences<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Identity,
-		T::ManagerId,
-		ManagerPreferences,
-	>;
+	pub(super) type Preferences<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::ManagerId, ManagerPreferences>;
 
 	/// The measured metrics average by pool as a map `(manager, pool) -> block % T::Era -> metric`.
 	#[pallet::storage]
@@ -466,11 +456,12 @@ pub mod pallet {
 					if offer.is_some() {
 						Err(Error::<T, I>::AlreadyDelegating)?;
 					}
-					*offer = Some(StakerState { amount,
-                        accrued: Zero::zero(),
-                        cooldown_period,
-                        cooldown_started: None,
-                    });
+					*offer = Some(StakerState {
+						amount,
+						accrued: Zero::zero(),
+						cooldown_period,
+						cooldown_started: None,
+					});
 					Ok(())
 				},
 			)?;
@@ -557,7 +548,11 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::stake())]
-		pub fn stake(origin: OriginFor<T>, amount: T::Balance, cooldown_period: T::BlockNumber) -> DispatchResultWithPostInfo {
+		pub fn stake(
+			origin: OriginFor<T>,
+			amount: T::Balance,
+			cooldown_period: T::BlockNumber,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
@@ -776,7 +771,10 @@ pub mod pallet {
 		) {
 			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 
-			let (epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
+			// The global epoch number
+			let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
+
+			let active = Processors::<T, I>::mutate(processor, |p_| {
 				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(||
 					// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
 					ProcessorState {
@@ -799,11 +797,8 @@ pub mod pallet {
 					}
 				}
 
-				// The global epoch number
-				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
-
 				p.committed = epoch;
-				(epoch, matches!(p.status, ProcessorStatus::Active))
+				matches!(p.status, ProcessorStatus::Active)
 			});
 
 			for (pool_id, numerator, denominator) in metrics {

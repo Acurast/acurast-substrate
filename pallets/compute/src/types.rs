@@ -35,8 +35,7 @@ pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
 
-pub type StakeFor<T, I> =
-	Stake<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type StakeFor<T, I> = Stake<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
 pub type DelegateeTotalFor<T, I> = DelegateeTotal<<T as Config<I>>::Balance>;
 
 #[derive(
@@ -176,7 +175,7 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	Eq,
 )]
 pub struct ComputeCommitment {
-	/// Identifies pool this commitment as made for.
+	/// Identifies pool this commitment was made for.
 	pub pool_id: PoolId,
 	/// Total metric a manager commits to over all his processors to the specific pool.
 	pub metric: Metric,

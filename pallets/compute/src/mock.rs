@@ -126,7 +126,7 @@ parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
 	pub const Era: BlockNumber = 300;
 	pub const WarmupPeriod: BlockNumber = 30;
-	 pub const MaxDelegations: u8 = 20;
+	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
 	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
 	pub const MinDelegation: Balance = 1;
@@ -145,7 +145,7 @@ impl Config for Test {
 	type EpochBase = EpochBase;
 	type Era = Era;
 	type MaxPools = ConstU32<30>;
-	type MaxDelegations = MaxDelegations;
+	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
 	type MinDelegation = MinDelegation;

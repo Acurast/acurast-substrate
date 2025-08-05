@@ -20,7 +20,6 @@ pub type ProcessorStateFor<T, I> = ProcessorState<
 >;
 pub type ProcessorStatusFor<T, I> = ProcessorStatus<<T as Config<I>>::BlockNumber>;
 pub type MetricCommitFor<T, I> = MetricCommit<<T as Config<I>>::BlockNumber>;
-pub type StakeFor<T, I> = Stake<<T as Config<I>>::BlockNumber, <T as Config<I>>::Balance>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 pub type MetricPoolConfigValues =
@@ -36,8 +35,8 @@ pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
 
-pub type StakerStateFor<T, I> =
-	StakerState<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type StakeFor<T, I> =
+	Stake<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
 pub type DelegateeTotalFor<T, I> = DelegateeTotal<<T as Config<I>>::Balance>;
 
 #[derive(
@@ -185,7 +184,7 @@ pub struct ComputeCommitment {
 
 /// The state for any staker, both compute provider and delegator.
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct StakerState<Balance: Debug, BlockNumber: Debug> {
+pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	/// The amount delegated.
 	pub amount: Balance,
 	/// The amount accrued but not yet paid out or compound to amount.
@@ -218,18 +217,6 @@ pub struct DelegateeTotal<Balance: Debug + Default> {
 pub struct ManagerPreferences {
 	#[codec(compact)]
 	pub commission: Perbill,
-}
-
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct Stake<BlockNumber: Debug, Balance: Debug> {
-	/// The staked amount.
-	pub amount: Balance,
-	/// The amount accrued but not yet paid out or compound to amount.
-	///
-	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
-	pub accrued: Balance,
-	pub cooldown_period: BlockNumber,
-	pub cooldown_started: Option<BlockNumber>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

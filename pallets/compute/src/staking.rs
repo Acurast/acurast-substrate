@@ -8,7 +8,10 @@ use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
 use crate::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	pub fn stake_for(who: &T::AccountId, amount: T::Balance) -> Result<(), DispatchError> {
+	/// Stakes.
+	///
+	/// Returns if this was first stake, was not previously staked (and therefore not previously committed).
+	pub fn stake_for(who: &T::AccountId, amount: T::Balance) -> Result<bool, DispatchError> {
 		ensure!(
 			!amount.is_zero() && amount >= <T as Config<I>>::MinStake::get(),
 			Error::<T, I>::MinStakeSubceeded
@@ -16,41 +19,42 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Self::lock_funds(&who, amount, LockReason::Staking)?;
 
-		<Stakes<T, I>>::try_mutate(who, |state| -> Result<(), Error<T, I>> {
-			let prev_amount = if let Some(current_state) = state {
-				// only increasing stake is allowed
-				if amount <= current_state.amount {
-					Err(Error::<T, I>::CannotStakeLessOrEqual)?;
-				}
+		let prev_amount =
+			<Stakes<T, I>>::try_mutate(who, |state| -> Result<T::Balance, Error<T, I>> {
+				let prev_amount = if let Some(current_state) = state {
+					// only increasing stake is allowed
+					if amount <= current_state.amount {
+						Err(Error::<T, I>::CannotStakeLessOrEqual)?;
+					}
 
-				let prev_amount = current_state.amount;
+					let prev_amount = current_state.amount;
 
-				current_state.amount = amount;
+					current_state.amount = amount;
 
-				prev_amount
-			} else {
-				*state = Some(Stake {
-					amount,
-					accrued: T::Balance::zero(),
-					cooldown_period: T::BlockNumber::zero(),
-					cooldown_started: None,
-				});
+					prev_amount
+				} else {
+					*state = Some(Stake {
+						amount,
+						accrued: T::Balance::zero(),
+						cooldown_period: T::BlockNumber::zero(),
+						cooldown_started: None,
+					});
 
-				T::Balance::zero()
-			};
+					T::Balance::zero()
+				};
 
-			// total_stake += stake [- prev_stake]
-			let diff =
-				&amount.checked_sub(&prev_amount).ok_or(Error::<T, I>::CalculationOverflow)?;
-			<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-				*s = s.checked_add(diff).ok_or(Error::<T, I>::CalculationOverflow)?;
-				Ok(())
+				// total_stake += stake [- prev_stake]
+				let diff =
+					&amount.checked_sub(&prev_amount).ok_or(Error::<T, I>::CalculationOverflow)?;
+				<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
+					*s = s.checked_add(diff).ok_or(Error::<T, I>::CalculationOverflow)?;
+					Ok(())
+				})?;
+
+				Ok(prev_amount)
 			})?;
 
-			Ok(())
-		})?;
-
-		Ok(())
+		Ok(prev_amount.is_zero())
 	}
 
 	pub fn cooldown_stake_for(who: &T::AccountId) -> Result<(), DispatchError> {

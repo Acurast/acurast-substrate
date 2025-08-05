@@ -20,7 +20,7 @@ parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
 	pub const Era: BlockNumber = 16200; // 24 hours
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
-	pub const MaxDelegations: u8 = 20;
+	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 		pub const MinCooldownPeriod: BlockNumber = 432000; // ~1 month
 	pub const MaxCooldownPeriod: BlockNumber = 20736000; // ~4 years
 	pub const MinDelegation: Balance = 1 * UNIT;
@@ -38,7 +38,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type EpochBase = EpochBase;
 	type Era = Era;
 	type MaxPools = ConstU32<30>;
-	type MaxDelegations = MaxDelegations;
+	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
 	type MinDelegation = MinDelegation;

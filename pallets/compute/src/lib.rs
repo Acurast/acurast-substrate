@@ -210,7 +210,9 @@ pub mod pallet {
 	pub(super) type MetricPoolLookup<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, MetricPoolName, PoolId>;
 
-	/// The commitments of compute given by managers. They are limited by a ratio of what was measured as max in last completed era.
+	/// The commitments of compute given by managers as a map `manager_id` -> `pool_id` -> [`Stake`].
+	///
+	/// Metrics committable are limited by a ratio of what was measured as average in last completed era (see [`MetricsEraAverage`]).
 	#[pallet::storage]
 	#[pallet::getter(fn compute_commitments)]
 	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
@@ -234,13 +236,13 @@ pub mod pallet {
 		SlidingBuffer<EraOf<T, I>, (Metric, u32)>,
 	>;
 
-	/// Delegations as a map `delegator` -> `manager_id` -> [`Stake`].
+	/// Delegations (delegated stakes) as a map `delegator` -> `manager_id` -> [`Stake`].
 	#[pallet::storage]
 	#[pallet::getter(fn delegations)]
 	pub(super) type Delegations<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, T::ManagerId, StakeFor<T, I>>;
 
-	/// State by manager holding stake and related state.
+	/// Stakes by compute providers as a map `manager_id` -> [`Stake`].
 	///
 	/// They are stored by manager account (instead of manager_id) since NOT automatically transferred to new holder of manager_id when transferring manager_id NFT.
 	#[pallet::storage]
@@ -259,13 +261,19 @@ pub mod pallet {
 	pub(super) type DelegatorTotals<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, T::Balance, ValueQuery>;
 
-	/// Tracks a manager_ids delegation totals.
+	/// Storage for metric pools' staking metadata for constant-time reward distribution.
+	#[pallet::storage]
+	#[pallet::getter(fn staking_pools)]
+	pub type StakingPools<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, PoolId, StakingPoolFor<T, I>>;
+
+	/// Storage for staking metadata for each provider's own pool for constant-time reward distribution among delegators to each provider and metric the provider committed to.
 	///
 	/// Delegatios are automatically transferred to a new holder of manager_id when transferring manager_id NFT.
 	#[pallet::storage]
-	#[pallet::getter(fn delegatee_totals)]
-	pub(super) type DelegateeTotals<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, T::ManagerId, DelegateeTotalFor<T, I>, ValueQuery>;
+	#[pallet::getter(fn delegation_pools)]
+	pub(super) type DelegationPools<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::ManagerId, StakingPoolFor<T, I>, ValueQuery>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -459,12 +467,7 @@ pub mod pallet {
 					if stake.is_some() {
 						Err(Error::<T, I>::AlreadyDelegating)?;
 					}
-					*stake = Some(Stake {
-						amount,
-						accrued: Zero::zero(),
-						cooldown_period,
-						cooldown_started: None,
-					});
+					*stake = Some(Stake::new(amount, cooldown_period));
 					Ok(())
 				},
 			)?;
@@ -741,7 +744,7 @@ pub mod pallet {
 			manager_account: &T::AccountId,
 			manager_id: T::ManagerId,
 		) -> Perquintill {
-			let denominator: u128 = <DelegateeTotals<T, I>>::get(manager_id).amount.into();
+			let denominator: u128 = <DelegationPools<T, I>>::get(manager_id).amount.into();
 			let nominator: u128 = <Stakes<T, I>>::get(manager_account)
 				.map(|s| s.amount)
 				.unwrap_or(T::Balance::zero())

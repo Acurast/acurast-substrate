@@ -36,7 +36,7 @@ pub type MetricPoolName = [u8; 24];
 pub type MetricPoolConfigName = [u8; 24];
 
 pub type StakeFor<T, I> = Stake<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
-pub type DelegateeTotalFor<T, I> = DelegateeTotal<<T as Config<I>>::Balance>;
+pub type StakingPoolFor<T, I> = StakingPool<<T as Config<I>>::Balance>;
 
 #[derive(
 	Encode,
@@ -186,10 +186,6 @@ pub struct ComputeCommitment {
 pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	/// The amount delegated.
 	pub amount: Balance,
-	/// The amount accrued but not yet paid out or compound to amount.
-	///
-	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
-	pub accrued: Balance,
 	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
 	///
 	/// Cooldown has to be multiple of era length, but is stored in blocks to ensure era length could be adapted.
@@ -199,15 +195,42 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	pub cooldown_period: BlockNumber,
 	/// If in cooldown, when the cooldown was initiated.
 	pub cooldown_started: Option<BlockNumber>,
+	/// The amount accrued but not yet paid out or compound to amount.
+	///
+	/// This is also helpful in case the reward transfer fails, we still keep the open amount in accrued.
+	pub accrued_reward: Balance,
+	/// The slash accrued but not yet paid out or compound to amount.
+	///
+	/// Any further compound or payout operations must be preceeded by accruing potentially outstanding slash debt.
+	pub accrued_slash: Balance,
+	/// The weighted reward debt before this staker joined a pool.
+	pub reward_debt: Balance,
+	/// The weighted slash debt before this staker joined a pool.
+	pub slash_debt: Balance,
+}
+
+impl<Balance: Debug + Zero, BlockNumber: Debug> Stake<Balance, BlockNumber> {
+	pub fn new(amount: Balance, cooldown_period: BlockNumber) -> Self {
+		Self {
+			amount,
+			cooldown_period,
+			cooldown_started: None,
+			accrued_reward: Zero::zero(),
+			accrued_slash: Zero::zero(),
+			reward_debt: Zero::zero(),
+			slash_debt: Zero::zero(),
+		}
+	}
 }
 
 #[derive(
 	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
 )]
-pub struct DelegateeTotal<Balance: Debug + Default> {
+pub struct StakingPool<Balance: Debug + Default> {
 	pub amount: Balance,
 	pub weight: Balance,
-	pub count: u8,
+	pub reward_per_token: Balance,
+	pub slash_per_token: Balance,
 }
 
 #[derive(

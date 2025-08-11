@@ -33,12 +33,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 					prev_amount
 				} else {
-					*state = Some(Stake {
-						amount,
-						accrued: T::Balance::zero(),
-						cooldown_period: T::BlockNumber::zero(),
-						cooldown_started: None,
-					});
+					*state = Some(Stake::new(amount, T::BlockNumber::zero()));
 
 					T::Balance::zero()
 				};
@@ -122,12 +117,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})?;
 
 		let w = Self::delegator_weight(&state);
-		<DelegateeTotals<T, I>>::try_mutate(manager_id, |t| -> Result<(), Error<T, I>> {
-			*t = DelegateeTotal {
-				amount: t.amount.saturating_sub(state.amount),
-				weight: t.weight.saturating_sub(w),
-				count: t.count.saturating_sub(1u8),
-			};
+		<DelegationPools<T, I>>::try_mutate(manager_id, |t| -> Result<(), Error<T, I>> {
+			// TODO
+			// *t = DelegateeTotal {
+			// 	amount: t.amount.saturating_sub(state.amount),
+			// 	weight: t.weight.saturating_sub(w),
+			// 	count: t.count.saturating_sub(1u8),
+			// };
 			Ok(())
 		})?;
 

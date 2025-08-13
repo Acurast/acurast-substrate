@@ -45,4 +45,5 @@ pub trait WeightInfo {
 	fn edit_script() -> Weight;
 	fn transfer_editor() -> Weight;
 	fn deploy() -> Weight;
+	fn update_min_fee_per_millisecond() -> Weight;
 }

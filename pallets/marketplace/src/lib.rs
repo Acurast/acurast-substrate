@@ -273,6 +273,10 @@ pub mod pallet {
 	#[pallet::getter(fn deployment_key_ids)]
 	pub type DeploymentKeyIds<T: Config> = StorageMap<_, Identity, DeploymentHash, KeyId>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn min_fee_per_millisecond)]
+	pub type MinFeePerMillisecond<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -300,6 +304,8 @@ pub mod pallet {
 		EditorTransferred(JobId<T::AccountId>, T::AccountId),
 		/// Job became immutable since editor was cleared. [job_id]
 		JobBecameImmutable(JobId<T::AccountId>),
+		/// Min fee per millisecond updated
+		MinFeePerMillisecondUpdated(<T as Config>::Balance),
 	}
 
 	#[pallet::error]
@@ -823,6 +829,18 @@ pub mod pallet {
 				Self::deposit_event(Event::JobBecameImmutable(job_id));
 			}
 
+			Ok(().into())
+		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(< T as Config >::WeightInfo::update_min_fee_per_millisecond())]
+		pub fn update_min_fee_per_millisecond(
+			origin: OriginFor<T>,
+			new_min_fee: T::Balance,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			<MinFeePerMillisecond<T>>::set(new_min_fee);
+			Self::deposit_event(Event::MinFeePerMillisecondUpdated(new_min_fee));
 			Ok(().into())
 		}
 	}

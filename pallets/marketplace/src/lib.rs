@@ -304,6 +304,8 @@ pub mod pallet {
 		EditorTransferred(JobId<T::AccountId>, T::AccountId),
 		/// Job became immutable since editor was cleared. [job_id]
 		JobBecameImmutable(JobId<T::AccountId>),
+		/// Min fee per millisecond updated
+		MinFeePerMillisecondUpdated(<T as Config>::Balance),
 	}
 
 	#[pallet::error]
@@ -838,6 +840,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			<MinFeePerMillisecond<T>>::set(new_min_fee);
+			Self::deposit_event(Event::MinFeePerMillisecondUpdated(new_min_fee));
 			Ok(().into())
 		}
 	}

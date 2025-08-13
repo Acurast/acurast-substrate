@@ -35,6 +35,7 @@ impl<T: Config> Pallet<T> {
 		matching: impl IntoIterator<Item = &'a MatchFor<T>>,
 	) -> MatchingResult<T> {
 		let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
+		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
 
 		for m in matching {
 			let job_status = <StoredJobStatus<T>>::get(&m.job_id.0, m.job_id.1)
@@ -157,6 +158,7 @@ impl<T: Config> Pallet<T> {
 					&registration.schedule,
 					registration.storage,
 					&pricing,
+					min_fee_per_millisecond,
 				)?;
 
 				// CHECK price not exceeding reward
@@ -256,6 +258,7 @@ impl<T: Config> Pallet<T> {
 		matching: impl IntoIterator<Item = &'a ExecutionMatchFor<T>>,
 	) -> MatchingResult<T> {
 		let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
+		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
 
 		for m in matching {
 			// if the job_execution_status was never set, the default `Open` is returned
@@ -388,6 +391,7 @@ impl<T: Config> Pallet<T> {
 					&registration.schedule,
 					registration.storage,
 					&pricing,
+					min_fee_per_millisecond,
 				)?;
 
 				// CHECK price not exceeding reward
@@ -631,25 +635,27 @@ impl<T: Config> Pallet<T> {
 		latest_seen_after: Option<u128>,
 	) -> Result<Vec<T::AccountId>, RuntimeApiError> {
 		let mut candidates = Vec::new();
+		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
 		for p in sources {
-			let valid_match = match Self::check(&registration, &p, consumer.as_ref()) {
-				Ok(()) => {
-					if let Some(latest_seen_after) = latest_seen_after {
-						T::ProcessorInfoProvider::last_seen(&p)
-							.map(|last_seen| last_seen >= latest_seen_after)
-							.unwrap_or(false)
-					} else {
-						true
-					}
-				},
-				Err(e) => {
-					if !e.is_matching_error() {
-						return Err(RuntimeApiError::FilterMatchingSources);
-					}
+			let valid_match =
+				match Self::check(&registration, &p, consumer.as_ref(), min_fee_per_millisecond) {
+					Ok(()) => {
+						if let Some(latest_seen_after) = latest_seen_after {
+							T::ProcessorInfoProvider::last_seen(&p)
+								.map(|last_seen| last_seen >= latest_seen_after)
+								.unwrap_or(false)
+						} else {
+							true
+						}
+					},
+					Err(e) => {
+						if !e.is_matching_error() {
+							return Err(RuntimeApiError::FilterMatchingSources);
+						}
 
-					false
-				},
-			};
+						false
+					},
+				};
 
 			if valid_match {
 				candidates.push(p);
@@ -662,6 +668,7 @@ impl<T: Config> Pallet<T> {
 		registration: &PartialJobRegistrationForMarketplace<T>,
 		source: &T::AccountId,
 		consumer: Option<&MultiOrigin<T::AccountId>>,
+		min_fee_per_millisecond: T::Balance,
 	) -> Result<(), Error<T>> {
 		// CHECK attestation
 		ensure!(
@@ -701,7 +708,8 @@ impl<T: Config> Pallet<T> {
 			// CHECK reward sufficient
 			if let Some(storage) = &registration.storage {
 				// calculate fee
-				let fee_per_execution = Self::fee_per_execution(schedule, *storage, &pricing)?;
+				let fee_per_execution =
+					Self::fee_per_execution(schedule, *storage, &pricing, min_fee_per_millisecond)?;
 
 				// CHECK price not exceeding reward
 				ensure!(
@@ -881,9 +889,11 @@ impl<T: Config> Pallet<T> {
 		schedule: &Schedule,
 		storage: u32,
 		pricing: &PricingFor<T>,
+		min_fee_per_millisecond: T::Balance,
 	) -> Result<T::Balance, Error<T>> {
 		pricing
 			.fee_per_millisecond
+			.max(min_fee_per_millisecond)
 			.checked_mul(&schedule.duration.into())
 			.ok_or(Error::<T>::CalculationOverflow)?
 			.checked_add(

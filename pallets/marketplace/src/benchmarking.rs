@@ -712,5 +712,11 @@ benchmarks! {
 		assert_ok!(AcurastMarketplace::<T>::transfer_editor(RawOrigin::Signed(caller.clone()).into(), job_id, Some(new_editor)));
 	}
 
+	update_min_fee_per_millisecond {
+		let new_min_fee_per_millisecond: <T as Config>::Balance = 1000u128.into();
+	}: {
+		assert_ok!(AcurastMarketplace::<T>::update_min_fee_per_millisecond(RawOrigin::Root.into(), new_min_fee_per_millisecond));
+	}
+
 	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

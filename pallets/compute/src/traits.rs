@@ -55,6 +55,7 @@ pub trait WeightInfo {
 	fn cooldown_delegation() -> Weight;
 	fn end_delegation() -> Weight;
 	fn commit_compute() -> Weight;
+	fn stake_more() -> Weight;
 	fn cooldown_compute_commitment() -> Weight;
 	fn end_compute_commitment() -> Weight;
 	fn reward() -> Weight;
@@ -91,6 +92,10 @@ impl WeightInfo for () {
 	}
 
 	fn commit_compute() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+	
+    fn stake_more() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

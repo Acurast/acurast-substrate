@@ -126,6 +126,16 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+    fn stake_more() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
     fn cooldown_compute_commitment() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1381`

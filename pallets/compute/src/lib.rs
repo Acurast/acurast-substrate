@@ -35,7 +35,7 @@ pub type EraOf<T, I> = <T as Config<I>>::BlockNumber;
 pub mod pallet {
 	use core::ops::{Div, Rem};
 
-	use acurast_common::{ManagerIdProvider, ManagerProvider, PoolId};
+	use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerProvider, PoolId};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
@@ -50,11 +50,10 @@ pub mod pallet {
 		ensure_root,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
-	use sp_runtime::SaturatedConversion;
 	use sp_runtime::{
 		codec::{Codec, MaxEncodedLen},
 		traits::{CheckedAdd, CheckedSub, One, Saturating, Zero},
-		FixedU128, Perquintill,
+		FixedU128, Perbill, Perquintill,
 	};
 	use sp_std::cmp::max;
 	use sp_std::prelude::*;
@@ -74,8 +73,17 @@ pub mod pallet {
 			+ Copy
 			+ CheckedAdd
 			+ From<u128>;
+		type CommitmentId: Member
+			+ Parameter
+			+ MaxEncodedLen
+			+ MaybeSerializeDeserialize
+			+ Copy
+			+ CheckedAdd
+			+ Default
+			+ From<u128>;
 		type ManagerProvider: ManagerProvider<Self::AccountId>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
+		type CommitmentIdProvider: CommitmentIdProvider<Self::AccountId, Self::CommitmentId>;
 		/// How long an epoch lasts, which describes the length of the commit-reward cycle length for active processors.
 		///
 		/// Must be longer than a heartbeat interval and better include multiple heartbeats so there is a chance of recovery if one heartbeat is missed.
@@ -89,16 +97,16 @@ pub mod pallet {
 		/// The first block to calculate with this epoch, can start with `0`.
 		#[pallet::constant]
 		type EpochBase: Get<EpochOf<Self, I>>;
-		/// How long a era lasts, which describes the length of the reward cycle for staked-backed and unbacked compute rewards corresponding manager commitments.
+		/// Defines the duration of an era, which represents the reward cycle for both stake-backed and unbacked compute rewards associated with commitments.
 		///
 		/// This is the longest, overarching cycle on which the reward system operates.
 		///
-		/// It is also the length of the metric history (average/max) kept.
+		/// It also determines the length of the metric history (average and maximum) that is retained.
 		#[pallet::constant]
 		type Era: Get<EraOf<Self, I>>;
 		#[pallet::constant]
 		type MaxPools: Get<u32>;
-		/// The maximum number of active delegations a manager can simultaneously have. Accepting further delegation offers will be blocked until someone enters cooldown.
+		/// The maximum ratio `committed_metric / last_era_metric_averate`. This ratio limit is enforced separately by metric pool
 		#[pallet::constant]
 		type MaxMetricCommitmentRatio: Get<Perquintill>;
 		/// The minimum cooldown period for delegators in number of blocks.
@@ -107,13 +115,13 @@ pub mod pallet {
 		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`Stake`]`::cooldown_period / MaxCooldownPeriod`.
 		#[pallet::constant]
 		type MaxCooldownPeriod: Get<<Self as Config<I>>::BlockNumber>;
-		/// The minimum possible delegated amount to a manager. There is no maximum for the amount which a delegator can offer, but it's still limited by the [`Self::MaxDelegationRatio`].
+		/// The minimum possible delegated amount towards a commitment. There is no maximum for the amount which a delegator can offer, but it's still limited by the [`Self::MaxDelegationRatio`].
 		#[pallet::constant]
 		type MinDelegation: Get<Self::Balance>;
-		/// The maximum ratio of active (not-in-cooldown) delegations that a compute provider can have.
+		/// The maximum ratio `delegated_stake / commitment_total_stake = delegated_stake / (delegated_stake + committer_stake)`.
 		#[pallet::constant]
 		type MaxDelegationRatio: Get<Perquintill>;
-		/// The minimum stake by a compute provider (manager).
+		/// The minimum stake by a committer.
 		#[pallet::constant]
 		type MinStake: Get<Self::Balance>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
@@ -143,6 +151,7 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize;
 		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
 			+ InspectLockableCurrency<Self::AccountId>;
+		type Decimals: Get<Self::Balance>;
 		/// The single lock indentifier used for the sum of all staked and delegated amounts.
 		///
 		/// We have to use the same lock identifier since we do not want the locks to overlap;
@@ -210,21 +219,21 @@ pub mod pallet {
 	pub(super) type MetricPoolLookup<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, MetricPoolName, PoolId>;
 
-	/// The commitments of compute given by managers as a map `manager_id` -> `pool_id` -> [`Stake`].
+	/// The commitments of compute as a map `commitment_id` -> `pool_id` -> [`Stake`].
 	///
 	/// Metrics committable are limited by a ratio of what was measured as average in last completed era (see [`MetricsEraAverage`]).
 	#[pallet::storage]
 	#[pallet::getter(fn compute_commitments)]
 	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Identity, T::ManagerId, Identity, PoolId, Metric>;
+		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, Metric>;
 
-	/// The preferences set by managers.
+	/// The relative commission taken by committers from delegator's reward as a map `commitment_id` -> [`Perbill`].
 	#[pallet::storage]
-	#[pallet::getter(fn preferences)]
-	pub(super) type Preferences<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::ManagerId, ManagerPreferences>;
+	#[pallet::getter(fn commission)]
+	pub(super) type Commission<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, Perbill>;
 
-	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager -> pool -> sliding_buffer[block % T::Era -> (metric, avg_count)]`.
+	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[block % T::Era -> (metric, avg_count)]`.
 	#[pallet::storage]
 	#[pallet::getter(fn metrics_era_average)]
 	pub(super) type MetricsEraAverage<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -236,44 +245,102 @@ pub mod pallet {
 		SlidingBuffer<EraOf<T, I>, (Metric, u32)>,
 	>;
 
-	/// Delegations (delegated stakes) as a map `delegator` -> `manager_id` -> [`Stake`].
+	/// Pending offers to back manager's compute with a commitment. These are pending offers made by committers waiting for acceptance by manager as a map `committer_id` -> `manager_id` -> `()`.
 	#[pallet::storage]
-	#[pallet::getter(fn delegations)]
-	pub(super) type Delegations<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, T::ManagerId, StakeFor<T, I>>;
+	#[pallet::getter(fn backing_offers)]
+	pub(super) type BackingOffers<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::AccountId, T::ManagerId>;
 
-	/// Stakes by compute providers as a map `manager_id` -> [`Stake`].
-	///
-	/// They are stored by manager account (instead of manager_id) since NOT automatically transferred to new holder of manager_id when transferring manager_id NFT.
+	/// Backing managers by commitment as a map `commitment_id` -> `manager_id`. Reverse map of [`Commitments`].
+	#[pallet::storage]
+	#[pallet::getter(fn backings)]
+	pub(super) type Backings<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, T::ManagerId>;
+
+	/// Providers by manager as a map `manager_id` -> `commitment_id`. Reverse map of [`Managers`].
+	#[pallet::storage]
+	#[pallet::getter(fn backing_lookup)]
+
+	pub(super) type BackingLookup<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::ManagerId, T::CommitmentId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_commitment_id)]
+	pub(super) type NextCommitmentId<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, T::CommitmentId, ValueQuery>;
+
+	/// Stakes by commitment as a map `commitment_id` -> [`Stake`].
 	#[pallet::storage]
 	#[pallet::getter(fn stakes)]
 	pub(super) type Stakes<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, T::AccountId, StakeFor<T, I>>;
+		StorageMap<_, Identity, T::CommitmentId, StakeFor<T, I>>;
 
-	/// Storage for the total stake of all compute providers.
+	/// Pool member state for commitments in their own delegation pool as a map `commitment_id` -> [`PoolMember`].
+	#[pallet::storage]
+	#[pallet::getter(fn self_delegation)]
+	pub(super) type SelfDelegation<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, PoolMemberFor<T, I>>;
+
+	/// Pool member state as a map `commitment_id` -> `pool_id` -> [`PoolMember`].
+	#[pallet::storage]
+	#[pallet::getter(fn staking_pool_members)]
+	pub(super) type StakingPoolMembers<T: Config<I>, I: 'static = ()> =
+		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, PoolMemberFor<T, I>>;
+
+	/// Tracks a commitment's backing stake, inclusive committer stake and delegated stakes received.
+	#[pallet::storage]
+	#[pallet::getter(fn commitment_stake)]
+	pub(super) type CommitmentStake<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, T::Balance, ValueQuery>;
+
+	/// Tracks the total stake of all commitments.
 	#[pallet::storage]
 	#[pallet::getter(fn total_stake)]
 	pub type TotalStake<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
-	/// Tracks an account's delegation totals.
+	/// Delegations (delegated stakes) as a map `delegator` -> `commitment_id` -> [`Stake`].
 	#[pallet::storage]
-	#[pallet::getter(fn delegator_totals)]
-	pub(super) type DelegatorTotals<T: Config<I>, I: 'static = ()> =
+	#[pallet::getter(fn delegations)]
+	pub(super) type Delegations<T: Config<I>, I: 'static = ()> =
+		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, T::CommitmentId, StakeFor<T, I>>;
+
+	/// Pool member state by delegator as a map `delegator` -> `commitment_id` -> [`PoolMember`].
+	#[pallet::storage]
+	#[pallet::getter(fn delegation_pool_members)]
+	pub(super) type DelegationPoolMembers<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Identity,
+		T::CommitmentId,
+		PoolMemberFor<T, I>,
+	>;
+
+	/// Tracks a delegator's total delegated stake.
+	#[pallet::storage]
+	#[pallet::getter(fn delegator_total)]
+	pub(super) type DelegatorTotal<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, T::Balance, ValueQuery>;
+
+	/// Tracks the total delegated stake by all delegators.
+	#[pallet::storage]
+	#[pallet::getter(fn total_delegated)]
+	pub type TotalDelegated<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, T::Balance, ValueQuery>;
 
 	/// Storage for metric pools' staking metadata for constant-time reward distribution.
 	#[pallet::storage]
 	#[pallet::getter(fn staking_pools)]
 	pub type StakingPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, PoolId, StakingPoolFor<T, I>>;
+		StorageMap<_, Identity, PoolId, StakingPoolFor<T, I>, ValueQuery>;
 
 	/// Storage for staking metadata for each provider's own pool for constant-time reward distribution among delegators to each provider and metric the provider committed to.
 	///
-	/// Delegatios are automatically transferred to a new holder of manager_id when transferring manager_id NFT.
+	/// Delegatios are automatically transferred to a new holder of commitment_id when transferring commitment_id NFT.
 	#[pallet::storage]
 	#[pallet::getter(fn delegation_pools)]
 	pub(super) type DelegationPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::ManagerId, StakingPoolFor<T, I>, ValueQuery>;
+		StorageMap<_, Identity, T::CommitmentId, StakingPoolFor<T, I>, ValueQuery>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -286,24 +353,32 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// PoolCreated. [pool_id, pool_state]
 		PoolCreated(PoolId, MetricPoolFor<T, I>),
-		/// An account started delegation to a manager. [delegator, manager_id]
-		Delegated(T::AccountId, T::ManagerId),
-		/// An account started the cooldown for an accepted delegation. [delegator, manager_id]
-		DelegationCooldownStarted(T::AccountId, T::ManagerId),
-		/// An account passed the cooldown and ended delegation. [delegator, manager_id]
-		DelegationEnded(T::AccountId, T::ManagerId),
-		/// A manager committed it's compute and staked to back his compute. [manager_id]
-		ComputeCommitted(T::ManagerId),
-		/// A manager increased it's stake. [manager_id, extra_amount]
-		StakedMore(T::ManagerId, T::Balance),
-		/// A manager started the cooldown for his commitment & stake. [manager_id]
-		ComputeCommitmentCooldownStarted(T::ManagerId),
-		/// A manager passed the cooldown for his commitment & stake. [manager_id]
-		ComputeCommitmentEnded(T::ManagerId),
+		/// A potential committer offered backing to a manager. [account, manager_id]
+		BackingOffered(T::AccountId, T::ManagerId),
+		/// An potential committer withdrew backing to a manager. [account, manager_id]
+		BackingOfferWithdrew(T::AccountId, T::ManagerId),
+		/// A manager accepted a committer's backing offer. [committer_id, manager_id]
+		BackingAccepted(T::CommitmentId, T::ManagerId),
+		/// A commitment with corresponding. [account, commitment_id]
+		CommitmentCreated(T::AccountId, T::CommitmentId),
+		/// An account started delegation to a commitment. [delegator, commitment_id]
+		Delegated(T::AccountId, T::CommitmentId),
+		/// An account started the cooldown for an accepted delegation. [delegator, commitment_id]
+		DelegationCooldownStarted(T::AccountId, T::CommitmentId),
+		/// An account passed the cooldown and ended delegation. [delegator, commitment_id]
+		DelegationEnded(T::AccountId, T::CommitmentId),
+		/// A committer staked and committed compute provided by the manager he is backing. [commitment_id]
+		ComputeCommitted(T::CommitmentId),
+		/// A committer increased it's stake. [commitment_id, extra_amount]
+		StakedMore(T::CommitmentId, T::Balance),
+		/// The cooldown for a commitment got started. [commitment_id]
+		ComputeCommitmentCooldownStarted(T::CommitmentId),
+		/// The cooldown for a commitment has ended. [commitment_id]
+		ComputeCommitmentEnded(T::CommitmentId),
 		/// A reward got distrubuted. [amount]
 		Rewarded(T::Balance),
-		/// A manager got slahsed. [manager_id, amount]
-		Slashed(T::ManagerId, T::Balance),
+		/// A commitment got slahsed. [commitment_id, amount]
+		Slashed(T::CommitmentId, T::Balance),
 	}
 
 	// Errors inform users that something went wrong.
@@ -316,14 +391,17 @@ pub mod pallet {
 		CalculationOverflow,
 		PoolNotFound,
 		RewardUpdateInvalid,
+		AlreadyOfferedBacking,
+		AlreadyBacking,
+		NoBackingOfferFound,
 		AlreadyDelegating,
 		CooldownAlreadyStarted,
 		BelowMinCooldownPeriod,
 		AboveMaxCooldownPeriod,
 		BelowMinDelegation,
+		DelegationCooldownMustBeShorterThanCommitment,
 		MaxDelegationRatioExceeded,
 		MaxMetricCommitmentExceeded,
-		CannotStakeLessOrEqual,
 		MinStakeSubceeded,
 		InsufficientBalance,
 		CooldownNotStarted,
@@ -331,8 +409,10 @@ pub mod pallet {
 		NotDelegating,
 		NotStaking,
 		AlreadyCommitted,
-		InternalErrorNotStaking,
 		NoMetricsAverage,
+		NoManagerBackingCommitment,
+		NoOwnerOfCommitmentId,
+        InternalError,
 	}
 
 	#[pallet::hooks]
@@ -431,78 +511,79 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
+		/// Offers backing to a manager.
+		///
+		/// An account can only have one outstanding offer and only offer if not already owner of a `commitment`.
+		///
+		/// NOTE: Only upon acceptance, the offering account will receive a new `commitment_id`. This makes the invariant hold that behind each `commitment_id` (commitment-position/commitment-NFT) there is a commitment backing a manager.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::delegate())]
-		pub fn delegate(
+		#[pallet::weight(T::WeightInfo::offer_backing())]
+		pub fn offer_backing(
 			origin: OriginFor<T>,
 			manager: T::AccountId,
-			amount: T::Balance,
-			cooldown_period: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			// This will be softened later when we support reassigning different manager_ids to commitments
+			ensure!(
+				T::CommitmentIdProvider::commitment_id_for(&who).ok().is_none(),
+				Error::<T, I>::AlreadyBacking
+			);
+
 			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
 
-			ensure!(amount >= T::MinDelegation::get(), Error::<T, I>::BelowMinDelegation);
-			ensure!(
-				cooldown_period >= T::MinCooldownPeriod::get(),
-				Error::<T, I>::BelowMinCooldownPeriod
-			);
-			ensure!(
-				cooldown_period <= T::MaxCooldownPeriod::get(),
-				Error::<T, I>::AboveMaxCooldownPeriod
-			);
-			ensure!(
-				Self::delegation_ratio(&who, manager_id) >= T::MaxDelegationRatio::get(),
-				Error::<T, I>::MaxDelegationRatioExceeded
-			);
+			// it's allowed to overwrite this with a different offer receiver (manager_id) than before
+			BackingOffers::<T, I>::insert(&who, manager_id);
 
-			Self::lock_funds(&who, amount, LockReason::Delegation(manager_id))?;
-
-			let _ = T::ManagerIdProvider::owner_for(manager_id)?;
-
-			Delegations::<T, I>::try_mutate::<_, _, _, Error<T, I>, _>(
-				&who,
-				manager_id,
-				|stake| {
-					if stake.is_some() {
-						Err(Error::<T, I>::AlreadyDelegating)?;
-					}
-					*stake = Some(Stake::new(amount, cooldown_period));
-					Ok(())
-				},
-			)?;
-
-			Self::deposit_event(Event::<T, I>::Delegated(who, manager_id));
+			Self::deposit_event(Event::<T, I>::BackingOffered(who, manager_id));
 
 			Ok(().into())
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::cooldown_delegation())]
-		pub fn cooldown_delegation(
-			origin: OriginFor<T>,
-			manager: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		#[pallet::weight(T::WeightInfo::withdraw_backing_offer())]
+		pub fn withdraw_backing_offer(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
-			Self::cooldown_delegation_for(&who, manager_id)?;
-			Self::deposit_event(Event::<T, I>::DelegationCooldownStarted(who, manager_id));
+
+			let manager_id =
+				BackingOffers::<T, I>::take(&who).ok_or(Error::<T, I>::NoBackingOfferFound)?;
+
+			Self::deposit_event(Event::<T, I>::BackingOfferWithdrew(who, manager_id));
+
 			Ok(().into())
 		}
 
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::end_delegation())]
-		pub fn end_delegation(
+		#[pallet::weight(T::WeightInfo::accept_backing_offer())]
+		pub fn accept_backing_offer(
 			origin: OriginFor<T>,
-			manager: T::AccountId,
+			committer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
-			Self::end_delegation_for(&who, manager_id)?;
-			Self::deposit_event(Event::<T, I>::DelegationEnded(who, manager_id));
+			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
+
+			let offer_manager_id =
+				BackingOffers::<T, I>::take(committer).ok_or(Error::<T, I>::NoBackingOfferFound)?;
+			ensure!(manager_id == offer_manager_id, Error::<T, I>::NoBackingOfferFound);
+
+			// technically this call allows to reuse a commitment_id NFT here, but the mechanism to create commitment IDs in this pallet does not yet allow committers to swap which managers they back (they can do offer-accept-flow at most once)
+			let (commitment_id, created) = Self::do_get_or_create_commitment_id(&who)?;
+			if created {
+				// we always emit this if extrinsic call succeeds, but it's likely to change in the future so we already emit this separate event for the first time a commitment_id-NFT is created
+				Self::deposit_event(Event::<T, I>::CommitmentCreated(who, commitment_id));
+			}
+
+			<Backings<T, I>>::insert(commitment_id, manager_id);
+			<BackingLookup<T, I>>::insert(manager_id, commitment_id);
+
+			Self::deposit_event(Event::<T, I>::BackingAccepted(commitment_id, manager_id));
+
 			Ok(().into())
 		}
 
+		/// Commits compute and stakes, defines commission for receiving delegations.
+		///
+		/// This is called by the committer that should already be backing a manager, the he offered and got accepted to be backing the manager's compute.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::commit_compute())]
 		pub fn commit_compute(
@@ -510,49 +591,53 @@ pub mod pallet {
 			amount: T::Balance,
 			cooldown_period: T::BlockNumber,
 			commitment: BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>,
+			commission: Perbill,
+            allow_auto_compound: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
-
-			let first_stake = Self::stake_for(&who, amount)?;
-			ensure!(first_stake, Error::<T, I>::AlreadyCommitted);
-
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			let manager_id = <Backings<T, I>>::get(commitment_id)
+				.ok_or(Error::<T, I>::NoManagerBackingCommitment)?;
 			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
 			let era = current_block / T::Era::get();
 			for c in commitment {
 				let avg = <MetricsEraAverage<T, I>>::get(manager_id, c.pool_id)
 					.ok_or(Error::<T, I>::NoMetricsAverage)?;
 				let (avg_value, _) = avg.get(era);
-				// TODO test if this is correct transformation with / 1_000u128
 				ensure!(
 					c.metric < avg_value
-						&& Perquintill::from_parts(
-							((c.metric / avg_value).into_inner() / 1_000u128) as u64
-						) < T::MaxMetricCommitmentRatio::get(),
+						&& Perquintill::from_parts(((c.metric / avg_value).into_inner()) as u64)
+							< T::MaxMetricCommitmentRatio::get(),
 					Error::<T, I>::MaxMetricCommitmentExceeded
 				);
-			}
 
-			Self::deposit_event(Event::<T, I>::ComputeCommitted(manager_id));
+				ComputeCommitments::<T, I>::insert(&commitment_id, &c.pool_id, c.metric);
+			}
+			// commission can only be inserted once on commit, since stake_for below errors if already committe
+			Commission::<T, I>::insert(&commitment_id, commission);
+
+			// only call this AFTER storing commitment since it's a requirement for stake_for
+			Self::stake_for(&who, amount, cooldown_period, allow_auto_compound)?;
+
+			Self::deposit_event(Event::<T, I>::ComputeCommitted(commitment_id));
 
 			Ok(().into())
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::commit_compute())]
+		#[pallet::weight(T::WeightInfo::stake_more())]
 		pub fn stake_more(
 			origin: OriginFor<T>,
 			extra_amount: T::Balance,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 
-			// we don't care if previously staked
-			let _ = Self::stake_for(&who, extra_amount)?;
+			Self::stake_more_for(&who, extra_amount)?;
 
-			Self::deposit_event(Event::<T, I>::StakedMore(manager_id, extra_amount));
+			Self::deposit_event(Event::<T, I>::StakedMore(commitment_id, extra_amount));
 
 			Ok(().into())
 		}
@@ -561,9 +646,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cooldown_compute_commitment())]
 		pub fn cooldown_compute_commitment(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
-			Self::cooldown_stake_for(&who)?;
-			Self::deposit_event(Event::<T, I>::ComputeCommitmentCooldownStarted(manager_id));
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			Self::cooldown_stake_for(commitment_id)?;
+			Self::deposit_event(Event::<T, I>::ComputeCommitmentCooldownStarted(commitment_id));
 			Ok(().into())
 		}
 
@@ -571,25 +656,76 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::end_compute_commitment())]
 		pub fn end_compute_commitment(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
-			Self::unstake_for(&who)?;
-			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(manager_id));
+            // the commitment_id does not get destroyed and might be recycled with upcoming features
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			Self::unstake_for(who, commitment_id)?;
+			Commission::<T, I>::remove(commitment_id);
+			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(commitment_id));
 			Ok(().into())
 		}
 
 		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::delegate())]
+		pub fn delegate(
+			origin: OriginFor<T>,
+			committer: T::AccountId,
+			amount: T::Balance,
+			cooldown_period: T::BlockNumber,
+            allow_auto_compound: bool,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
+
+			Self::delegate_for(&who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
+
+			Self::deposit_event(Event::<T, I>::Delegated(who, commitment_id));
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::cooldown_delegation())]
+		pub fn cooldown_delegation(
+			origin: OriginFor<T>,
+			committer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
+			Self::cooldown_delegation_for(&who, commitment_id)?;
+			Self::deposit_event(Event::<T, I>::DelegationCooldownStarted(who, commitment_id));
+			Ok(().into())
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::end_delegation())]
+		pub fn end_delegation(
+			origin: OriginFor<T>,
+			manager: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&manager)?;
+			let _reward = Self::end_delegation_for(&who, commitment_id)?;
+			// todo transfer reward
+
+			Self::deposit_event(Event::<T, I>::DelegationEnded(who, commitment_id));
+			Ok(().into())
+		}
+
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::reward())]
-		pub fn reward(origin: OriginFor<T>, reward: T::Balance) -> DispatchResultWithPostInfo {
+		pub fn reward(origin: OriginFor<T>, amount: T::Balance) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			// TODO
+            let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
+            let current_era = current_block % T::Era::get();
+			Self::distribute(current_era, amount)?;
 
-			Self::deposit_event(Event::<T, I>::Rewarded(reward));
+			Self::deposit_event(Event::<T, I>::Rewarded(amount));
 
 			Ok(Pays::No.into())
 		}
 
-		#[pallet::call_index(10)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::slash())]
 		pub fn slash(
 			origin: OriginFor<T>,
@@ -598,11 +734,10 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&manager)?;
+			Self::slash_delegation_pool(commitment_id, amount)?;
 
-			// TODO
-
-			Self::deposit_event(Event::<T, I>::Slashed(manager_id, amount));
+			Self::deposit_event(Event::<T, I>::Slashed(commitment_id, amount));
 
 			Ok(Pays::No.into())
 		}
@@ -693,6 +828,7 @@ pub mod pallet {
 						.unwrap_or(Zero::zero());
 
 				// accrue
+				// TODO here we want to distribute to metric pools instead
 				match T::ComputeRewardDistributor::distribute_reward(
 					&processor,
 					reward.saturating_add(p.accrued),
@@ -738,31 +874,6 @@ pub mod pallet {
 			} else {
 				None
 			}
-		}
-
-		fn delegation_ratio(
-			manager_account: &T::AccountId,
-			manager_id: T::ManagerId,
-		) -> Perquintill {
-			let denominator: u128 = <DelegationPools<T, I>>::get(manager_id).amount.into();
-			let nominator: u128 = <Stakes<T, I>>::get(manager_account)
-				.map(|s| s.amount)
-				.unwrap_or(T::Balance::zero())
-				.into();
-			if denominator > 0 {
-				Perquintill::from_rational(nominator, denominator)
-			} else {
-				Perquintill::one()
-			}
-		}
-
-		pub fn delegator_weight(state: &StakeFor<T, I>) -> T::Balance {
-			(state
-				.amount
-				.saturated_into::<u128>()
-				.saturating_mul(state.cooldown_period.into())
-				/ T::MaxCooldownPeriod::get().saturated_into::<u128>())
-			.into()
 		}
 
 		/// Helper to only commit compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.
@@ -869,6 +980,27 @@ pub mod pallet {
 					}
 				}
 			}
+		}
+
+		/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
+		pub fn do_get_or_create_commitment_id(
+			committer: &T::AccountId,
+		) -> Result<(T::CommitmentId, bool), DispatchError> {
+			T::CommitmentIdProvider::commitment_id_for(committer)
+				.map(|id| (id, false))
+				.or_else::<DispatchError, _>(|_| {
+					let id = NextCommitmentId::<T, I>::try_mutate::<_, Error<T, I>, _>(|id| {
+						let new_id = *id;
+						*id = id
+							.checked_add(&1u128.into())
+							.ok_or(Error::<T, I>::CalculationOverflow)?;
+						Ok(new_id)
+					})?;
+
+					T::CommitmentIdProvider::create_commitment_id(id, committer)?;
+
+					Ok((id, true))
+				})
 		}
 	}
 }

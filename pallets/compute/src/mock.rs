@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use acurast_common::ManagerIdProvider;
+use acurast_common::{CommitmentIdProvider, ManagerIdProvider};
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchResult,
@@ -134,13 +134,16 @@ parameter_types! {
 	pub const MinStake: Balance = 1 * UNIT;
 
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
+	pub const Decimals: Balance = UNIT;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ManagerId = AssetId;
+	type ManagerId = u128;
+	type CommitmentId = u128;
 	type ManagerProvider = ManagerOf;
 	type ManagerIdProvider = AcurastManagerIdProvider;
+	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
 	type Era = Era;
@@ -155,6 +158,7 @@ impl Config for Test {
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
 	type Currency = Balances;
+	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
 	type WeightInfo = ();
@@ -192,6 +196,38 @@ impl ManagerIdProvider<<Test as frame_system::Config>::AccountId, <Test as Confi
 	{
 		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
 			"Onwer for provided Manager ID not found",
+		))
+	}
+}
+
+pub struct AcurastCommitmentIdProvider;
+impl CommitmentIdProvider<<Test as frame_system::Config>::AccountId, <Test as Config>::CommitmentId>
+	for AcurastCommitmentIdProvider
+{
+	fn create_manager_id(
+		id: <Test as Config>::CommitmentId,
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(0).is_none() {
+			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+		}
+		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+	}
+
+	fn manager_id_for(
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> Result<<Test as Config>::CommitmentId, frame_support::sp_runtime::DispatchError> {
+		Uniques::owned_in_collection(&0, owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Commitment ID not found"))
+	}
+
+	fn owner_for(
+		manager_id: <Test as Config>::CommitmentId,
+	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
+	{
+		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
+			"Onwer for provided Commitment ID not found",
 		))
 	}
 }

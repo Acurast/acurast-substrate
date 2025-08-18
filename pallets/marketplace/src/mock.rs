@@ -20,8 +20,8 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use acurast_common::ManagerProvider;
-use pallet_acurast::{JobModules, ManagerIdProvider, CU32};
+use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerProvider};
+use pallet_acurast::{JobModules, CU32};
 
 use crate::{stub::*, *};
 
@@ -216,12 +216,15 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(10);
 	pub const MinStake: Balance = 1 * UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
+	pub const Decimals: Balance = UNIT;
 }
 
 impl pallet_acurast_compute::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerId = u128;
+	type CommitmentId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
+	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
 	type Era = Era;
@@ -236,6 +239,7 @@ impl pallet_acurast_compute::Config for Test {
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
 	type Currency = Balances;
+	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
 	type WeightInfo = ();
@@ -278,6 +282,44 @@ impl
 	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
 	{
 		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
+			"Onwer for provided Manager ID not found",
+		))
+	}
+}
+
+pub struct AcurastCommitmentIdProvider;
+impl
+	CommitmentIdProvider<
+		<Test as frame_system::Config>::AccountId,
+		<Test as pallet_acurast_compute::Config>::CommitmentId,
+	> for AcurastCommitmentIdProvider
+{
+	fn create_commitment_id(
+		id: <Test as pallet_acurast_compute::Config>::CommitmentId,
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(0).is_none() {
+			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+		}
+		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+	}
+
+	fn commitment_id_for(
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> Result<
+		<Test as pallet_acurast_compute::Config>::CommitmentId,
+		frame_support::sp_runtime::DispatchError,
+	> {
+		Uniques::owned_in_collection(&0, owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+	}
+
+	fn owner_for(
+		commitment_id: <Test as pallet_acurast_compute::Config>::CommitmentId,
+	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
+	{
+		Uniques::owner(0, commitment_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
 			"Onwer for provided Manager ID not found",
 		))
 	}

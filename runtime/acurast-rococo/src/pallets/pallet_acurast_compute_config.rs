@@ -6,12 +6,15 @@ use acurast_runtime_common::{
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, LockIdentifier},
+	traits::{
+		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		ConstU32, LockIdentifier,
+	},
 };
 
 use sp_runtime::Perquintill;
 
-use crate::{Balances, Runtime, RuntimeEvent};
+use crate::{Balances, CommitmentCollectionId, RootAccountId, Runtime, RuntimeEvent, Uniques};
 
 use super::pallet_acurast_marketplace_config::ManagerProvider;
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
@@ -28,13 +31,16 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(10);
 	pub const MinStake: Balance = 1 * UNIT;
 		pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
+	pub const Decimals: Balance = UNIT;
 }
 
 impl pallet_acurast_compute::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerId = u128;
+	type CommitmentId = u128;
 	type ManagerProvider = ManagerProvider;
 	type ManagerIdProvider = AcurastManagerIdProvider;
+	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
 	type Era = Era;
@@ -49,8 +55,53 @@ impl pallet_acurast_compute::Config for Runtime {
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
 	type Currency = Balances;
+	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 
 	type ComputeRewardDistributor = ComputeRewardDistributor<Runtime, (), Balances>;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
+}
+
+pub struct AcurastCommitmentIdProvider;
+impl
+	pallet_acurast::CommitmentIdProvider<
+		<Runtime as frame_system::Config>::AccountId,
+		<Runtime as pallet_acurast_compute::Config>::CommitmentId,
+	> for AcurastCommitmentIdProvider
+{
+	fn create_commitment_id(
+		id: <Runtime as pallet_acurast_compute::Config>::CommitmentId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(CommitmentCollectionId::get()).is_none() {
+			Uniques::create_collection(
+				&CommitmentCollectionId::get(),
+				&RootAccountId::get(),
+				&RootAccountId::get(),
+			)?;
+		}
+		Uniques::do_mint(CommitmentCollectionId::get(), id, owner.clone(), |_| Ok(()))
+	}
+
+	fn commitment_id_for(
+		owner: &<Runtime as frame_system::Config>::AccountId,
+	) -> Result<<Runtime as pallet_acurast_compute::Config>::CommitmentId, sp_runtime::DispatchError>
+	{
+		Uniques::owned_in_collection(&CommitmentCollectionId::get(), owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+	}
+
+	fn owner_for(
+		commitment_id: <Runtime as pallet_acurast_compute::Config>::CommitmentId,
+	) -> Result<
+		<Runtime as frame_system::Config>::AccountId,
+		frame_support::pallet_prelude::DispatchError,
+	> {
+		Uniques::owner(CommitmentCollectionId::get(), commitment_id).ok_or(
+			frame_support::pallet_prelude::DispatchError::Other(
+				"Onwer for provided Manager ID not found",
+			),
+		)
+	}
 }

@@ -51,10 +51,14 @@ pub trait WeightInfo {
 	fn modify_pool_same_config() -> Weight;
 	fn modify_pool_replace_config(x: u32) -> Weight;
 	fn modify_pool_update_config(x: u32) -> Weight;
+	fn offer_backing() -> Weight;
+	fn withdraw_backing_offer() -> Weight;
+	fn accept_backing_offer() -> Weight;
 	fn delegate() -> Weight;
 	fn cooldown_delegation() -> Weight;
 	fn end_delegation() -> Weight;
 	fn commit_compute() -> Weight;
+	fn stake_more() -> Weight;
 	fn cooldown_compute_commitment() -> Weight;
 	fn end_compute_commitment() -> Weight;
 	fn reward() -> Weight;
@@ -78,6 +82,18 @@ impl WeightInfo for () {
 		Weight::from_parts(10_000, 0)
 	}
 
+	fn offer_backing() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn withdraw_backing_offer() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn accept_backing_offer() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
 	fn delegate() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
@@ -91,6 +107,10 @@ impl WeightInfo for () {
 	}
 
 	fn commit_compute() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn stake_more() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

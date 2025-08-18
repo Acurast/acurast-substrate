@@ -4,7 +4,7 @@ use acurast_common::PoolId;
 use frame_support::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Debug, One, Saturating},
-	FixedU128, Perbill, Perquintill,
+	FixedU128, Perquintill,
 };
 
 use crate::{
@@ -36,6 +36,7 @@ pub type MetricPoolName = [u8; 24];
 pub type MetricPoolConfigName = [u8; 24];
 
 pub type StakeFor<T, I> = Stake<<T as Config<I>>::Balance, <T as Config<I>>::BlockNumber>;
+pub type PoolMemberFor<T, I> = PoolMember<<T as Config<I>>::Balance>;
 pub type StakingPoolFor<T, I> = StakingPool<<T as Config<I>>::Balance>;
 
 #[derive(
@@ -181,10 +182,10 @@ pub struct ComputeCommitment {
 	pub metric: Metric,
 }
 
-/// The state for any staker, both compute provider and delegator.
+/// The stake details, both for compute provider staking and any account delegating.
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct Stake<Balance: Debug, BlockNumber: Debug> {
-	/// The amount delegated.
+	/// The amount.
 	pub amount: Balance,
 	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
 	///
@@ -203,23 +204,37 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	///
 	/// Any further compound or payout operations must be preceeded by accruing potentially outstanding slash debt.
 	pub accrued_slash: Balance,
-	/// The weighted reward debt before this staker joined a pool.
-	pub reward_debt: Balance,
-	/// The weighted slash debt before this staker joined a pool.
-	pub slash_debt: Balance,
+	/// If any account (such as a courtesy service by Acurast) is allowed to compound for this stake.
+	pub allow_auto_compound: bool,
 }
 
 impl<Balance: Debug + Zero, BlockNumber: Debug> Stake<Balance, BlockNumber> {
-	pub fn new(amount: Balance, cooldown_period: BlockNumber) -> Self {
+	pub fn new(amount: Balance, cooldown_period: BlockNumber, allow_auto_compound: bool) -> Self {
 		Self {
 			amount,
 			cooldown_period,
 			cooldown_started: None,
 			accrued_reward: Zero::zero(),
 			accrued_slash: Zero::zero(),
-			reward_debt: Zero::zero(),
-			slash_debt: Zero::zero(),
+            allow_auto_compound,
 		}
+	}
+}
+
+/// The state for any pool member, both for compute provider staking and any account delegating.
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct PoolMember<Balance: Debug> {
+	/// The weight, i.e. balance weighted by one or several factors.
+	pub weight: Balance,
+	/// The weighted reward debt before this staker joined a pool.
+	pub reward_debt: Balance,
+	/// The weighted slash debt before this staker joined a pool.
+	pub slash_debt: Balance,
+}
+
+impl<Balance: Debug + Zero> PoolMember<Balance> {
+	pub fn new(weight: Balance, reward_debt: Balance, slash_debt: Balance) -> Self {
+		Self { weight, reward_debt, slash_debt }
 	}
 }
 
@@ -227,18 +242,9 @@ impl<Balance: Debug + Zero, BlockNumber: Debug> Stake<Balance, BlockNumber> {
 	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
 )]
 pub struct StakingPool<Balance: Debug + Default> {
-	pub amount: Balance,
 	pub weight: Balance,
 	pub reward_per_token: Balance,
 	pub slash_per_token: Balance,
-}
-
-#[derive(
-	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
-)]
-pub struct ManagerPreferences {
-	#[codec(compact)]
-	pub commission: Perbill,
 }
 
 #[derive(Clone, PartialEq, Eq)]

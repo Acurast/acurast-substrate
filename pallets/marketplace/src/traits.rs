@@ -1,5 +1,5 @@
 use crate::{Config, Error, PartialJobRegistrationForMarketplace};
-use frame_support::{pallet_prelude::DispatchError, sp_runtime::FixedU128, weights::Weight};
+use frame_support::{sp_runtime::FixedU128, weights::Weight};
 use pallet_acurast::{JobRegistrationFor, PoolId};
 
 /// Trait used to lookup the time a processor was last seen, i.e. sent a heartbeat.

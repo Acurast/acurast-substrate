@@ -216,7 +216,7 @@ impl<Balance: Debug + Zero, BlockNumber: Debug> Stake<Balance, BlockNumber> {
 			cooldown_started: None,
 			accrued_reward: Zero::zero(),
 			accrued_slash: Zero::zero(),
-            allow_auto_compound,
+			allow_auto_compound,
 		}
 	}
 }

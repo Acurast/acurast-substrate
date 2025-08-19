@@ -2,6 +2,7 @@
 
 pub use datastructures::*;
 pub use pallet::*;
+pub use reward::*;
 pub use traits::*;
 pub use types::*;
 
@@ -10,6 +11,7 @@ pub(crate) use pallet::STORAGE_VERSION;
 mod datastructures;
 mod hooks;
 mod migration;
+mod reward;
 mod staking;
 mod traits;
 mod types;
@@ -412,7 +414,7 @@ pub mod pallet {
 		NoMetricsAverage,
 		NoManagerBackingCommitment,
 		NoOwnerOfCommitmentId,
-        InternalError,
+		InternalError,
 	}
 
 	#[pallet::hooks]
@@ -592,7 +594,7 @@ pub mod pallet {
 			cooldown_period: T::BlockNumber,
 			commitment: BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>,
 			commission: Perbill,
-            allow_auto_compound: bool,
+			allow_auto_compound: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -656,7 +658,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::end_compute_commitment())]
 		pub fn end_compute_commitment(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-            // the commitment_id does not get destroyed and might be recycled with upcoming features
+			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 			Self::unstake_for(who, commitment_id)?;
 			Commission::<T, I>::remove(commitment_id);
@@ -671,7 +673,7 @@ pub mod pallet {
 			committer: T::AccountId,
 			amount: T::Balance,
 			cooldown_period: T::BlockNumber,
-            allow_auto_compound: bool,
+			allow_auto_compound: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
@@ -716,8 +718,8 @@ pub mod pallet {
 		pub fn reward(origin: OriginFor<T>, amount: T::Balance) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-            let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
-            let current_era = current_block % T::Era::get();
+			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
+			let current_era = current_block % T::Era::get();
 			Self::distribute(current_era, amount)?;
 
 			Self::deposit_event(Event::<T, I>::Rewarded(amount));

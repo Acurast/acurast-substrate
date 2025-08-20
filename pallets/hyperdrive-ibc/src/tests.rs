@@ -14,7 +14,7 @@ use crate::{ContractCall, Layer, Message, MessageId, MessageNonce, Payload, Subj
 
 #[test]
 fn encodes_specific_message_correctly() {
-	// {id:'0x7ba7902e9de1360ea56072e7715f4a924cd1260a06f11e377efbb37c4ac35ea4',sender:{Ethereum:{Contract:{contract:'0x7f44ad0fd6c15cfba6f417c33924c8cf0c751d23',selector:null}}},nonce:'0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c',recipient:{Acurast:{Extrinsic:'5EYCAe5h8kmzoA4mxYQmkSEPPrDy93poMdg9Lh1d8SehErVo'}},payload:'0x00000000000000000000000000000000000003e80000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b'}
+	// {id:'0x7ba7902e9de1360ea56072e7715f4a924cd1260a06f11e377efbb37c4ac35ea4',sender:{Ethereum:{Contract:{contract:'0x7f44ad0fd6c15cfba6f417c33924c8cf0c751d23',selector:null}}},nonce:'0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c',recipient:{Acurast:{Extrinsic:'5EYCAe5h8kmzoA4mxYQmkSEPPrDy93poMdg9Lh1d8SehErVo'}},payload:'0x00000000000000000000000000000000000003e8000000000000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b'}
 
 	let id = MessageId::from_slice(&hex!(
 		"7ba7902e9de1360ea56072e7715f4a924cd1260a06f11e377efbb37c4ac35ea4"

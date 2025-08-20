@@ -7,7 +7,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use strum_macros::{EnumString, IntoStaticStr};
 
-pub type TransferNonce = u32;
+pub type TransferNonce = u64;
 
 pub const TRANSFER_RECIPIENT_MAX_LENGTH: u32 = 64;
 /// The recipient of a transfer, on Acurast or proxy chain. The length depends on the chain the transfer is received on.

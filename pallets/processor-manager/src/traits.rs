@@ -22,30 +22,6 @@ impl<T: Config> AdvertisementHandler<T> for () {
 	}
 }
 
-pub trait ProcessorRewardDistributor<T: Config> {
-	fn distribute_reward(
-		manager: &T::AccountId,
-		amount: T::Balance,
-		distributor_account: &T::AccountId,
-	) -> DispatchResult;
-
-	fn is_elegible_for_reward(processor: &T::AccountId) -> bool;
-}
-
-impl<T: Config> ProcessorRewardDistributor<T> for () {
-	fn distribute_reward(
-		_manager: &<T>::AccountId,
-		_amount: <T as Config>::Balance,
-		_distributor_account: &<T>::AccountId,
-	) -> DispatchResult {
-		Ok(())
-	}
-
-	fn is_elegible_for_reward(_processor: &<T>::AccountId) -> bool {
-		true
-	}
-}
-
 /// Weight functions needed for pallet_acurast_processor_manager.
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;

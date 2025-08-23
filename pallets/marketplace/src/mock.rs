@@ -6,21 +6,17 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, DispatchError, DispatchResult, Percent, Perquintill,
+		BuildStorage, DispatchError, Percent,
 	},
-	traits::{
-		nonfungibles::{Create, InspectEnumerable},
-		AsEnsureOriginWithArg,
-	},
+	traits::AsEnsureOriginWithArg,
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
-use pallet_acurast_compute::{ComputeRewardDistributor, EpochOf};
 use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use pallet_acurast::{JobModules, ManagerIdProvider, CU32};
+use pallet_acurast::{AccountLookup, JobModules, CU32};
 
 use crate::{stub::*, *};
 
@@ -94,7 +90,6 @@ frame_support::construct_runtime!(
 		AcurastMarketplace: crate::{Pallet, Call, Storage, Event<T>},
 		AcurastCompute: pallet_acurast_compute::{Pallet, Call, Storage, Event<T>},
 		Uniques: pallet_uniques,
-		MockPallet: mock_pallet::{Pallet, Event<T>},
 	}
 );
 
@@ -206,123 +201,25 @@ impl pallet_uniques::Config for Test {
 parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
+	pub const MetricEpochValidity: BlockNumber = 10;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 }
 
 impl pallet_acurast_compute::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ManagerId = u128;
-	type ManagerIdProvider = AcurastManagerIdProvider;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
+	type MetricEpochValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
-	type Balance = Balance;
-	type BlockNumber = BlockNumber;
 	type Currency = Balances;
-	type ComputeRewardDistributor = MockComputeRewardDistributor<Self, ()>;
+	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
 	type WeightInfo = ();
 }
 
-impl mock_pallet::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-}
-
-pub struct AcurastManagerIdProvider;
-impl
-	ManagerIdProvider<
-		<Test as frame_system::Config>::AccountId,
-		<Test as pallet_acurast_compute::Config>::ManagerId,
-	> for AcurastManagerIdProvider
-{
-	fn create_manager_id(
-		id: <Test as pallet_acurast_compute::Config>::ManagerId,
-		owner: &<Test as frame_system::Config>::AccountId,
-	) -> frame_support::pallet_prelude::DispatchResult {
-		if Uniques::collection_owner(0).is_none() {
-			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
-		}
-		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
-	}
-
-	fn manager_id_for(
-		owner: &<Test as frame_system::Config>::AccountId,
-	) -> Result<
-		<Test as pallet_acurast_compute::Config>::ManagerId,
-		frame_support::sp_runtime::DispatchError,
-	> {
-		Uniques::owned_in_collection(&0, owner)
-			.nth(0)
-			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
-	}
-
-	fn owner_for(
-		manager_id: <Test as pallet_acurast_compute::Config>::ManagerId,
-	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
-	{
-		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
-			"Onwer for provided Manager ID not found",
-		))
-	}
-}
-
-pub struct MockComputeRewardDistributor<T, I>(PhantomData<(T, I)>);
-
-impl<T: pallet_acurast_compute::Config<I> + mock_pallet::Config<I>, I: 'static>
-	ComputeRewardDistributor<T, I> for MockComputeRewardDistributor<T, I>
-where
-	T::Balance: From<u64>,
-{
-	fn calculate_reward(
-		ratio: Perquintill,
-		epoch: EpochOf<T, I>,
-	) -> Result<<T as pallet_acurast_compute::Config<I>>::Balance, DispatchError> {
-		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::CalculateReward(
-			ratio, epoch,
-		));
-		Ok(ratio.mul_floor(UNIT.into()))
-	}
-
-	fn distribute_reward(
-		processor: &T::AccountId,
-		amount: <T as pallet_acurast_compute::Config<I>>::Balance,
-	) -> DispatchResult {
-		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::DistributeReward(
-			processor.clone(),
-			amount,
-		));
-		Ok(())
-	}
-
-	fn is_elegible_for_reward(processor: &T::AccountId) -> bool {
-		mock_pallet::Pallet::deposit_event(mock_pallet::Event::<T, I>::IsElegibleForReward(
-			processor.clone(),
-		));
-		true
-	}
-}
-
-#[frame_support::pallet]
-pub mod mock_pallet {
-	use frame_support::{pallet_prelude::*, sp_runtime::Perquintill};
-	use pallet_acurast_compute::EpochOf;
-
-	#[pallet::config]
-	pub trait Config<I: 'static = ()>:
-		frame_system::Config + pallet_acurast_compute::Config<I>
-	{
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	}
-
-	#[pallet::pallet]
-	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
-
-	#[pallet::event]
-	#[pallet::generate_deposit(pub (super) fn deposit_event)]
-	pub enum Event<T: Config<I>, I: 'static = ()> {
-		CalculateReward(Perquintill, EpochOf<T, I>),
-		DistributeReward(T::AccountId, T::Balance),
-		IsElegibleForReward(T::AccountId),
+pub struct MockLookup<AccountId>(PhantomData<AccountId>);
+impl<AccountId: Clone> AccountLookup<AccountId> for MockLookup<AccountId> {
+	fn lookup(processor: &AccountId) -> Option<AccountId> {
+		Some(processor.clone())
 	}
 }
 
@@ -355,11 +252,11 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 
 pub struct ManagerOf;
 
-impl ManagerProvider<Test> for ManagerOf {
-	fn manager_of(
-		owner: &<Test as frame_system::Config>::AccountId,
-	) -> Result<<Test as frame_system::Config>::AccountId, DispatchError> {
-		Ok(owner.clone())
+impl AccountLookup<<Test as frame_system::Config>::AccountId> for ManagerOf {
+	fn lookup(
+		processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		Some(processor.clone())
 	}
 }
 

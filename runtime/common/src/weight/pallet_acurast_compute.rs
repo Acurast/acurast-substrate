@@ -100,4 +100,8 @@ impl<T: frame_system::Config> pallet_acurast_compute::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+
+	fn update_reward_distribution_settings() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
 }

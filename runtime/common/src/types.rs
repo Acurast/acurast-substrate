@@ -2,25 +2,18 @@ use core::marker::PhantomData;
 
 use crate::utils::{FeePayer, FeePayerProvider, PairingProvider};
 use acurast_p256_crypto::MultiSignature;
-use frame_support::{
-	dispatch::DispatchResult,
-	traits::{
-		fungible::{Balanced, Credit, Debt, Inspect, Mutate},
-		tokens::{
-			imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence,
-		},
-		Imbalance, IsType,
-	},
+use frame_support::traits::{
+	fungible::{Balanced, Credit, Debt, Inspect},
+	tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
+	Imbalance, IsType,
 };
-use pallet_acurast::{
-	utils::ensure_source_verified_and_security_level, AttestationSecurityLevel, CU32,
-};
+use pallet_acurast::CU32;
 use pallet_acurast_marketplace::RegistrationExtra;
-use sp_core::{Get, H256};
+use sp_core::H256;
 use sp_runtime::{
-	traits::{DispatchInfoOf, IdentifyAccount, PostDispatchInfoOf, Saturating, Verify, Zero},
+	traits::{DispatchInfoOf, IdentifyAccount, PostDispatchInfoOf, Verify, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	DispatchError, MultiAddress, Perquintill, SaturatedConversion,
+	MultiAddress, Saturating,
 };
 
 pub use parachains_common::Balance;
@@ -62,95 +55,6 @@ pub type ExtraFor<T> = RegistrationExtra<
 	ProcessorVersionFor<T>,
 	MaxVersionsFor<T>,
 >;
-
-pub struct RewardDistributor<Runtime, Currency>(PhantomData<(Runtime, Currency)>);
-impl<Runtime, Currency> pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>
-	for RewardDistributor<Runtime, Currency>
-where
-	Currency: Mutate<Runtime::AccountId>,
-	<Currency as Inspect<Runtime::AccountId>>::Balance: From<Runtime::Balance>,
-	Runtime: pallet_acurast_processor_manager::Config + pallet_acurast::Config,
-{
-	fn distribute_reward(
-		manager: &Runtime::AccountId,
-		amount: Runtime::Balance,
-		distributor_account: &Runtime::AccountId,
-	) -> DispatchResult {
-		if amount > Runtime::Balance::zero() {
-			Currency::transfer(
-				distributor_account,
-				&manager,
-				amount.saturated_into(),
-				Preservation::Preserve,
-			)?;
-		}
-		Ok(())
-	}
-
-	fn is_elegible_for_reward(processor: &Runtime::AccountId) -> bool {
-		ensure_source_verified_and_security_level::<Runtime>(
-			processor,
-			&[AttestationSecurityLevel::StrongBox, AttestationSecurityLevel::TrustedEnvironemnt],
-		)
-		.is_ok()
-	}
-}
-
-pub struct ComputeRewardDistributor<Runtime, I, Currency>(PhantomData<(Runtime, I, Currency)>);
-
-impl<Runtime, I: 'static, Currency> pallet_acurast_compute::ComputeRewardDistributor<Runtime, I>
-	for ComputeRewardDistributor<Runtime, I, Currency>
-where
-	Currency: Mutate<Runtime::AccountId>,
-	<Currency as Inspect<Runtime::AccountId>>::Balance:
-		IsType<<Runtime as pallet_acurast_processor_manager::Config>::Balance>,
-	<Currency as Inspect<Runtime::AccountId>>::Balance:
-		From<<Runtime as pallet_acurast_compute::Config<I>>::Balance>,
-	<Runtime as pallet_acurast_compute::Config<I>>::Balance: From<u64>,
-	Runtime: pallet_acurast_compute::Config<I>
-		+ pallet_acurast_processor_manager::Config
-		+ pallet_acurast::Config,
-{
-	fn calculate_reward(
-		ratio: Perquintill,
-		_epoch: <Runtime as pallet_acurast_compute::Config<I>>::BlockNumber,
-	) -> Result<<Runtime as pallet_acurast_compute::Config<I>>::Balance, DispatchError> {
-		let distribution_settings = pallet_acurast_processor_manager::Pallet::<Runtime>::processor_reward_distribution_settings().ok_or(DispatchError::Other("No distribution settings present."))?;
-
-		// for backwards compatibility, we calculate the reward per epoch from `reward_per_distribution` and `window_length` in previous reward mechanism
-		// TODO reward_per_distribution from adaptive inflation
-		let r: u128 = distribution_settings.reward_per_distribution.into();
-		Ok(ratio.mul_floor(
-			(r.saturating_mul(<Runtime as pallet_acurast_compute::Config<I>>::Epoch::get().into())
-				/ distribution_settings.window_length.saturated_into::<u128>())
-			.into(),
-		))
-	}
-
-	fn distribute_reward(
-		processor: &Runtime::AccountId,
-		amount: <Runtime as pallet_acurast_compute::Config<I>>::Balance,
-	) -> DispatchResult {
-		let distribution_settings = pallet_acurast_processor_manager::Pallet::<Runtime>::processor_reward_distribution_settings().ok_or(DispatchError::Other("No distribution settings present."))?;
-
-		let manager =
-			pallet_acurast_processor_manager::Pallet::<Runtime>::manager_for_processor(processor)
-				.ok_or(DispatchError::Other("No manager for processor."))?;
-
-		let a: <Currency as Inspect<Runtime::AccountId>>::Balance = amount.into();
-		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::distribute_reward(
-            &manager,
-            a.into(),
-            &distribution_settings.distributor_account,
-        )?;
-
-		Ok(())
-	}
-
-	fn is_elegible_for_reward(processor: &Runtime::AccountId) -> bool {
-		<RewardDistributor::<Runtime, Currency> as pallet_acurast_processor_manager::ProcessorRewardDistributor<Runtime>>::is_elegible_for_reward(processor)
-	}
-}
 
 pub struct LiquidityInfo<
 	Runtime: pallet_transaction_payment::Config,

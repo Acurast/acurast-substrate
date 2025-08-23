@@ -12,7 +12,7 @@ use frame_support::{pallet_prelude::*, sp_runtime::FixedU128, storage::bounded_v
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
-use crate::ParameterBound;
+use crate::{AccountLookup, EnsureAttested, ParameterBound, ProcessorVersionProvider};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SCRIPT_PREFIX: &[u8] = b"ipfs://";
@@ -552,5 +552,28 @@ impl<'de, const T: u32> Deserialize<'de> for CU32<T> {
 		D: serde::Deserializer<'de>,
 	{
 		Ok(CU32::<T>)
+	}
+}
+
+pub struct ElegibleRewardAccountLookup<AccountId, EA, VP, ML>(PhantomData<(AccountId, EA, VP, ML)>);
+impl<
+		AccountId,
+		EA: EnsureAttested<AccountId>,
+		VP: ProcessorVersionProvider<AccountId>,
+		ML: AccountLookup<AccountId>,
+	> AccountLookup<AccountId> for ElegibleRewardAccountLookup<AccountId, EA, VP, ML>
+{
+	fn lookup(processor: &AccountId) -> Option<AccountId> {
+		if !EA::ensure_attested(processor).is_ok() {
+			return None;
+		}
+		let Some(version) = VP::processor_version(processor) else { return None };
+		if VP::min_version_for_reward(version.platform)
+			.map(|min_version| version < min_version)
+			.unwrap_or_default()
+		{
+			return None;
+		}
+		ML::lookup(processor)
 	}
 }

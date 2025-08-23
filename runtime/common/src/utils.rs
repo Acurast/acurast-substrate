@@ -5,10 +5,12 @@ use frame_support::{
 	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_acurast::{
-	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
-	VerifiedBootState,
+	AccountLookup, Attestation, BoundedAttestationContent, BoundedDeviceAttestation,
+	BoundedKeyDescription, VerifiedBootState,
 };
-use pallet_acurast_processor_manager::ProcessorPairingFor;
+use pallet_acurast_processor_manager::{
+	Config as ProcessorManagerConfig, Pallet as ProcessorManager, ProcessorPairingFor,
+};
 use sp_runtime::traits::{CheckedAdd, IdentifyAccount, Verify};
 use sp_std::prelude::*;
 
@@ -99,18 +101,24 @@ pub trait FeePayerProvider<T: frame_system::Config> {
 	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
 }
 
-pub trait PairingProvider<T: pallet_acurast_processor_manager::Config> {
+pub trait PairingProvider<T: ProcessorManagerConfig> {
 	fn pairing_for_call(call: &T::RuntimeCall) -> Option<(&ProcessorPairingFor<T>, bool)>;
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct FeePayer<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>>(
-	PhantomData<(T, P)>,
-);
+pub struct FeePayer<T: ProcessorManagerConfig, P: PairingProvider<T>>(PhantomData<(T, P)>);
 
-impl<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>> FeePayerProvider<T> for FeePayer<T, P> where <T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId> {
-    fn fee_payer(account: &<T as frame_system::Config>::AccountId, call: &<T as frame_system::Config>::RuntimeCall) -> <T as frame_system::Config>::AccountId {
-        let mut manager = pallet_acurast_processor_manager::Pallet::<T>::manager_for_processor(account);
+impl<T: ProcessorManagerConfig, P: PairingProvider<T>> FeePayerProvider<T> for FeePayer<T, P>
+where
+	<T as frame_system::Config>::AccountId: IsType<
+		<<<T as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId,
+	>,
+{
+	fn fee_payer(
+		account: &<T as frame_system::Config>::AccountId,
+		call: &<T as frame_system::Config>::RuntimeCall,
+	) -> <T as frame_system::Config>::AccountId {
+		let mut manager = ProcessorManager::<T>::lookup(account);
 
 		if manager.is_none() {
 			if let Some((pairing, is_multi)) = P::pairing_for_call(call) {
@@ -118,10 +126,7 @@ impl<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>> FeePaye
 					let is_valid = if is_multi {
 						pairing.multi_validate_signature::<T>(&pairing.account)
 					} else {
-						let counter =
-							pallet_acurast_processor_manager::Pallet::<T>::counter_for_manager(
-								&pairing.account,
-							)
+						let counter = ProcessorManager::<T>::counter_for_manager(&pairing.account)
 							.unwrap_or(0u8.into())
 							.checked_add(&1u8.into());
 						if let Some(counter) = counter {
@@ -138,5 +143,5 @@ impl<T: pallet_acurast_processor_manager::Config, P: PairingProvider<T>> FeePaye
 		}
 
 		manager.unwrap_or(account.clone())
-    }
+	}
 }

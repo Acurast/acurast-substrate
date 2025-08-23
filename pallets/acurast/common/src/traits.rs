@@ -1,10 +1,10 @@
 use frame_support::{
 	sp_runtime::{DispatchError, DispatchResult},
-	traits::Get,
+	traits::{Get, IsType},
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::MetricInput;
+use crate::{MetricInput, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -29,17 +29,26 @@ pub trait ComputeHooks<AccountId, Balance> {
 	/// # Errors
 	///
 	/// **Unknown pools are silently skipped.**
-	fn commit(
-		processor: &AccountId,
-		metrics: impl IntoIterator<Item = MetricInput>,
-	) -> Option<Balance>;
+	fn commit(processor: &AccountId, metrics: &[MetricInput]) -> Option<Balance>
+	where
+		Balance: IsType<u128>;
 }
 
 impl<AccountId, Balance> ComputeHooks<AccountId, Balance> for () {
-	fn commit(
-		_processor: &AccountId,
-		_metrics: impl IntoIterator<Item = MetricInput>,
-	) -> Option<Balance> {
+	fn commit(_processor: &AccountId, _metrics: &[MetricInput]) -> Option<Balance> {
 		None
 	}
+}
+
+pub trait ProcessorVersionProvider<AccountId> {
+	fn processor_version(processor: &AccountId) -> Option<Version>;
+	fn min_version_for_reward(platform: u32) -> Option<Version>;
+}
+
+pub trait EnsureAttested<AccountId> {
+	fn ensure_attested(processor: &AccountId) -> DispatchResult;
+}
+
+pub trait AccountLookup<AccountId> {
+	fn lookup(processor: &AccountId) -> Option<AccountId>;
 }

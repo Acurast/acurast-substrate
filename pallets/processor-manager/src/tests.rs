@@ -574,6 +574,12 @@ fn test_reward_distribution_success() {
 			Some(reward_distribution_settings.clone())
 		));
 
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			alice_account_id(),
+			u128::MAX
+		));
+
 		assert_ok!(AcurastProcessorManager::update_min_processor_version_for_reward(
 			RuntimeOrigin::root(),
 			Version { platform: 0, build_number: 1 }

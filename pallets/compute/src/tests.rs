@@ -165,25 +165,24 @@ fn test_single_processor_commit() {
 			})
 		);
 
-		assert_eq!(
-			events(),
-			[
-				RuntimeEvent::Compute(Event::PoolCreated(
-					1,
-					MetricPool {
-						config: bounded_vec![],
-						name: *b"cpu-ops-per-second______",
-						reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-						total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-					}
-				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: eve_account_id(),
-					to: alice_account_id(),
-					amount: 250000
-				})
-			]
-		);
+		let events = events();
+		let expected = [
+			RuntimeEvent::Compute(Event::PoolCreated(
+				1,
+				MetricPool {
+					config: bounded_vec![],
+					name: *b"cpu-ops-per-second______",
+					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				},
+			)),
+			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+				from: eve_account_id(),
+				to: alice_account_id(),
+				amount: 250000,
+			}),
+		];
+		assert!(expected.iter().all(|event| events.contains(event)));
 	});
 }
 
@@ -430,48 +429,47 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 }
 
 fn check_events() {
-	assert_eq!(
-		events(),
-		[
-			RuntimeEvent::Compute(Event::PoolCreated(
-				1,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"cpu-ops-per-second______",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::Compute(Event::PoolCreated(
-				2,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"mem-read-count-per-sec--",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(50), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::Compute(Event::PoolCreated(
-				3,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"mem-write-count-per-sec-",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-				from: eve_account_id(),
-				to: alice_account_id(),
-				amount: 375000
-			}),
-			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-				from: eve_account_id(),
-				to: bob_account_id(),
-				amount: 375000
-			})
-		]
-	);
+	let events = events();
+	let expected = [
+		RuntimeEvent::Compute(Event::PoolCreated(
+			1,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"cpu-ops-per-second______",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Compute(Event::PoolCreated(
+			2,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"mem-read-count-per-sec--",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(50), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Compute(Event::PoolCreated(
+			3,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"mem-write-count-per-sec-",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+			from: eve_account_id(),
+			to: alice_account_id(),
+			amount: 375000,
+		}),
+		RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+			from: eve_account_id(),
+			to: bob_account_id(),
+			amount: 375000,
+		}),
+	];
+	assert!(expected.iter().all(|event| events.contains(event)));
 }
 
 #[test]

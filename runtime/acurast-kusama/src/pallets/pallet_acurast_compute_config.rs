@@ -16,7 +16,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type EpochBase = EpochBase;
 	type Epoch = Epoch;
-	type MetricEpochValidity = MetricEpochValidity;
+	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<

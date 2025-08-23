@@ -46,7 +46,7 @@ pub mod pallet {
 	use sp_std::cmp::max;
 	use sp_std::prelude::*;
 
-	use crate::{datastructures::ProvisionalBuffer, *};
+	use crate::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -69,7 +69,7 @@ pub mod pallet {
 		type EpochBase: Get<EpochOf<Self>>;
 		/// How many epochs a metric is valid for.
 		#[pallet::constant]
-		type MetricEpochValidity: Get<EpochOf<Self>>;
+		type MetricValidity: Get<EpochOf<Self>>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
@@ -452,16 +452,15 @@ pub mod pallet {
 				// reuse existing metrics if valid
 				let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
 				for (pool_id, metric) in Metrics::<T, I>::iter_prefix(&processor) {
-					if epoch > metric.epoch && epoch - metric.epoch < T::MetricEpochValidity::get()
-					{
+					if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
 						to_update.push((pool_id, metric));
 					}
 				}
-				for (pool_id, metric) in to_update {
+				for (pool_id, commit) in to_update {
 					Metrics::<T, I>::insert(
 						processor,
 						pool_id,
-						MetricCommit { epoch, metric: metric.metric },
+						MetricCommit { epoch, metric: commit.metric },
 					);
 				}
 			} else {

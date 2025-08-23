@@ -209,7 +209,7 @@ impl pallet_acurast_compute::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Epoch = Epoch;
 	type EpochBase = EpochBase;
-	type MetricEpochValidity = MetricEpochValidity;
+	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;

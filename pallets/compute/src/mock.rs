@@ -125,7 +125,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type EpochBase = EpochBase;
 	type Epoch = Epoch;
-	type MetricEpochValidity = MetricEpochValidity;
+	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;

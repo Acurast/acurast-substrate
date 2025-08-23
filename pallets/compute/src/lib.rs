@@ -324,9 +324,7 @@ pub mod pallet {
 			let mut total_reward_ratio: Perquintill = Zero::zero();
 			for pool_id in pool_ids {
 				// we allow partial metrics committed (for backwards compatibility)
-				let commit = if let Some(c) = Metrics::<T, I>::get(processor, pool_id) {
-					c
-				} else {
+				let Some(commit) = Metrics::<T, I>::get(processor, pool_id) else {
 					continue;
 				};
 
@@ -393,21 +391,19 @@ pub mod pallet {
 		}
 
 		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T>> {
+			let Some(p) = Processors::<T, I>::get(processor) else {
+				return None;
+			};
 			let current_block = <frame_system::Pallet<T>>::block_number();
+			let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-			if let Some(p) = Processors::<T, I>::get(processor) {
-				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
-
-				(p.committed.saturating_add(One::one()) == epoch
-					&& p.claimed < p.committed
-					&& match p.status {
-						ProcessorStatus::WarmupUntil(b) => b <= current_block,
-						ProcessorStatus::Active => true,
-					})
-				.then_some(p.committed)
-			} else {
-				None
-			}
+			(p.committed.saturating_add(One::one()) == epoch
+				&& p.claimed < p.committed
+				&& match p.status {
+					ProcessorStatus::WarmupUntil(b) => b <= current_block,
+					ProcessorStatus::Active => true,
+				})
+			.then_some(p.committed)
 		}
 
 		/// Helper to only commit compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.

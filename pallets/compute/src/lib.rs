@@ -417,22 +417,18 @@ pub mod pallet {
 		/// See [`Self::commit`] for how this is used to commit metrics and claim for past commits.
 		pub(crate) fn do_commit(processor: &T::AccountId, metrics: &[MetricInput]) {
 			let current_block = <frame_system::Pallet<T>>::block_number();
+			// The global epoch number
+			let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-			let (epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
-				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(||
+			let active = Processors::<T, I>::mutate(processor, |p_| {
+				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(|| {
 					// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
-					ProcessorState {
-                        // currently unused, see comment why we initialize this anyways
-						epoch_offset: current_block.saturating_sub(T::EpochBase::get())
-							% T::Epoch::get(),
-						committed: Zero::zero(),
-						claimed: Zero::zero(),
-						status: ProcessorStatus::WarmupUntil(
-                            current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get()),
-						),
-                        accrued: Zero::zero(),
-                        paid: Zero::zero(),
-					});
+					let epoch_offset =
+						current_block.saturating_sub(T::EpochBase::get()) % T::Epoch::get();
+					let warmup_end =
+						current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get());
+					ProcessorState::initial(epoch_offset, warmup_end)
+				});
 
 				// check if warmup passed and updated status if so
 				if let ProcessorStatus::WarmupUntil(b) = p.status {
@@ -441,49 +437,67 @@ pub mod pallet {
 					}
 				}
 
-				// The global epoch number
-				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
-
 				p.committed = epoch;
-				(epoch, matches!(p.status, ProcessorStatus::Active))
+				matches!(p.status, ProcessorStatus::Active)
 			});
 
-			if metrics.is_empty() {
-				// reuse existing metrics if valid
-				let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
-				for (pool_id, metric) in Metrics::<T, I>::iter_prefix(&processor) {
-					if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
-						to_update.push((pool_id, metric));
-					}
-				}
-				for (pool_id, commit) in to_update {
-					Metrics::<T, I>::insert(
-						processor,
-						pool_id,
-						MetricCommit { epoch, metric: commit.metric },
-					);
-				}
+			if !metrics.is_empty() {
+				Self::commit_new_metrics(processor, metrics, active, epoch);
 			} else {
-				for (pool_id, numerator, denominator) in metrics {
-					let metric = FixedU128::from_rational(
-						*numerator,
-						if denominator.is_zero() { One::one() } else { *denominator },
-					);
-					let before = Metrics::<T, I>::get(processor, pool_id);
-					// first value committed for `epoch` wins
-					if before.map(|m| m.epoch < epoch).unwrap_or(true) {
-						// insert even if not active for tracability before warmup ended
-						Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
+				Self::reuse_metrics(processor, active, epoch);
+			}
+		}
 
-						if active {
-							// sum totals
-							<MetricPools<T, I>>::mutate(pool_id, |pool| {
-								if let Some(pool) = pool.as_mut() {
-									pool.add(epoch, metric);
-								}
-							});
-						}
+		fn commit_new_metrics(
+			processor: &T::AccountId,
+			metrics: &[MetricInput],
+			active: bool,
+			epoch: EpochOf<T>,
+		) {
+			for (pool_id, numerator, denominator) in metrics {
+				let metric = FixedU128::from_rational(
+					*numerator,
+					if denominator.is_zero() { One::one() } else { *denominator },
+				);
+				let before = Metrics::<T, I>::get(processor, pool_id);
+				// first value committed for `epoch` wins
+				if before.map(|m| m.epoch < epoch).unwrap_or(true) {
+					// insert even if not active for tracability before warmup ended
+					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
+
+					if active {
+						// sum totals
+						<MetricPools<T, I>>::mutate(pool_id, |pool| {
+							if let Some(pool) = pool.as_mut() {
+								pool.add(epoch, metric);
+							}
+						});
 					}
+				}
+			}
+		}
+
+		fn reuse_metrics(processor: &T::AccountId, active: bool, epoch: EpochOf<T>) {
+			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
+			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(&processor) {
+				if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
+					to_update.push((pool_id, metric));
+				}
+			}
+			for (pool_id, commit) in to_update {
+				Metrics::<T, I>::insert(
+					processor,
+					pool_id,
+					MetricCommit { epoch, metric: commit.metric },
+				);
+
+				if active {
+					// sum totals
+					<MetricPools<T, I>>::mutate(pool_id, |pool| {
+						if let Some(pool) = pool.as_mut() {
+							pool.add(epoch, commit.metric);
+						}
+					});
 				}
 			}
 		}

@@ -3,7 +3,7 @@ use core::ops::Add;
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
-	traits::{Debug, One, Saturating},
+	traits::{Debug, One, Saturating, Zero},
 	FixedU128, Perquintill,
 };
 
@@ -153,6 +153,25 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	pub accrued: Balance,
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
 	pub paid: Balance,
+}
+
+impl<BlockNumber: Debug, Epoch: Debug, Balance: Debug> ProcessorState<BlockNumber, Epoch, Balance>
+where
+	BlockNumber: Zero,
+	Balance: Zero,
+	Epoch: Zero,
+{
+	pub fn initial(epoch_offset: BlockNumber, warmup_end: BlockNumber) -> Self {
+		Self {
+			// currently unused, see comment why we initialize this anyways
+			epoch_offset,
+			committed: Zero::zero(),
+			claimed: Zero::zero(),
+			status: ProcessorStatus::WarmupUntil(warmup_end),
+			accrued: Zero::zero(),
+			paid: Zero::zero(),
+		}
+	}
 }
 
 #[derive(

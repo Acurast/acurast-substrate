@@ -7,7 +7,7 @@ use crate::{Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent};
 
 parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
-	pub const Epoch: BlockNumber = 60; // 1.5 hours
+	pub const Epoch: BlockNumber = 900; // 1.5 hours
 	pub const MetricEpochValidity: BlockNumber = 240; // 1.5 hours
 	pub const WarmupPeriod: BlockNumber = 10; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 }

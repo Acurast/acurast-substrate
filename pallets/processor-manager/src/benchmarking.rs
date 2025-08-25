@@ -51,6 +51,7 @@ benchmarks! {
 		T: Config + pallet_timestamp::Config,
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32>,
+		BalanceFor<T>: IsType<u128>,
 		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 	}
 
@@ -115,7 +116,7 @@ benchmarks! {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
-		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+		let distribution_settings = RewardDistributionSettings::<BalanceFor<T>, T::AccountId> {
 			window_length: 1,
 			tollerance: 1000,
 			min_heartbeats: 1,
@@ -143,7 +144,7 @@ benchmarks! {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
-		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+		let distribution_settings = RewardDistributionSettings::<BalanceFor<T>, T::AccountId> {
 			window_length: 900,
 			tollerance: 1000,
 			min_heartbeats: 1,
@@ -221,7 +222,7 @@ benchmarks! {
 	update_reward_distribution_settings {
 		set_timestamp::<T>(1000);
 		let settings = RewardDistributionSettings::<
-			<T as crate::Config>::Balance,
+			BalanceFor<T>,
 			<T as frame_system::Config>::AccountId,
 		> {
 					window_length: 300,

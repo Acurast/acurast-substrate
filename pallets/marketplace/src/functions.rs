@@ -1,6 +1,6 @@
 use frame_support::{ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError};
 use pallet_acurast::{
-	utils::ensure_source_verified, JobId, JobRegistrationFor, StoredJobRegistration,
+	utils::ensure_source_verified, AccountLookup, JobId, JobRegistrationFor, StoredJobRegistration,
 };
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
@@ -8,9 +8,9 @@ use sp_std::prelude::*;
 
 use crate::{
 	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Config, Error,
-	ExecutionSpecifier, JobRequirementsFor, ManagerProvider, NextReportIndex, Pallet,
-	RewardManager, StorageTracker, StoredAdvertisementPricing, StoredAdvertisementRestriction,
-	StoredAverageRewardV3, StoredMatches, StoredReputation, StoredStorageCapacity,
+	ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager, StorageTracker,
+	StoredAdvertisementPricing, StoredAdvertisementRestriction, StoredAverageRewardV3,
+	StoredMatches, StoredReputation, StoredStorageCapacity,
 };
 
 impl<T: Config> Pallet<T> {
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
 			)?;
 
 		// the manager might have unpaired the processor in which case reward payment is skipped
-		if let Ok(manager) = T::ManagerProvider::manager_of(processor) {
+		if let Some(manager) = T::ManagerProvider::lookup(processor) {
 			T::RewardManager::pay_reward(job_id, assignment.fee_per_execution, &manager)?;
 		}
 

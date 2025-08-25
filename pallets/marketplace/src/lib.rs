@@ -52,8 +52,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use pallet_acurast::{
-		JobId, JobIdSequence, JobRegistrationFor, Metrics, MultiOrigin, ParameterBound, Script,
-		ScriptMutability, StoredJobRegistration,
+		AccountLookup, JobId, JobIdSequence, JobRegistrationFor, Metrics, MultiOrigin,
+		ParameterBound, Script, ScriptMutability, StoredJobRegistration,
 	};
 
 	use crate::{traits::*, types::*, JobBudget, RewardManager};
@@ -101,7 +101,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
-		type ManagerProvider: ManagerProvider<Self>;
+		type ManagerProvider: AccountLookup<Self::AccountId>;
 		type ProcessorInfoProvider: ProcessorInfoProvider<Self>;
 		/// Logic for locking and paying tokens for job execution
 		type RewardManager: RewardManager<Self>;

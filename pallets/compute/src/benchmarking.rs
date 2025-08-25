@@ -2,7 +2,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::IsType};
 use sp_runtime::Perquintill;
 
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -11,8 +11,7 @@ use sp_core::crypto::AccountId32;
 use sp_core::*;
 use sp_std::prelude::*;
 
-use crate::types::*;
-use crate::Pallet as Compute;
+use crate::{stub::alice_account_id, types::*, Pallet as Compute};
 
 use super::*;
 
@@ -28,7 +27,8 @@ benchmarks_instance_pallet! {
 	where_clause {
 		where
 		T: Config<I> + pallet_timestamp::Config,
-		<T as Config<I>>::BlockNumber: From<u32>,
+		BlockNumberFor<T>: From<u32>,
+		BalanceFor<T, I>: IsType<u128>,
 		T::AccountId: From<AccountId32>,
 	}
 
@@ -135,6 +135,15 @@ benchmarks_instance_pallet! {
 		);
 	}:  {
 		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), Some(new_config)));
+	}
+
+	update_reward_distribution_settings {
+		let settings = RewardDistributionSettingsFor::<T, I> {
+			total_reward_per_distribution: 1000u128.into(),
+			distribution_account: alice_account_id().into(),
+		};
+	}: {
+		assert_ok!(Compute::<T, I>::update_reward_distribution_settings(RawOrigin::Root.into(), settings));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);

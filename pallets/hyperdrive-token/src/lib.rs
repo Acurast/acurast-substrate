@@ -384,7 +384,7 @@ pub mod pallet {
 			}
 
 			let action =
-				Action::TransferToken(amount.into(), None, transfer_nonce as u32, dest.clone());
+				Action::TransferToken(amount.into(), None, transfer_nonce as u64, dest.clone());
 			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
 
 			let _message = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(

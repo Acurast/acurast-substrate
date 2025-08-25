@@ -32,8 +32,8 @@ pub fn migrate_to_v1<T: Config<I>, I: 'static>() -> Weight {
 	weight = weight.saturating_add(
 		T::DbWeight::get().reads(<MetricPools<T, I>>::iter_values().count() as u64),
 	);
-	<MetricPools<T, I>>::translate_values::<v0::MetricPoolFor<T, I>, _>(|old| {
-		Some(MetricPoolFor::<T, I> {
+	<MetricPools<T, I>>::translate_values::<v0::MetricPoolFor<T>, _>(|old| {
+		Some(MetricPoolFor::<T> {
 			config: Default::default(),
 			name: old.name,
 			reward: old.reward,
@@ -66,5 +66,5 @@ pub mod v0 {
 		pub total: SlidingBuffer<Epoch, FixedU128>,
 	}
 
-	pub type MetricPoolFor<T, I> = MetricPool<EpochOf<T, I>, Perquintill>;
+	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 }

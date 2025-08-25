@@ -1,22 +1,16 @@
-use acurast_common::{ManagerIdProvider, Version};
+use acurast_common::{AccountLookup, ManagerIdProvider, ProcessorVersionProvider, Version};
 use frame_support::{
-	pallet_prelude::DispatchResult,
+	pallet_prelude::{DispatchResult, Zero},
 	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
+	traits::{Currency, ExistenceRequirement},
 };
 
 use crate::{
-	Config, Error, LastManagerId, ManagedProcessors, Pallet, ProcessorRewardDistributionWindow,
-	ProcessorRewardDistributor, ProcessorToManagerIdIndex, RewardDistributionWindow,
+	BalanceFor, Config, Error, LastManagerId, ManagedProcessors, Pallet,
+	ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex, RewardDistributionWindow,
 };
 
 impl<T: Config> Pallet<T> {
-	/// Returns the manager account id (if any) for the given processor account.
-	pub fn manager_for_processor(processor_account: &T::AccountId) -> Option<T::AccountId> {
-		let id = Self::manager_id_for_processor(processor_account)?;
-		<T::ManagerIdProvider>::owner_for(id).ok()
-	}
-
-	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,
@@ -66,70 +60,55 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn is_elegible_for_reward(processor: &T::AccountId, version: &Version) -> bool {
-		if !T::ProcessorRewardDistributor::is_elegible_for_reward(processor) {
-			return false;
+	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<BalanceFor<T>> {
+		let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
+			<ProcessorRewardDistributionWindow<T>>::remove(processor);
+			return None;
+		};
+		if distribution_settings.reward_per_distribution.is_zero() {
+			<ProcessorRewardDistributionWindow<T>>::remove(processor);
+			return None;
+		}
+		let Some(manager) = T::EligibleRewardAccountLookup::lookup(processor) else {
+			<ProcessorRewardDistributionWindow<T>>::remove(processor);
+			return None;
+		};
+		let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
+		let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
+		else {
+			<ProcessorRewardDistributionWindow<T>>::insert(
+				processor,
+				RewardDistributionWindow::new(current_block_number, &distribution_settings),
+			);
+			return None;
+		};
+
+		let progress = current_block_number.saturating_sub(distribution_window.start);
+		if progress < distribution_window.window_length {
+			<ProcessorRewardDistributionWindow<T>>::insert(processor, distribution_window.next());
+			return None;
 		}
 
-		if let Some(min_req_version) = Self::processor_min_version_for_reward(version.platform) {
-			if version.build_number < min_req_version {
-				return false;
+		let mut distributed_amount: Option<BalanceFor<T>> = None;
+		let buffer = progress.saturating_sub(distribution_window.window_length);
+		if buffer <= distribution_window.tollerance
+			&& (distribution_window.heartbeats + 1) >= distribution_window.min_heartbeats
+		{
+			let result = T::Currency::transfer(
+				&distribution_settings.distributor_account,
+				&manager,
+				distribution_settings.reward_per_distribution,
+				ExistenceRequirement::KeepAlive,
+			);
+			if result.is_ok() {
+				distributed_amount = Some(distribution_settings.reward_per_distribution)
 			}
 		}
-
-		return true;
-	}
-
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<T::Balance> {
-		if let Some(distribution_settings) = Self::processor_reward_distribution_settings() {
-			if let Some(manager) = Self::manager_for_processor(processor) {
-				let current_block_number: u32 =
-					<frame_system::Pallet<T>>::block_number().saturated_into();
-
-				if let Some(distribution_window) =
-					Self::processor_reward_distribution_window(processor)
-				{
-					let progress = current_block_number.saturating_sub(distribution_window.start);
-					if progress >= distribution_window.window_length {
-						let mut distributed_amount: Option<T::Balance> = None;
-						let buffer = progress.saturating_sub(distribution_window.window_length);
-						if buffer <= distribution_window.tollerance
-							&& (distribution_window.heartbeats + 1)
-								>= distribution_window.min_heartbeats
-						{
-							let result = T::ProcessorRewardDistributor::distribute_reward(
-								&manager,
-								distribution_settings.reward_per_distribution,
-								&distribution_settings.distributor_account,
-							);
-							if result.is_ok() {
-								distributed_amount =
-									Some(distribution_settings.reward_per_distribution)
-							}
-						}
-						<ProcessorRewardDistributionWindow<T>>::insert(
-							processor,
-							RewardDistributionWindow::new(
-								current_block_number,
-								&distribution_settings,
-							),
-						);
-						return distributed_amount;
-					} else {
-						<ProcessorRewardDistributionWindow<T>>::insert(
-							processor,
-							distribution_window.next(),
-						);
-					}
-				} else {
-					<ProcessorRewardDistributionWindow<T>>::insert(
-						processor,
-						RewardDistributionWindow::new(current_block_number, &distribution_settings),
-					);
-				}
-			}
-		}
-		None
+		<ProcessorRewardDistributionWindow<T>>::insert(
+			processor,
+			RewardDistributionWindow::new(current_block_number, &distribution_settings),
+		);
+		return distributed_amount;
 	}
 
 	pub fn ensure_managed(
@@ -146,5 +125,23 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(processor_manager_id)
+	}
+}
+
+impl<T: Config> ProcessorVersionProvider<T::AccountId> for Pallet<T> {
+	fn processor_version(processor: &T::AccountId) -> Option<Version> {
+		Self::processor_version(processor)
+	}
+
+	fn min_version_for_reward(platform: u32) -> Option<Version> {
+		let build_number = Self::processor_min_version_for_reward(platform);
+		build_number.map(|build_number| Version { platform, build_number })
+	}
+}
+
+impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
+	fn lookup(processor: &T::AccountId) -> Option<T::AccountId> {
+		let manager_id = Self::manager_id_for_processor(processor)?;
+		T::ManagerIdProvider::owner_for(manager_id).ok()
 	}
 }

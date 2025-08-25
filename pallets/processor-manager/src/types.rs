@@ -3,7 +3,7 @@ use core::fmt::Debug;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::{IdentifyAccount, MaybeDisplay, Verify},
-	traits::{IsType, UnixTime},
+	traits::{Currency, IsType, UnixTime},
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -234,3 +234,16 @@ impl RuntimeApiError {
 		self
 	}
 }
+
+pub type ProcessorPairingFor<T> =
+	ProcessorPairing<<T as frame_system::Config>::AccountId, <T as Config>::Proof>;
+pub type ProcessorPairingUpdateFor<T> =
+	ProcessorPairingUpdate<<T as frame_system::Config>::AccountId, <T as Config>::Proof>;
+
+pub type ProcessorUpdatesFor<T> =
+	BoundedVec<ProcessorPairingUpdateFor<T>, <T as Config>::MaxPairingUpdates>;
+pub type ProcessorList<T> =
+	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxProcessorsInSetUpdateInfo>;
+
+pub type BalanceFor<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

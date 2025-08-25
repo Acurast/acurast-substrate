@@ -1,11 +1,6 @@
 use crate::{Config, Error, PartialJobRegistrationForMarketplace};
-use frame_support::{pallet_prelude::DispatchError, sp_runtime::FixedU128, weights::Weight};
+use frame_support::{sp_runtime::FixedU128, weights::Weight};
 use pallet_acurast::{JobRegistrationFor, PoolId};
-
-/// Trait used to lookup the manager of a given processor account.
-pub trait ManagerProvider<T: frame_system::Config> {
-	fn manager_of(owner: &T::AccountId) -> Result<T::AccountId, DispatchError>;
-}
 
 /// Trait used to lookup the time a processor was last seen, i.e. sent a heartbeat.
 pub trait ProcessorInfoProvider<T: frame_system::Config + crate::Config> {

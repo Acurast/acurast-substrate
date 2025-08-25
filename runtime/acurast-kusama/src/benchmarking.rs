@@ -71,7 +71,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
 		AcurastCompute::commit(
 			&processor,
-			vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
 		);
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {

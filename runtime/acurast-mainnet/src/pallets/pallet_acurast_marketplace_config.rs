@@ -1,14 +1,15 @@
+use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
+use sp_core::{ConstU32, ConstU64};
+use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
+use sp_std::prelude::*;
+
 use acurast_runtime_common::{
 	types::{AccountId, Balance, ExtraFor},
 	weight,
 };
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
 use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
-use sp_core::{ConstU32, ConstU64};
-use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
-use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
@@ -37,7 +38,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type Balance = Balance;
 	type RewardManager =
 		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
-	type ManagerProvider = ManagerProvider;
+	type ManagerProvider = AcurastProcessorManager;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
@@ -62,18 +63,6 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 
 	fn pallet_id() -> PalletId {
 		FeeManagerPalletId::get()
-	}
-}
-
-pub struct ManagerProvider;
-impl pallet_acurast_marketplace::traits::ManagerProvider<Runtime> for ManagerProvider {
-	fn manager_of(
-		processor: &<Runtime as frame_system::Config>::AccountId,
-	) -> Result<<Runtime as frame_system::Config>::AccountId, DispatchError> {
-		match AcurastProcessorManager::manager_for_processor(processor) {
-			Some(manager) => Ok(manager),
-			None => Err(DispatchError::Other("Processor without manager.")),
-		}
 	}
 }
 

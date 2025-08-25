@@ -42,6 +42,7 @@ args = [
 	"--pruning=archive",
 	"--database=rocksdb",
 	"--max-runtime-instances=32",
+	"--rpc-max-connections=1000",
 ]
 
 [[parachains.collators]]

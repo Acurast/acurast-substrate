@@ -7,7 +7,7 @@ use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
 use acurast_runtime_common::{types::Signature, weight};
-use pallet_acurast::ElegibleRewardAccountLookup;
+use pallet_acurast::{AccountLookup, ElegibleRewardAccountLookup};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
@@ -31,15 +31,19 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type Currency = Balances;
-	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
-		Self::AccountId,
-		Acurast,
-		AcurastProcessorManager,
-		AcurastProcessorManager,
-	>;
+	type EligibleRewardAccountLookup = SimAccountLookup;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
+}
+
+pub struct SimAccountLookup;
+impl AccountLookup<<Runtime as frame_system::Config>::AccountId> for SimAccountLookup {
+	fn lookup(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) -> Option<<Runtime as frame_system::Config>::AccountId> {
+		Some(processor.clone())
+	}
 }
 
 pub struct AdvertisementHandlerImpl;

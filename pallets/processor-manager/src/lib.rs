@@ -552,7 +552,7 @@ pub mod pallet {
 			metrics: Metrics,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
+			//_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
 			let now = T::UnixTime::now().as_millis();
 

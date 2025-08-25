@@ -1,7 +1,7 @@
 use frame_support::parameter_types;
 
 use acurast_runtime_common::{types::BlockNumber, weight};
-use pallet_acurast::ElegibleRewardAccountLookup;
+use pallet_acurast::{AccountLookup, ElegibleRewardAccountLookup};
 
 use crate::{Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent};
 
@@ -19,11 +19,15 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
-	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
-		Self::AccountId,
-		Acurast,
-		AcurastProcessorManager,
-		AcurastProcessorManager,
-	>;
+	type EligibleRewardAccountLookup = SimAccountLookup;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
+}
+
+pub struct SimAccountLookup;
+impl AccountLookup<<Runtime as frame_system::Config>::AccountId> for SimAccountLookup {
+	fn lookup(
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) -> Option<<Runtime as frame_system::Config>::AccountId> {
+		Some(processor.clone())
+	}
 }

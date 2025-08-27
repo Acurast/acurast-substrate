@@ -8,7 +8,11 @@ pub use bounded_attestation::*;
 
 pub use account20::*;
 
-use frame_support::{pallet_prelude::*, sp_runtime::FixedU128, storage::bounded_vec::BoundedVec};
+use frame_support::{
+	pallet_prelude::*,
+	sp_runtime::{FixedPointNumber as _, FixedU128},
+	storage::bounded_vec::BoundedVec,
+};
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
@@ -501,14 +505,16 @@ pub struct MinMetric {
 	pub value: FixedU128,
 }
 
-impl From<MetricInput> for MinMetric {
-	fn from(value: MetricInput) -> Self {
+impl MinMetric {
+	pub fn checked_from(value: MetricInput) -> Option<Self> {
 		let (pool_id, numerator, denominator) = value;
-		let metric = FixedU128::from_rational(
+		let Some(metric) = FixedU128::checked_from_rational(
 			numerator,
 			if denominator.is_zero() { One::one() } else { denominator },
-		);
-		Self { pool_id, value: metric }
+		) else {
+			return None;
+		};
+		Some(Self { pool_id, value: metric })
 	}
 }
 

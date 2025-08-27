@@ -41,7 +41,7 @@ pub mod pallet {
 	};
 	use sp_runtime::{
 		traits::{One, Saturating, Zero},
-		FixedU128, Perquintill,
+		FixedPointNumber as _, FixedU128, Perquintill,
 	};
 	use sp_std::cmp::max;
 	use sp_std::prelude::*;
@@ -267,10 +267,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
 		pub fn update_reward_distribution_settings(
 			origin: OriginFor<T>,
-			settings: RewardDistributionSettingsFor<T, I>,
+			settings: Option<RewardDistributionSettingsFor<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			RewardDistributionSettings::<T, I>::put(settings);
+			RewardDistributionSettings::<T, I>::set(settings);
 			Ok(().into())
 		}
 	}
@@ -451,10 +451,12 @@ pub mod pallet {
 			epoch: EpochOf<T>,
 		) {
 			for (pool_id, numerator, denominator) in metrics {
-				let metric = FixedU128::from_rational(
+				let Some(metric) = FixedU128::checked_from_rational(
 					*numerator,
 					if denominator.is_zero() { One::one() } else { *denominator },
-				);
+				) else {
+					continue;
+				};
 				let before = Metrics::<T, I>::get(processor, pool_id);
 				// first value committed for `epoch` wins
 				if before.map(|m| m.epoch < epoch).unwrap_or(true) {

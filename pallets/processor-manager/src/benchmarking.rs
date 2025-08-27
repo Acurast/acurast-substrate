@@ -22,6 +22,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn funded_account(index: u32) -> T::AccountId;
 	fn attest_account(account: &T::AccountId);
 	fn create_compute_pool() -> PoolId;
+	fn setup_compute_settings();
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -165,6 +166,7 @@ benchmarks! {
 		};
 
 		let mut values = Vec::<MetricInput>::new();
+		T::BenchmarkHelper::setup_compute_settings();
 		for i in 0..x {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, i.into(), i.into()));

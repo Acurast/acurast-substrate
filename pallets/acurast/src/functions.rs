@@ -51,8 +51,9 @@ impl<T: Config> Pallet<T> {
 		if let Some(metrics) = min_metrics {
 			let metrics: MinMetrics = metrics
 				.into_iter()
-				.map(MinMetric::from)
-				.collect::<Vec<_>>()
+				.map(MinMetric::checked_from)
+				.filter_map(|metric| metric)
+				.collect::<Vec<MinMetric>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyMinMetrics)?;
 			<RequiredMinMetrics<T>>::insert(&job_id, metrics);

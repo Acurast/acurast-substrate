@@ -76,7 +76,7 @@ parameter_types! {
 	pub HyperdriveTokenPalletAccount: AccountId = PalletId(*b"hyptoken").into_account_truncating();
 	pub HyperdriveTokenEthereumVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
 	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
-	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
+	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptvsol").into_account_truncating();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub OutgoingTransferTTL: BlockNumber = 15;
 }

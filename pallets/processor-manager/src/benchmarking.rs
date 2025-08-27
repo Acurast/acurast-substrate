@@ -22,6 +22,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn funded_account(index: u32) -> T::AccountId;
 	fn attest_account(account: &T::AccountId);
 	fn create_compute_pool() -> PoolId;
+	fn setup_compute_settings();
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -51,6 +52,7 @@ benchmarks! {
 		T: Config + pallet_timestamp::Config,
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32>,
+		BalanceFor<T>: IsType<u128>,
 		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 	}
 
@@ -115,7 +117,7 @@ benchmarks! {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
-		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+		let distribution_settings = RewardDistributionSettings::<BalanceFor<T>, T::AccountId> {
 			window_length: 1,
 			tollerance: 1000,
 			min_heartbeats: 1,
@@ -143,7 +145,7 @@ benchmarks! {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
-		let distribution_settings = RewardDistributionSettings::<T::Balance, T::AccountId> {
+		let distribution_settings = RewardDistributionSettings::<BalanceFor<T>, T::AccountId> {
 			window_length: 900,
 			tollerance: 1000,
 			min_heartbeats: 1,
@@ -164,6 +166,7 @@ benchmarks! {
 		};
 
 		let mut values = Vec::<MetricInput>::new();
+		T::BenchmarkHelper::setup_compute_settings();
 		for i in 0..x {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, i.into(), i.into()));
@@ -221,7 +224,7 @@ benchmarks! {
 	update_reward_distribution_settings {
 		set_timestamp::<T>(1000);
 		let settings = RewardDistributionSettings::<
-			<T as crate::Config>::Balance,
+			BalanceFor<T>,
 			<T as frame_system::Config>::AccountId,
 		> {
 					window_length: 300,

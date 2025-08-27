@@ -1,30 +1,29 @@
-use acurast_runtime_common::{
-	types::{Balance, BlockNumber, ComputeRewardDistributor},
-	weight,
-};
-
 use frame_support::parameter_types;
 
-use crate::{Balances, Runtime, RuntimeEvent};
+use acurast_runtime_common::{types::BlockNumber, weight};
+use pallet_acurast::ElegibleRewardAccountLookup;
 
-use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
+use crate::{Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent};
 
 parameter_types! {
 	pub const EpochBase: BlockNumber = 0;
-	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
+	pub const Epoch: BlockNumber = 60; // 1.5 hours
+	pub const MetricEpochValidity: BlockNumber = 240; // 1.5 hours
+	pub const WarmupPeriod: BlockNumber = 10; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 }
 
 impl pallet_acurast_compute::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ManagerId = u128;
-	type ManagerIdProvider = AcurastManagerIdProvider;
 	type EpochBase = EpochBase;
 	type Epoch = Epoch;
+	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
-	type Balance = Balance;
-	type BlockNumber = BlockNumber;
 	type Currency = Balances;
-	type ComputeRewardDistributor = ComputeRewardDistributor<Runtime, (), Balances>;
+	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
+		Self::AccountId,
+		Acurast,
+		AcurastProcessorManager,
+		AcurastProcessorManager,
+	>;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }

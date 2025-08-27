@@ -1,5 +1,7 @@
+use core::marker::PhantomData;
+
 use crate::{stub::*, *};
-use acurast_common::ManagerIdProvider;
+use acurast_common::{AccountLookup, ManagerIdProvider};
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -136,8 +138,15 @@ impl Config for Test {
 	type WeightInfo = weights::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
-	type Balance = Balance;
-	type ProcessorRewardDistributor = ();
+	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
+	type Currency = Balances;
+}
+
+pub struct MockLookup<AccountId>(PhantomData<AccountId>);
+impl<AccountId: Clone> AccountLookup<AccountId> for MockLookup<AccountId> {
+	fn lookup(processor: &AccountId) -> Option<AccountId> {
+		Some(processor.clone())
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

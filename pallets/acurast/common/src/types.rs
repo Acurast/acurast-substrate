@@ -8,11 +8,15 @@ pub use bounded_attestation::*;
 
 pub use account20::*;
 
-use frame_support::{pallet_prelude::*, sp_runtime::FixedU128, storage::bounded_vec::BoundedVec};
+use frame_support::{
+	pallet_prelude::*,
+	sp_runtime::{FixedPointNumber as _, FixedU128},
+	storage::bounded_vec::BoundedVec,
+};
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
-use crate::ParameterBound;
+use crate::{AccountLookup, EnsureAttested, ParameterBound, ProcessorVersionProvider};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SCRIPT_PREFIX: &[u8] = b"ipfs://";
@@ -501,14 +505,16 @@ pub struct MinMetric {
 	pub value: FixedU128,
 }
 
-impl From<MetricInput> for MinMetric {
-	fn from(value: MetricInput) -> Self {
+impl MinMetric {
+	pub fn checked_from(value: MetricInput) -> Option<Self> {
 		let (pool_id, numerator, denominator) = value;
-		let metric = FixedU128::from_rational(
+		let Some(metric) = FixedU128::checked_from_rational(
 			numerator,
 			if denominator.is_zero() { One::one() } else { denominator },
-		);
-		Self { pool_id, value: metric }
+		) else {
+			return None;
+		};
+		Some(Self { pool_id, value: metric })
 	}
 }
 
@@ -552,5 +558,28 @@ impl<'de, const T: u32> Deserialize<'de> for CU32<T> {
 		D: serde::Deserializer<'de>,
 	{
 		Ok(CU32::<T>)
+	}
+}
+
+pub struct ElegibleRewardAccountLookup<AccountId, EA, VP, ML>(PhantomData<(AccountId, EA, VP, ML)>);
+impl<
+		AccountId,
+		EA: EnsureAttested<AccountId>,
+		VP: ProcessorVersionProvider<AccountId>,
+		ML: AccountLookup<AccountId>,
+	> AccountLookup<AccountId> for ElegibleRewardAccountLookup<AccountId, EA, VP, ML>
+{
+	fn lookup(processor: &AccountId) -> Option<AccountId> {
+		if !EA::ensure_attested(processor).is_ok() {
+			return None;
+		}
+		let Some(version) = VP::processor_version(processor) else { return None };
+		if VP::min_version_for_reward(version.platform)
+			.map(|min_version| version < min_version)
+			.unwrap_or_default()
+		{
+			return None;
+		}
+		ML::lookup(processor)
 	}
 }

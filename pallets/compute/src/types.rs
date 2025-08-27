@@ -1,24 +1,23 @@
 use core::ops::Add;
 
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
-	traits::{Debug, One, Saturating},
+	traits::{Debug, One, Saturating, Zero},
 	FixedU128, Perquintill,
 };
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
-	Config, EpochOf,
+	Config,
 };
 
-pub type MetricPoolFor<T, I> = MetricPool<EpochOf<T, I>, Perquintill>;
-pub type ProcessorStateFor<T, I> = ProcessorState<
-	<T as Config<I>>::BlockNumber,
-	<T as Config<I>>::BlockNumber,
-	<T as Config<I>>::Balance,
->;
-pub type ProcessorStatusFor<T, I> = ProcessorStatus<<T as Config<I>>::BlockNumber>;
-pub type MetricCommitFor<T, I> = MetricCommit<<T as Config<I>>::BlockNumber>;
+pub type EpochOf<T> = BlockNumberFor<T>;
+pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
+pub type ProcessorStateFor<T, I> =
+	ProcessorState<BlockNumberFor<T>, BlockNumberFor<T>, BalanceFor<T, I>>;
+pub type ProcessorStatusFor<T> = ProcessorStatus<BlockNumberFor<T>>;
+pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 pub type MetricPoolConfigValues =
@@ -155,3 +154,36 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
 	pub paid: Balance,
 }
+
+impl<BlockNumber: Debug, Epoch: Debug, Balance: Debug> ProcessorState<BlockNumber, Epoch, Balance>
+where
+	BlockNumber: Zero,
+	Balance: Zero,
+	Epoch: Zero,
+{
+	pub fn initial(epoch_offset: BlockNumber, warmup_end: BlockNumber) -> Self {
+		Self {
+			// currently unused, see comment why we initialize this anyways
+			epoch_offset,
+			committed: Zero::zero(),
+			claimed: Zero::zero(),
+			status: ProcessorStatus::WarmupUntil(warmup_end),
+			accrued: Zero::zero(),
+			paid: Zero::zero(),
+		}
+	}
+}
+
+#[derive(
+	Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+)]
+pub struct RewardSettings<Balance, AccountId> {
+	pub total_reward_per_distribution: Balance,
+	pub distribution_account: AccountId,
+}
+
+pub type BalanceFor<T, I> =
+	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type RewardDistributionSettingsFor<T, I> =
+	RewardSettings<BalanceFor<T, I>, <T as frame_system::Config>::AccountId>;

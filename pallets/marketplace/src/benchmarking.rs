@@ -5,7 +5,7 @@ use frame_support::{
 		traits::{IdentifyAccount, Verify},
 		DispatchError, Perquintill,
 	},
-	traits::IsType,
+	traits::{Currency, IsType},
 };
 use frame_system::RawOrigin;
 use sp_core::*;
@@ -22,6 +22,10 @@ pub use crate::stub::*;
 use crate::Pallet as AcurastMarketplace;
 
 use super::*;
+
+type BalanceFor<T> = <<T as pallet_acurast_compute::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub trait BenchmarkHelper<T: Config> {
 	/// Extends the job requirements, defined by benchmarking code in this pallet, with the containing struct RegistrationExtra.
@@ -141,6 +145,7 @@ fn advertise_helper<T: Config>(
 ) -> (T::AccountId, AdvertisementFor<T>)
 where
 	T: pallet_balances::Config + pallet_acurast_compute::Config,
+	BalanceFor<T>: IsType<u128>,
 {
 	let caller: T::AccountId =
 		<T as Config>::BenchmarkHelper::funded_account(account_index, u32::MAX.into());
@@ -156,7 +161,7 @@ where
 		assert_ok!(register_call);
 		let _ = AcurastCompute::<T>::commit(
 			&caller,
-			vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
 		);
 	}
 
@@ -368,6 +373,7 @@ fn cleanup_storage_helper<T: Config>(
 where
 	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
+	BalanceFor<T>: IsType<u128>,
 {
 	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
 	let consumer: T::AccountId =
@@ -426,6 +432,7 @@ fn propose_execution_matching_helper<T: Config>(
 where
 	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
+	BalanceFor<T>: IsType<u128>,
 {
 	let max_slots = <T as pallet_acurast::Config>::MaxSlots::get() as u8;
 	let consumer: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into());
@@ -505,6 +512,7 @@ benchmarks! {
 	where_clause {  where
 		T: pallet_acurast::Config + pallet_balances::Config + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config + pallet_acurast_compute::Config,
 		<T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+		BalanceFor<T>: IsType<u128>,
 	}
 
 	advertise {

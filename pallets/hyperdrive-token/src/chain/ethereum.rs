@@ -23,15 +23,15 @@ const fn asset_id_range() -> ops::Range<usize> {
 }
 
 const fn transfer_nonce_range() -> ops::Range<usize> {
-	24..28
+	24..32
 }
 
 const fn ethereum_dest_range() -> ops::Range<usize> {
-	28..48
+	32..52
 }
 
 const fn acurast_dest_range() -> ops::Range<usize> {
-	28..60
+	32..64
 }
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
@@ -74,7 +74,7 @@ where
 
 		match raw_action {
 			RawAction::TransferToken => {
-				if encoded.len() != 60 {
+				if encoded.len() != 64 {
 					Err(Self::Error::InvalidActionPayload)?;
 				}
 
@@ -88,7 +88,7 @@ where
 						.try_into()
 						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
 				);
-				let transfer_nonce = u32::from_be_bytes(
+				let transfer_nonce = u64::from_be_bytes(
 					encoded[transfer_nonce_range()]
 						.try_into()
 						.map_err(|_| ActionDecoderError::InvalidActionPayload)?,
@@ -119,7 +119,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 		Ok(match action {
 			Action::TransferToken(amount, asset_id, transfer_nonce, dest) => match dest {
 				MultiOrigin::Ethereum20(account_id) => {
-					let mut buffer = vec![0u8; 48];
+					let mut buffer = vec![0u8; 52];
 
 					let raw_action: RawAction = action.into();
 					let raw_action_encoded: u32 = raw_action.into();
@@ -169,18 +169,14 @@ mod tests {
 	/// uint32 // transferNonce
 	/// dest // bytes32
 	///
-	/// Example: The payload
+	/// Example: This payload is split like
 	///
-	/// 0x00000000000000000000000000000000000003e80000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b
-	///
-	/// is plit like
-	///
-	/// 00000000
-	/// 000000000000000000000000000003e8
-	/// 00000000
-	/// 00000000
-	/// 185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b
+	/// ```
+	/// 0x00000000000000000000000000000000000003e8000000000000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b
+	///   |       |                               |       |               |
+	///   action  amount                          assetId transferNonce   dest
+	/// ```
 	fn decode() {
-		assert_ok!(<EthereumActionDecoder::<(), MockAccountId, AccountId32> as ActionDecoder<AccountId32>>::decode(&hex!("00000000000000000000000000000000000003e80000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b")));
+		assert_ok!(<EthereumActionDecoder::<(), MockAccountId, AccountId32> as ActionDecoder<AccountId32>>::decode(&hex!("00000000000000000000000000000000000003e8000000000000000000000000185a8b5f92ecd348ed9b12a047ca2b28488b1398065a8dff8dcf886245f9280b")));
 	}
 }

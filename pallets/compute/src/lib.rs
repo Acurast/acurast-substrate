@@ -27,32 +27,26 @@ mod benchmarking;
 
 const LOG_TARGET: &str = "runtime::acurast_compute";
 
-pub type EpochOf<T, I> = <T as Config<I>>::BlockNumber;
-
 #[frame_support::pallet]
 pub mod pallet {
-	use core::ops::{Div, Rem};
-
-	use acurast_common::{ManagerIdProvider, PoolId};
+	use acurast_common::{AccountLookup, MetricInput, PoolId};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		traits::{tokens::Balance, Currency, Get, InspectLockableCurrency, LockableCurrency},
-		Parameter,
+		traits::{Currency, ExistenceRequirement, Get, InspectLockableCurrency},
 	};
 	use frame_system::{
 		ensure_root,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
 	use sp_runtime::{
-		codec::{Codec, MaxEncodedLen},
-		traits::{CheckedAdd, CheckedSub, One, Saturating, Zero},
-		FixedU128, Perquintill,
+		traits::{One, Saturating, Zero},
+		FixedPointNumber as _, FixedU128, Perquintill,
 	};
 	use sp_std::cmp::max;
 	use sp_std::prelude::*;
 
-	use crate::{datastructures::ProvisionalBuffer, *};
+	use crate::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -60,8 +54,6 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type ManagerId: Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
-		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
 		/// How long an epoch lasts, which describes the length of the commit-reward cycle length for active processors.
 		///
 		/// Must be longer than a heartbeat interval and better include multiple heartbeats so there is a chance of recovery if one heartbeat is missed.
@@ -71,38 +63,18 @@ pub mod pallet {
 		/// - `EpochBase` is set to this value `b`.
 		/// This is necessary so the epoch numbering is continuous, which is achieved by calculating current epoch based on [`Self::EpochBase`] as `(current_block - T::EpochBase::get()) / T::Epoch::get()`.
 		#[pallet::constant]
-		type Epoch: Get<EpochOf<Self, I>>;
+		type Epoch: Get<EpochOf<Self>>;
 		/// The first block to calculate with this epoch, can start with `0`.
 		#[pallet::constant]
-		type EpochBase: Get<EpochOf<Self, I>>;
+		type EpochBase: Get<EpochOf<Self>>;
+		/// How many epochs a metric is valid for.
+		#[pallet::constant]
+		type MetricValidity: Get<EpochOf<Self>>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
-		type WarmupPeriod: Get<<Self as Config<I>>::BlockNumber>;
-		type Balance: Parameter
-			+ IsType<u128>
-			+ Div
-			+ Balance
-			+ Zero
-			+ MaybeSerializeDeserialize
-			+ IsType<<<Self as Config<I>>::Currency as Currency<Self::AccountId>>::Balance>;
-		type BlockNumber: Parameter
-			+ Codec
-			+ MaxEncodedLen
-			+ Ord
-			+ Rem<Output = Self::BlockNumber>
-			+ Div<Output = Self::BlockNumber>
-			+ CheckedAdd
-			+ CheckedSub
-			+ Saturating
-			+ One
-			+ Zero
-			+ Copy
-			+ Into<u128>
-			+ IsType<BlockNumberFor<Self>>
-			+ MaybeSerializeDeserialize;
-		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
-			+ InspectLockableCurrency<Self::AccountId>;
-		type ComputeRewardDistributor: ComputeRewardDistributor<Self, I>;
+		type WarmupPeriod: Get<BlockNumberFor<Self>>;
+		type Currency: InspectLockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		type EligibleRewardAccountLookup: AccountLookup<Self::AccountId>;
 		/// Weight Info for extrinsics.
 		type WeightInfo: WeightInfo;
 	}
@@ -149,19 +121,24 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn metric_pools)]
 	pub type MetricPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, PoolId, MetricPoolFor<T, I>>;
+		StorageMap<_, Identity, PoolId, MetricPoolFor<T>>;
 
 	/// The pool members, active and in warmup status.
 	#[pallet::storage]
 	#[pallet::getter(fn metrics)]
 	pub(super) type Metrics<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, PoolId, MetricCommitFor<T, I>>;
+		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, PoolId, MetricCommitFor<T>>;
 
 	/// The pool members, active and in warmup status.
 	#[pallet::storage]
 	#[pallet::getter(fn metric_pool_lookup)]
 	pub(super) type MetricPoolLookup<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, MetricPoolName, PoolId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn reward_distribution_settings)]
+	pub type RewardDistributionSettings<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, RewardDistributionSettingsFor<T, I>, OptionQuery>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -173,9 +150,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// PoolCreated. [pool_id, pool_state]
-		PoolCreated(PoolId, MetricPoolFor<T, I>),
+		PoolCreated(PoolId, MetricPoolFor<T>),
 		/// A processor committed it's compute. [processor_account_id, processor_status]
-		Committed(T::AccountId, ProcessorStatusFor<T, I>),
+		Committed(T::AccountId, ProcessorStatusFor<T>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -223,7 +200,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			pool_id: PoolId,
 			new_name: Option<MetricPoolName>,
-			new_reward_from_epoch: Option<(EpochOf<T, I>, Perquintill)>,
+			new_reward_from_epoch: Option<(EpochOf<T>, Perquintill)>,
 			new_config: Option<ModifyMetricPoolConfig>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
@@ -243,7 +220,7 @@ pub mod pallet {
 					p.name = name;
 				}
 
-				let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
+				let current_block = <frame_system::Pallet<T>>::block_number();
 				let current_epoch =
 					(current_block.saturating_sub(T::EpochBase::get())) / T::Epoch::get();
 				// we use current epoch - 1 to be sure no rewards are overwritten that still are used for calculations/claiming
@@ -285,6 +262,17 @@ pub mod pallet {
 			})?;
 			Ok(Pays::No.into())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
+		pub fn update_reward_distribution_settings(
+			origin: OriginFor<T>,
+			settings: Option<RewardDistributionSettingsFor<T, I>>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			RewardDistributionSettings::<T, I>::set(settings);
+			Ok(().into())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -292,7 +280,7 @@ pub mod pallet {
 			name: MetricPoolName,
 			reward_ratio: Perquintill,
 			config: MetricPoolConfigValues,
-		) -> Result<(PoolId, MetricPoolFor<T, I>), DispatchError> {
+		) -> Result<(PoolId, MetricPoolFor<T>), DispatchError> {
 			if Self::metric_pool_lookup(name).is_some() {
 				Err(Error::<T, I>::PoolNameMustBeUnique)?
 			}
@@ -316,107 +304,106 @@ pub mod pallet {
 		pub(crate) fn do_claim(
 			processor: &T::AccountId,
 			pool_ids: Vec<PoolId>,
-		) -> Result<Option<T::Balance>, Error<T, I>> {
-			if let Some(claim_epoch) = Self::can_claim(&processor) {
-				let mut p: ProcessorStateFor<T, I> = Processors::<T, I>::get(processor)
-					.ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
-
-				let mut total_reward_ratio: Perquintill = Zero::zero();
-				for pool_id in pool_ids {
-					// we allow partial metrics committed (for backwards compatibility)
-					let commit = if let Some(c) = Metrics::<T, I>::get(processor, pool_id) {
-						c
-					} else {
-						continue;
-					};
-
-					// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
-					if commit.epoch != p.committed {
-						continue;
-					}
-
-					let pool =
-						<MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
-					let reward_ratio = pool.reward.get(claim_epoch);
-
-					// Weight reward according to processor compute relative to total compute for pool identified by `pool_id`.
-					// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = epoch - 1`.
-					let pool_total: FixedU128 = pool.total.get(claim_epoch);
-
-					// check if we would divide by zero building rational
-					let compute_weighted_reward_ratio = if pool_total.is_zero() {
-						// can happen if we got commits for this pool but all of them committed metric 0
-						Zero::zero()
-					} else {
-						reward_ratio.saturating_mul(Perquintill::from_rational(
-							commit.metric.into_inner(),
-							pool_total.into_inner(),
-						))
-					};
-
-					total_reward_ratio =
-						total_reward_ratio.saturating_add(compute_weighted_reward_ratio);
-				}
-
-				// if calculation step fail we swallow error (after logging)
-				let reward =
-					T::ComputeRewardDistributor::calculate_reward(total_reward_ratio, claim_epoch)
-						.map_err(|e| {
-							log::error!(
-								target: LOG_TARGET,
-								"Failed to calculate reward; skipping to not fail claim-commit. {:?}",
-								e
-							)
-						})
-						.ok()
-						.unwrap_or(Zero::zero());
-
-				// accrue
-				match T::ComputeRewardDistributor::distribute_reward(
-					&processor,
-					reward.saturating_add(p.accrued),
-				) {
-					Ok(()) => {
-						p.paid = p.paid.saturating_add(reward);
-						p.accrued = Zero::zero();
-					},
-					Err(e) => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Failed to distribute reward; accrueing instead for later pay out. {:?}",
-							e
-						);
-						// amount remains in accrued
-						p.accrued = p.accrued.saturating_add(reward);
-					},
-				}
-
-				p.claimed = claim_epoch;
-
-				Processors::<T, I>::insert(processor, p);
-
-				Ok(Some(reward))
-			} else {
-				Ok(None)
+		) -> Result<Option<BalanceFor<T, I>>, Error<T, I>>
+		where
+			BalanceFor<T, I>: IsType<u128>,
+		{
+			let Some(settings) = Self::reward_distribution_settings() else { return Ok(None) };
+			if settings.total_reward_per_distribution.is_zero() {
+				return Ok(None);
 			}
+
+			let Some(manager) = T::EligibleRewardAccountLookup::lookup(processor) else {
+				return Ok(None);
+			};
+
+			let Some(claim_epoch) = Self::can_claim(&processor) else { return Ok(None) };
+			let mut p: ProcessorStateFor<T, I> =
+				Processors::<T, I>::get(processor).ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
+
+			let mut total_reward_ratio: Perquintill = Zero::zero();
+			for pool_id in pool_ids {
+				// we allow partial metrics committed (for backwards compatibility)
+				let Some(commit) = Metrics::<T, I>::get(processor, pool_id) else {
+					continue;
+				};
+
+				// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
+				if commit.epoch != p.committed {
+					continue;
+				}
+
+				let pool = <MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
+				let reward_ratio = pool.reward.get(claim_epoch);
+
+				// Weight reward according to processor compute relative to total compute for pool identified by `pool_id`.
+				// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = epoch - 1`.
+				let pool_total: FixedU128 = pool.total.get(claim_epoch);
+
+				// check if we would divide by zero building rational
+				let compute_weighted_reward_ratio = if pool_total.is_zero() {
+					// can happen if we got commits for this pool but all of them committed metric 0
+					Zero::zero()
+				} else {
+					reward_ratio.saturating_mul(Perquintill::from_rational(
+						commit.metric.into_inner(),
+						pool_total.into_inner(),
+					))
+				};
+
+				total_reward_ratio =
+					total_reward_ratio.saturating_add(compute_weighted_reward_ratio);
+			}
+
+			let reward: BalanceFor<T, I> = total_reward_ratio
+				.mul_floor::<u128>(settings.total_reward_per_distribution.into())
+				.saturating_add(p.accrued.into())
+				.into();
+
+			// accrue
+			let _ = T::Currency::transfer(
+				&settings.distribution_account,
+				&manager,
+				reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.and_then(|_| {
+				p.paid = p.paid.saturating_add(reward);
+				p.accrued = Zero::zero();
+				Ok(())
+			})
+			.or_else(|e| {
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to distribute reward; accrueing instead for later pay out. {:?}",
+					e
+				);
+				// amount remains in accrued
+				p.accrued = p.accrued.saturating_add(reward);
+				Ok::<_, DispatchError>(())
+			});
+
+			p.claimed = claim_epoch;
+
+			Processors::<T, I>::insert(processor, p);
+
+			Ok(Some(reward))
 		}
 
-		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T, I>> {
-			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
+		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T>> {
+			let Some(p) = Processors::<T, I>::get(processor) else {
+				return None;
+			};
+			let current_block = <frame_system::Pallet<T>>::block_number();
+			let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-			if let Some(p) = Processors::<T, I>::get(processor) {
-				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
-
-				(p.committed.saturating_add(One::one()) == epoch
-					&& p.claimed < p.committed
-					&& match p.status {
-						ProcessorStatus::WarmupUntil(b) => b <= current_block,
-						ProcessorStatus::Active => true,
-					})
-				.then_some(p.committed)
-			} else {
-				None
-			}
+			(p.committed.saturating_add(One::one()) == epoch
+				&& p.claimed < p.committed
+				&& match p.status {
+					ProcessorStatus::WarmupUntil(b) => b <= current_block,
+					ProcessorStatus::Active => true,
+				})
+			.then_some(p.committed)
 		}
 
 		/// Helper to only commit compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.
@@ -424,27 +411,20 @@ pub mod pallet {
 		/// Metrics are specified with the `pool_id` and **unknown `pool_id`'s are silently skipped.**
 		///
 		/// See [`Self::commit`] for how this is used to commit metrics and claim for past commits.
-		pub(crate) fn do_commit(
-			processor: &T::AccountId,
-			metrics: impl IntoIterator<Item = (PoolId, u128, u128)>,
-		) {
-			let current_block = T::BlockNumber::from(<frame_system::Pallet<T>>::block_number());
+		pub(crate) fn do_commit(processor: &T::AccountId, metrics: &[MetricInput]) {
+			let current_block = <frame_system::Pallet<T>>::block_number();
+			// The global epoch number
+			let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
 
-			let (epoch, active) = Processors::<T, I>::mutate(processor, |p_| {
-				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(||
+			let active = Processors::<T, I>::mutate(processor, |p_| {
+				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(|| {
 					// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
-					ProcessorState {
-                        // currently unused, see comment why we initialize this anyways
-						epoch_offset: current_block.saturating_sub(T::EpochBase::get())
-							% T::Epoch::get(),
-						committed: Zero::zero(),
-						claimed: Zero::zero(),
-						status: ProcessorStatus::WarmupUntil(
-                            current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get()),
-						),
-                        accrued: Zero::zero(),
-                        paid: Zero::zero(),
-					});
+					let epoch_offset =
+						current_block.saturating_sub(T::EpochBase::get()) % T::Epoch::get();
+					let warmup_end =
+						current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get());
+					ProcessorState::initial(epoch_offset, warmup_end)
+				});
 
 				// check if warmup passed and updated status if so
 				if let ProcessorStatus::WarmupUntil(b) = p.status {
@@ -453,18 +433,30 @@ pub mod pallet {
 					}
 				}
 
-				// The global epoch number
-				let epoch = current_block.saturating_sub(T::EpochBase::get()) / T::Epoch::get();
-
 				p.committed = epoch;
-				(epoch, matches!(p.status, ProcessorStatus::Active))
+				matches!(p.status, ProcessorStatus::Active)
 			});
 
+			if !metrics.is_empty() {
+				Self::commit_new_metrics(processor, metrics, active, epoch);
+			} else {
+				Self::reuse_metrics(processor, active, epoch);
+			}
+		}
+
+		fn commit_new_metrics(
+			processor: &T::AccountId,
+			metrics: &[MetricInput],
+			active: bool,
+			epoch: EpochOf<T>,
+		) {
 			for (pool_id, numerator, denominator) in metrics {
-				let metric = FixedU128::from_rational(
-					numerator,
-					if denominator.is_zero() { One::one() } else { denominator },
-				);
+				let Some(metric) = FixedU128::checked_from_rational(
+					*numerator,
+					if denominator.is_zero() { One::one() } else { *denominator },
+				) else {
+					continue;
+				};
 				let before = Metrics::<T, I>::get(processor, pool_id);
 				// first value committed for `epoch` wins
 				if before.map(|m| m.epoch < epoch).unwrap_or(true) {
@@ -479,6 +471,31 @@ pub mod pallet {
 							}
 						});
 					}
+				}
+			}
+		}
+
+		fn reuse_metrics(processor: &T::AccountId, active: bool, epoch: EpochOf<T>) {
+			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
+			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(&processor) {
+				if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
+					to_update.push((pool_id, metric));
+				}
+			}
+			for (pool_id, commit) in to_update {
+				Metrics::<T, I>::insert(
+					processor,
+					pool_id,
+					MetricCommit { epoch, metric: commit.metric },
+				);
+
+				if active {
+					// sum totals
+					<MetricPools<T, I>>::mutate(pool_id, |pool| {
+						if let Some(pool) = pool.as_mut() {
+							pool.add(epoch, commit.metric);
+						}
+					});
 				}
 			}
 		}

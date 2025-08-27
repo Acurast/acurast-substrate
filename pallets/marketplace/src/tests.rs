@@ -1198,7 +1198,7 @@ fn test_match() {
 			bounded_vec![],
 		));
 		let pool_id = AcurastCompute::last_metric_pool_id();
-		let _ = AcurastCompute::commit(&processor_account_id(), vec![(pool_id, 1, 2)]);
+		let _ = AcurastCompute::commit(&processor_account_id(), &[(pool_id, 1, 2)]);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);

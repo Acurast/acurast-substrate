@@ -8,6 +8,7 @@ use pallet_acurast::{
 	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, PoolId, StoredAttestation,
 	StoredJobRegistration,
 };
+use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSettingsFor};
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
@@ -71,7 +72,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
 		AcurastCompute::commit(
 			&processor,
-			vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
 		);
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
@@ -227,5 +228,15 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		)
 		.expect("Expecting that pool creation always succeeds");
 		AcurastCompute::last_metric_pool_id()
+	}
+
+	fn setup_compute_settings() {
+		RewardDistributionSettings::<Runtime, ()>::put(RewardDistributionSettingsFor::<
+			Runtime,
+			(),
+		> {
+			total_reward_per_distribution: 12_500,
+			distribution_account: Self::funded_account(1),
+		});
 	}
 }

@@ -16,6 +16,7 @@ use acurast_common::ComputeHooks;
 #[test]
 fn test_create_pools_name_conflict() {
 	ExtBuilder::default().build().execute_with(|| {
+		setup();
 		// create pool 1
 		{
 			assert_ok!(Compute::create_pool(
@@ -43,6 +44,7 @@ fn test_create_pools_name_conflict() {
 #[test]
 fn test_single_processor_commit() {
 	ExtBuilder::default().build().execute_with(|| {
+		setup();
 		assert_ok!(Compute::create_pool(
 			RuntimeOrigin::root(),
 			*b"cpu-ops-per-second______",
@@ -53,7 +55,7 @@ fn test_single_processor_commit() {
 
 		System::set_block_number(10);
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
@@ -67,7 +69,7 @@ fn test_single_processor_commit() {
 		);
 
 		System::set_block_number(39);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -86,7 +88,7 @@ fn test_single_processor_commit() {
 
 		// Warmup is over
 		System::set_block_number(40);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -104,7 +106,7 @@ fn test_single_processor_commit() {
 		);
 
 		System::set_block_number(130);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -123,7 +125,7 @@ fn test_single_processor_commit() {
 
 		// commit different value in same epoch (does not existing values for same epoch since first value is kept)
 		System::set_block_number(170);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 2000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 2000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -146,10 +148,7 @@ fn test_single_processor_commit() {
 
 		// claim for epoch 1 and commit for epoch 2
 		System::set_block_number(230);
-		assert_eq!(
-			Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]),
-			Some(250000)
-		);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), Some(250000));
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 2, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -166,32 +165,41 @@ fn test_single_processor_commit() {
 			})
 		);
 
-		assert_eq!(
-			events(),
-			[
-				RuntimeEvent::Compute(Event::PoolCreated(
-					1,
-					MetricPool {
-						config: bounded_vec![],
-						name: *b"cpu-ops-per-second______",
-						reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-						total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-					}
-				)),
-				RuntimeEvent::MockPallet(mock_pallet::Event::CalculateReward(
-					Perquintill::from_percent(25),
-					1
-				)),
-				RuntimeEvent::MockPallet(mock_pallet::Event::DistributeReward(
-					alice_account_id(),
-					250000
-				))
-			]
-		);
+		let events = events();
+		let expected = [
+			RuntimeEvent::Compute(Event::PoolCreated(
+				1,
+				MetricPool {
+					config: bounded_vec![],
+					name: *b"cpu-ops-per-second______",
+					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				},
+			)),
+			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+				from: eve_account_id(),
+				to: alice_account_id(),
+				amount: 250000,
+			}),
+		];
+		assert!(expected.iter().all(|event| events.contains(event)));
 	});
 }
 
+fn setup() {
+	assert_ok!(Compute::update_reward_distribution_settings(
+		RuntimeOrigin::root(),
+		Some(RewardSettings {
+			total_reward_per_distribution: 1_000_000u128.into(),
+			distribution_account: eve_account_id(),
+		}),
+	));
+	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), u128::MAX));
+}
+
 fn create_pools() {
+	setup();
+
 	// create pool 1
 	{
 		assert_ok!(Compute::create_pool(
@@ -231,7 +239,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	{
 		System::set_block_number(10);
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::processors(alice_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(40)
@@ -243,7 +251,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	{
 		System::set_block_number(20);
 		assert_eq!(Compute::metrics(bob_account_id(), 1), None);
-		assert_eq!(Compute::commit(&bob_account_id(), vec![(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::processors(bob_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(50)
@@ -258,10 +266,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	// Alice commits values for epoch 1 (where she is active) for pool 1 and 2
 	{
 		assert_eq!(
-			Compute::commit(
-				&alice_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
 			None
 		);
 		assert_eq!(
@@ -287,7 +292,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 
 	// Bob commits values for epoch 1 (where he is active) for only pool 2
 	{
-		assert_eq!(Compute::commit(&bob_account_id(), vec![(2u8, 6000u128, 1u128)]), None);
+		assert_eq!(Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 2).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(6000u128, 1u128) }
@@ -333,7 +338,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
-				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
+				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			),
 			None
 		);
@@ -356,7 +361,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
-				vec![(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
+				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			),
 			None
 		);
@@ -375,10 +380,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		//   => 0.25 * 0.5 * 1 UNIT = 0.125 UNIT
 		// - Sum of reward for pool 1 and pool 2 = 0.25 UNIT + 0.125 UNIT = 0.375
 		assert_eq!(
-			Compute::commit(
-				&alice_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
 			Some(375000)
 		);
 		assert_eq!(
@@ -405,10 +407,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		// - Bob committed 6000 to pool 2 together with Alice which committed 6000, which leaves him with 3/4 of the rewards for pool 2 which are 50% of 1 UNIT
 		//   => 0.75 * 0.5 * 1 UNIT = 0.375 UNIT
 		assert_eq!(
-			Compute::commit(
-				&bob_account_id(),
-				vec![(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
 			Some(375000)
 		);
 		assert_eq!(
@@ -430,54 +429,47 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 }
 
 fn check_events() {
-	assert_eq!(
-		events(),
-		[
-			RuntimeEvent::Compute(Event::PoolCreated(
-				1,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"cpu-ops-per-second______",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::Compute(Event::PoolCreated(
-				2,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"mem-read-count-per-sec--",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(50), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::Compute(Event::PoolCreated(
-				3,
-				MetricPool {
-					config: bounded_vec![],
-					name: *b"mem-write-count-per-sec-",
-					reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None,),
-					total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
-				}
-			)),
-			RuntimeEvent::MockPallet(mock_pallet::Event::CalculateReward(
-				Perquintill::from_perthousand(375),
-				1
-			)),
-			RuntimeEvent::MockPallet(mock_pallet::Event::DistributeReward(
-				alice_account_id(),
-				375000
-			)),
-			RuntimeEvent::MockPallet(mock_pallet::Event::CalculateReward(
-				Perquintill::from_perthousand(375),
-				1
-			)),
-			RuntimeEvent::MockPallet(mock_pallet::Event::DistributeReward(
-				bob_account_id(),
-				375000
-			))
-		]
-	);
+	let events = events();
+	let expected = [
+		RuntimeEvent::Compute(Event::PoolCreated(
+			1,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"cpu-ops-per-second______",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Compute(Event::PoolCreated(
+			2,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"mem-read-count-per-sec--",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(50), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Compute(Event::PoolCreated(
+			3,
+			MetricPool {
+				config: bounded_vec![],
+				name: *b"mem-write-count-per-sec-",
+				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
+				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+			},
+		)),
+		RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+			from: eve_account_id(),
+			to: alice_account_id(),
+			amount: 375000,
+		}),
+		RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+			from: eve_account_id(),
+			to: bob_account_id(),
+			amount: 375000,
+		}),
+	];
+	assert!(expected.iter().all(|event| events.contains(event)));
 }
 
 #[test]

@@ -21,36 +21,19 @@ mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
-use frame_support::BoundedVec;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
 pub(crate) use pallet::STORAGE_VERSION;
 
-pub type ProcessorPairingFor<T> =
-	ProcessorPairing<<T as frame_system::Config>::AccountId, <T as Config>::Proof>;
-pub type ProcessorPairingUpdateFor<T> =
-	ProcessorPairingUpdate<<T as frame_system::Config>::AccountId, <T as Config>::Proof>;
-
-pub type ProcessorUpdatesFor<T> =
-	BoundedVec<ProcessorPairingUpdateFor<T>, <T as Config>::MaxPairingUpdates>;
-pub type ProcessorList<T> =
-	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxProcessorsInSetUpdateInfo>;
-
 #[frame_support::pallet]
 pub mod pallet {
-	use core::ops::Div;
-
-	use acurast_common::{ComputeHooks, ListUpdateOperation, ManagerIdProvider, Metrics, Version};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		sp_runtime::{
-			traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
-			Saturating,
-		},
-		traits::{tokens::Balance, Get, UnixTime},
+		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
+		traits::{Currency, Get, UnixTime},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
 	use frame_system::{
@@ -60,11 +43,15 @@ pub mod pallet {
 	use parity_scale_codec::MaxEncodedLen;
 	use sp_std::prelude::*;
 
+	use acurast_common::{
+		AccountLookup, ComputeHooks, ListUpdateOperation, ManagerIdProvider, Metrics, Version,
+	};
+
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BinaryHash, Endpoint, ProcessorList, ProcessorPairingFor, ProcessorUpdatesFor,
-		RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
+		traits::*, BalanceFor, BinaryHash, Endpoint, ProcessorList, ProcessorPairingFor,
+		ProcessorUpdatesFor, RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
 	};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -75,7 +62,7 @@ pub mod pallet {
 		type Proof: Parameter + Member + Verify + MaxEncodedLen;
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
-		type ComputeHooks: ComputeHooks<Self::AccountId, Self::Balance>;
+		type ComputeHooks: ComputeHooks<Self::AccountId, BalanceFor<Self>>;
 		type ProcessorAssetRecovery: ProcessorAssetRecovery<Self>;
 		type MaxPairingUpdates: Get<u32>;
 		type MaxProcessorsInSetUpdateInfo: Get<u32>;
@@ -84,13 +71,8 @@ pub mod pallet {
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
-		type Balance: Parameter
-			+ IsType<u128>
-			+ Div
-			+ Balance
-			+ MaybeSerializeDeserialize
-			+ PartialOrd;
-		type ProcessorRewardDistributor: ProcessorRewardDistributor<Self>;
+		type EligibleRewardAccountLookup: AccountLookup<Self::AccountId>;
+		type Currency: Currency<Self::AccountId>;
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self>;
@@ -193,7 +175,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn processor_reward_distribution_settings)]
 	pub(super) type ProcessorRewardDistributionSettings<T: Config> =
-		StorageValue<_, RewardDistributionSettings<T::Balance, T::AccountId>, OptionQuery>;
+		StorageValue<_, RewardDistributionSettings<BalanceFor<T>, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn processor_reward_distribution_window)]
@@ -240,7 +222,7 @@ pub mod pallet {
 		/// Set api version used by processors. [api_version]
 		ApiVersionUpdated(u32),
 		/// Reward has been sent to processor. [processor_account_id, amount]
-		ProcessorRewardSent(T::AccountId, T::Balance),
+		ProcessorRewardSent(T::AccountId, BalanceFor<T>),
 		/// Updated the minimum required processor version to receive rewards.
 		MinProcessorVersionForRewardUpdated(Version),
 	}
@@ -269,6 +251,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+		BalanceFor<T>: IsType<u128>,
 	{
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::update_processor_pairings(pairing_updates.len() as u32))]
@@ -458,10 +441,9 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if Self::is_elegible_for_reward(&who, &version) {
-				if let Some(amount) = Self::do_reward_distribution(&who) {
-					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
-				}
+			let amount = Self::do_reward_distribution(&who).unwrap_or_default();
+			if !amount.is_zero() {
+				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
 			}
 
 			Ok(().into())
@@ -528,7 +510,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
 		pub fn update_reward_distribution_settings(
 			origin: OriginFor<T>,
-			new_settings: Option<RewardDistributionSettings<T::Balance, T::AccountId>>,
+			new_settings: Option<RewardDistributionSettings<BalanceFor<T>, T::AccountId>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			<ProcessorRewardDistributionSettings<T>>::set(new_settings);
@@ -576,21 +558,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			if Self::is_elegible_for_reward(&who, &version) {
-				let total_amount = match (
-					Self::do_reward_distribution(&who),
-					T::ComputeHooks::commit(&who, metrics.into_iter()),
-				) {
-					(Some(h), Some(c)) => Some(h.saturating_add(c)),
-					(Some(h), None) => Some(h),
-					(None, Some(c)) => Some(c),
-					(None, None) => None,
-				};
-
-				if let Some(total_amount) = total_amount {
-					Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
-				}
-			}
+			_ = Self::do_reward_distribution(&who);
+			_ = T::ComputeHooks::commit(&who, metrics.as_ref());
 
 			Ok(().into())
 		}

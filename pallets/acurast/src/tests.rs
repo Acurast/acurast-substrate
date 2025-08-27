@@ -8,7 +8,7 @@ use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
 	mock::*, utils::validate_and_extract_attestation, AllowedSourcesUpdate, AttestationChain,
-	CertificateRevocationListUpdate, Error, ListUpdateOperation, RequiredMinMetrics, SerialNumber,
+	CertificateRevocationListUpdate, Error, ListUpdateOperation, SerialNumber,
 };
 
 #[test]
@@ -80,7 +80,7 @@ fn test_job_registration_2() {
 		);
 
 		assert_eq!(
-			Some(bounded_vec![MinMetric::from((1, 1, 2))]),
+			Some(bounded_vec![MinMetric::checked_from((1, 1, 2)).unwrap()]),
 			Acurast::min_metrics((MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1))
 		);
 

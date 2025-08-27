@@ -189,10 +189,10 @@ fn test_single_processor_commit() {
 fn setup() {
 	assert_ok!(Compute::update_reward_distribution_settings(
 		RuntimeOrigin::root(),
-		RewardSettings {
+		Some(RewardSettings {
 			total_reward_per_distribution: 1_000_000u128.into(),
 			distribution_account: eve_account_id(),
-		},
+		}),
 	));
 	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), u128::MAX));
 }

@@ -143,7 +143,7 @@ benchmarks_instance_pallet! {
 			distribution_account: alice_account_id().into(),
 		};
 	}: {
-		assert_ok!(Compute::<T, I>::update_reward_distribution_settings(RawOrigin::Root.into(), settings));
+		assert_ok!(Compute::<T, I>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(settings)));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);

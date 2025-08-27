@@ -32,10 +32,7 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		sp_runtime::{
-			traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
-			Saturating,
-		},
+		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{Currency, Get, UnixTime},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
@@ -561,14 +558,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			let total_amount =
-				Self::do_reward_distribution(&who).unwrap_or_default().saturating_add(
-					T::ComputeHooks::commit(&who, metrics.as_ref()).unwrap_or_default(),
-				);
-
-			if total_amount > BalanceFor::<T>::zero() {
-				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, total_amount));
-			}
+			_ = Self::do_reward_distribution(&who);
+			_ = T::ComputeHooks::commit(&who, metrics.as_ref());
 
 			Ok(().into())
 		}

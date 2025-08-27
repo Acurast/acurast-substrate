@@ -267,10 +267,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
 		pub fn update_reward_distribution_settings(
 			origin: OriginFor<T>,
-			settings: RewardDistributionSettingsFor<T, I>,
+			settings: Option<RewardDistributionSettingsFor<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			RewardDistributionSettings::<T, I>::put(settings);
+			RewardDistributionSettings::<T, I>::set(settings);
 			Ok(().into())
 		}
 	}

@@ -6,6 +6,7 @@ use crate::{
 };
 use acurast_common::{AccountLookup, ListUpdateOperation, Version};
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
+use pallet_balances::Event as BalancesEvent;
 
 fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (signer, manager_account) = generate_pair_account();
@@ -637,10 +638,11 @@ fn test_reward_distribution_success() {
 		let last_events = events();
 		assert_eq!(
 			last_events.last(),
-			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorRewardSent(
-				processor_account.clone(),
-				reward_distribution_settings.reward_per_distribution
-			)))
+			Some(RuntimeEvent::Balances(BalancesEvent::Transfer {
+				from: alice_account_id(),
+				to: processor_account.clone(),
+				amount: reward_distribution_settings.reward_per_distribution
+			}))
 			.as_ref()
 		);
 	});

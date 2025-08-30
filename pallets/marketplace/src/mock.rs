@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use acurast_common::ManagerIdProvider;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
@@ -7,7 +5,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, DispatchError, Percent, Perquintill,
+		BuildStorage, Percent, Perquintill,
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},

@@ -213,7 +213,20 @@ where
 	Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct RewardSettings<Balance, AccountId> {
+	/// The fixed reward distributed per epoch.
+	///
+	/// This amount is not minted but just taken from [`Self::distribution_account`] every epoch.
+	///
+	/// This is intended to be eventually zeroed in favor of purely inflation based rewards.
 	pub total_reward_per_distribution: Balance,
+	/// The inflation-based reward distributed per epoch as a ratio of total supply.
+	///
+	/// This amount is minted into  [`Self::distribution_account`].
+	/// A part might be actively distributed immediately after minting while another part resides on the distribution account ready for withdraw operations of staking system.
+	pub total_inflation_per_distribution: Perquintill,
+	/// The ratio of inflation-created reward that is distributed to stake-backed compute providers using commitment and delegation pools.
+	pub stake_backed_ratio: Perquintill,
+	/// The account to distribute from.
 	pub distribution_account: AccountId,
 }
 

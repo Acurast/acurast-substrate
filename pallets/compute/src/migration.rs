@@ -13,7 +13,8 @@ use sp_runtime::traits::Zero;
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 1] = [(2, &migrate_to_v2::<T, I>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 2] =
+		[(2, &migrate_to_v2::<T, I>), (3, &migrate_to_v3::<T, I>)];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -43,6 +44,48 @@ pub fn migrate_to_v2<T: Config<I>, I: 'static>() -> Weight {
 		})
 	});
 	weight
+}
+
+/// Adds `total_inflation_per_distribution` and `stake_backed_ratio` to [`RewardSettings`];
+pub fn migrate_to_v3<T: Config<I>, I: 'static>() -> Weight {
+	let mut weight = Weight::zero();
+
+	// Migrate RewardDistributionSettings to new format
+	let reads = if <RewardDistributionSettings<T, I>>::exists() { 1 } else { 0 };
+	weight = weight.saturating_add(T::DbWeight::get().reads(reads));
+
+	let _ = <RewardDistributionSettings<T, I>>::translate::<v2::RewardSettingsFor<T, I>, _>(
+		|old_settings_opt| {
+			old_settings_opt.map(|old_settings| {
+				// Migrate to new structure with default values for new fields
+				RewardDistributionSettingsFor::<T, I> {
+					total_reward_per_distribution: old_settings.total_reward_per_distribution,
+					total_inflation_per_distribution: sp_runtime::Perquintill::zero(), // Default to no inflation
+					stake_backed_ratio: sp_runtime::Perquintill::from_percent(70), // Default to 70% for stake-backed
+					distribution_account: old_settings.distribution_account,
+				}
+			})
+		},
+	);
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(if reads > 0 { 1 } else { 0 }));
+
+	weight
+}
+
+pub mod v2 {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+
+	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	pub struct RewardSettings<Balance, AccountId> {
+		pub total_reward_per_distribution: Balance,
+		pub distribution_account: AccountId,
+	}
+
+	pub type RewardSettingsFor<T, I> =
+		RewardSettings<BalanceFor<T, I>, <T as frame_system::Config>::AccountId>;
 }
 
 pub mod v1 {

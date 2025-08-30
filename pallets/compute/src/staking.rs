@@ -337,17 +337,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			old_delegation.allow_auto_compound,
 		)?;
 
-        Ok(())
+		Ok(())
 	}
 
-    pub fn compound_delegator(
+	pub fn compound_delegator(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<(), Error<T, I>> {
-        Self::delegate_more_for(who, commitment_id, Self::withdraw_delegator(&who, commitment_id)?.consume())?;
+		Self::delegate_more_for(
+			who,
+			commitment_id,
+			Self::withdraw_delegator(&who, commitment_id)?.consume(),
+		)?;
 
-        Ok(())
-    }
+		Ok(())
+	}
 
 	pub fn compound_committer(
 		committer: &T::AccountId,
@@ -356,8 +360,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// compound reward to the caller if any
 		Self::stake_more_for(committer, Self::withdraw_committer(commitment_id)?.consume())?;
 
-        Ok(())
-    }
+		Ok(())
+	}
 
 	fn update_total_stake(change: StakeChange<BalanceFor<T, I>>) -> Result<(), Error<T, I>> {
 		match change {
@@ -781,8 +785,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		new_commitment_id: T::CommitmentId,
 	) -> Result<(), DispatchError> {
 		// Check if the caller is a delegator to the old commitment
-		let old_delegation = <Delegations<T, I>>::get(who, old_commitment_id)
-			.ok_or(Error::<T, I>::NotDelegating)?;
+		let old_delegation =
+			<Delegations<T, I>>::get(who, old_commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
 
 		// Check if the old commitment is in cooldown but the delegator is not
 		let old_commitment_stake =

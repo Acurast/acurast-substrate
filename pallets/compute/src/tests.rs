@@ -1,7 +1,5 @@
 #![cfg(test)]
 
-use std::vec;
-
 use frame_support::{assert_err, assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
 use sp_runtime::{traits::Zero, FixedU128, Perbill, Perquintill};
@@ -199,6 +197,8 @@ fn setup() {
 		RuntimeOrigin::root(),
 		Some(RewardSettings {
 			total_reward_per_distribution: 1_000_000u128.into(),
+			total_inflation_per_distribution: sp_runtime::Perquintill::zero(),
+			stake_backed_ratio: sp_runtime::Perquintill::from_percent(70),
 			distribution_account: eve_account_id(),
 		}),
 	));

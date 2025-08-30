@@ -6,7 +6,7 @@ use sp_runtime::traits::{Debug, One};
 /// A length-2 sliding buffer storing two values `(previous, current)` that keeps (modifiable) values for two **subsequent** time units.
 ///
 /// **The time unit is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be **any sequential time unit**.
-/// 
+///
 /// This is useful to memorize the metric totals when some processors' metrics already add towards subsequent epoch's total.
 /// Instead of storing an array of values by epoch, it achieves this by only two values stored.
 ///
@@ -27,14 +27,15 @@ use sp_runtime::traits::{Debug, One};
 	Clone,
 	PartialEq,
 	Eq,
+	Default,
 )]
 pub struct SlidingBuffer<
 	Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
 	Value: Copy + Default + Debug,
 > {
-    /// The time the `cur` value was written.
-    /// 
-    /// **This is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be any sequential time unit.
+	/// The time the `cur` value was written.
+	///
+	/// **This is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be any sequential time unit.
 	epoch: Epoch,
 	prev: Value,
 	cur: Value,

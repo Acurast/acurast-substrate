@@ -48,13 +48,8 @@ pub mod pallet {
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
 	use sp_runtime::{
-<<<<<<< HEAD
-		traits::{One, Saturating, Zero},
-		FixedPointNumber as _, FixedU128, Perquintill,
-=======
 		traits::{One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Perbill, Perquintill,
->>>>>>> 31a5140 (feat: delegation)
 	};
 	use sp_std::cmp::max;
 	use sp_std::prelude::*;
@@ -226,8 +221,8 @@ pub mod pallet {
 
 	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[block % (T::Era * T::Epoch) -> (metric, avg_count)]`.
 	///
-    /// The time unit in [`SlidingBuffer::epoch`] confusingly corresponds to an era for this storage structure!
-    #[pallet::storage]
+	/// The time unit in [`SlidingBuffer::epoch`] confusingly corresponds to an era for this storage structure!
+	#[pallet::storage]
 	#[pallet::getter(fn metrics_era_average)]
 	pub(super) type MetricsEraAverage<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
@@ -342,12 +337,18 @@ pub mod pallet {
 	pub(super) type DelegationPools<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::CommitmentId, DelegationPoolFor<T, I>, ValueQuery>;
 
-	/// The current epoch with sequential epoch number that increases every [`T:®:Epoch`] and the start of current epoch.
+	/// The current epoch with sequential epoch number that increases every [`T::Epoch`] and the start of current epoch.
 	#[pallet::storage]
 	#[pallet::getter(fn current_cycle)]
 	pub type CurrentCycle<T: Config<I>, I: 'static = ()> = StorageValue<_, CycleFor<T>, ValueQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	/// Storage for compute-based rewards that are not stake-backed, as a map `epoch` -> `reward`.
+	#[pallet::storage]
+	#[pallet::getter(fn compute_based_rewards)]
+	pub type ComputeBasedRewards<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, SlidingBuffer<EpochOf<T>, BalanceFor<T, I>>, ValueQuery>;
+
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -473,6 +474,64 @@ pub mod pallet {
 						}
 					});
 					weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+					// Handle inflation-based reward distribution on new epoch
+					{
+						if let Some(settings) = Self::reward_distribution_settings() {
+							let total_supply = T::Currency::total_issuance();
+							let inflation_amount: BalanceFor<T, I> = settings
+								.total_inflation_per_distribution
+								.mul_floor(total_supply.saturated_into::<u128>())
+								.saturated_into();
+							let current_epoch = Self::current_cycle().epoch;
+
+							if !inflation_amount.is_zero() {
+								// Mint new tokens into distribution account
+								let imbalance = T::Currency::issue(inflation_amount);
+								T::Currency::resolve_creating(
+									&settings.distribution_account,
+									imbalance,
+								);
+								weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+								// Calculate stake-backed amount
+								let stake_backed_amount: BalanceFor<T, I> = settings
+									.stake_backed_ratio
+									.mul_floor(inflation_amount.saturated_into::<u128>())
+									.saturated_into();
+								let compute_based_amount =
+									inflation_amount.saturating_sub(stake_backed_amount);
+
+								// Distribute stake-backed rewards
+								if !stake_backed_amount.is_zero() {
+									if let Err(e) =
+										Self::distribute(current_epoch, stake_backed_amount)
+									{
+										log::error!(
+											target: LOG_TARGET,
+											"Failed to distribute stake-backed rewards: {:?}",
+											e
+										);
+									} else {
+										weight = weight
+											.saturating_add(T::DbWeight::get().reads_writes(10, 5));
+									}
+								}
+
+								// Store compute-based rewards
+								if !compute_based_amount.is_zero() {
+									ComputeBasedRewards::<T, I>::mutate(|r| {
+										r.mutate(current_epoch, |v| {
+											*v = compute_based_amount;
+										});
+									});
+
+									weight = weight.saturating_add(T::DbWeight::get().writes(1));
+								}
+							}
+						}
+						weight = weight.saturating_add(T::DbWeight::get().reads(2));
+					}
 				}
 			}
 
@@ -838,7 +897,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-            // TODO (MIKE): call this from on_initialize on new epoch (instead of era)
 			Self::distribute(Self::current_cycle().epoch, amount)?;
 
 			Self::deposit_event(Event::<T, I>::Rewarded(amount));
@@ -1143,18 +1201,25 @@ pub mod pallet {
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
-            // TODO (MIKE): don't get the reward from the settings directly, but rather from one of the two buckets "prepared" every start of epoch in on_initialize (when we inflate token supply)
-            // two bucktes split by ratio (configured): compute rewards (module 2) & staked_back rewards (module 3)
+			// TODO (MIKE): don't get the reward from the settings directly, but rather from one of the two buckets "prepared" every start of epoch in on_initialize (when we inflate token supply)
+			// two bucktes split by ratio (configured): compute rewards (module 2) & staked_back rewards (module 3)
 			let Some(settings) = Self::reward_distribution_settings() else { return Ok(None) };
-			if settings.total_reward_per_distribution.is_zero() {
-				return Ok(None);
-			}
 
 			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
 				return Ok(None);
 			};
 
 			let Some(claim_epoch) = Self::can_claim(&processor) else { return Ok(None) };
+
+			// the reward to distribute is the fixed reward from `settings.total_reward_per_distribution` (backwards compatibility) + the inflation based reward for the claim epoch
+			let reward = settings
+				.total_reward_per_distribution
+				.checked_add(&Self::compute_based_rewards().get(claim_epoch))
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			if reward.is_zero() {
+				return Ok(None);
+			}
+
 			let mut p: ProcessorStateFor<T, I> =
 				Processors::<T, I>::get(processor).ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
 
@@ -1198,9 +1263,9 @@ pub mod pallet {
 				.into();
 
 			// accrue
-			// TODO here we want to distribute to metric pools instead, at least for unbacked compute
 			let _ = T::Currency::transfer(
 				&settings.distribution_account,
+				// TODO (MIKE): it was not refined if we should pay compute-backed rewards (not stake-backed) to committer as well (but there could be none)
 				&manager,
 				reward,
 				ExistenceRequirement::KeepAlive,

@@ -123,7 +123,7 @@ pub struct SubjectPublicKeyInfo<'a> {
 	pub subject_public_key: BitString<'a>,
 }
 
-#[derive(Asn1Read, Asn1Write, Clone)]
+#[derive(Asn1Write, Clone)]
 pub struct Extension<'a> {
 	pub extn_id: ObjectIdentifier,
 	#[default(false)]
@@ -131,6 +131,40 @@ pub struct Extension<'a> {
 	/// contains the DER encoding of an ASN.1 value
 	/// corresponding to the extension type identified by extnID
 	pub extn_value: &'a [u8],
+}
+
+impl<'a> SimpleAsn1Readable<'a> for Extension<'a> {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		asn1::parse(data, |p| {
+			let extn_id = p.read_element::<ObjectIdentifier>()?;
+			let mut critical = false;
+			let extn_value: &'a [u8];
+
+			let mut tlv = p.read_element::<Tlv>()?;
+			if tlv.tag() == <bool as SimpleAsn1Readable>::TAG {
+				critical = read_lenient_boolean(&tlv)?;
+				tlv = p.read_element()?;
+			}
+
+			if tlv.tag() == <&[u8] as SimpleAsn1Readable>::TAG {
+				extn_value = tlv.data();
+			} else {
+				return Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue));
+			}
+
+			Ok(Self { extn_id, critical, extn_value })
+		})
+	}
+}
+
+fn read_lenient_boolean<'a>(tlv: &Tlv<'_>) -> ParseResult<bool> {
+	let data = tlv.data();
+	if data.len() != 1 {
+		return Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue));
+	}
+	Ok(data[0] != 0) // accept 0xFF (DER) or 0x01 (non-canonical BER)
 }
 
 #[derive(Asn1Read, Asn1Write)]

@@ -1,4 +1,6 @@
-use acurast_common::{AccountLookup, ManagerIdProvider, ProcessorVersionProvider, Version};
+use acurast_common::{
+	AccountLookup, ManagerIdProvider, OnboardingCounterProvider, ProcessorVersionProvider, Version,
+};
 use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
 	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
@@ -143,5 +145,11 @@ impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
 	fn lookup(processor: &T::AccountId) -> Option<T::AccountId> {
 		let manager_id = Self::manager_id_for_processor(processor)?;
 		T::ManagerIdProvider::owner_for(manager_id).ok()
+	}
+}
+
+impl<T: Config> OnboardingCounterProvider<T::AccountId, T::Counter> for Pallet<T> {
+	fn counter(manager: &T::AccountId) -> Option<T::Counter> {
+		Self::counter_for_manager(manager)
 	}
 }

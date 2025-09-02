@@ -52,3 +52,7 @@ pub trait EnsureAttested<AccountId> {
 pub trait AccountLookup<AccountId> {
 	fn lookup(processor: &AccountId) -> Option<AccountId>;
 }
+
+pub trait OnboardingCounterProvider<AccountId, Counter> {
+	fn counter(manager: &AccountId) -> Option<Counter>;
+}

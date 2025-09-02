@@ -852,7 +852,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let cooldown_start =
 						s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
 					ensure!(
-						cooldown_start.saturating_add(s.cooldown_period) >= current_block,
+						cooldown_start.saturating_add(s.cooldown_period) < current_block,
 						Error::<T, I>::CooldownNotEnded
 					);
 				}
@@ -913,7 +913,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 				let cooldown_start = s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
 				ensure!(
-					cooldown_start.saturating_add(s.cooldown_period) >= current_block,
+					cooldown_start.saturating_add(s.cooldown_period) < current_block,
 					Error::<T, I>::CooldownNotEnded
 				);
 

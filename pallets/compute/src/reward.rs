@@ -23,8 +23,10 @@ impl<T: Balance> PendingReward<T> {
 
 	/// Consume the reward, returning the amount.
 	/// This is the primary way to "use" the reward.
-	pub fn consume(self) -> T {
-		self.amount
+	pub fn consume(mut self) -> T {
+		let amount = self.amount;
+		self.amount = T::zero(); // Clear amount to prevent drop panic
+		amount
 	}
 
 	/// Explicitly drop the reward (useful for testing or error cases)

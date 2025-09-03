@@ -2,7 +2,7 @@
 
 use frame_support::{assert_err, assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
-use sp_runtime::{traits::Zero, FixedU128, Perbill, Perquintill};
+use sp_runtime::{traits::Zero, AccountId32, FixedU128, Perbill, Perquintill};
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
@@ -12,6 +12,34 @@ use crate::{
 	Error, Event,
 };
 use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
+
+fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
+	let withdrew_events: Vec<_> = events()
+		.into_iter()
+		.filter_map(|e| match e {
+			RuntimeEvent::Compute(Event::DelegatorWithdrew(delegator, cid, amount)) => {
+				Some((delegator, cid, amount))
+			},
+			_ => None,
+		})
+		.collect();
+
+	// Should have exactly one DelegatorWithdrew event
+	assert_eq!(withdrew_events.len(), 1);
+	let (event_delegator, event_commitment_id, event_reward_amount) = &withdrew_events[0];
+
+	// Extract expected values from the input event
+	if let Event::DelegatorWithdrew(expected_delegator, expected_cid, expected_amount) =
+		expected_event
+	{
+		assert_eq!(
+			(event_delegator.clone(), *event_commitment_id, *event_reward_amount),
+			(expected_delegator, expected_cid, expected_amount)
+		);
+	} else {
+		panic!("Expected DelegatorWithdrew event");
+	}
+}
 
 #[test]
 fn test_create_pools_name_conflict() {
@@ -206,8 +234,6 @@ fn setup() {
 }
 
 fn create_pools() {
-	setup();
-
 	// create pool 1
 	{
 		assert_ok!(Compute::create_pool(
@@ -488,6 +514,7 @@ fn check_events() {
 fn test_multiple_processor_commit() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
+		setup();
 		create_pools();
 		commit(false, false);
 		check_events();
@@ -498,6 +525,7 @@ fn test_multiple_processor_commit() {
 fn test_multiple_processor_commit_reward_modified() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
+		setup();
 		create_pools();
 		commit(false, true);
 		check_events();
@@ -508,6 +536,7 @@ fn test_multiple_processor_commit_reward_modified() {
 fn test_multiple_processor_commit_with_interleaving_charlie() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
+		setup();
 		create_pools();
 		commit(true, false);
 		check_events();
@@ -518,6 +547,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie() {
 fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
+		setup();
 		create_pools();
 		commit(true, true);
 		check_events();
@@ -533,28 +563,11 @@ fn test_commit_compute() {
 		// Charlie will act as both manager and committer (same account for simplicity)
 		let charlie = charlie_account_id();
 
-		const MANAGER_ID: u128 = 1;
-		assert_ok!(<Test as crate::Config>::ManagerIdProvider::create_manager_id(
-			MANAGER_ID, &charlie
-		));
-
-		// Set up the backing relationship using the correct commitment ID
-		assert_ok!(
-			Compute::offer_backing(RuntimeOrigin::signed(charlie.clone()), charlie.clone(),)
-		);
-		assert_ok!(Compute::accept_backing_offer(
-			RuntimeOrigin::signed(charlie.clone()),
-			charlie.clone(),
-		));
-
-		const COMMITMENT_ID: u128 = 0;
-		assert_eq!(
-			<Test as crate::Config>::CommitmentIdProvider::commitment_id_for(&charlie)
-				.expect("Charlie should have a commitment ID"),
-			COMMITMENT_ID
-		);
+		offer_accept_backing(charlie.clone());
 
 		commit_alice_bob();
+
+		const MANAGER_ID: u128 = 1;
 
 		// pool 1 has only commits in warmup, not counting towards average
 		assert_eq!(
@@ -619,4 +632,189 @@ fn test_commit_compute() {
 			.iter()
 			.any(|e| matches!(e, RuntimeEvent::Compute(Event::CommitmentCreated(_, _)))));
 	});
+}
+
+#[test]
+fn test_delegate() {
+	ExtBuilder::default().build().execute_with(|| {
+		setup();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let committer = charlie_account_id();
+
+		offer_accept_backing(committer.clone());
+		commit_alice_bob();
+		commit_compute(committer.clone());
+
+		let delegator_1 = dave_account_id();
+		let delegator_2 = eve_account_id();
+		let initial_balance = 100 * UNIT;
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			delegator_1.clone(),
+			initial_balance
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			delegator_2.clone(),
+			initial_balance
+		));
+
+		let stake_amount_too_much = 50 * UNIT; // 5 tokens
+		let stake_amount_1 = 40 * UNIT; // 5 tokens
+		let stake_amount_2_too_much = 6 * UNIT; // 5 tokens
+		let stake_amount_2 = 5 * UNIT; // 5 tokens
+		let cooldown_period = 36u64; // 1000 blocks
+		let allow_auto_compound = true;
+
+		{
+			assert_err!(
+				Compute::delegate(
+					RuntimeOrigin::signed(delegator_1.clone()),
+					committer.clone(),
+					stake_amount_too_much,
+					cooldown_period,
+					allow_auto_compound,
+				),
+				Error::<Test, ()>::MaxDelegationRatioExceeded
+			);
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_1.clone()),
+				committer.clone(),
+				stake_amount_1,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(Balances::free_balance(delegator_1.clone()), initial_balance);
+			assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		{
+			assert_err!(
+				Compute::delegate(
+					RuntimeOrigin::signed(delegator_2.clone()),
+					committer.clone(),
+					stake_amount_2_too_much,
+					cooldown_period,
+					allow_auto_compound,
+				),
+				Error::<Test, ()>::MaxDelegationRatioExceeded
+			);
+
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_2.clone()),
+				committer.clone(),
+				stake_amount_2,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(Balances::free_balance(delegator_2.clone()), initial_balance);
+			assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator_2.clone()),
+			committer.clone()
+		));
+
+		// Get the commitment ID for precise event assertion
+		let commitment_id = AcurastCommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Assert the DelegatorWithdrew event with precise values
+		// 5 own stake, delegator 1: 40, delegator 2: 5
+		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
+			delegator_2.clone(),
+			commitment_id,
+			495999u128, // ~0.5
+		));
+
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator_1.clone()),
+			committer.clone()
+		));
+
+		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
+			delegator_1.clone(),
+			commitment_id,
+			3967992u128, // ~4
+		));
+
+        assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1 + 3967992u128);
+        assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2 + 495999u128);
+
+		// Verify delegators received some rewards (their balance should be different from initial)
+		assert_eq!(Balances::free_balance(delegator_1.clone()), initial_balance);
+		assert_eq!(Balances::free_balance(delegator_2.clone()), initial_balance);
+	});
+}
+
+fn offer_accept_backing(who: AccountId32) {
+	const MANAGER_ID: u128 = 1;
+	assert_ok!(<Test as crate::Config>::ManagerIdProvider::create_manager_id(MANAGER_ID, &who));
+
+	// Set up the backing relationship using the correct commitment ID
+	assert_ok!(Compute::offer_backing(RuntimeOrigin::signed(who.clone()), who.clone(),));
+	assert_ok!(Compute::accept_backing_offer(RuntimeOrigin::signed(who.clone()), who.clone(),));
+
+	const COMMITMENT_ID: u128 = 0;
+	assert_eq!(
+		<Test as crate::Config>::CommitmentIdProvider::commitment_id_for(&who)
+			.expect("who should have a commitment ID"),
+		COMMITMENT_ID
+	);
+}
+
+fn commit_compute(who: AccountId32) {
+	const MANAGER_ID: u128 = 1;
+
+	// pool 1 has only commits in warmup, not counting towards average
+	assert_eq!(
+		Compute::metrics_era_average(MANAGER_ID, 1), // pool 1
+		None
+	);
+	assert_eq!(
+		Compute::metrics_era_average(MANAGER_ID, 2).unwrap(), // pool 2
+		SlidingBuffer::from_inner(
+			0,
+			(Zero::zero(), 0),                              // prev
+			(FixedU128::from_rational(4000u128, 1u128), 2)  // cur
+		)
+	);
+
+	// Step 3: Setup initial balance for Charlie to cover the stake amount
+	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), who.clone(), 100 * UNIT));
+
+	// Step 4: Charlie commits compute (acting as committer backing his own manager account)
+	let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+		bounded_vec![ComputeCommitment {
+			pool_id: 2,
+			metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128), // Minimal value
+		},];
+
+	let stake_amount = 5 * UNIT; // 5 tokens
+	let cooldown_period = 36u64; // 1000 blocks
+	let commission = Perbill::from_percent(10); // 10% commission
+	let allow_auto_compound = true;
+
+	// Step 5: Charlie commits compute (as the committer)
+	assert_ok!(Compute::commit_compute(
+		RuntimeOrigin::signed(who.clone()),
+		stake_amount,
+		cooldown_period,
+		commitment,
+		commission,
+		allow_auto_compound,
+	));
 }

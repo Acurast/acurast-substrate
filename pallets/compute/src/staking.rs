@@ -163,22 +163,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.rewardable_amount
 			.checked_mul(&stake.cooldown_period.saturated_into::<u128>().saturated_into())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into();
+			.checked_div(&T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		// slash weight remains always like initial, also during cooldown
 		let slash_weight = stake
 			.amount
 			.checked_mul(&stake.cooldown_period.saturated_into::<u128>().saturated_into())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into();
+			.checked_div(&T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		let reward_debt = reward_weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::Decimals::get();
+			.checked_div(&T::Decimals::get())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt = reward_weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).slash_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::Decimals::get();
+			.checked_div(&T::Decimals::get())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		<SelfDelegation<T, I>>::insert(
 			commitment_id,
 			DelegationPoolMember { reward_weight, slash_weight, reward_debt, slash_debt },
@@ -261,15 +265,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let weight = amount
 			.checked_mul(&cooldown_period.saturated_into::<u128>().saturated_into())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into();
+			.checked_div(&T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let reward_debt = weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::Decimals::get();
+			.checked_div(&T::Decimals::get())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt = weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).slash_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			/ T::Decimals::get();
+			.checked_div(&T::Decimals::get())
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		ensure!(
 			Delegations::<T, I>::get(&who, commitment_id).is_none(),
@@ -432,20 +439,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Decimals::get().saturated_into::<u128>() < FIXEDU128_DECIMALS,
 				Error::<T, I>::InternalError
 			);
-			let reward_weight: BalanceFor<T, I> = (((metric.into_inner()
-				/ (FIXEDU128_DECIMALS / T::Decimals::get().saturated_into::<u128>()))
+			let reward_weight: BalanceFor<T, I> = (((metric
+				.into_inner()
+				.checked_div(
+					FIXEDU128_DECIMALS
+						.checked_div(T::Decimals::get().saturated_into::<u128>())
+						.ok_or(Error::<T, I>::CalculationOverflow)?,
+				)
+				.ok_or(Error::<T, I>::CalculationOverflow)?)
 			.checked_mul(updated_commitment_stake.saturated_into::<u128>())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get().saturated_into::<u128>())
+			.checked_div(T::Decimals::get().saturated_into::<u128>()))
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_mul(commmitment_cooldown.saturated_into::<u128>().saturated_into())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::MaxCooldownPeriod::get().saturated_into::<u128>())
+			.checked_div(T::MaxCooldownPeriod::get().saturated_into::<u128>())
+			.ok_or(Error::<T, I>::CalculationOverflow)?)
 			.saturated_into();
 
 			let reward_debt = reward_weight
 				.checked_mul(&StakingPools::<T, I>::get(pool_id).reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get();
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			match change {
 				StakeChange::Add(_) => {
@@ -497,15 +513,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.reward_weight
 				.checked_mul(&pool.reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get()
-					.checked_sub(&state.reward_debt)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_sub(&state.reward_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			state.reward_debt = state
 				.reward_weight
 				.checked_mul(&pool.reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get();
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(PendingReward::new(reward))
 		})
 	}
@@ -553,16 +571,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.reward_weight
 				.checked_mul(&pool.reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get()
-					.checked_sub(&state.reward_debt)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_sub(&state.reward_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash = state
 				.slash_weight
 				.checked_mul(&pool.slash_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get()
-					.checked_sub(&state.slash_debt)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_sub(&state.slash_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			// Apply commission and get the delegator's portion
 			let delegator_reward = Self::apply_commission(commitment_id, reward)?;
@@ -577,7 +597,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.reward_weight
 					.checked_mul(&pool.reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::Decimals::get();
+					.checked_div(&T::Decimals::get())
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				stake.accrued_slash = stake
 					.accrued_slash
 					.checked_add(&slash)
@@ -586,7 +607,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.slash_weight
 					.checked_mul(&pool.slash_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::Decimals::get();
+					.checked_div(&T::Decimals::get())
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(())
 			})
 		})
@@ -608,16 +630,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.reward_weight
 				.checked_mul(&pool.reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get()
-					.checked_sub(&state.reward_debt)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_sub(&state.reward_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash = state
 				.slash_weight
 				.checked_mul(&pool.slash_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				/ T::Decimals::get()
-					.checked_sub(&state.slash_debt)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.checked_div(&T::Decimals::get())
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_sub(&state.slash_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			Stakes::<T, I>::try_mutate(&commitment_id, |staker_| {
 				let stake = staker_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
@@ -629,7 +653,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.reward_weight
 					.checked_mul(&pool.reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::Decimals::get();
+					.checked_div(&T::Decimals::get())
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				stake.accrued_slash = stake
 					.accrued_slash
 					.checked_add(&slash)
@@ -638,7 +663,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.slash_weight
 					.checked_mul(&pool.slash_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::Decimals::get();
+					.checked_div(&T::Decimals::get())
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(())
 			})
 		})
@@ -784,13 +810,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.rewardable_amount
 					.checked_mul(&stake.cooldown_period.saturated_into::<u128>().saturated_into())
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into();
+					.checked_div(
+						&T::MaxCooldownPeriod::get().saturated_into::<u128>().saturated_into(),
+					)
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.saturated_into();
 				ensure!(m.reward_debt.is_zero(), Error::<T, I>::InternalError);
 				m.reward_debt = m
 					.reward_weight
 					.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					/ T::Decimals::get();
+					.checked_div(&T::Decimals::get())
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(prev_reward_weight
 					.checked_sub(&m.reward_weight)
 					.ok_or(Error::<T, I>::CalculationOverflow)?)

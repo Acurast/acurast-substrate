@@ -2,7 +2,10 @@ use acurast_common::{CommitmentIdProvider, PoolId};
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::SaturatedConversion,
-	traits::{Currency, Get, InspectLockableCurrency, LockableCurrency, WithdrawReasons},
+	traits::{
+		Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockableCurrency,
+		WithdrawReasons,
+	},
 };
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, Saturating, Zero},
@@ -209,8 +212,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})?;
 
-		Self::update_self_delegation(commitment_id)?;
 		Self::distribute_down(commitment_id)?;
+		Self::update_self_delegation(commitment_id)?;
 		Self::update_commitment_stake(commitment_id, StakeChange::Add(extra_amount))?;
 		Self::update_total_stake(StakeChange::Add(extra_amount))?;
 
@@ -347,7 +350,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::delegate_more_for(
 			who,
 			commitment_id,
-			Self::withdraw_delegator(&who, commitment_id)?.consume(),
+			Self::withdraw_delegator_accrued(&who, commitment_id)?.consume(),
 		)?;
 
 		Ok(())
@@ -358,7 +361,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		commitment_id: T::CommitmentId,
 	) -> Result<(), Error<T, I>> {
 		// compound reward to the caller if any
-		Self::stake_more_for(committer, Self::withdraw_committer(commitment_id)?.consume())?;
+		Self::stake_more_for(
+			committer,
+			Self::withdraw_committer_accrued(commitment_id)?.consume(),
+		)?;
 
 		Ok(())
 	}
@@ -639,7 +645,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// It is guaranteed to withdraw reward/slash only if the result is Ok.
-	pub fn withdraw_delegator(
+	fn withdraw_delegator_accrued(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<PendingReward<BalanceFor<T, I>>, Error<T, I>> {
@@ -656,7 +662,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// It is guaranteed to withdraw reward/slash only if the result is Ok.
-	pub fn withdraw_committer(
+	pub fn withdraw_delegation_for(
+		who: &T::AccountId,
+		commitment_id: T::CommitmentId,
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		let reward = Self::withdraw_delegator_accrued(&who, commitment_id)?;
+
+		// Transfer reward to the caller if any
+		let reward_amount = reward.consume();
+		if !reward_amount.is_zero() {
+			T::Currency::transfer(
+				&Self::reward_distribution_settings()
+					.ok_or(Error::<T, I>::InternalError)?
+					.distribution_account,
+				&who,
+				reward_amount,
+				ExistenceRequirement::KeepAlive,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+
+		Ok(reward_amount)
+	}
+
+	/// It is guaranteed to withdraw reward/slash only if the result is Ok.
+	pub fn withdraw_committer_accrued(
 		commitment_id: T::CommitmentId,
 	) -> Result<PendingReward<BalanceFor<T, I>>, Error<T, I>> {
 		Self::accrue_committer(commitment_id)?;
@@ -840,8 +870,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		check_cooldown: bool,
-	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+	) -> Result<(), Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
+
+		Self::withdraw_delegation_for(&who, commitment_id)?;
 
 		let stake = <Delegations<T, I>>::try_mutate(
 			who,
@@ -870,7 +902,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		)?;
 
-		Self::distribute_down(commitment_id)?;
 		Self::update_commitment_stake(commitment_id, StakeChange::Sub(stake.rewardable_amount))?;
 		Self::update_total_stake(StakeChange::Sub(stake.rewardable_amount))?;
 
@@ -896,15 +927,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})?;
 
-		Self::unlock_funds(&who, stake.amount);
+		Self::unlock_and_slash(who, &stake)?;
 
-		Ok(stake.amount)
+		Ok(())
 	}
 
-	pub fn unstake_for(
+	pub fn end_commitment_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
-	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+	) -> Result<(), Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 
 		let stake = <Stakes<T, I>>::try_mutate(
@@ -927,16 +958,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::update_commitment_stake(commitment_id, StakeChange::Sub(stake.amount))?;
 		Self::update_total_stake(StakeChange::Sub(stake.amount))?;
 
+		Self::unlock_and_slash(who, &stake)?;
+
+		// Eventhough all delegator's cooldown has force-ended before this unstake is successful,
+		// we cannot clear all delegators here because it would make this call non-constant in number of delegators.
+		// We let them remain in the delegation pool and make sure ending delegation is tolerating the commitment already gone.
+
+		Ok(())
+	}
+
+	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {
 		Self::unlock_funds(who, stake.amount);
+		// Transfer the already unlocked stake with accrued slash, be sure to fail hard on errors!a
+		if !stake.accrued_slash.is_zero() {
+			let settings =
+				Self::reward_distribution_settings().ok_or(Error::<T, I>::InternalError)?;
+			// Transfer the slashed amount from user to distribution account
+			T::Currency::transfer(
+				&who,
+				&settings.distribution_account,
+				stake.accrued_slash,
+				ExistenceRequirement::AllowDeath,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
 
-		// TODO clear all delegators? their cooldown must have ended (imposed by committer cooling down)
-
-		Ok(stake.amount)
+		Ok(())
 	}
 
 	/// Force-unstakes a commitment by removing all delegations and the commitment's own stake.
 	/// This bypasses normal cooldown and validation checks.
-	pub fn force_unstake_for(commitment_id: T::CommitmentId) -> Result<(), DispatchError> {
+	pub fn force_end_commitment_for(commitment_id: T::CommitmentId) -> Result<(), DispatchError> {
 		// Calculate total amounts to be removed for updating global totals
 		let mut total_delegation_amount: BalanceFor<T, I> = Zero::zero();
 		let mut total_stake_amount: BalanceFor<T, I> = Zero::zero();

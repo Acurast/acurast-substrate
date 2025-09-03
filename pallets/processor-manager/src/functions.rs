@@ -1,15 +1,23 @@
 use acurast_common::{
-	AccountLookup, ManagerIdProvider, OnboardingCounterProvider, ProcessorVersionProvider, Version,
+	AccountLookup, AttestationValidator, ManagerIdProvider, ProcessorVersionProvider, Version,
 };
 use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
-	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
-	traits::{Currency, ExistenceRequirement},
+	sp_runtime::{
+		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
+		DispatchError, SaturatedConversion,
+	},
+	traits::{
+		fungible::{InspectHold, MutateHold},
+		tokens::Precision,
+		Currency, ExistenceRequirement, IsType,
+	},
 };
 
 use crate::{
-	BalanceFor, Config, Error, LastManagerId, ManagedProcessors, Pallet,
-	ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex, RewardDistributionWindow,
+	BalanceFor, Config, Error, HoldReason, LastManagerId, ManagedProcessors, OnboardingProvider,
+	Pallet, ProcessorPairingFor, ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex,
+	RewardDistributionWindow,
 };
 
 impl<T: Config> Pallet<T> {
@@ -130,6 +138,39 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> Pallet<T>
+where
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+{
+	pub fn do_validate_pairing(
+		pairing: &ProcessorPairingFor<T>,
+		is_multi: bool,
+	) -> Result<Option<T::Counter>, DispatchError> {
+		let mut new_counter: Option<T::Counter> = None;
+		if !pairing.validate_timestamp::<T>() {
+			return Err(Error::<T>::PairingProofExpired)?;
+		}
+		if is_multi {
+			if !pairing.multi_validate_signature::<T>(&pairing.account) {
+				return Err(Error::<T>::InvalidPairingProof)?;
+			}
+		} else {
+			let counter = Self::counter_for_manager(&pairing.account)
+				.unwrap_or(0u8.into())
+				.checked_add(&1u8.into());
+			if let Some(counter) = counter {
+				if !pairing.validate_signature::<T>(&pairing.account, counter) {
+					return Err(Error::<T>::InvalidPairingProof)?;
+				}
+				new_counter = Some(counter);
+			} else {
+				return Err(Error::<T>::CounterOverflow)?;
+			}
+		}
+		Ok(new_counter)
+	}
+}
+
 impl<T: Config> ProcessorVersionProvider<T::AccountId> for Pallet<T> {
 	fn processor_version(processor: &T::AccountId) -> Option<Version> {
 		Self::processor_version(processor)
@@ -148,8 +189,51 @@ impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> OnboardingCounterProvider<T::AccountId, T::Counter> for Pallet<T> {
-	fn counter(manager: &T::AccountId) -> Option<T::Counter> {
-		Self::counter_for_manager(manager)
+impl<T: Config> OnboardingProvider<T> for Pallet<T>
+where
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+{
+	fn validate_pairing(pairing: &ProcessorPairingFor<T>, is_multi: bool) -> DispatchResult {
+		_ = Self::do_validate_pairing(pairing, is_multi)?;
+		Ok(().into())
+	}
+
+	fn validate_attestation(
+		attestation_chain: &acurast_common::AttestationChain,
+		account: &<T>::AccountId,
+	) -> DispatchResult {
+		_ = T::AttestationHandler::validate(attestation_chain, account)?;
+		Ok(().into())
+	}
+
+	fn fund(account: &<T>::AccountId) {
+		let Some(settings) = Self::processor_onboarding_settings() else {
+			return;
+		};
+		let funded = T::Currency::transfer(
+			&settings.funds_account,
+			account,
+			settings.funds,
+			ExistenceRequirement::KeepAlive,
+		)
+		.is_ok();
+		if funded {
+			_ = T::Currency::hold(&HoldReason::Onboarding.into(), account, settings.funds);
+		}
+	}
+
+	fn can_cover_fee(account: &<T>::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>) {
+		let available = T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), account);
+		let missing = fee.saturating_sub(available);
+		return (available >= fee, missing);
+	}
+
+	fn release_fee_funds(account: &<T>::AccountId, fee: BalanceFor<T>) {
+		_ = T::Currency::release(
+			&HoldReason::Onboarding.into(),
+			account,
+			fee,
+			Precision::BestEffort,
+		);
 	}
 }

@@ -7883,21 +7883,15 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.4.1",
- "jsonrpsee 0.16.3",
- "log",
+ "pallet-acurast",
  "pallet-balances",
  "pallet-timestamp",
  "pallet-uniques",
  "parity-scale-codec",
  "scale-info",
- "serde",
- "serde_json",
- "sp-api",
- "sp-blockchain",
  "sp-core",
  "sp-io",
  "sp-std",
- "thiserror 1.0.68",
 ]
 
 [[package]]

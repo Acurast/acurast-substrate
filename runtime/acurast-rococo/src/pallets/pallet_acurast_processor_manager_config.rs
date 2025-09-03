@@ -13,7 +13,7 @@ use pallet_acurast::ElegibleRewardAccountLookup;
 use crate::benchmarking;
 use crate::{
 	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balances,
-	ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent, Uniques,
+	ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent, RuntimeHoldReason, Uniques,
 };
 
 impl pallet_acurast_processor_manager::Config for Runtime {
@@ -31,12 +31,14 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
 		Self::AccountId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,
 	>;
+	type AttestationHandler = Acurast;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

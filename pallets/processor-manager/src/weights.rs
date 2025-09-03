@@ -258,4 +258,17 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+
+	fn onboard() -> Weight {
+		Weight::from_parts(56_280_000, 0)
+			.saturating_add(Weight::from_parts(0, 3655))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
+
+	fn update_onboarding_settings() -> Weight {
+		Weight::from_parts(18_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4990))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

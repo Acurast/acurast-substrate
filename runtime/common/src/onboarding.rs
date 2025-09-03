@@ -1,45 +1,35 @@
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::TransactionSource,
 	sp_runtime::{
 		traits::{
-			AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-			TransactionExtension, ValidateResult, Zero,
+			AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension,
+			ValidateResult,
 		},
-		transaction_validity::{
-			InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
-		},
-		DispatchResult, Saturating,
+		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	},
+	traits::IsType,
 	weights::Weight,
 	RuntimeDebugNoBound,
 };
-use pallet_acurast::OnboardingCounterProvider;
-use pallet_acurast_processor_manager::ProcessorPairingFor;
+use frame_system::ensure_signed;
+use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::traits::CheckedAdd;
-use sp_std::vec;
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
-use crate::utils::{FeePayerProvider, PairingProvider};
+use crate::utils::PairingProvider;
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T, P, C))]
-pub struct Onboarding<
-	T: pallet_acurast_processor_manager::Config,
-	P: PairingProvider<T>,
-	C: OnboardingCounterProvider<T::AccountId, T::Counter>,
-> {
+#[scale_info(skip_type_params(T, P, OP))]
+pub struct Onboarding<T: ProcessorManagerConfig, P: PairingProvider<T>, OP: OnboardingProvider<T>> {
 	#[codec(skip)]
-	_phantom_data: PhantomData<(T, P, C)>,
+	_phantom_data: PhantomData<(T, P, OP)>,
 }
 
-impl<
-		T: pallet_acurast_processor_manager::Config,
-		P: PairingProvider<T>,
-		C: OnboardingCounterProvider<T::AccountId, T::Counter>,
-	> core::fmt::Debug for Onboarding<T, P, C>
+impl<T: ProcessorManagerConfig, P: PairingProvider<T>, OP: OnboardingProvider<T>> Debug
+	for Onboarding<T, P, OP>
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -52,6 +42,9 @@ impl<
 	}
 }
 
+const PAIRING_VALIDATION_ERROR: u8 = 1;
+const ATTESTATION_VALIDATION_ERROR: u8 = 2;
+
 #[derive(RuntimeDebugNoBound)]
 pub enum Val<T: frame_system::Config> {
 	Fund(T::AccountId),
@@ -59,14 +52,15 @@ pub enum Val<T: frame_system::Config> {
 }
 
 impl<
-		T: pallet_acurast_processor_manager::Config + Eq + Clone + Send + Sync + 'static,
+		T: ProcessorManagerConfig + Eq + Clone + Send + Sync + 'static,
 		P: PairingProvider<T> + Eq + Clone + Send + Sync + 'static,
-		C: OnboardingCounterProvider<T::AccountId, T::Counter> + Eq + Clone + Send + Sync + 'static,
-	> TransactionExtension<T::RuntimeCall> for Onboarding<T, P, C>
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+	> TransactionExtension<T::RuntimeCall> for Onboarding<T, P, OP>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	T::Counter: Default,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 {
 	const IDENTIFIER: &'static str = "Onboarding";
 
@@ -76,8 +70,9 @@ where
 
 	type Pre = ();
 
-	fn weight(&self, call: &T::RuntimeCall) -> Weight {
-		todo!()
+	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
+		// TODO: return actual Weight
+		Weight::from_parts(10_000, 0)
 	}
 
 	fn validate(
@@ -90,36 +85,41 @@ where
 		_inherited_implication: &impl sp_runtime::traits::Implication,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let validity = ValidTransaction {
-			priority: 0,
-			requires: vec![],
-			provides: vec![],
-			longevity: TransactionLongevity::max_value(),
-			propagate: true,
-		};
-		let Some((pairing, is_multi)) = P::pairing_for_call(call) else {
-			return Ok((validity, Val::NoFund, origin));
+		let Some((pairing, is_multi, attestation_chain)) = P::pairing_for_call(call) else {
+			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		if !is_multi {
-			let Some(counter) =
-				C::counter(&pairing.account).unwrap_or_default().checked_add(&1u8.into())
-			else {
-				return Ok((validity, Val::NoFund, origin));
-			};
+		if !OP::validate_pairing(pairing, is_multi).is_ok() {
+			return Err(InvalidTransaction::Custom(PAIRING_VALIDATION_ERROR).into());
 		}
 
-		todo!()
+		let Some(attestation_chain) = attestation_chain else {
+			return Ok((ValidTransaction::default(), Val::NoFund, origin));
+		};
+
+		let Ok(who) = ensure_signed(origin.clone()) else {
+			return Ok((ValidTransaction::default(), Val::NoFund, origin));
+		};
+
+		if !OP::validate_attestation(attestation_chain, &who).is_ok() {
+			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
+		}
+
+		Ok((ValidTransaction::default(), Val::Fund(pairing.account.clone()), origin))
 	}
 
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &sp_runtime::traits::DispatchOriginOf<T::RuntimeCall>,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_origin: &sp_runtime::traits::DispatchOriginOf<T::RuntimeCall>,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		todo!()
+		let Val::Fund(account) = val else {
+			return Ok(());
+		};
+		OP::fund(&account);
+		Ok(())
 	}
 }

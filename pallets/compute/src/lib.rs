@@ -805,7 +805,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			Self::unstake_for(&who, commitment_id)?;
+			Self::end_commitment_for(&who, commitment_id)?;
 			Commission::<T, I>::remove(commitment_id);
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(commitment_id));
 			Ok(().into())
@@ -882,8 +882,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
-			let _reward = Self::end_delegation_for(&who, commitment_id, true)?;
-			// todo transfer reward
+
+			Self::end_delegation_for(&who, commitment_id, true)?;
 
 			Self::deposit_event(Event::<T, I>::DelegationEnded(who, commitment_id));
 			Ok(().into())
@@ -970,8 +970,8 @@ pub mod pallet {
 		///
 		/// This is a root-only operation that bypasses normal cooldown and validation checks.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::force_unstake())]
-		pub fn force_unstake(
+		#[pallet::weight(T::WeightInfo::force_end_commitment())]
+		pub fn force_end_commitment(
 			origin: OriginFor<T>,
 			committer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
@@ -979,7 +979,7 @@ pub mod pallet {
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::force_unstake_for(commitment_id)?;
+			Self::force_end_commitment_for(commitment_id)?;
 
 			Commission::<T, I>::remove(commitment_id);
 
@@ -998,20 +998,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			let reward = Self::withdraw_delegator(&who, commitment_id)?;
-
-			// Transfer reward to the caller if any
-			let reward_amount = reward.consume();
-			if !reward_amount.is_zero() {
-				T::Currency::transfer(
-					&Self::reward_distribution_settings()
-						.ok_or(Error::<T, I>::InternalError)?
-						.distribution_account,
-					&who,
-					reward_amount,
-					ExistenceRequirement::KeepAlive,
-				)?;
-			}
+			let reward_amount = Self::withdraw_delegation_for(&who, commitment_id)?;
 
 			Self::deposit_event(Event::<T, I>::DelegatorWithdrew(
 				who,
@@ -1031,7 +1018,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 
-			let reward = Self::withdraw_committer(commitment_id)?;
+			let reward = Self::withdraw_committer_accrued(commitment_id)?;
 
 			// Transfer reward to the caller if any
 			let reward_amount = reward.consume();
@@ -1201,8 +1188,8 @@ pub mod pallet {
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
-			// TODO (MIKE): don't get the reward from the settings directly, but rather from one of the two buckets "prepared" every start of epoch in on_initialize (when we inflate token supply)
-			// two bucktes split by ratio (configured): compute rewards (module 2) & staked_back rewards (module 3)
+			// TODO (MIKE): zero out the non-inflation-based, fixed reward in favor of the inflation-based reward split into the compute and stake-backed reward buckets.
+			// by removing the use of `settings.total_reward_per_distribution` all together
 			let Some(settings) = Self::reward_distribution_settings() else { return Ok(None) };
 
 			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
@@ -1265,7 +1252,7 @@ pub mod pallet {
 			// accrue
 			let _ = T::Currency::transfer(
 				&settings.distribution_account,
-				// TODO (MIKE): it was not refined if we should pay compute-backed rewards (not stake-backed) to committer as well (but there could be none)
+				// TODO (MIKE): it was not refined if we should pay compute-backed rewards (not stake-backed) to committer instead manager (but there could be no committer for compute not simultaneously backed by stake)
 				&manager,
 				reward,
 				ExistenceRequirement::KeepAlive,

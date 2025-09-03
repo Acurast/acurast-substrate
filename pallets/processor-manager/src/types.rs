@@ -1,12 +1,9 @@
 use acurast_common::{ListUpdate, Version};
-use core::fmt::Debug;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::{IdentifyAccount, MaybeDisplay, Verify},
 	traits::{Currency, IsType, UnixTime},
 };
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_core::H256;
 
 use crate::Config;
@@ -122,6 +119,7 @@ pub type ProcessorPairingUpdate<AccountId, Signature> =
 pub type BinaryHash = H256;
 pub(crate) const MAX_LOCATION_LENGTH: u32 = 200;
 pub type BinaryLocation = BoundedVec<u8, ConstU32<MAX_LOCATION_LENGTH>>;
+
 #[derive(
 	RuntimeDebug,
 	Encode,
@@ -133,24 +131,18 @@ pub type BinaryLocation = BoundedVec<u8, ConstU32<MAX_LOCATION_LENGTH>>;
 	PartialEq,
 	Eq,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct UpdateInfo {
 	pub version: Version,
 	pub binary_location: BinaryLocation,
 }
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct UpdateInfos {
 	pub udpate_info: UpdateInfo,
 	pub binary_hash: BinaryHash,
 }
 
 #[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RewardDistributionWindow {
 	pub start: u32,
 	pub heartbeats: u32,
@@ -187,8 +179,6 @@ impl RewardDistributionWindow {
 #[derive(
 	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RewardDistributionSettings<Balance, AccountId> {
 	pub window_length: u32,
 	pub tollerance: u32,
@@ -200,39 +190,12 @@ pub struct RewardDistributionSettings<Balance, AccountId> {
 pub const MAX_ENDPOINT_LENGTH: u32 = 200;
 pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
 
-/// Runtime API error.
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(
-	RuntimeDebug, parity_scale_codec::Encode, parity_scale_codec::Decode, PartialEq, Eq, TypeInfo,
+	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
-pub enum RuntimeApiError {
-	/// Error when retrieving processor update infos.
-	#[cfg_attr(feature = "std", error("Retrieving processor update infos failed."))]
-	ProcessorUpdateInfos,
-}
-
-impl RuntimeApiError {
-	/// Consume given error `e` with `self` and generate a native log entry with error details.
-	pub fn log_error(self, e: impl Debug) -> Self {
-		log::error!(
-			target: "runtime::acurast_processor_manager",
-			"[{:?}] error: {:?}",
-			self,
-			e,
-		);
-		self
-	}
-
-	/// Consume given error `e` with `self` and generate a native log entry with error details.
-	pub fn log_debug(self, e: impl Debug) -> Self {
-		log::debug!(
-			target: "runtime::acurast_processor_manager",
-			"[{:?}] error: {:?}",
-			self,
-			e,
-		);
-		self
-	}
+pub struct OnboardingSettings<Balance, AccountId> {
+	pub funds: Balance,
+	pub funds_account: AccountId,
 }
 
 pub type ProcessorPairingFor<T> =

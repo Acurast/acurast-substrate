@@ -1,6 +1,7 @@
+use acurast_common::AttestationChain;
 use frame_support::pallet_prelude::{DispatchResult, Weight};
 
-use crate::Config;
+use crate::{BalanceFor, Config, ProcessorPairingFor};
 
 pub trait ProcessorAssetRecovery<T: Config> {
 	fn recover_assets(
@@ -22,6 +23,17 @@ impl<T: Config> AdvertisementHandler<T> for () {
 	}
 }
 
+pub trait OnboardingProvider<T: Config> {
+	fn validate_pairing(pairing: &ProcessorPairingFor<T>, is_multi: bool) -> DispatchResult;
+	fn validate_attestation(
+		attestation_chain: &AttestationChain,
+		account: &T::AccountId,
+	) -> DispatchResult;
+	fn fund(account: &T::AccountId);
+	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>);
+	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>);
+}
+
 /// Weight functions needed for pallet_acurast_processor_manager.
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;
@@ -38,4 +50,6 @@ pub trait WeightInfo {
 	fn update_reward_distribution_settings() -> Weight;
 	fn update_min_processor_version_for_reward() -> Weight;
 	fn set_management_endpoint() -> Weight;
+	fn onboard() -> Weight;
+	fn update_onboarding_settings() -> Weight;
 }

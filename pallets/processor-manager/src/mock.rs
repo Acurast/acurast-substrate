@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::{stub::*, *};
-use acurast_common::{AccountLookup, ManagerIdProvider};
+use acurast_common::{AccountLookup, ManagerIdProvider, CU32};
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -51,7 +51,8 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>, Call},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		AcurastProcessorManager: crate::{Pallet, Call, Storage, Event<T>},
+		Acurast: pallet_acurast,
+		AcurastProcessorManager: crate::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -85,7 +86,7 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
 	type RuntimeFreezeReason = ();
 	type MaxFreezes = ConstU32<0>;
@@ -121,6 +122,26 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+impl pallet_acurast::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RegistrationExtra = ();
+	type MaxAllowedSources = CU32<4>;
+	type MaxCertificateRevocationListUpdates = ConstU32<10>;
+	type MaxSlots = CU32<64>;
+	type PalletId = AcurastPalletId;
+	type MaxEnvVars = CU32<10>;
+	type EnvKeyMaxSize = CU32<32>;
+	type EnvValueMaxSize = CU32<1024>;
+	type KeyAttestationBarrier = ();
+	type UnixTime = pallet_timestamp::Pallet<Test>;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
+	type JobHooks = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+	type ProcessorVersion = acurast_common::Version;
+	type MaxVersions = CU32<2>;
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Proof = MultiSignature;
@@ -140,6 +161,8 @@ impl Config for Test {
 	type BenchmarkHelper = ();
 	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type AttestationHandler = Acurast;
 }
 
 pub struct MockLookup<AccountId>(PhantomData<AccountId>);

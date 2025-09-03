@@ -20,7 +20,7 @@ pub trait WeightInfo {
 	fn reward() -> Weight;
 	fn slash() -> Weight;
 	fn fake_metrics() -> Weight;
-	fn force_unstake() -> Weight;
+	fn force_end_commitment() -> Weight;
 	fn withdraw_delegation() -> Weight;
 	fn withdraw_commitment() -> Weight;
 	fn delegate_more() -> Weight;
@@ -105,7 +105,7 @@ impl WeightInfo for () {
 		Weight::from_parts(10_000, 0)
 	}
 
-	fn force_unstake() -> Weight {
+	fn force_end_commitment() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

@@ -230,7 +230,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-    fn force_unstake() -> Weight {
+    fn force_end_commitment() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1381`
 		//  Estimated: `4668`

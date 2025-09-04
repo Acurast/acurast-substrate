@@ -441,10 +441,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			let amount = Self::do_reward_distribution(&who).unwrap_or_default();
-			if !amount.is_zero() {
-				Self::deposit_event(Event::<T>::ProcessorRewardSent(who, amount));
-			}
+			_ = Self::do_reward_distribution(&who).unwrap_or_default();
 
 			Ok(().into())
 		}

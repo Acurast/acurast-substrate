@@ -152,6 +152,7 @@ where
 		}
 		if is_multi {
 			if !pairing.multi_validate_signature::<T>(&pairing.account) {
+				#[cfg(not(feature = "runtime-benchmarks"))]
 				return Err(Error::<T>::InvalidPairingProof)?;
 			}
 		} else {
@@ -160,6 +161,7 @@ where
 				.checked_add(&1u8.into());
 			if let Some(counter) = counter {
 				if !pairing.validate_signature::<T>(&pairing.account, counter) {
+					#[cfg(not(feature = "runtime-benchmarks"))]
 					return Err(Error::<T>::InvalidPairingProof)?;
 				}
 				new_counter = Some(counter);

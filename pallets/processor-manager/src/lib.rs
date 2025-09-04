@@ -441,7 +441,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			_ = Self::do_reward_distribution(&who).unwrap_or_default();
+			_ = Self::do_reward_distribution(&who);
+			_ = T::ComputeHooks::commit(&who, &[]);
 
 			Ok(().into())
 		}

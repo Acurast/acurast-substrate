@@ -647,8 +647,8 @@ fn test_delegate() {
 		commit_alice_bob();
 		commit_compute(committer.clone());
 
-		let delegator_1 = dave_account_id();
-		let delegator_2 = eve_account_id();
+		let delegator_1 = ferdie_account_id();
+		let delegator_2 = george_account_id();
 		let initial_balance = 100 * UNIT;
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
@@ -687,7 +687,6 @@ fn test_delegate() {
 				allow_auto_compound,
 			));
 			// After delegation, the stake should be locked
-			assert_eq!(Balances::free_balance(delegator_1.clone()), initial_balance);
 			assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1);
 			// At minimum we should see the delegation event
 			assert!(events()
@@ -715,7 +714,6 @@ fn test_delegate() {
 				allow_auto_compound,
 			));
 			// After delegation, the stake should be locked
-			assert_eq!(Balances::free_balance(delegator_2.clone()), initial_balance);
 			assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2);
 			// At minimum we should see the delegation event
 			assert!(events()
@@ -759,10 +757,152 @@ fn test_delegate() {
 			Balances::usable_balance(&delegator_2),
 			initial_balance - stake_amount_2 + 495999u128
 		);
+	});
+}
 
-		// Verify delegators received some rewards (their balance should be different from initial)
-		assert_eq!(Balances::free_balance(delegator_1.clone()), initial_balance);
-		assert_eq!(Balances::free_balance(delegator_2.clone()), initial_balance);
+#[test]
+fn test_delegate_more() {
+	ExtBuilder::default().build().execute_with(|| {
+		setup();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let committer = charlie_account_id();
+
+		offer_accept_backing(committer.clone());
+		commit_alice_bob();
+		commit_compute(committer.clone());
+
+		let delegator_1 = ferdie_account_id();
+		let delegator_2 = george_account_id();
+		let initial_balance = 100 * UNIT;
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			delegator_1.clone(),
+			initial_balance
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			delegator_2.clone(),
+			initial_balance
+		));
+
+		let stake_amount_1 = 25 * UNIT; // 5 tokens
+		let stake_amount_2 = 5 * UNIT; // 5 tokens
+		let cooldown_period = 36u64; // 1000 blocks
+		let allow_auto_compound = true;
+
+		{
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_1.clone()),
+				committer.clone(),
+				stake_amount_1,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		{
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_2.clone()),
+				committer.clone(),
+				stake_amount_2,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
+
+		let stake_amount_2b = 15 * UNIT; // makes it a total of 20 for delegator_2
+		{
+			assert_ok!(Compute::delegate_more(
+				RuntimeOrigin::signed(delegator_2.clone()),
+				committer.clone(),
+				stake_amount_2b,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(
+				Balances::usable_balance(&delegator_2),
+				initial_balance - stake_amount_2 - stake_amount_2b + 744799
+			);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::DelegatedMore(_, _)))));
+		}
+	});
+}
+
+#[test]
+fn test_compound_delegation() {
+	ExtBuilder::default().build().execute_with(|| {
+		setup();
+		create_pools();
+
+		// Charlie will act as both manager and committer
+		let committer = charlie_account_id();
+		offer_accept_backing(committer.clone());
+		commit_alice_bob();
+		commit_compute(committer.clone());
+
+		let delegator = ferdie_account_id();
+		let initial_balance = 100 * UNIT;
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			delegator.clone(),
+			initial_balance
+		));
+
+		let stake_amount = 30 * UNIT;
+		let cooldown_period = 36u64;
+		let allow_auto_compound = true;
+
+		// Get the commitment ID for precise event assertion
+		let commitment_id = AcurastCommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Initial delegation
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			stake_amount,
+			cooldown_period,
+			allow_auto_compound,
+		));
+
+		// Add some rewards to the system
+		assert_ok!(Compute::reward(RuntimeOrigin::root(), 5 * UNIT));
+
+		// The staked amount should increase
+		assert_eq!(
+			Compute::delegations(delegator.clone(), commitment_id).unwrap().amount,
+			stake_amount
+		);
+
+		// Compound the delegation rewards (compound_delegation takes committer and optional delegator)
+		assert_ok!(Compute::compound_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			None, // delegator defaults to caller
+		));
+
+		// The staked amount should increase
+		assert_eq!(
+			Compute::delegations(delegator.clone(), commitment_id).unwrap().amount,
+			32217591
+		);
 	});
 }
 

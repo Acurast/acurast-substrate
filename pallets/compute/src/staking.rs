@@ -18,7 +18,7 @@ use crate::{reward::PendingReward, *};
 #[derive(Clone, PartialEq, Eq)]
 enum StakeChange<Balance> {
 	Add(Balance),
-	Sub(Balance),
+	Sub(Balance, Balance),
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -384,7 +384,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Ok(())
 				})
 			},
-			StakeChange::Sub(amount) => {
+			StakeChange::Sub(amount, _) => {
 				<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
 					*s = s.checked_sub(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok(())
@@ -393,31 +393,47 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
-	/// Helper function that allows to both increase and decrease amount in a pool. It accrues outstanding rewards/slashes before re-snapshotting the debts and adapting weights.
-	///
-	/// - Increase can happen on new delegator joining or staking more.
-	/// - Decrease can happen on delegator leaving.
+	/// Helper function that updates both amount and rewardable_amount in CommitmentStake.
+	/// Used when actual stake amounts change (new stake, ending delegation, etc.)
 	fn update_commitment_stake(
 		commitment_id: T::CommitmentId,
 		change: StakeChange<BalanceFor<T, I>>,
-	) -> Result<(), Error<T, I>> {
-		let updated_commitment_stake = match change {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		let updated_rewardable_amount = match change {
 			StakeChange::Add(amount) => <CommitmentStake<T, I>>::try_mutate(
 				commitment_id,
-				|s| -> Result<BalanceFor<T, I>, Error<T, I>> {
-					*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
-					Ok(s.clone())
+				|(total_amount, rewardable_amount)| -> Result<BalanceFor<T, I>, Error<T, I>> {
+					*total_amount = total_amount
+						.checked_add(&amount)
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					*rewardable_amount = rewardable_amount
+						.checked_add(&amount)
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					Ok(*rewardable_amount)
 				},
 			),
-			StakeChange::Sub(amount) => <CommitmentStake<T, I>>::try_mutate(
+			StakeChange::Sub(diff, rewardable_diff) => <CommitmentStake<T, I>>::try_mutate(
 				commitment_id,
-				|s| -> Result<BalanceFor<T, I>, Error<T, I>> {
-					*s = s.checked_sub(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
-					Ok(s.clone())
+				|(total_amount, rewardable_amount)| -> Result<BalanceFor<T, I>, Error<T, I>> {
+					*total_amount = total_amount
+						.checked_sub(&diff)
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					*rewardable_amount = rewardable_amount
+						.checked_sub(&rewardable_diff)
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					Ok(*rewardable_amount)
 				},
 			),
 		}?;
+		Self::update_commitment_pool_weight(commitment_id, updated_rewardable_amount)?;
+		Ok(updated_rewardable_amount)
+	}
 
+	/// Updates pool weights for a commitment based on rewardable amount.
+	fn update_commitment_pool_weight(
+		commitment_id: T::CommitmentId,
+		updated_rewardable_amount: BalanceFor<T, I>,
+	) -> Result<(), Error<T, I>> {
 		let commmitment_cooldown = Stakes::<T, I>::get(&commitment_id)
 			.ok_or(Error::<T, I>::CommitmentNotFound)?
 			.cooldown_period;
@@ -447,7 +463,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						.ok_or(Error::<T, I>::CalculationOverflow)?,
 				)
 				.ok_or(Error::<T, I>::CalculationOverflow)?)
-			.checked_mul(updated_commitment_stake.saturated_into::<u128>())
+			.checked_mul(updated_rewardable_amount.saturated_into::<u128>())
 			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(T::Decimals::get().saturated_into::<u128>()))
 			.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -463,31 +479,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.checked_div(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-			match change {
-				StakeChange::Add(_) => {
-					let weight_diff = &reward_weight
-						.checked_sub(&prev_reward_weight)
+			// Update pool weight based on difference between new and previous reward weight
+			if reward_weight >= prev_reward_weight {
+				let weight_diff = &reward_weight
+					.checked_sub(&prev_reward_weight)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				StakingPools::<T, I>::try_mutate(pool_id, |pool| {
+					pool.reward_weight = pool
+						.reward_weight
+						.checked_add(weight_diff)
 						.ok_or(Error::<T, I>::CalculationOverflow)?;
-					StakingPools::<T, I>::try_mutate(pool_id, |pool| {
-						pool.reward_weight = pool
-							.reward_weight
-							.checked_add(weight_diff)
-							.ok_or(Error::<T, I>::CalculationOverflow)?;
-						Ok(())
-					})?;
-				},
-				StakeChange::Sub(_) => {
-					let weight_diff = &prev_reward_weight
-						.checked_sub(&reward_weight)
+					Ok(())
+				})?;
+			} else {
+				let weight_diff = &prev_reward_weight
+					.checked_sub(&reward_weight)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				StakingPools::<T, I>::try_mutate(pool_id, |pool| {
+					pool.reward_weight = pool
+						.reward_weight
+						.checked_sub(weight_diff)
 						.ok_or(Error::<T, I>::CalculationOverflow)?;
-					StakingPools::<T, I>::try_mutate(pool_id, |pool| {
-						pool.reward_weight = pool
-							.reward_weight
-							.checked_sub(weight_diff)
-							.ok_or(Error::<T, I>::CalculationOverflow)?;
-						Ok(())
-					})?;
-				},
+					Ok(())
+				})?;
 			}
 
 			<StakingPoolMembers<T, I>>::insert(
@@ -752,7 +766,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Self::update_self_delegation(commitment_id)?;
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(amount_diff))?;
+		Self::update_commitment_stake(commitment_id, StakeChange::Sub(Zero::zero(), amount_diff))?;
 
 		Ok(())
 	}
@@ -798,7 +812,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(amount_diff))?;
+		Self::update_commitment_stake(commitment_id, StakeChange::Sub(Zero::zero(), amount_diff))?;
 
 		let reward_weight_diff = DelegationPoolMembers::<T, I>::try_mutate(
 			&who,
@@ -965,8 +979,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		)?;
 
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(stake.rewardable_amount))?;
-		Self::update_total_stake(StakeChange::Sub(stake.rewardable_amount))?;
+		Self::update_commitment_stake(
+			commitment_id,
+			StakeChange::Sub(stake.amount, stake.rewardable_amount),
+		)?;
+		Self::update_total_stake(StakeChange::Sub(stake.amount, stake.rewardable_amount))?;
 
 		// UPDATE per pool and global TOTALS
 		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
@@ -1018,8 +1035,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<SelfDelegation<T, I>>::remove(commitment_id);
 
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(stake.amount))?;
-		Self::update_total_stake(StakeChange::Sub(stake.amount))?;
+		Self::update_commitment_stake(
+			commitment_id,
+			StakeChange::Sub(stake.amount, stake.rewardable_amount),
+		)?;
+		Self::update_total_stake(StakeChange::Sub(stake.amount, stake.rewardable_amount))?;
 
 		Self::unlock_and_slash(who, &stake)?;
 
@@ -1130,7 +1150,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn delegation_ratio(commitment_id: T::CommitmentId) -> Perquintill {
-		let denominator: u128 = <CommitmentStake<T, I>>::get(commitment_id).saturated_into();
+		let (_, rewardable_amount) = <CommitmentStake<T, I>>::get(commitment_id);
+		let denominator: u128 = rewardable_amount.saturated_into();
 		let reciprocal_nominator: u128 = <Stakes<T, I>>::get(commitment_id)
 			.map(|s| s.amount)
 			.unwrap_or(Zero::zero())

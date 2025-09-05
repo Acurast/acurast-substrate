@@ -8,13 +8,13 @@ use frame_support::{
 	},
 	weights::Weight,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{Saturating, Zero};
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 2] =
-		[(2, &migrate_to_v2::<T, I>), (3, &migrate_to_v3::<T, I>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 3] =
+		[(2, &migrate_to_v2::<T, I>), (3, &migrate_to_v3::<T, I>), (4, &migrate_to_v4::<T, I>)];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -69,6 +69,45 @@ pub fn migrate_to_v3<T: Config<I>, I: 'static>() -> Weight {
 	);
 
 	weight = weight.saturating_add(T::DbWeight::get().writes(if reads > 0 { 1 } else { 0 }));
+
+	weight
+}
+
+/// Migrates `CommitmentStake` from single `BalanceFor<T, I>` to tuple `(BalanceFor<T, I>, BalanceFor<T, I>)`
+/// The first element (amount) is calculated from the sum of self-delegation and other delegations
+/// The second element (rewardable_amount) is the old CommitmentStake value
+pub fn migrate_to_v4<T: Config<I>, I: 'static>() -> Weight {
+	let mut weight = Weight::zero();
+
+	// Use translate to convert old single values to new tuple format
+	weight = weight
+		.saturating_add(T::DbWeight::get().reads(<CommitmentStake<T, I>>::iter().count() as u64));
+
+	<CommitmentStake<T, I>>::translate::<BalanceFor<T, I>, _>(
+		|commitment_id, old_rewardable_amount| {
+			// Calculate total amount from self-delegation + other delegations
+			let mut total_amount: BalanceFor<T, I> = Zero::zero();
+
+			// Add committer's own stake (self-delegation)
+			if let Some(self_stake) = Stakes::<T, I>::get(&commitment_id) {
+				total_amount = total_amount.saturating_add(self_stake.amount);
+			}
+
+			// Add all delegator stakes
+			// We need to iterate through all delegators and check if they delegate to this commitment
+			for (_delegator, check_commitment_id, delegation) in Delegations::<T, I>::iter() {
+				if check_commitment_id == commitment_id {
+					total_amount = total_amount.saturating_add(delegation.amount);
+				}
+			}
+
+			// Return the new tuple format: (total_amount, rewardable_amount)
+			Some((total_amount, old_rewardable_amount))
+		},
+	);
+
+	weight = weight
+		.saturating_add(T::DbWeight::get().writes(<CommitmentStake<T, I>>::iter().count() as u64));
 
 	weight
 }

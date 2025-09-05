@@ -281,11 +281,14 @@ pub mod pallet {
 		StakingPoolMemberFor<T, I>,
 	>;
 
-	/// Tracks a commitment's backing stake, inclusive committer stake and delegated stakes received.
+	/// Tracks a commitment's backing stake, inclusive committer stake and delegated stakes received as (total_amount, rewardable_amount).
+	///
+	/// - `total_amount`: Total staked including cooldown (used for slashing)
+	/// - `rewardable_amount`: Amount eligible for rewards (used for reward calculations)
 	#[pallet::storage]
 	#[pallet::getter(fn commitment_stake)]
 	pub(super) type CommitmentStake<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, BalanceFor<T, I>, ValueQuery>;
+		StorageMap<_, Identity, T::CommitmentId, (BalanceFor<T, I>, BalanceFor<T, I>), ValueQuery>;
 
 	/// Tracks the total stake of all commitments.
 	#[pallet::storage]
@@ -348,7 +351,7 @@ pub mod pallet {
 	pub type ComputeBasedRewards<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, SlidingBuffer<EpochOf<T>, BalanceFor<T, I>>, ValueQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -369,13 +372,15 @@ pub mod pallet {
 		CommitmentCreated(T::AccountId, T::CommitmentId),
 		/// An account started delegation to a commitment. [delegator, commitment_id]
 		Delegated(T::AccountId, T::CommitmentId),
+		/// An account increased its delegated amount to a commitment. [delegator, commitment_id]
+		DelegatedMore(T::AccountId, T::CommitmentId),
 		/// An account started the cooldown for an accepted delegation. [delegator, commitment_id]
 		DelegationCooldownStarted(T::AccountId, T::CommitmentId),
 		/// An account passed the cooldown and ended delegation. [delegator, commitment_id]
 		DelegationEnded(T::AccountId, T::CommitmentId),
 		/// A committer staked and committed compute provided by the manager he is backing. [commitment_id]
 		ComputeCommitted(T::CommitmentId),
-		/// A committer increased it's stake. [commitment_id, extra_amount]
+		/// A committer increased its stake. [commitment_id, extra_amount]
 		StakedMore(T::CommitmentId, BalanceFor<T, I>),
 		/// The cooldown for a commitment got started. [commitment_id]
 		ComputeCommitmentCooldownStarted(T::CommitmentId),
@@ -1049,12 +1054,15 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::delegate_more())]
 		pub fn delegate_more(
 			origin: OriginFor<T>,
+			committer: T::AccountId,
 			extra_amount: BalanceFor<T, I>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
 			Self::delegate_more_for(&who, commitment_id, extra_amount)?;
+
+			Self::deposit_event(Event::<T, I>::DelegatedMore(who, commitment_id));
 
 			Ok(().into())
 		}
@@ -1151,7 +1159,7 @@ pub mod pallet {
 		fn validate_max_stake_metric_ratio(
 			commitment_id: T::CommitmentId,
 		) -> Result<(), Error<T, I>> {
-			let total_stake = Self::commitment_stake(commitment_id);
+			let (_, rewardable_stake) = Self::commitment_stake(commitment_id);
 			// Check existing commitments from storage
 			for (pool_id, metric_value) in <ComputeCommitments<T, I>>::iter_prefix(commitment_id) {
 				// Get the pool to check if it has max_stake_metric_ratio configured
@@ -1166,7 +1174,7 @@ pub mod pallet {
 
 				// Calculate actual ratio: total_stake / metric
 				let actual_ratio = FixedU128::checked_from_rational(
-					total_stake.saturated_into::<u128>(),
+					rewardable_stake.saturated_into::<u128>(),
 					metric_value.into_inner(),
 				)
 				.ok_or(Error::<T, I>::MaxStakeMetricRatioExceeded)?;

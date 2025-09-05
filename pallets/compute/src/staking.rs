@@ -912,12 +912,44 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			|s_| -> Result<StakeFor<T, I>, Error<T, I>> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
 				if check_cooldown {
-					let cooldown_start =
-						s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
-					ensure!(
-						cooldown_start.saturating_add(s.cooldown_period) < current_block,
-						Error::<T, I>::CooldownNotEnded
-					);
+					if let Some(committer_stake) = Stakes::<T, I>::get(&commitment_id) {
+						match (committer_stake.cooldown_started, s.cooldown_started) {
+							(Some(committer_cooldown_start), Some(delegator_cooldown_start)) => {
+								let first = if committer_cooldown_start < delegator_cooldown_start {
+									committer_cooldown_start
+								} else {
+									delegator_cooldown_start
+								};
+								ensure!(
+									first.saturating_add(committer_stake.cooldown_period)
+										< current_block,
+									Error::<T, I>::CooldownNotEnded
+								);
+							},
+							(Some(committer_cooldown_start), None) => {
+								// inherit the committer's cooldown start
+								ensure!(
+									committer_cooldown_start
+										.saturating_add(committer_stake.cooldown_period)
+										< current_block,
+									Error::<T, I>::CooldownNotEnded
+								);
+							},
+							(None, Some(delegator_cooldown_start)) => {
+								ensure!(
+									delegator_cooldown_start
+										.saturating_add(committer_stake.cooldown_period)
+										< current_block,
+									Error::<T, I>::CooldownNotEnded
+								);
+							},
+							(None, None) => {
+								Err(Error::<T, I>::CooldownNotStarted)?;
+							},
+						}
+					}
+					// if the commitment is gone, which means the committer even passed his cooldown without the delegator taking action (like redelegating)
+					// -> can immediately exit
 				}
 
 				Ok(s_.take().unwrap())

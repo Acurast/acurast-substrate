@@ -751,8 +751,14 @@ fn test_delegate() {
 			3967992u128, // ~4
 		));
 
-        assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1 + 3967992u128);
-        assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2 + 495999u128);
+		assert_eq!(
+			Balances::usable_balance(&delegator_1),
+			initial_balance - stake_amount_1 + 3967992u128
+		);
+		assert_eq!(
+			Balances::usable_balance(&delegator_2),
+			initial_balance - stake_amount_2 + 495999u128
+		);
 
 		// Verify delegators received some rewards (their balance should be different from initial)
 		assert_eq!(Balances::free_balance(delegator_1.clone()), initial_balance);

@@ -3,15 +3,15 @@ use frame_support::weights::ConstantMultiplier;
 use polkadot_runtime_common::SlowAdjustingFeeUpdate;
 
 use crate::{
-	AcurastProcessorManager, Balances, OperationalFeeMultiplier, ProcessorPairingProvider, Runtime,
-	RuntimeEvent, TransactionByteFee, WeightToFee,
+	AcurastProcessorManager, Balances, OperationalFeeMultiplier, ProcessorCallInfoProvider,
+	Runtime, RuntimeEvent, TransactionByteFee, WeightToFee,
 };
 
 /// Runtime configuration for pallet_transaction_payment.
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		TransactionCharger<Balances, (), ProcessorPairingProvider, AcurastProcessorManager>;
+		TransactionCharger<Balances, (), ProcessorCallInfoProvider, AcurastProcessorManager>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;

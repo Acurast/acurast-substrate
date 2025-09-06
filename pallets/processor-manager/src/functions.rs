@@ -8,8 +8,8 @@ use frame_support::{
 		DispatchError, SaturatedConversion,
 	},
 	traits::{
-		fungible::{InspectHold, MutateHold},
-		tokens::Precision,
+		fungible::{Inspect, InspectHold, MutateHold},
+		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
 		Currency, ExistenceRequirement, IsType,
 	},
 };
@@ -202,35 +202,51 @@ where
 
 	fn validate_attestation(
 		attestation_chain: &acurast_common::AttestationChain,
-		account: &<T>::AccountId,
+		account: &T::AccountId,
 	) -> DispatchResult {
 		_ = T::AttestationHandler::validate(attestation_chain, account)?;
 		Ok(().into())
 	}
 
-	fn fund(account: &<T>::AccountId) {
+	fn can_fund_processor_onboarding(processor: &T::AccountId) -> bool {
+		if Self::manager_id_for_processor(&processor).is_some() {
+			return false;
+		}
 		let Some(settings) = Self::processor_onboarding_settings() else {
-			return;
+			return false;
 		};
-		let funded = T::Currency::transfer(
+		if settings.funds.is_zero() {
+			return false;
+		}
+		let consequences = T::Currency::can_withdraw(&settings.funds_account, settings.funds);
+		matches!(consequences, WithdrawConsequence::Success)
+	}
+
+	fn fund(account: &T::AccountId) -> DispatchResult {
+		let Some(settings) = Self::processor_onboarding_settings() else {
+			return Err(Error::<T>::OnboardingSettingsNotSet)?;
+		};
+		T::Currency::transfer(
 			&settings.funds_account,
 			account,
 			settings.funds,
 			ExistenceRequirement::KeepAlive,
-		)
-		.is_ok();
-		if funded {
-			_ = T::Currency::hold(&HoldReason::Onboarding.into(), account, settings.funds);
-		}
+		)?;
+		let amount_to_hold = settings.funds.min(T::Currency::reducible_balance(
+			account,
+			Preservation::Protect,
+			Fortitude::Polite,
+		));
+		T::Currency::hold(&HoldReason::Onboarding.into(), account, amount_to_hold)
 	}
 
-	fn can_cover_fee(account: &<T>::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>) {
+	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>) {
 		let available = T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), account);
 		let missing = fee.saturating_sub(available);
 		return (available >= fee, missing);
 	}
 
-	fn release_fee_funds(account: &<T>::AccountId, fee: BalanceFor<T>) {
+	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>) {
 		_ = T::Currency::release(
 			&HoldReason::Onboarding.into(),
 			account,

@@ -19,22 +19,28 @@ use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_std::vec;
 
-use crate::utils::FeePayerProvider;
+use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
+
+use crate::utils::{CallInfoProvider, FeePayerProvider};
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T, P))]
+#[scale_info(skip_type_params(T, P, OP))]
 pub struct CheckNonce<
-	T: frame_system::Config,
+	T: ProcessorManagerConfig,
 	P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static,
+	OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
 > {
 	#[codec(compact)]
 	pub nonce: T::Nonce,
 	#[codec(skip)]
-	_phantom_data: PhantomData<P>,
+	_phantom_data: PhantomData<(P, OP)>,
 }
 
-impl<T: frame_system::Config, P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static>
-	CheckNonce<T, P>
+impl<
+		T: ProcessorManagerConfig,
+		P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+	> CheckNonce<T, P, OP>
 {
 	/// utility constructor. Used only in client/factory code.
 	pub fn from(nonce: T::Nonce) -> Self {
@@ -42,8 +48,11 @@ impl<T: frame_system::Config, P: FeePayerProvider<T> + Eq + Clone + Send + Sync 
 	}
 }
 
-impl<T: frame_system::Config, P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static>
-	core::fmt::Debug for CheckNonce<T, P>
+impl<
+		T: ProcessorManagerConfig,
+		P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+	> core::fmt::Debug for CheckNonce<T, P, OP>
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -75,8 +84,11 @@ pub enum Pre {
 	Refund(Weight),
 }
 
-impl<T: frame_system::Config, P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static>
-	TransactionExtension<T::RuntimeCall> for CheckNonce<T, P>
+impl<
+		T: ProcessorManagerConfig,
+		P: FeePayerProvider<T> + Eq + Clone + Send + Sync + 'static,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+	> TransactionExtension<T::RuntimeCall> for CheckNonce<T, P, OP>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
@@ -105,10 +117,14 @@ where
 		};
 		let fee_payer = P::fee_payer(who, call);
 		let fee_payer_account = frame_system::Account::<T>::get(&fee_payer);
-		if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into());
+
+		if !P::CallInfo::is_fundable_call(call) || !OP::can_fund_processor_onboarding(who) {
+			if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
+				// Nonce storage not paid for
+				return Err(InvalidTransaction::Payment.into());
+			}
 		}
+
 		let account = if &fee_payer != who {
 			frame_system::Account::<T>::get(who)
 		} else {

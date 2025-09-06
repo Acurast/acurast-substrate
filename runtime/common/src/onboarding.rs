@@ -13,22 +13,30 @@ use frame_support::{
 	weights::Weight,
 	RuntimeDebugNoBound,
 };
-use frame_system::ensure_signed;
 use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
-use crate::utils::PairingProvider;
+use crate::utils::CallInfoProvider;
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T, P, OP))]
-pub struct Onboarding<T: ProcessorManagerConfig, P: PairingProvider<T>, OP: OnboardingProvider<T>> {
+pub struct Onboarding<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>>
+{
 	#[codec(skip)]
 	_phantom_data: PhantomData<(T, P, OP)>,
 }
 
-impl<T: ProcessorManagerConfig, P: PairingProvider<T>, OP: OnboardingProvider<T>> Debug
+impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>>
+	Onboarding<T, P, OP>
+{
+	pub fn new() -> Self {
+		Self { _phantom_data: Default::default() }
+	}
+}
+
+impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>> Debug
 	for Onboarding<T, P, OP>
 {
 	#[cfg(feature = "std")]
@@ -44,6 +52,7 @@ impl<T: ProcessorManagerConfig, P: PairingProvider<T>, OP: OnboardingProvider<T>
 
 const PAIRING_VALIDATION_ERROR: u8 = 1;
 const ATTESTATION_VALIDATION_ERROR: u8 = 2;
+const FUNDING_ERROR: u8 = 3;
 
 #[derive(RuntimeDebugNoBound)]
 pub enum Val<T: frame_system::Config> {
@@ -53,7 +62,7 @@ pub enum Val<T: frame_system::Config> {
 
 impl<
 		T: ProcessorManagerConfig + Eq + Clone + Send + Sync + 'static,
-		P: PairingProvider<T> + Eq + Clone + Send + Sync + 'static,
+		P: CallInfoProvider<T> + Eq + Clone + Send + Sync + 'static,
 		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
 	> TransactionExtension<T::RuntimeCall> for Onboarding<T, P, OP>
 where
@@ -85,6 +94,10 @@ where
 		_inherited_implication: &impl sp_runtime::traits::Implication,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((ValidTransaction::default(), Val::NoFund, origin));
+		};
+
 		let Some((pairing, is_multi, attestation_chain)) = P::pairing_for_call(call) else {
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
@@ -97,12 +110,12 @@ where
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		let Ok(who) = ensure_signed(origin.clone()) else {
-			return Ok((ValidTransaction::default(), Val::NoFund, origin));
-		};
-
 		if !OP::validate_attestation(attestation_chain, &who).is_ok() {
 			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
+		}
+
+		if !OP::can_fund_processor_onboarding(who) {
+			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		}
 
 		Ok((ValidTransaction::default(), Val::Fund(pairing.account.clone()), origin))
@@ -119,7 +132,11 @@ where
 		let Val::Fund(account) = val else {
 			return Ok(());
 		};
-		OP::fund(&account);
+		if !OP::fund(&account).is_ok() {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(
+				FUNDING_ERROR,
+			)));
+		}
 		Ok(())
 	}
 }

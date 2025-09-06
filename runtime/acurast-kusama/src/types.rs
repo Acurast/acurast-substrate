@@ -7,7 +7,7 @@ use acurast_runtime_common::{
 	onboarding::Onboarding,
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
-	utils::{FeePayer, PairingProvider},
+	utils::{CallInfoProvider, FeePayer},
 	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
@@ -56,8 +56,8 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		Onboarding<Runtime, ProcessorPairingProvider, AcurastProcessorManager>,
-		CheckNonce<Runtime, FeePayer<Runtime, ProcessorPairingProvider>>,
+		Onboarding<Runtime, ProcessorCallInfoProvider, AcurastProcessorManager>,
+		CheckNonce<Runtime, FeePayer<Runtime, ProcessorCallInfoProvider>, AcurastProcessorManager>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
@@ -152,8 +152,8 @@ pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 >;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ProcessorPairingProvider;
-impl PairingProvider<Runtime> for ProcessorPairingProvider {
+pub struct ProcessorCallInfoProvider;
+impl CallInfoProvider<Runtime> for ProcessorCallInfoProvider {
 	fn pairing_for_call(
 		call: &<Runtime as frame_system::Config>::RuntimeCall,
 	) -> Option<(&ProcessorPairingFor<Runtime>, bool, Option<&AttestationChain>)> {
@@ -171,6 +171,10 @@ impl PairingProvider<Runtime> for ProcessorPairingProvider {
 			}) => Some((pairing, *multi, Some(attestation_chain))),
 			_ => None,
 		}
+	}
+
+	fn is_fundable_call(call: &<Runtime as frame_system::Config>::RuntimeCall) -> bool {
+		matches!(call, RuntimeCall::AcurastProcessorManager(ProcessorManagerCall::onboard { .. }))
 	}
 
 	fn can_use_onboarding_funds_for_call(

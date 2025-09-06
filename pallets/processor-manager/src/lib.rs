@@ -265,6 +265,7 @@ pub mod pallet {
 		CounterOverflow,
 		PairingProofExpired,
 		UnknownProcessorVersion,
+		OnboardingSettingsNotSet,
 	}
 
 	#[pallet::hooks]

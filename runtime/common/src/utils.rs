@@ -97,27 +97,32 @@ pub fn check_device_attestation(
 	false
 }
 
-pub trait FeePayerProvider<T: frame_system::Config> {
+pub trait FeePayerProvider<T: ProcessorManagerConfig> {
+	type CallInfo: CallInfoProvider<T>;
 	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
 }
 
-pub trait PairingProvider<T: ProcessorManagerConfig> {
+pub trait CallInfoProvider<T: ProcessorManagerConfig> {
 	fn pairing_for_call(
 		call: &T::RuntimeCall,
 	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&AttestationChain>)>;
+
+	fn is_fundable_call(call: &T::RuntimeCall) -> bool;
 
 	fn can_use_onboarding_funds_for_call(call: &T::RuntimeCall) -> bool;
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct FeePayer<T: ProcessorManagerConfig, P: PairingProvider<T>>(PhantomData<(T, P)>);
+pub struct FeePayer<T: ProcessorManagerConfig, P: CallInfoProvider<T>>(PhantomData<(T, P)>);
 
-impl<T: ProcessorManagerConfig, P: PairingProvider<T>> FeePayerProvider<T> for FeePayer<T, P>
+impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>> FeePayerProvider<T> for FeePayer<T, P>
 where
 	<T as frame_system::Config>::AccountId: IsType<
 		<<<T as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId,
 	>,
 {
+	type CallInfo = P;
+
 	fn fee_payer(
 		account: &<T as frame_system::Config>::AccountId,
 		call: &<T as frame_system::Config>::RuntimeCall,
@@ -125,7 +130,7 @@ where
 		let mut manager = ProcessorManager::<T>::lookup(account);
 
 		if manager.is_none() {
-			if let Some((pairing, _, _)) = P::pairing_for_call(call) {
+			if let Some((pairing, _, _)) = Self::CallInfo::pairing_for_call(call) {
 				manager = Some(pairing.account.clone());
 			}
 		}

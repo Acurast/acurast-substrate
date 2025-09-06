@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::utils::{FeePayer, FeePayerProvider, PairingProvider};
+use crate::utils::{CallInfoProvider, FeePayer, FeePayerProvider};
 use acurast_p256_crypto::MultiSignature;
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
@@ -71,7 +71,7 @@ where
 	Runtime: TransactionPaymentConfig + ProcessorManagerConfig,
 	F: Balanced<Runtime::AccountId>,
 	OU: OnUnbalanced<Credit<Runtime::AccountId, F>>,
-	P: PairingProvider<Runtime>,
+	P: CallInfoProvider<Runtime>,
 	OP: OnboardingProvider<Runtime>,
 	<Runtime as FrameSystemConfig>::AccountId: IsType<<<<Runtime as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 	<F as Inspect<<Runtime as FrameSystemConfig>::AccountId>>::Balance: IsType<<<Runtime as ProcessorManagerConfig>::Currency as Currency<<Runtime as FrameSystemConfig>::AccountId>>::Balance>,
@@ -151,13 +151,13 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-        if fee.is_zero() {
+		if fee.is_zero() || (P::is_fundable_call(call) && OP::can_fund_processor_onboarding(who)) {
 			return Ok(())
 		}
 
 		let fee_payer = FeePayer::<Runtime, P>::fee_payer(who, call);
-		let mut fee = fee;
 
+		let mut fee = fee;
 		if &fee_payer != who && P::can_use_onboarding_funds_for_call(call) {
 			let (can_cover, missing) = OP::can_cover_fee(&fee_payer, fee.into());
 			if can_cover {

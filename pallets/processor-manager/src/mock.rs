@@ -157,6 +157,7 @@ impl Config for Test {
 	type Advertisement = ();
 	type AdvertisementHandler = ();
 	type WeightInfo = weights::WeightInfo<Self>;
+	type ExtensionWeightInfo = weights::ExtensionWeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
@@ -180,17 +181,40 @@ impl crate::BenchmarkHelper<Test> for () {
 
 	fn advertisement() -> <Test as Config>::Advertisement {}
 
-	fn funded_account(index: u32) -> <Test as Config>::AccountId {
-		let caller: T::AccountId = frame_benchmarking::account("token_account", index, SEED);
-		<Balances as fungible::Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
+		let caller: <Test as frame_system::Config>::AccountId =
+			frame_benchmarking::account("token_account", index, SEED);
+		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
 
 		caller
 	}
 
-	fn attest_account(account: &<Test>::AccountId) {}
+	fn attest_account(_account: &<Test as frame_system::Config>::AccountId) {}
 
-	fn create_compute_pool() -> PoolId {
+	fn create_compute_pool() -> acurast_common::PoolId {
 		panic!("pallet_acurast_compute not yet installed for this runtime");
+	}
+
+	fn setup_compute_settings() {}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_acurast::BenchmarkHelper<Test> for ()
+where
+	<Test as pallet_acurast::Config>::RegistrationExtra: Default,
+{
+	fn registration_extra(
+		_instant_match: bool,
+	) -> <Test as pallet_acurast::Config>::RegistrationExtra {
+		Default::default()
+	}
+
+	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
+		let caller: <Test as frame_system::Config>::AccountId =
+			frame_benchmarking::account("token_account", index, SEED);
+		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+
+		caller
 	}
 }
 

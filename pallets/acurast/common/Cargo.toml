@@ -32,7 +32,7 @@ base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
 hex-literal = "0.4"
 
 [features]
-default = ["std"]
+default = ["std", "attestation"]
 std = [
     "frame-support/std",
     "sp-std/std",

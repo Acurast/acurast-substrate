@@ -2,6 +2,7 @@
 
 mod functions;
 mod migration;
+mod onboarding;
 mod traits;
 mod types;
 
@@ -15,10 +16,11 @@ mod tests;
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
+pub use onboarding::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
@@ -96,6 +98,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 		type AttestationHandler: AttestationValidator<Self::AccountId>;
 		type WeightInfo: WeightInfo;
+		type ExtensionWeightInfo: ExtensionWeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}

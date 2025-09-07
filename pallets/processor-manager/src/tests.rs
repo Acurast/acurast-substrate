@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, ProcessorPairingFor,
 	ProcessorPairingUpdateFor, RewardDistributionSettings, UpdateInfo,

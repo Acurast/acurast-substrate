@@ -6,7 +6,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, DispatchError, Percent,
+		BuildStorage, Percent,
 	},
 	traits::AsEnsureOriginWithArg,
 	PalletId,
@@ -331,7 +331,7 @@ impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
 		caller
 	}
 
-	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
+	fn remove_job_registration(job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

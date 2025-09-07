@@ -33,6 +33,11 @@ pub trait OnboardingProvider<T: Config> {
 	fn fund(account: &T::AccountId) -> DispatchResult;
 	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>);
 	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>);
+	fn pairing_for_call(
+		call: &T::RuntimeCall,
+	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&AttestationChain>)>;
+	fn is_funding_call(call: &T::RuntimeCall) -> bool;
+	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
 }
 
 /// Weight functions needed for pallet_acurast_processor_manager.
@@ -53,4 +58,9 @@ pub trait WeightInfo {
 	fn set_management_endpoint() -> Weight;
 	fn onboard() -> Weight;
 	fn update_onboarding_settings() -> Weight;
+}
+
+pub trait ExtensionWeightInfo {
+	fn pairing() -> Weight;
+	fn onboarding() -> Weight;
 }

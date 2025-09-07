@@ -4,10 +4,8 @@ use acurast_runtime_common::{
 		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
-	onboarding::Onboarding,
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
-	utils::{CallInfoProvider, FeePayer},
 	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
@@ -16,9 +14,7 @@ use frame_support::{
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_acurast::AttestationChain;
-use pallet_acurast_marketplace::Call as MarketplaceCall;
-use pallet_acurast_processor_manager::{Call as ProcessorManagerCall, ProcessorPairingFor};
+use pallet_acurast_processor_manager::Onboarding;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
@@ -56,8 +52,8 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		Onboarding<Runtime, ProcessorCallInfoProvider, AcurastProcessorManager>,
-		CheckNonce<Runtime, FeePayer<Runtime, ProcessorCallInfoProvider>, AcurastProcessorManager>,
+		Onboarding<Runtime, AcurastProcessorManager>,
+		CheckNonce<Runtime, AcurastProcessorManager>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
@@ -149,54 +145,3 @@ pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	BLOCK_PROCESSING_VELOCITY,
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ProcessorCallInfoProvider;
-impl CallInfoProvider<Runtime> for ProcessorCallInfoProvider {
-	fn pairing_for_call(
-		call: &<Runtime as frame_system::Config>::RuntimeCall,
-	) -> Option<(&ProcessorPairingFor<Runtime>, bool, Option<&AttestationChain>)> {
-		match call {
-			RuntimeCall::AcurastProcessorManager(ProcessorManagerCall::pair_with_manager {
-				pairing,
-			}) => Some((pairing, false, None)),
-			RuntimeCall::AcurastProcessorManager(
-				ProcessorManagerCall::multi_pair_with_manager { pairing },
-			) => Some((pairing, true, None)),
-			RuntimeCall::AcurastProcessorManager(ProcessorManagerCall::onboard {
-				pairing,
-				multi,
-				attestation_chain,
-			}) => Some((pairing, *multi, Some(attestation_chain))),
-			_ => None,
-		}
-	}
-
-	fn is_fundable_call(call: &<Runtime as frame_system::Config>::RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::AcurastProcessorManager(ProcessorManagerCall::onboard { .. }))
-	}
-
-	fn can_use_onboarding_funds_for_call(
-		call: &<Runtime as frame_system::Config>::RuntimeCall,
-	) -> bool {
-		match call {
-			RuntimeCall::AcurastProcessorManager(call) => match call {
-				ProcessorManagerCall::heartbeat_with_metrics { .. }
-				| ProcessorManagerCall::heartbeat_with_version { .. }
-				| ProcessorManagerCall::onboard { .. }
-				| ProcessorManagerCall::multi_pair_with_manager { .. }
-				| ProcessorManagerCall::pair_with_manager { .. } => true,
-				_ => false,
-			},
-			RuntimeCall::AcurastMarketplace(call) => match call {
-				MarketplaceCall::advertise { .. }
-				| MarketplaceCall::acknowledge_match { .. }
-				| MarketplaceCall::acknowledge_execution_match { .. }
-				| MarketplaceCall::report { .. }
-				| MarketplaceCall::cleanup_assignments { .. } => true,
-				_ => false,
-			},
-			_ => false,
-		}
-	}
-}

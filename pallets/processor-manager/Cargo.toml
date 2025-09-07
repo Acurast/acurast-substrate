@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 parity-scale-codec = { workspace = true }
 sp-core = { workspace = true }
 
-acurast-common = { workspace = true }
+acurast-common = { workspace = true, features = ["attestation"] }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -49,15 +49,17 @@ std = [
 	"acurast-common/std",
 	"sp-core/std",
 	"pallet-uniques/std",
+	"pallet-balances/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sp-io",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"hex-literal",
+	"sp-io",
+	"pallet-balances",
 ]
 try-runtime = ["frame-support/try-runtime"]

@@ -4,8 +4,8 @@ use frame_support::{
 	pallet_prelude::TransactionSource,
 	sp_runtime::{
 		traits::{
-			AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension,
-			ValidateResult,
+			AsSystemOriginSigner, DispatchInfoOf, DispatchOriginOf, Dispatchable, IdentifyAccount,
+			Implication, TransactionExtension, ValidateResult, Verify,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	},
@@ -13,32 +13,26 @@ use frame_support::{
 	weights::Weight,
 	RuntimeDebugNoBound,
 };
-use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
+
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::traits::{IdentifyAccount, Verify};
 
-use crate::utils::CallInfoProvider;
+use crate::{Config, ExtensionWeightInfo, OnboardingProvider};
 
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T, P, OP))]
-pub struct Onboarding<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>>
-{
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, Default)]
+#[scale_info(skip_type_params(T, OP))]
+pub struct Onboarding<T: Config, OP: OnboardingProvider<T>> {
 	#[codec(skip)]
-	_phantom_data: PhantomData<(T, P, OP)>,
+	_phantom_data: PhantomData<(T, OP)>,
 }
 
-impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>>
-	Onboarding<T, P, OP>
-{
+impl<T: Config, OP: OnboardingProvider<T>> Onboarding<T, OP> {
 	pub fn new() -> Self {
 		Self { _phantom_data: Default::default() }
 	}
 }
 
-impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>, OP: OnboardingProvider<T>> Debug
-	for Onboarding<T, P, OP>
-{
+impl<T: Config, OP: OnboardingProvider<T>> Debug for Onboarding<T, OP> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "Onboarding")
@@ -61,10 +55,9 @@ pub enum Val<T: frame_system::Config> {
 }
 
 impl<
-		T: ProcessorManagerConfig + Eq + Clone + Send + Sync + 'static,
-		P: CallInfoProvider<T> + Eq + Clone + Send + Sync + 'static,
+		T: Config + Eq + Clone + Send + Sync + 'static,
 		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
-	> TransactionExtension<T::RuntimeCall> for Onboarding<T, P, OP>
+	> TransactionExtension<T::RuntimeCall> for Onboarding<T, OP>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	T::Counter: Default,
@@ -79,30 +72,34 @@ where
 
 	type Pre = ();
 
-	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
-		// TODO: return actual Weight
-		Weight::from_parts(10_000, 0)
+	fn weight(&self, call: &T::RuntimeCall) -> Weight {
+		match OP::pairing_for_call(call) {
+			Some((_, _, Some(_))) => T::ExtensionWeightInfo::onboarding(),
+			Some((_, _, None)) => T::ExtensionWeightInfo::pairing(),
+			_ => Weight::zero(),
+		}
 	}
 
 	fn validate(
 		&self,
-		origin: sp_runtime::traits::DispatchOriginOf<T::RuntimeCall>,
+		origin: DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl sp_runtime::traits::Implication,
+		_inherited_implication: &impl Implication,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let Some(who) = origin.as_system_origin_signer() else {
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		let Some((pairing, is_multi, attestation_chain)) = P::pairing_for_call(call) else {
+		let Some((pairing, is_multi, attestation_chain)) = OP::pairing_for_call(call) else {
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		if !OP::validate_pairing(pairing, is_multi).is_ok() {
+		if OP::validate_pairing(pairing, is_multi).is_err() {
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			return Err(InvalidTransaction::Custom(PAIRING_VALIDATION_ERROR).into());
 		}
 
@@ -110,7 +107,8 @@ where
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		if !OP::validate_attestation(attestation_chain, &who).is_ok() {
+		if OP::validate_attestation(attestation_chain, who).is_err() {
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
 		}
 
@@ -124,7 +122,7 @@ where
 	fn prepare(
 		self,
 		val: Self::Val,
-		_origin: &sp_runtime::traits::DispatchOriginOf<T::RuntimeCall>,
+		_origin: &DispatchOriginOf<T::RuntimeCall>,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
@@ -132,7 +130,7 @@ where
 		let Val::Fund(account) = val else {
 			return Ok(());
 		};
-		if !OP::fund(&account).is_ok() {
+		if OP::fund(&account).is_err() {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(
 				FUNDING_ERROR,
 			)));

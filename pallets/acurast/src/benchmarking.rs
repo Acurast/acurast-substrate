@@ -27,7 +27,7 @@ pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) 
 }
 
 pub fn job_registration<T: Config>(extra: T::RegistrationExtra) -> JobRegistrationFor<T> {
-	return JobRegistration {
+	JobRegistration {
 		script: script(),
 		allowed_sources: None,
 		allow_only_verified_sources: false,
@@ -43,7 +43,7 @@ pub fn job_registration<T: Config>(extra: T::RegistrationExtra) -> JobRegistrati
 		storage: 20_000u32,
 		required_modules: JobModules::default(),
 		extra,
-	};
+	}
 }
 
 pub fn script() -> Script {
@@ -90,7 +90,7 @@ fn register_job<T: Config>(
 }
 
 fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
 }
 
 benchmarks! {
@@ -176,7 +176,7 @@ benchmarks! {
 		let (caller, job) = register_job::<T>(true, false);
 		let mut vars: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
 		for i in 0..x {
-			(&mut vars).push((BoundedVec::truncate_from(vec![
+			vars.push((BoundedVec::truncate_from(vec![
 				105, 112, 102, 115, 58, 47, 47, 8]), BoundedVec::truncate_from(vec![
 				105, 112, 102, 115, 58, 47, 47, 8])))
 		}
@@ -201,7 +201,7 @@ benchmarks! {
 		for j in 0..x {
 			let mut v: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
 			for i in 0..y {
-				(&mut v).push((BoundedVec::truncate_from(vec![
+				v.push((BoundedVec::truncate_from(vec![
 					105, 112, 102, 115, 58, 47, 47, 8]), BoundedVec::truncate_from(vec![
 					105, 112, 102, 115, 58, 47, 47, 8])))
 			}

@@ -63,3 +63,7 @@ pub trait AttestationValidator<AccountId> {
 		account: AccountId,
 	) -> DispatchResult;
 }
+
+pub trait IsFundableCall<Call> {
+	fn is_fundable_call(call: &Call) -> bool;
+}

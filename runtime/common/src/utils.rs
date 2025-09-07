@@ -1,17 +1,8 @@
-use core::marker::PhantomData;
-
-use frame_support::{
-	traits::IsType,
-	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
-};
+use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
 use pallet_acurast::{
-	AccountLookup, Attestation, AttestationChain, BoundedAttestationContent,
-	BoundedDeviceAttestation, BoundedKeyDescription, VerifiedBootState,
+	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
+	VerifiedBootState,
 };
-use pallet_acurast_processor_manager::{
-	Config as ProcessorManagerConfig, Pallet as ProcessorManager, ProcessorPairingFor,
-};
-use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_std::prelude::*;
 
 use crate::{constants::MILLIUNIT, types::Balance};
@@ -95,46 +86,4 @@ pub fn check_device_attestation(
 		return allowed_bundle_ids.contains(&bundle_id.as_slice());
 	}
 	false
-}
-
-pub trait FeePayerProvider<T: ProcessorManagerConfig> {
-	type CallInfo: CallInfoProvider<T>;
-	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
-}
-
-pub trait CallInfoProvider<T: ProcessorManagerConfig> {
-	fn pairing_for_call(
-		call: &T::RuntimeCall,
-	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&AttestationChain>)>;
-
-	fn is_fundable_call(call: &T::RuntimeCall) -> bool;
-
-	fn can_use_onboarding_funds_for_call(call: &T::RuntimeCall) -> bool;
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct FeePayer<T: ProcessorManagerConfig, P: CallInfoProvider<T>>(PhantomData<(T, P)>);
-
-impl<T: ProcessorManagerConfig, P: CallInfoProvider<T>> FeePayerProvider<T> for FeePayer<T, P>
-where
-	<T as frame_system::Config>::AccountId: IsType<
-		<<<T as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId,
-	>,
-{
-	type CallInfo = P;
-
-	fn fee_payer(
-		account: &<T as frame_system::Config>::AccountId,
-		call: &<T as frame_system::Config>::RuntimeCall,
-	) -> <T as frame_system::Config>::AccountId {
-		let mut manager = ProcessorManager::<T>::lookup(account);
-
-		if manager.is_none() {
-			if let Some((pairing, _, _)) = Self::CallInfo::pairing_for_call(call) {
-				manager = Some(pairing.account.clone());
-			}
-		}
-
-		manager.unwrap_or(account.clone())
-	}
 }

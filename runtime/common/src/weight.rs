@@ -11,5 +11,6 @@ pub mod pallet_balances;
 pub mod pallet_collator_selection;
 //pub mod pallet_message_queue;
 pub mod pallet_acurast_candidate_preselection;
+pub mod pallet_acurast_processor_manager_benchmarking_extension;
 pub mod pallet_session;
 pub mod pallet_timestamp;

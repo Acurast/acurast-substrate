@@ -24,7 +24,7 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
 	pub const Era: BlockNumber = 1; // 1.5 hours, only for testing, is normally 24 hours
-	pub const MetricEpochValidity: BlockNumber = 240; // 1.5 hours
+	pub const MetricEpochValidity: BlockNumber = 16 * 90; // 3 months, will be changed to 24 hours in the future
 	pub const WarmupPeriod: BlockNumber = 10; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 10; // 10 blocks (for testing purposes)

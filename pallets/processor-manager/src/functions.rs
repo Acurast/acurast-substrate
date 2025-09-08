@@ -1,13 +1,24 @@
-use acurast_common::{AccountLookup, ManagerIdProvider, ProcessorVersionProvider, Version};
+use acurast_common::{
+	AccountLookup, AttestationValidator, IsFundableCall, ManagerIdProvider,
+	ProcessorVersionProvider, Version,
+};
 use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
-	sp_runtime::{traits::CheckedAdd, DispatchError, SaturatedConversion},
-	traits::{Currency, ExistenceRequirement},
+	sp_runtime::{
+		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
+		DispatchError, SaturatedConversion,
+	},
+	traits::{
+		fungible::{Inspect, InspectHold, MutateHold},
+		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
+		Currency, ExistenceRequirement, IsSubType, IsType,
+	},
 };
 
 use crate::{
-	BalanceFor, Config, Error, LastManagerId, ManagedProcessors, Pallet,
-	ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex, RewardDistributionWindow,
+	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
+	OnboardingProvider, Pallet, ProcessorPairingFor, ProcessorRewardDistributionWindow,
+	ProcessorToManagerIdIndex, RewardDistributionWindow,
 };
 
 impl<T: Config> Pallet<T> {
@@ -108,7 +119,7 @@ impl<T: Config> Pallet<T> {
 			processor,
 			RewardDistributionWindow::new(current_block_number, &distribution_settings),
 		);
-		return distributed_amount;
+		distributed_amount
 	}
 
 	pub fn ensure_managed(
@@ -128,6 +139,42 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> Pallet<T>
+where
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+{
+	pub fn do_validate_pairing(
+		pairing: &ProcessorPairingFor<T>,
+		is_multi: bool,
+	) -> Result<Option<T::Counter>, DispatchError> {
+		let mut new_counter: Option<T::Counter> = None;
+		if !pairing.validate_timestamp::<T>() {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			return Err(Error::<T>::PairingProofExpired)?;
+		}
+		if is_multi {
+			if !pairing.multi_validate_signature::<T>(&pairing.account) {
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return Err(Error::<T>::InvalidPairingProof)?;
+			}
+		} else {
+			let counter = Self::counter_for_manager(&pairing.account)
+				.unwrap_or(0u8.into())
+				.checked_add(&1u8.into());
+			if let Some(counter) = counter {
+				if !pairing.validate_signature::<T>(&pairing.account, counter) {
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					return Err(Error::<T>::InvalidPairingProof)?;
+				}
+				new_counter = Some(counter);
+			} else {
+				return Err(Error::<T>::CounterOverflow)?;
+			}
+		}
+		Ok(new_counter)
+	}
+}
+
 impl<T: Config> ProcessorVersionProvider<T::AccountId> for Pallet<T> {
 	fn processor_version(processor: &T::AccountId) -> Option<Version> {
 		Self::processor_version(processor)
@@ -143,5 +190,126 @@ impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
 	fn lookup(processor: &T::AccountId) -> Option<T::AccountId> {
 		let manager_id = Self::manager_id_for_processor(processor)?;
 		T::ManagerIdProvider::owner_for(manager_id).ok()
+	}
+}
+
+impl<T: Config> OnboardingProvider<T> for Pallet<T>
+where
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+	T::RuntimeCall: IsSubType<Call<T>>,
+	BalanceFor<T>: IsType<u128>,
+{
+	fn validate_pairing(pairing: &ProcessorPairingFor<T>, is_multi: bool) -> DispatchResult {
+		_ = Self::do_validate_pairing(pairing, is_multi)?;
+		Ok(())
+	}
+
+	fn validate_attestation(
+		attestation_chain: &acurast_common::AttestationChain,
+		account: &T::AccountId,
+	) -> DispatchResult {
+		_ = T::AttestationHandler::validate(attestation_chain, account)?;
+		Ok(())
+	}
+
+	fn can_fund_processor_onboarding(processor: &T::AccountId) -> bool {
+		if Self::manager_id_for_processor(processor).is_some() {
+			return false;
+		}
+		let Some(settings) = Self::processor_onboarding_settings() else {
+			return false;
+		};
+		if settings.funds.is_zero() {
+			return false;
+		}
+		let consequences = T::Currency::can_withdraw(&settings.funds_account, settings.funds);
+		matches!(consequences, WithdrawConsequence::Success)
+	}
+
+	fn fund(account: &T::AccountId) -> DispatchResult {
+		let Some(settings) = Self::processor_onboarding_settings() else {
+			return Err(Error::<T>::OnboardingSettingsNotSet)?;
+		};
+		T::Currency::transfer(
+			&settings.funds_account,
+			account,
+			settings.funds,
+			ExistenceRequirement::KeepAlive,
+		)?;
+		let amount_to_hold = settings.funds.min(T::Currency::reducible_balance(
+			account,
+			Preservation::Protect,
+			Fortitude::Polite,
+		));
+		T::Currency::hold(&HoldReason::Onboarding.into(), account, amount_to_hold)
+	}
+
+	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>) {
+		let available = T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), account);
+		let missing = fee.saturating_sub(available);
+		(available >= fee, missing)
+	}
+
+	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>) {
+		_ = T::Currency::release(
+			&HoldReason::Onboarding.into(),
+			account,
+			fee,
+			Precision::BestEffort,
+		);
+	}
+
+	fn pairing_for_call(
+		call: &<T>::RuntimeCall,
+	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&acurast_common::AttestationChain>)> {
+		let call = T::RuntimeCall::is_sub_type(call)?;
+		match call {
+			Call::pair_with_manager { pairing } => Some((pairing, false, None)),
+			Call::multi_pair_with_manager { pairing } => Some((pairing, true, None)),
+			Call::onboard { pairing, multi, attestation_chain } => {
+				Some((pairing, *multi, Some(attestation_chain)))
+			},
+			_ => None,
+		}
+	}
+
+	fn is_funding_call(call: &<T>::RuntimeCall) -> bool {
+		let Some(call) = T::RuntimeCall::is_sub_type(call) else {
+			return false;
+		};
+		matches!(call, Call::onboard { .. })
+	}
+
+	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId {
+		let mut manager = Self::lookup(account);
+
+		if manager.is_none() {
+			if let Some((pairing, _, _)) = Self::pairing_for_call(call) {
+				manager = Some(pairing.account.clone());
+			}
+		}
+
+		manager.unwrap_or(account.clone())
+	}
+}
+
+impl<T: Config> IsFundableCall<T::RuntimeCall> for Pallet<T>
+where
+	T::RuntimeCall: IsSubType<Call<T>>,
+	BalanceFor<T>: IsType<u128>,
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+{
+	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
+		let Some(call) = T::RuntimeCall::is_sub_type(call) else {
+			return false;
+		};
+		matches!(
+			call,
+			Call::heartbeat_with_metrics { .. }
+				| Call::heartbeat_with_version { .. }
+				| Call::onboard { .. }
+				| Call::multi_pair_with_manager { .. }
+				| Call::pair_with_manager { .. }
+		)
 	}
 }

@@ -1,6 +1,10 @@
-use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
+use sp_core::crypto::UncheckedFrom;
+use sp_runtime::Perquintill;
+use sp_std::vec;
+
+use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
@@ -11,9 +15,6 @@ use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSetti
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
-use sp_core::crypto::UncheckedFrom;
-use sp_runtime::Perquintill;
-use sp_std::vec;
 
 use crate::{
 	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
@@ -29,6 +30,7 @@ define_benchmarks!(
 	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
+	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
@@ -46,7 +48,7 @@ fn create_funded_user(
 	let user = account(string, n, SEED);
 	Balances::make_free_balance_be(&user, amount);
 	let _ = Balances::issue(amount);
-	return user;
+	user
 }
 
 pub struct AcurastBenchmarkHelper;

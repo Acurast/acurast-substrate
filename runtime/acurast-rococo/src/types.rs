@@ -6,7 +6,6 @@ use acurast_runtime_common::{
 	},
 	opaque,
 	types::{AccountId, Address, Balance, Signature},
-	utils::{FeePayer, PairingProvider},
 	weights::ExtrinsicBaseWeight,
 };
 use derive_more::{From, Into};
@@ -14,12 +13,12 @@ use frame_support::{
 	traits::Currency,
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_acurast_processor_manager::ProcessorPairingFor;
+use pallet_acurast_processor_manager::onboarding::Onboarding;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
 
-use crate::{AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
+use crate::{AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -50,7 +49,8 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		CheckNonce<Runtime, FeePayer<Runtime, ProcessorPairingProvider>>,
+		Onboarding<Runtime, AcurastProcessorManager>,
+		CheckNonce<Runtime, AcurastProcessorManager>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
@@ -108,15 +108,10 @@ impl_opaque_keys! {
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
+#[derive(Default)]
 pub struct LiquidityInfo {
 	pub imbalance: Option<NegativeImbalanceOf<Balances, Runtime>>,
 	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
-}
-
-impl Default for LiquidityInfo {
-	fn default() -> Self {
-		Self { imbalance: None, fee_payer: None }
-	}
 }
 
 pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -125,21 +120,3 @@ pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	BLOCK_PROCESSING_VELOCITY,
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct ProcessorPairingProvider;
-impl PairingProvider<Runtime> for ProcessorPairingProvider {
-	fn pairing_for_call(
-		call: &<Runtime as frame_system::Config>::RuntimeCall,
-	) -> Option<(&ProcessorPairingFor<Runtime>, bool)> {
-		match call {
-			RuntimeCall::AcurastProcessorManager(
-				pallet_acurast_processor_manager::Call::pair_with_manager { pairing },
-			) => Some((pairing, false)),
-			RuntimeCall::AcurastProcessorManager(
-				pallet_acurast_processor_manager::Call::multi_pair_with_manager { pairing },
-			) => Some((pairing, true)),
-			_ => None,
-		}
-	}
-}

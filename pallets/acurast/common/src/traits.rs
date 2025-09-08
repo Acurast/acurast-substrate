@@ -4,7 +4,7 @@ use frame_support::{
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::{MetricInput, Version};
+use crate::{Attestation, AttestationChain, MetricInput, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -51,4 +51,19 @@ pub trait EnsureAttested<AccountId> {
 
 pub trait AccountLookup<AccountId> {
 	fn lookup(processor: &AccountId) -> Option<AccountId>;
+}
+
+pub trait AttestationValidator<AccountId> {
+	fn validate(
+		attestation_chain: &AttestationChain,
+		account: &AccountId,
+	) -> Result<Attestation, DispatchError>;
+	fn validate_and_store(
+		attestation_chain: AttestationChain,
+		account: AccountId,
+	) -> DispatchResult;
+}
+
+pub trait IsFundableCall<Call> {
+	fn is_fundable_call(call: &Call) -> bool;
 }

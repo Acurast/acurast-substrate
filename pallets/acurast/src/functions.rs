@@ -2,20 +2,24 @@ use core::ops::AddAssign as _;
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
-	sp_runtime::BoundedVec,
+	sp_runtime::{BoundedVec, DispatchError},
 	traits::Get,
 };
 use sp_std::prelude::*;
 
 use acurast_common::{
-	is_valid_script, AttestationSecurityLevel, EnsureAttested, JobId, JobIdSequence, Metrics,
-	MinMetric, MinMetrics,
+	is_valid_script, Attestation, AttestationChain, AttestationSecurityLevel, AttestationValidator,
+	EnsureAttested, JobId, JobIdSequence, Metrics, MinMetric, MinMetrics,
 };
 
 use crate::{
-	utils::ensure_source_verified_and_security_level, Config, EnvironmentFor, Error, Event,
-	ExecutionEnvironment, JobHooks, JobRegistrationFor, LocalJobIdSequence, Pallet,
-	RequiredMinMetrics, StoredJobRegistration,
+	utils::{
+		ensure_not_expired, ensure_not_revoked, ensure_source_verified_and_security_level,
+		validate_and_extract_attestation,
+	},
+	Config, EnvironmentFor, Error, Event, ExecutionEnvironment, JobHooks, JobRegistrationFor,
+	KeyAttestationBarrier, LocalJobIdSequence, Pallet, RequiredMinMetrics, StoredAttestation,
+	StoredJobRegistration,
 };
 
 impl<T: Config> Pallet<T> {
@@ -101,6 +105,39 @@ impl<T: Config> EnsureAttested<T::AccountId> for Pallet<T> {
 			&[AttestationSecurityLevel::StrongBox, AttestationSecurityLevel::TrustedEnvironemnt],
 		)?;
 
+		Ok(())
+	}
+}
+
+impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
+	fn validate(
+		attestation_chain: &AttestationChain,
+		account: &T::AccountId,
+	) -> Result<Attestation, DispatchError> {
+		ensure!(
+			attestation_chain.certificate_chain.len() >= 2,
+			Error::<T>::CertificateChainTooShort,
+		);
+
+		let attestation = validate_and_extract_attestation::<T>(account, &attestation_chain)?;
+
+		if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			return Err(Error::<T>::AttestationRejected.into());
+		}
+
+		ensure_not_expired::<T>(&attestation)?;
+		ensure_not_revoked::<T>(&attestation)?;
+		Ok(attestation)
+	}
+
+	fn validate_and_store(
+		attestation_chain: AttestationChain,
+		account: T::AccountId,
+	) -> DispatchResult {
+		let attestation = Self::validate(&attestation_chain, &account)?;
+		<StoredAttestation<T>>::insert(&account, attestation);
+		Self::deposit_event(Event::AttestationStoredV2(account));
 		Ok(())
 	}
 }

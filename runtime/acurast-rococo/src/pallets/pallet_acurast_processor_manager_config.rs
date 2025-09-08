@@ -41,7 +41,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type AttestationHandler = Acurast;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	type ExtensionWeightInfo =
-		weight::pallet_acurast_processor_manager_benchmarking_extension::WeightInfo<Self>;
+		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }

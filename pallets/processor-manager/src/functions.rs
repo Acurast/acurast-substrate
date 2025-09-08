@@ -149,6 +149,7 @@ where
 	) -> Result<Option<T::Counter>, DispatchError> {
 		let mut new_counter: Option<T::Counter> = None;
 		if !pairing.validate_timestamp::<T>() {
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			return Err(Error::<T>::PairingProofExpired)?;
 		}
 		if is_multi {

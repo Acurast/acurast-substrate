@@ -1,14 +1,13 @@
 use core::marker::PhantomData;
 
-use crate::utils::{FeePayer, FeePayerProvider, PairingProvider};
-use acurast_p256_crypto::MultiSignature;
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
 	tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
-	Imbalance, IsType,
+	Currency, Imbalance, IsType,
 };
-use pallet_acurast::CU32;
-use pallet_acurast_marketplace::RegistrationExtra;
+use frame_system::Config as FrameSystemConfig;
+pub use parachains_common::Balance;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{DispatchInfoOf, IdentifyAccount, PostDispatchInfoOf, Verify, Zero},
@@ -16,8 +15,11 @@ use sp_runtime::{
 	MultiAddress, Saturating,
 };
 
-pub use parachains_common::Balance;
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use acurast_p256_crypto::MultiSignature;
+use pallet_acurast::{IsFundableCall, CU32};
+use pallet_acurast_marketplace::RegistrationExtra;
+use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
+use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTransaction};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -56,25 +58,24 @@ pub type ExtraFor<T> = RegistrationExtra<
 	MaxVersionsFor<T>,
 >;
 
-pub struct LiquidityInfo<
-	Runtime: pallet_transaction_payment::Config,
-	F: Balanced<Runtime::AccountId>,
-> {
+pub struct LiquidityInfo<Runtime: TransactionPaymentConfig, F: Balanced<Runtime::AccountId>> {
 	pub imbalance: Option<Credit<Runtime::AccountId, F>>,
 	pub fee_payer: Option<Runtime::AccountId>,
 }
 
-pub struct TransactionCharger<F, OU, P>(PhantomData<(F, OU, P)>);
-impl<Runtime, F, OU, P> pallet_transaction_payment::OnChargeTransaction<Runtime>
-	for TransactionCharger<F, OU, P>
+pub struct TransactionCharger<F, OU, P, OP>(PhantomData<(F, OU, P, OP)>);
+impl<Runtime, F, OU, P, OP> OnChargeTransaction<Runtime>
+	for TransactionCharger<F, OU, P, OP>
 where
-	Runtime: pallet_transaction_payment::Config + pallet_acurast_processor_manager::Config,
+	Runtime: TransactionPaymentConfig + ProcessorManagerConfig,
 	F: Balanced<Runtime::AccountId>,
 	OU: OnUnbalanced<Credit<Runtime::AccountId, F>>,
-	P: PairingProvider<Runtime>,
-	<Runtime as frame_system::Config>::AccountId: IsType<<<<Runtime as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+	P: IsFundableCall<Runtime::RuntimeCall>,
+	OP: OnboardingProvider<Runtime>,
+	<Runtime as FrameSystemConfig>::AccountId: IsType<<<<Runtime as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+	<F as Inspect<<Runtime as FrameSystemConfig>::AccountId>>::Balance: IsType<<<Runtime as ProcessorManagerConfig>::Currency as Currency<<Runtime as FrameSystemConfig>::AccountId>>::Balance>,
 {
-	type Balance = <F as Inspect<<Runtime as frame_system::Config>::AccountId>>::Balance;
+	type Balance = <F as Inspect<<Runtime as FrameSystemConfig>::AccountId>>::Balance;
 	type LiquidityInfo = Option<LiquidityInfo<Runtime, F>>;
 
 	fn withdraw_fee(
@@ -88,7 +89,10 @@ where
 			return Ok(None);
 		}
 
-		let fee_payer = FeePayer::<Runtime, P>::fee_payer(who, call);
+		let fee_payer = OP::fee_payer(who, call);
+		if &fee_payer != who && P::is_fundable_call(call) {
+			OP::release_fee_funds(&fee_payer, fee.into());
+		}
 
 		match F::withdraw(
 			&fee_payer,
@@ -146,11 +150,20 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-        if fee.is_zero() {
+		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who)) {
 			return Ok(())
 		}
 
-		let fee_payer = FeePayer::<Runtime, P>::fee_payer(who, call);
+		let fee_payer = OP::fee_payer(who, call);
+
+		let mut fee = fee;
+		if &fee_payer != who && P::is_fundable_call(call) {
+			let (can_cover, missing) = OP::can_cover_fee(&fee_payer, fee.into());
+			if can_cover {
+				return Ok(());
+			}
+			fee = missing.into();
+		}
 
 		match F::can_withdraw(&fee_payer, fee) {
 			WithdrawConsequence::Success => Ok(()),
@@ -167,4 +180,16 @@ where
 	fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
     }
+}
+
+pub struct IsFundable<T, A, B>(PhantomData<(T, A, B)>);
+impl<
+		T: frame_system::Config,
+		A: IsFundableCall<T::RuntimeCall>,
+		B: IsFundableCall<T::RuntimeCall>,
+	> IsFundableCall<T::RuntimeCall> for IsFundable<T, A, B>
+{
+	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
+		A::is_fundable_call(call) || B::is_fundable_call(call)
+	}
 }

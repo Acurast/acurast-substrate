@@ -1,16 +1,19 @@
-use frame_support::{ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError};
+use frame_support::{
+	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
+};
 use pallet_acurast::{
-	utils::ensure_source_verified, AccountLookup, JobId, JobRegistrationFor, StoredJobRegistration,
+	utils::ensure_source_verified, AccountLookup, IsFundableCall, JobId, JobRegistrationFor,
+	StoredJobRegistration,
 };
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
 use sp_std::prelude::*;
 
 use crate::{
-	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Config, Error,
-	ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager, StorageTracker,
-	StoredAdvertisementPricing, StoredAdvertisementRestriction, StoredAverageRewardV3,
-	StoredMatches, StoredReputation, StoredStorageCapacity,
+	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Call, Config,
+	Error, ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager,
+	StorageTracker, StoredAdvertisementPricing, StoredAdvertisementRestriction,
+	StoredAverageRewardV3, StoredMatches, StoredReputation, StoredStorageCapacity,
 };
 
 impl<T: Config> Pallet<T> {
@@ -267,5 +270,24 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		Ok(())
+	}
+}
+
+impl<T: Config> IsFundableCall<T::RuntimeCall> for Pallet<T>
+where
+	T::RuntimeCall: IsSubType<Call<T>>,
+{
+	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
+		let Some(call) = T::RuntimeCall::is_sub_type(call) else {
+			return false;
+		};
+		match call {
+			Call::advertise { .. }
+			| Call::acknowledge_match { .. }
+			| Call::acknowledge_execution_match { .. }
+			| Call::report { .. }
+			| Call::cleanup_assignments { .. } => true,
+			_ => false,
+		}
 	}
 }

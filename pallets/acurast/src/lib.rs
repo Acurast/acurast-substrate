@@ -37,13 +37,13 @@ pub mod pallet {
 	use super::BenchmarkHelper;
 	use acurast_common::*;
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo, ensure, pallet_prelude::*, traits::UnixTime,
+		dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::UnixTime,
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, utils::*, EnvironmentFor, JobRegistrationFor};
+	use crate::{traits::*, EnvironmentFor, JobRegistrationFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -344,23 +344,8 @@ pub mod pallet {
 			attestation_chain: AttestationChain,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(
-				attestation_chain.certificate_chain.len() >= 2,
-				Error::<T>::CertificateChainTooShort,
-			);
 
-			let attestation = validate_and_extract_attestation::<T>(&who, &attestation_chain)?;
-
-			if !T::KeyAttestationBarrier::accept_attestation_for_origin(&who, &attestation) {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::AttestationRejected.into());
-			}
-
-			ensure_not_expired::<T>(&attestation)?;
-			ensure_not_revoked::<T>(&attestation)?;
-
-			<StoredAttestation<T>>::insert(&who, attestation.clone());
-			Self::deposit_event(Event::AttestationStoredV2(who));
+			Self::validate_and_store(attestation_chain, who)?;
 
 			Ok(().into())
 		}

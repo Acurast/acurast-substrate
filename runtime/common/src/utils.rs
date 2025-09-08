@@ -1,17 +1,8 @@
-use core::marker::PhantomData;
-
-use frame_support::{
-	traits::IsType,
-	weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
-};
+use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
 use pallet_acurast::{
-	AccountLookup, Attestation, BoundedAttestationContent, BoundedDeviceAttestation,
-	BoundedKeyDescription, VerifiedBootState,
+	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
+	VerifiedBootState,
 };
-use pallet_acurast_processor_manager::{
-	Config as ProcessorManagerConfig, Pallet as ProcessorManager, ProcessorPairingFor,
-};
-use sp_runtime::traits::{CheckedAdd, IdentifyAccount, Verify};
 use sp_std::prelude::*;
 
 use crate::{constants::MILLIUNIT, types::Balance};
@@ -95,53 +86,4 @@ pub fn check_device_attestation(
 		return allowed_bundle_ids.contains(&bundle_id.as_slice());
 	}
 	false
-}
-
-pub trait FeePayerProvider<T: frame_system::Config> {
-	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId;
-}
-
-pub trait PairingProvider<T: ProcessorManagerConfig> {
-	fn pairing_for_call(call: &T::RuntimeCall) -> Option<(&ProcessorPairingFor<T>, bool)>;
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct FeePayer<T: ProcessorManagerConfig, P: PairingProvider<T>>(PhantomData<(T, P)>);
-
-impl<T: ProcessorManagerConfig, P: PairingProvider<T>> FeePayerProvider<T> for FeePayer<T, P>
-where
-	<T as frame_system::Config>::AccountId: IsType<
-		<<<T as ProcessorManagerConfig>::Proof as Verify>::Signer as IdentifyAccount>::AccountId,
-	>,
-{
-	fn fee_payer(
-		account: &<T as frame_system::Config>::AccountId,
-		call: &<T as frame_system::Config>::RuntimeCall,
-	) -> <T as frame_system::Config>::AccountId {
-		let mut manager = ProcessorManager::<T>::lookup(account);
-
-		if manager.is_none() {
-			if let Some((pairing, is_multi)) = P::pairing_for_call(call) {
-				if pairing.validate_timestamp::<T>() {
-					let is_valid = if is_multi {
-						pairing.multi_validate_signature::<T>(&pairing.account)
-					} else {
-						let counter = ProcessorManager::<T>::counter_for_manager(&pairing.account)
-							.unwrap_or(0u8.into())
-							.checked_add(&1u8.into());
-						if let Some(counter) = counter {
-							pairing.validate_signature::<T>(&pairing.account, counter)
-						} else {
-							false
-						}
-					};
-					if is_valid {
-						manager = Some(pairing.account.clone());
-					}
-				}
-			}
-		}
-
-		manager.unwrap_or(account.clone())
-	}
 }

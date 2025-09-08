@@ -1,5 +1,3 @@
-#![cfg(feature = "attestation")]
-
 use crate::{
 	asn::{
 		DeviceAttestation, DeviceAttestationDeviceOSInformation,

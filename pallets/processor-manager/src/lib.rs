@@ -2,13 +2,12 @@
 
 mod functions;
 mod migration;
+pub mod onboarding;
 mod traits;
 mod types;
 
 #[cfg(test)]
 pub mod mock;
-#[cfg(feature = "std")]
-pub mod rpc;
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod stub;
 #[cfg(test)]
@@ -17,7 +16,7 @@ mod tests;
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
@@ -33,7 +32,10 @@ pub mod pallet {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
-		traits::{Currency, Get, UnixTime},
+		traits::{
+			fungible::{InspectHold, MutateHold},
+			Currency, Get, UnixTime,
+		},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
 	use frame_system::{
@@ -44,15 +46,25 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use acurast_common::{
-		AccountLookup, ComputeHooks, ListUpdateOperation, ManagerIdProvider, Metrics, Version,
+		AccountLookup, AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
+		ManagerIdProvider, Metrics, Version,
 	};
 
 	#[cfg(feature = "runtime-benchmarks")]
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
-		traits::*, BalanceFor, BinaryHash, Endpoint, ProcessorList, ProcessorPairingFor,
-		ProcessorUpdatesFor, RewardDistributionSettings, RewardDistributionWindow, UpdateInfo,
+		traits::*, BalanceFor, BinaryHash, Endpoint, OnboardingSettings, ProcessorList,
+		ProcessorPairingFor, ProcessorUpdatesFor, RewardDistributionSettings,
+		RewardDistributionWindow, UpdateInfo,
 	};
+
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds for onboarding processors.
+		#[codec(index = 0)]
+		Onboarding,
+	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -72,8 +84,20 @@ pub mod pallet {
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
 		type EligibleRewardAccountLookup: AccountLookup<Self::AccountId>;
-		type Currency: Currency<Self::AccountId>;
+		type Currency: Currency<Self::AccountId>
+			+ MutateHold<
+				Self::AccountId,
+				Balance = BalanceFor<Self>,
+				Reason = Self::RuntimeHoldReason,
+			> + InspectHold<
+				Self::AccountId,
+				Reason = Self::RuntimeHoldReason,
+				Balance = BalanceFor<Self>,
+			>;
+		type RuntimeHoldReason: From<HoldReason>;
+		type AttestationHandler: AttestationValidator<Self::AccountId>;
 		type WeightInfo: WeightInfo;
+		type ExtensionWeightInfo: ExtensionWeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}
@@ -192,6 +216,11 @@ pub mod pallet {
 	pub(super) type ManagementEndpoint<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::ManagerId, Endpoint>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn processor_onboarding_settings)]
+	pub(super) type ProcessorOnboardingSettings<T: Config> =
+		StorageValue<_, OnboardingSettings<BalanceFor<T>, T::AccountId>, OptionQuery>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -238,6 +267,7 @@ pub mod pallet {
 		CounterOverflow,
 		PairingProofExpired,
 		UnknownProcessorVersion,
+		OnboardingSettingsNotSet,
 	}
 
 	#[pallet::hooks]
@@ -303,9 +333,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			if !pairing.validate_timestamp::<T>() {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::PairingProofExpired)?;
+			let maybe_new_counter = Self::do_validate_pairing(&pairing, false)?;
+			if let Some(counter) = maybe_new_counter {
+				<ManagerCounter<T>>::insert(&pairing.account, counter);
 			}
 
 			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
@@ -316,18 +346,7 @@ pub mod pallet {
 				));
 			}
 
-			let counter = Self::counter_for_manager(&pairing.account)
-				.unwrap_or(0u8.into())
-				.checked_add(&1u8.into())
-				.ok_or(Error::<T>::CounterOverflow)?;
-
-			if !pairing.validate_signature::<T>(&pairing.account, counter) {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::InvalidPairingProof)?;
-			}
 			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-			<ManagerCounter<T>>::insert(&pairing.account, counter);
-
 			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
 
 			Ok(().into())
@@ -341,10 +360,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			if !pairing.validate_timestamp::<T>() {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::PairingProofExpired)?;
-			}
+			_ = Self::do_validate_pairing(&pairing, true)?;
 
 			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
 			if created {
@@ -354,12 +370,7 @@ pub mod pallet {
 				));
 			}
 
-			if !pairing.multi_validate_signature::<T>(&pairing.account) {
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err(Error::<T>::InvalidPairingProof)?;
-			}
 			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-
 			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
 
 			Ok(().into())
@@ -578,18 +589,48 @@ pub mod pallet {
 
 			Ok(().into())
 		}
-	}
-}
 
-sp_api::decl_runtime_apis! {
-	/// API to interact with Acurast marketplace pallet.
-	pub trait ProcessorManagerRuntimeApi<AccountId: parity_scale_codec::Codec, ManagerId: parity_scale_codec::Codec> {
-		 fn processor_update_infos(
-			source: AccountId,
-		) -> Result<UpdateInfos, RuntimeApiError>;
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::onboard())]
+		pub fn onboard(
+			origin: OriginFor<T>,
+			pairing: ProcessorPairingFor<T>,
+			multi: bool,
+			attestation_chain: AttestationChain,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
 
-		fn manager_id_for_processor(
-			source: AccountId,
-		) -> Result<ManagerId, RuntimeApiError>;
+			T::AttestationHandler::validate_and_store(attestation_chain, who.clone())?;
+
+			let maybe_new_counter = Self::do_validate_pairing(&pairing, multi)?;
+			if let Some(counter) = maybe_new_counter {
+				<ManagerCounter<T>>::insert(&pairing.account, counter);
+			}
+
+			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
+			if created {
+				Self::deposit_event(Event::<T>::ManagerCreated(
+					pairing.account.clone(),
+					manager_id,
+				));
+			}
+
+			Self::do_add_processor_manager_pairing(&who, manager_id)?;
+			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
+
+			Ok(().into())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::update_onboarding_settings())]
+		pub fn update_onboarding_settings(
+			origin: OriginFor<T>,
+			new_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			<ProcessorOnboardingSettings<T>>::set(new_settings);
+
+			Ok(().into())
+		}
 	}
 }

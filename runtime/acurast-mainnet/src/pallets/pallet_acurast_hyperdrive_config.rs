@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use acurast_runtime_common::{
 	types::{AccountId, Balance},
-	weight, weights,
+	weight,
 };
 use frame_support::{instances::Instance1, pallet_prelude::DispatchResultWithPostInfo};
 use pallet_acurast_hyperdrive::ParsedAction;
@@ -40,7 +40,7 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
-	type WeightInfo = weights::HyperdriveWeight;
+	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc_weights::HyperdriveWeight;
 }
 
 impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {

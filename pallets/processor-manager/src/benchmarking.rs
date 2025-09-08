@@ -46,7 +46,7 @@ fn run_to_block<T: Config>(new_block: BlockNumberFor<T>) {
 	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
-fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
+pub fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
 	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
 }
 
@@ -313,116 +313,4 @@ benchmarks! {
 	}: _(RawOrigin::Root, Some(settings))
 
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
-}
-
-pub mod extension {
-	use frame_benchmarking::{account, v2::*, BenchmarkError};
-	use frame_support::{
-		assert_ok,
-		dispatch::{DispatchInfo, PostDispatchInfo},
-		pallet_prelude::Zero,
-		sp_runtime::traits::{
-			AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
-			IdentifyAccount, StaticLookup, Verify,
-		},
-		traits::IsSubType,
-		weights::Weight,
-	};
-	use frame_system::{pallet_prelude::*, RawOrigin};
-
-	use super::{attestation_chain, processor_pairing, set_timestamp, BalanceFor, IsType};
-	use crate::{
-		BenchmarkHelper, Call, Config, Onboarding, OnboardingSettings, Pallet as ProcessorManager,
-	};
-
-	pub struct Pallet<T: Config>(ProcessorManager<T>);
-
-	#[benchmarks(where
-		T: Send + Sync + pallet_timestamp::Config<Moment = u64>,
-		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + From<Call<T>> + IsSubType<Call<T>>,
-		BalanceFor<T>: IsType<u128>,
-		T::Counter: Default,
-		<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
-		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
-		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
-	)]
-	mod benchmarks {
-		use super::*;
-
-		#[benchmark]
-		fn onboarding() -> Result<(), BenchmarkError> {
-			set_timestamp::<T>(1000);
-			let len = 0_usize;
-			let processor = account::<T::AccountId>("processor", 0, 0);
-			let manager = account::<T::AccountId>("manager", 0, 0);
-			let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
-			let call: T::RuntimeCall = Call::onboard {
-				pairing: processor_pairing::<T>(manager),
-				multi: false,
-				attestation_chain: attestation_chain(),
-			}
-			.into();
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
-			);
-
-			let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
-				funds: 100_000_000_000u128.into(),
-				funds_account: T::BenchmarkHelper::funded_account(0),
-			};
-
-			assert_ok!(ProcessorManager::<T>::update_onboarding_settings(
-				RawOrigin::<T::AccountId>::Root.into(),
-				Some(settings)
-			));
-
-			#[block]
-			{
-				Onboarding::<T, ProcessorManager<T>>::new()
-					.test_run(RawOrigin::Signed(processor).into(), &call, &info, len, 0, |_| {
-						Ok(().into())
-					})
-					.unwrap()
-					.unwrap();
-			}
-
-			Ok(())
-		}
-
-		#[benchmark]
-		fn pairing() -> Result<(), BenchmarkError> {
-			set_timestamp::<T>(1000);
-			let len = 0_usize;
-			let processor = account::<T::AccountId>("processor", 0, 0);
-			let manager = account::<T::AccountId>("manager", 0, 0);
-			let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
-			let call: T::RuntimeCall =
-				Call::pair_with_manager { pairing: processor_pairing::<T>(manager) }.into();
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
-			);
-
-			let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
-				funds: 100_000_000_000u128.into(),
-				funds_account: T::BenchmarkHelper::funded_account(0),
-			};
-
-			assert_ok!(ProcessorManager::<T>::update_onboarding_settings(
-				RawOrigin::<T::AccountId>::Root.into(),
-				Some(settings)
-			));
-
-			#[block]
-			{
-				Onboarding::<T, ProcessorManager<T>>::new()
-					.test_run(RawOrigin::Signed(processor).into(), &call, &info, len, 0, |_| {
-						Ok(().into())
-					})
-					.unwrap()
-					.unwrap();
-			}
-
-			Ok(())
-		}
-	}
 }

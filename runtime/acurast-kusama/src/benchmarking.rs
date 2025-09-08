@@ -32,7 +32,7 @@ define_benchmarks!(
 	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
-	[pallet_acurast_processor_manager::benchmarking::extension, pallet_acurast_processor_manager::benchmarking::extension::Pallet::<Runtime>]
+	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]

@@ -14,7 +14,7 @@ use frame_support::{
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_acurast_processor_manager::Onboarding;
+use pallet_acurast_processor_manager::onboarding::Onboarding;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
@@ -123,15 +123,10 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
+#[derive(Default)]
 pub struct LiquidityInfo {
 	pub imbalance: Option<NegativeImbalanceOf<Balances, Runtime>>,
 	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
-}
-
-impl Default for LiquidityInfo {
-	fn default() -> Self {
-		Self { imbalance: None, fee_payer: None }
-	}
 }
 
 // We allow root only to execute privileged collator selection operations.

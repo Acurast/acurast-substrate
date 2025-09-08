@@ -2,7 +2,7 @@
 
 mod functions;
 mod migration;
-mod onboarding;
+pub mod onboarding;
 mod traits;
 mod types;
 
@@ -20,7 +20,6 @@ pub mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
-pub use onboarding::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;

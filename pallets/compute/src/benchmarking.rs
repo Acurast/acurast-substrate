@@ -1,5 +1,4 @@
 //! Benchmarking setup for pallet-acurast-compute
-#![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::benchmarks_instance_pallet;
 use frame_support::{assert_ok, traits::IsType};
@@ -44,7 +43,7 @@ benchmarks_instance_pallet! {
 			config_name[23] = c[i as usize];
 			config_values.push((config_name.clone(), i.into(), i.into()));
 		}
-	}: _(RawOrigin::Root, *b"cpu-ops-per-second______", Perquintill::from_percent(20), config_values.try_into().unwrap())
+	}: _(RawOrigin::Root, *b"cpu-ops-per-second______", Perquintill::from_percent(20), None, config_values.try_into().unwrap())
 
 	modify_pool_same_config {
 		set_timestamp::<T>(1000);
@@ -62,10 +61,11 @@ benchmarks_instance_pallet! {
 			RawOrigin::Root.into(),
 			*b"cpu-ops-per-second______",
 			Perquintill::from_percent(20),
+			None,
 			config_values.try_into().unwrap(),
 		));
 	}:  {
-		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), None));
+		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), None, None));
 	}
 
 	modify_pool_replace_config {
@@ -85,6 +85,7 @@ benchmarks_instance_pallet! {
 			RawOrigin::Root.into(),
 			*b"cpu-ops-per-second______",
 			Perquintill::from_percent(20),
+			None,
 			config_values.try_into().unwrap(),
 		));
 
@@ -96,7 +97,7 @@ benchmarks_instance_pallet! {
 		}
 		let new_config = ModifyMetricPoolConfig::Replace(config_values.try_into().unwrap());
 	}:  {
-		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), Some(new_config)));
+		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), None, Some(new_config)));
 	}
 
 	modify_pool_update_config {
@@ -116,6 +117,7 @@ benchmarks_instance_pallet! {
 			RawOrigin::Root.into(),
 			*b"cpu-ops-per-second______",
 			Perquintill::from_percent(20),
+			None,
 			config_values.try_into().unwrap(),
 		));
 
@@ -134,12 +136,14 @@ benchmarks_instance_pallet! {
 			}
 		);
 	}:  {
-		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), Some(new_config)));
+		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), None, Some(new_config)));
 	}
 
 	update_reward_distribution_settings {
 		let settings = RewardDistributionSettingsFor::<T, I> {
 			total_reward_per_distribution: 1000u128.into(),
+			total_inflation_per_distribution: Perquintill::from_percent(5),
+			stake_backed_ratio: Perquintill::from_percent(70),
 			distribution_account: alice_account_id().into(),
 		};
 	}: {

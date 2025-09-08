@@ -43,7 +43,7 @@ pub type StakingPoolFor<T, I> = StakingPool<BalanceFor<T, I>>;
 pub type DelegationPoolFor<T, I> = DelegationPool<BalanceFor<T, I>>;
 
 #[derive(
-	RuntimeDebugNoBound,
+	RuntimeDebug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -55,11 +55,7 @@ pub type DelegationPoolFor<T, I> = DelegationPool<BalanceFor<T, I>>;
 	Eq,
 	Default,
 )]
-pub struct Cycle<
-	Epoch: Copy + Default + Debug,
-	Era: Copy + Default + Debug,
-	BlockNumber: Copy + Default + Debug,
-> {
+pub struct Cycle<Epoch, Era, BlockNumber> {
 	pub epoch: Epoch,
 	pub epoch_start: BlockNumber,
 	pub era: Era,
@@ -105,13 +101,13 @@ pub struct MetricPoolUpdateOperations {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	RuntimeDebug,
 	Clone,
 	Copy,
 	PartialEq,
 	Eq,
 )]
-pub enum ProcessorStatus<BlockNumber: Debug> {
+pub enum ProcessorStatus<BlockNumber> {
 	/// The benchmarked metric was committed but is in warmup and becomes active at the given block number.
 	///
 	/// We store the block when active instead of when first metric was seen to save on a looking up `warm_up` each time we are checking if active.

@@ -755,13 +755,13 @@ pub mod pallet {
 					Error::<T, I>::MaxMetricCommitmentExceeded
 				);
 
-				ComputeCommitments::<T, I>::insert(&commitment_id, &c.pool_id, c.metric);
+				ComputeCommitments::<T, I>::insert(commitment_id, c.pool_id, c.metric);
 				count += 1;
 			}
 			ensure!(count > 0, Error::<T, I>::ZeroMetricsForValidPools);
 
 			// commission can only be inserted once on commit, since stake_for below errors if already committe
-			Commission::<T, I>::insert(&commitment_id, commission);
+			Commission::<T, I>::insert(commitment_id, commission);
 
 			// only call this AFTER storing commitment since it's a requirement for stake_for
 			Self::stake_for(&who, amount, cooldown_period, allow_auto_compound)?;
@@ -1149,7 +1149,7 @@ pub mod pallet {
 				total: SlidingBuffer::new(Zero::zero()),
 				max_stake_metric_ratio,
 			};
-			MetricPools::<T, I>::insert(&pool_id, &pool);
+			MetricPools::<T, I>::insert(pool_id, &pool);
 			<MetricPoolLookup<T, I>>::insert(name, pool_id);
 
 			Ok((pool_id, pool))
@@ -1204,7 +1204,7 @@ pub mod pallet {
 				return Ok(None);
 			};
 
-			let Some(claim_epoch) = Self::can_claim(&processor) else { return Ok(None) };
+			let Some(claim_epoch) = Self::can_claim(processor) else { return Ok(None) };
 
 			// the reward to distribute is the fixed reward from `settings.total_reward_per_distribution` (backwards compatibility) + the inflation based reward for the claim epoch
 			let reward = settings
@@ -1258,9 +1258,9 @@ pub mod pallet {
 				.into();
 
 			// accrue
+			#[allow(clippy::bind_instead_of_map)]
 			let _ = T::Currency::transfer(
 				&settings.distribution_account,
-				// TODO (MIKE): it was not refined if we should pay compute-backed rewards (not stake-backed) to committer instead manager (but there could be no committer for compute not simultaneously backed by stake)
 				&manager,
 				reward,
 				ExistenceRequirement::KeepAlive,
@@ -1289,9 +1289,7 @@ pub mod pallet {
 		}
 
 		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T>> {
-			let Some(p) = Processors::<T, I>::get(processor) else {
-				return None;
-			};
+			let p = Processors::<T, I>::get(processor)?;
 			let current_block = <frame_system::Pallet<T>>::block_number();
 			(p.committed.saturating_add(One::one()) == Self::current_cycle().epoch
 				&& p.claimed < p.committed

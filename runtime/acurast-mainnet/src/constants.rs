@@ -1,8 +1,3 @@
-use acurast_runtime_common::{
-	constants::{MICROUNIT, MILLIUNIT, UNIT},
-	types::{AccountId, Balance, BlockNumber},
-	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-};
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
 	ord_parameter_types, pallet_prelude::DispatchClass, parameter_types,
@@ -13,6 +8,12 @@ use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
+
+use acurast_runtime_common::{
+	constants::{MICROUNIT, MILLIUNIT, UNIT},
+	types::{AccountId, Balance, BlockNumber},
+	weight::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
 
 use crate::{apis::RUNTIME_API_VERSIONS, deposit, RuntimeHoldReason};
 

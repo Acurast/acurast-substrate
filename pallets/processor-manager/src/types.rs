@@ -195,6 +195,7 @@ pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
 )]
 pub struct OnboardingSettings<Balance, AccountId> {
 	pub funds: Balance,
+	pub max_funds: Balance,
 	pub funds_account: AccountId,
 }
 

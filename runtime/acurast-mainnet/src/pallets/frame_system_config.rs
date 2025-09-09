@@ -1,9 +1,10 @@
-use acurast_runtime_common::{
-	types::{AccountId, Balance, Hash, Nonce},
-	weights::RocksDbWeight,
-};
 use frame_support::derive_impl;
 use polkadot_runtime_common::BlockHashCount;
+
+use acurast_runtime_common::{
+	types::{AccountId, Balance, Hash, Nonce},
+	weight::RocksDbWeight,
+};
 
 use crate::{
 	Block, CallFilter, PalletInfo, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeCall,

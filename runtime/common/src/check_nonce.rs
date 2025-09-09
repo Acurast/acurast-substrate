@@ -106,11 +106,12 @@ where
 		let fee_payer = OP::fee_payer(who, call);
 		let fee_payer_account = frame_system::Account::<T>::get(&fee_payer);
 
-		if !OP::is_funding_call(call) || !OP::can_fund_processor_onboarding(who) {
-			if fee_payer_account.providers.is_zero() && fee_payer_account.sufficients.is_zero() {
-				// Nonce storage not paid for
-				return Err(InvalidTransaction::Payment.into());
-			}
+		if (!OP::is_funding_call(call) || OP::can_fund_processor_onboarding(who).is_none())
+			&& fee_payer_account.providers.is_zero()
+			&& fee_payer_account.sufficients.is_zero()
+		{
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into());
 		}
 
 		let account = if &fee_payer != who {
@@ -133,7 +134,7 @@ where
 			priority: 0,
 			requires,
 			provides,
-			longevity: TransactionLongevity::max_value(),
+			longevity: TransactionLongevity::MAX,
 			propagate: true,
 		};
 

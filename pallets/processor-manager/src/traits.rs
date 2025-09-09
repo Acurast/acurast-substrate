@@ -29,8 +29,14 @@ pub trait OnboardingProvider<T: Config> {
 		attestation_chain: &AttestationChain,
 		account: &T::AccountId,
 	) -> DispatchResult;
-	fn can_fund_processor_onboarding(processor: &T::AccountId) -> bool;
-	fn fund(account: &T::AccountId) -> DispatchResult;
+	fn can_fund_processor_onboarding(
+		processor: &T::AccountId,
+	) -> Option<(T::AccountId, BalanceFor<T>)>;
+	fn fund(
+		from_account: &T::AccountId,
+		to_account: &T::AccountId,
+		amount: BalanceFor<T>,
+	) -> DispatchResult;
 	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>);
 	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>);
 	fn pairing_for_call(

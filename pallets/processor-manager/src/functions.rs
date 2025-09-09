@@ -214,6 +214,7 @@ where
 
 	fn can_fund_processor_onboarding(
 		processor: &T::AccountId,
+		manager: &T::AccountId,
 	) -> Option<(T::AccountId, BalanceFor<T>)> {
 		let settings = Self::processor_onboarding_settings()?;
 
@@ -221,9 +222,12 @@ where
 			return None;
 		}
 
-		let manager_hold_balance = Self::lookup(processor)
-			.map(|manager| T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), &manager))
-			.unwrap_or_default();
+		if Self::manager_id_for_processor(processor).is_some() {
+			return None;
+		}
+
+		let manager_hold_balance =
+			T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), manager);
 		if manager_hold_balance >= settings.max_funds {
 			return None;
 		}

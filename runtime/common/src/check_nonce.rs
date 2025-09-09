@@ -106,7 +106,8 @@ where
 		let fee_payer = OP::fee_payer(who, call);
 		let fee_payer_account = frame_system::Account::<T>::get(&fee_payer);
 
-		if (!OP::is_funding_call(call) || OP::can_fund_processor_onboarding(who).is_none())
+		if (!OP::is_funding_call(call)
+			|| OP::can_fund_processor_onboarding(who, &fee_payer).is_none())
 			&& fee_payer_account.providers.is_zero()
 			&& fee_payer_account.sufficients.is_zero()
 		{

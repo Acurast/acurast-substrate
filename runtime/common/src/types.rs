@@ -152,11 +152,10 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who).is_some()) {
+		let fee_payer = OP::fee_payer(who, call);
+		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who, &fee_payer).is_some()) {
 			return Ok(())
 		}
-
-		let fee_payer = OP::fee_payer(who, call);
 
 		let mut fee = fee;
 		if &fee_payer != who && P::is_fundable_call(call) {

@@ -41,8 +41,8 @@ impl<T: frame_system::Config> pallet_acurast_fee_manager::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `42`
 		//  Estimated: `1487`
-		// Minimum execution time: 12_211_000 picoseconds.
-		Weight::from_parts(12_830_000, 0)
+		// Minimum execution time: 12_520_000 picoseconds.
+		Weight::from_parts(13_410_000, 0)
 			.saturating_add(Weight::from_parts(0, 1487))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))

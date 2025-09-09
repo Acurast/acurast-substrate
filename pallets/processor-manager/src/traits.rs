@@ -31,6 +31,7 @@ pub trait OnboardingProvider<T: Config> {
 	) -> DispatchResult;
 	fn can_fund_processor_onboarding(
 		processor: &T::AccountId,
+		manager: &T::AccountId,
 	) -> Option<(T::AccountId, BalanceFor<T>)>;
 	fn fund(
 		from_account: &T::AccountId,

@@ -112,7 +112,8 @@ where
 			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
 		}
 
-		let Some((from_account, amount)) = OP::can_fund_processor_onboarding(who) else {
+		let Some((from_account, amount)) = OP::can_fund_processor_onboarding(who, &pairing.account)
+		else {
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 

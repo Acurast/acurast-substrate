@@ -308,6 +308,7 @@ benchmarks! {
 			<T as frame_system::Config>::AccountId,
 		> {
 			funds: 100_000_000_000u128.into(),
+			max_funds: 1_000_000_000_000u128.into(),
 			funds_account: alice_account_id().into(),
 		};
 	}: _(RawOrigin::Root, Some(settings))

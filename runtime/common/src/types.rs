@@ -116,30 +116,32 @@ where
 		tip: Self::Balance,
 		info: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(LiquidityInfo { imbalance, fee_payer }) = info {
-			if let Some(paid) = imbalance {
-				let fee_payer = fee_payer.as_ref().unwrap_or(who);
-				// Calculate how much refund we should return
-				let refund_amount = paid.peek().saturating_sub(corrected_fee);
-				// refund to the the account that paid the fees. If this fails, the
-				// account might have dropped below the existential balance. In
-				// that case we don't refund anything.
-				let refund_imbalance = if F::total_balance(fee_payer) > F::Balance::zero() {
-					F::deposit(fee_payer, refund_amount, Precision::BestEffort)
-						.unwrap_or_else(|_| Debt::<Runtime::AccountId, F>::zero())
-				} else {
-					Debt::<Runtime::AccountId, F>::zero()
-				};
-				// merge the imbalance caused by paying the fees and refunding parts of it again.
-				let adjusted_paid = paid
-					.offset(refund_imbalance)
-					.same()
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-				// Call someone else to handle the imbalance (fee and tip separately)
-				let (tip, fee) = adjusted_paid.split(tip);
-				OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
-			}
-		}
+		let Some(LiquidityInfo { imbalance, fee_payer }) = info else {
+			return Ok(());
+		};
+		let Some(paid) = imbalance else {
+			return Ok(());
+		};
+		let fee_payer = fee_payer.as_ref().unwrap_or(who);
+		// Calculate how much refund we should return
+		let refund_amount = paid.peek().saturating_sub(corrected_fee);
+		// refund to the the account that paid the fees. If this fails, the
+		// account might have dropped below the existential balance. In
+		// that case we don't refund anything.
+		let refund_imbalance = if F::total_balance(fee_payer) > F::Balance::zero() {
+			F::deposit(fee_payer, refund_amount, Precision::BestEffort)
+				.unwrap_or_else(|_| Debt::<Runtime::AccountId, F>::zero())
+		} else {
+			Debt::<Runtime::AccountId, F>::zero()
+		};
+		// merge the imbalance caused by paying the fees and refunding parts of it again.
+		let adjusted_paid = paid
+			.offset(refund_imbalance)
+			.same()
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+		// Call someone else to handle the imbalance (fee and tip separately)
+		let (tip, fee) = adjusted_paid.split(tip);
+		OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 		Ok(())
 	}
 
@@ -150,7 +152,7 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who)) {
+		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who).is_some()) {
 			return Ok(())
 		}
 

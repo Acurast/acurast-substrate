@@ -1,13 +1,3 @@
-use acurast_runtime_common::{
-	check_nonce::CheckNonce,
-	constants::{
-		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	},
-	opaque,
-	types::{AccountId, Address, Balance, Signature},
-	weights::ExtrinsicBaseWeight,
-};
 use derive_more::{From, Into};
 use frame_support::{
 	traits::{Currency, EitherOfDiverse},
@@ -18,6 +8,17 @@ use pallet_acurast_processor_manager::onboarding::Onboarding;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
+
+use acurast_runtime_common::{
+	check_nonce::CheckNonce,
+	constants::{
+		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+		UNINCLUDED_SEGMENT_CAPACITY,
+	},
+	opaque,
+	types::{AccountId, Address, Balance, Signature},
+	weight::ExtrinsicBaseWeight,
+};
 
 use crate::{
 	AcurastProcessorManager, Admin, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall,

@@ -41,16 +41,16 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::onboarding::exte
 	/// Proof: `AcurastProcessorManager::ProcessorOnboardingSettings` (`max_values`: Some(1), `max_size`: Some(64), added: 559, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
 	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(139), added: 2614, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn onboarding() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `325`
 		//  Estimated: `6196`
-		// Minimum execution time: 17_692_964_000 picoseconds.
-		Weight::from_parts(17_789_935_000, 0)
+		// Minimum execution time: 17_339_072_000 picoseconds.
+		Weight::from_parts(17_425_141_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -63,8 +63,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::onboarding::exte
 		// Proof Size summary in bytes:
 		//  Measured:  `169`
 		//  Estimated: `3489`
-		// Minimum execution time: 10_810_000 picoseconds.
-		Weight::from_parts(11_080_000, 0)
+		// Minimum execution time: 11_320_000 picoseconds.
+		Weight::from_parts(11_680_000, 0)
 			.saturating_add(Weight::from_parts(0, 3489))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}

@@ -17,7 +17,7 @@ use frame_support::{
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-use crate::{Config, ExtensionWeightInfo, OnboardingProvider};
+use crate::{BalanceFor, Config, ExtensionWeightInfo, OnboardingProvider};
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, Default)]
 #[scale_info(skip_type_params(T, OP))]
@@ -49,8 +49,8 @@ const ATTESTATION_VALIDATION_ERROR: u8 = 2;
 const FUNDING_ERROR: u8 = 3;
 
 #[derive(RuntimeDebugNoBound)]
-pub enum Val<T: frame_system::Config> {
-	Fund(T::AccountId),
+pub enum Val<T: Config> {
+	Fund(T::AccountId, T::AccountId, BalanceFor<T>),
 	NoFund,
 }
 
@@ -112,11 +112,15 @@ where
 			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
 		}
 
-		if !OP::can_fund_processor_onboarding(who) {
+		let Some((from_account, amount)) = OP::can_fund_processor_onboarding(who) else {
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
-		}
+		};
 
-		Ok((ValidTransaction::default(), Val::Fund(pairing.account.clone()), origin))
+		Ok((
+			ValidTransaction::default(),
+			Val::Fund(from_account, pairing.account.clone(), amount),
+			origin,
+		))
 	}
 
 	fn prepare(
@@ -127,10 +131,10 @@ where
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let Val::Fund(account) = val else {
+		let Val::Fund(from_account, to_account, amount) = val else {
 			return Ok(());
 		};
-		if OP::fund(&account).is_err() {
+		if OP::fund(&from_account, &to_account, amount).is_err() {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(
 				FUNDING_ERROR,
 			)));
@@ -199,6 +203,7 @@ pub mod extension {
 
 				let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
 					funds: 100_000_000_000u128.into(),
+					max_funds: 1_000_000_000_000u128.into(),
 					funds_account: T::BenchmarkHelper::funded_account(0),
 				};
 
@@ -236,6 +241,7 @@ pub mod extension {
 
 				let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
 					funds: 100_000_000_000u128.into(),
+					max_funds: 1_000_000_000_000u128.into(),
 					funds_account: T::BenchmarkHelper::funded_account(0),
 				};
 

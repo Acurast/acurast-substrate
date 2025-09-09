@@ -16,6 +16,7 @@ pub struct Barrier<
 	LiteSignatureDigests,
 	BundleIds,
 > {
+	#[allow(clippy::type_complexity)]
 	_phantom_data: PhantomData<(
 		Runtime,
 		PackageNames,

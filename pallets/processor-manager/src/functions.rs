@@ -212,36 +212,43 @@ where
 		Ok(())
 	}
 
-	fn can_fund_processor_onboarding(processor: &T::AccountId) -> bool {
-		if Self::manager_id_for_processor(processor).is_some() {
-			return false;
-		}
-		let Some(settings) = Self::processor_onboarding_settings() else {
-			return false;
-		};
+	fn can_fund_processor_onboarding(
+		processor: &T::AccountId,
+	) -> Option<(T::AccountId, BalanceFor<T>)> {
+		let settings = Self::processor_onboarding_settings()?;
+
 		if settings.funds.is_zero() {
-			return false;
+			return None;
 		}
-		let consequences = T::Currency::can_withdraw(&settings.funds_account, settings.funds);
-		matches!(consequences, WithdrawConsequence::Success)
+
+		let manager_hold_balance = Self::lookup(processor)
+			.map(|manager| T::Currency::balance_on_hold(&HoldReason::Onboarding.into(), &manager))
+			.unwrap_or_default();
+		if manager_hold_balance >= settings.max_funds {
+			return None;
+		}
+
+		let amount = settings.funds.min(settings.max_funds.saturating_sub(manager_hold_balance));
+
+		let consequences = T::Currency::can_withdraw(&settings.funds_account, amount);
+		if !matches!(consequences, WithdrawConsequence::Success) {
+			return None;
+		}
+		Some((settings.funds_account, amount))
 	}
 
-	fn fund(account: &T::AccountId) -> DispatchResult {
-		let Some(settings) = Self::processor_onboarding_settings() else {
-			return Err(Error::<T>::OnboardingSettingsNotSet)?;
-		};
-		T::Currency::transfer(
-			&settings.funds_account,
-			account,
-			settings.funds,
-			ExistenceRequirement::KeepAlive,
-		)?;
-		let amount_to_hold = settings.funds.min(T::Currency::reducible_balance(
-			account,
+	fn fund(
+		from_account: &T::AccountId,
+		to_account: &T::AccountId,
+		amount: BalanceFor<T>,
+	) -> DispatchResult {
+		T::Currency::transfer(from_account, to_account, amount, ExistenceRequirement::KeepAlive)?;
+		let amount_to_hold = amount.min(T::Currency::reducible_balance(
+			to_account,
 			Preservation::Protect,
 			Fortitude::Polite,
 		));
-		T::Currency::hold(&HoldReason::Onboarding.into(), account, amount_to_hold)
+		T::Currency::hold(&HoldReason::Onboarding.into(), to_account, amount_to_hold)
 	}
 
 	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>) {

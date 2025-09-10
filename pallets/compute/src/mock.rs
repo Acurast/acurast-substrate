@@ -21,6 +21,7 @@ use crate::{stub::*, *};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+#[derive(Default)]
 pub struct ExtBuilder;
 
 impl ExtBuilder {
@@ -32,12 +33,6 @@ impl ExtBuilder {
 			System::set_block_number(1);
 		});
 		ext
-	}
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
 	}
 }
 

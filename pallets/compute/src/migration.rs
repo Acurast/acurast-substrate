@@ -89,7 +89,7 @@ pub fn migrate_to_v4<T: Config<I>, I: 'static>() -> Weight {
 			let mut total_amount: BalanceFor<T, I> = Zero::zero();
 
 			// Add committer's own stake (self-delegation)
-			if let Some(self_stake) = Stakes::<T, I>::get(&commitment_id) {
+			if let Some(self_stake) = Stakes::<T, I>::get(commitment_id) {
 				total_amount = total_amount.saturating_add(self_stake.amount);
 			}
 

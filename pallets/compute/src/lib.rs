@@ -1428,7 +1428,7 @@ pub mod pallet {
 			let epoch = cycle.epoch;
 
 			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
-			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(&processor) {
+			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(processor) {
 				if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
 					to_update.push((pool_id, metric));
 				}

@@ -4,7 +4,7 @@ use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Debug;
 
 #[derive(
-	RuntimeDebugNoBound,
+	RuntimeDebug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -15,7 +15,7 @@ use sp_runtime::traits::Debug;
 	Eq,
 	Default,
 )]
-pub struct ProvisionalBuffer<Epoch: Ord + Debug, Value: Copy + Default + Debug> {
+pub struct ProvisionalBuffer<Epoch: Ord, Value> {
 	current: Value,
 	/// The next value and the epoch when the next value will be applied.
 	next: Option<(Epoch, Value)>,
@@ -32,6 +32,7 @@ impl<Epoch: Ord + Debug, Value: Copy + Default + Debug> ProvisionalBuffer<Epoch,
 	}
 
 	/// Sets the value for a specific epoch and subsequent epochs.
+	#[allow(clippy::result_unit_err)]
 	pub fn set(&mut self, current_epoch: Epoch, epoch: Epoch, value: Value) -> Result<(), ()> {
 		if current_epoch >= epoch {
 			self.current = value;
@@ -39,7 +40,7 @@ impl<Epoch: Ord + Debug, Value: Copy + Default + Debug> ProvisionalBuffer<Epoch,
 			return Ok(());
 		}
 		if let Some((next_epoch, next_value)) = self.next.as_mut() {
-			match epoch.cmp(&next_epoch) {
+			match epoch.cmp(next_epoch) {
 				Ordering::Less => {
 					// new value is in nearer future, so update next
 					*next_epoch = epoch;

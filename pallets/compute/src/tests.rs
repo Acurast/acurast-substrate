@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use frame_support::{assert_err, assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
 use sp_runtime::{traits::Zero, AccountId32, FixedU128, Perbill, Perquintill};
@@ -43,7 +41,7 @@ fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
 
 #[test]
 fn test_create_pools_name_conflict() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		// create pool 1
 		{
@@ -73,7 +71,7 @@ fn test_create_pools_name_conflict() {
 
 #[test]
 fn test_single_processor_commit() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		assert_ok!(Compute::create_pool(
 			RuntimeOrigin::root(),
@@ -224,7 +222,7 @@ fn setup() {
 	assert_ok!(Compute::update_reward_distribution_settings(
 		RuntimeOrigin::root(),
 		Some(RewardSettings {
-			total_reward_per_distribution: 1_000_000u128.into(),
+			total_reward_per_distribution: 1_000_000u128,
 			total_inflation_per_distribution: sp_runtime::Perquintill::zero(),
 			stake_backed_ratio: sp_runtime::Perquintill::from_percent(70),
 			distribution_account: eve_account_id(),
@@ -512,7 +510,7 @@ fn check_events() {
 
 #[test]
 fn test_multiple_processor_commit() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup();
 		create_pools();
@@ -523,7 +521,7 @@ fn test_multiple_processor_commit() {
 
 #[test]
 fn test_multiple_processor_commit_reward_modified() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup();
 		create_pools();
@@ -534,7 +532,7 @@ fn test_multiple_processor_commit_reward_modified() {
 
 #[test]
 fn test_multiple_processor_commit_with_interleaving_charlie() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup();
 		create_pools();
@@ -545,7 +543,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie() {
 
 #[test]
 fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup();
 		create_pools();
@@ -556,7 +554,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 
 #[test]
 fn test_commit_compute() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		create_pools();
 
@@ -636,7 +634,7 @@ fn test_commit_compute() {
 
 #[test]
 fn test_delegate() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		create_pools();
 
@@ -762,7 +760,7 @@ fn test_delegate() {
 
 #[test]
 fn test_delegate_more() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		create_pools();
 
@@ -848,7 +846,7 @@ fn test_delegate_more() {
 
 #[test]
 fn test_compound_delegation() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		setup();
 		create_pools();
 

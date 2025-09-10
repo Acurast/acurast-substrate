@@ -18,21 +18,22 @@ use sp_runtime::traits::{Debug, One};
 /// Whenever a slot is reset, the default of `Value` is used. You can provide `Option<V>` as `Value` if you like to distinguish between `0` and no value.
 /// ```
 #[derive(
-	RuntimeDebugNoBound,
+	RuntimeDebug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
+	Copy,
 	PartialEq,
 	Eq,
 	Default,
 )]
-pub struct SlidingBuffer<
-	Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
-	Value: Copy + Default + Debug,
-> {
+pub struct SlidingBuffer<Epoch, Value>
+where
+	Epoch: Ord + One + Add<Output = Epoch>,
+{
 	/// The time the `cur` value was written.
 	///
 	/// **This is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be any sequential time unit.

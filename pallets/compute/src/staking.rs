@@ -147,7 +147,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)?;
 
 		Self::update_self_delegation(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Add(stake.amount))?;
+		Self::update_commitment_stake(commitment_id, StakeChange::Add(stake.amount), &stake)?;
 		Self::update_total_stake(StakeChange::Add(stake.amount))?;
 
 		Ok(())
@@ -200,24 +200,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let commitment_id = T::CommitmentIdProvider::commitment_id_for(who)
 			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
 
-		<Stakes<T, I>>::try_mutate(commitment_id, |stake_| -> Result<(), Error<T, I>> {
-			let stake = stake_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			let prev_amount = stake.amount;
-			let amount = prev_amount
-				.checked_add(&extra_amount)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+		let stake = <Stakes<T, I>>::try_mutate(
+			commitment_id,
+			|stake_| -> Result<StakeFor<T, I>, Error<T, I>> {
+				let stake = stake_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+				let prev_amount = stake.amount;
+				let amount = prev_amount
+					.checked_add(&extra_amount)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-			// locking is on accounts (while all other storage points are relative to `commitment_id`)
-			Self::lock_funds(who, amount, LockReason::Staking)?;
+				// locking is on accounts (while all other storage points are relative to `commitment_id`)
+				Self::lock_funds(who, amount, LockReason::Staking)?;
 
-			stake.amount = amount;
+				stake.amount = amount;
 
-			Ok(())
-		})?;
+				Ok(stake.clone())
+			},
+		)?;
 
 		Self::distribute_down(commitment_id)?;
 		Self::update_self_delegation(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Add(extra_amount))?;
+		Self::update_commitment_stake(commitment_id, StakeChange::Add(extra_amount), &stake)?;
 		Self::update_total_stake(StakeChange::Add(extra_amount))?;
 
 		Ok(())
@@ -252,7 +255,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::lock_funds(who, amount, LockReason::Delegation(commitment_id))?;
 
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Add(amount))?;
+		Self::update_commitment_stake(commitment_id, StakeChange::Add(amount), &committer_stake)?;
 		Self::update_total_stake(StakeChange::Add(amount))?;
 
 		// This check has to happen after `update_commitment_stake` to ensure the commitment_stake is updated what it would be after this call completed and is not rolled back
@@ -397,6 +400,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_commitment_stake(
 		commitment_id: T::CommitmentId,
 		change: StakeChange<BalanceFor<T, I>>,
+		stake: &StakeFor<T, I>,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let updated_rewardable_amount = match change {
 			StakeChange::Add(amount) => <CommitmentStake<T, I>>::try_mutate(
@@ -424,7 +428,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			),
 		}?;
-		Self::update_commitment_pool_weight(commitment_id, updated_rewardable_amount)?;
+		Self::update_commitment_pool_weight(commitment_id, updated_rewardable_amount, stake)?;
 		Ok(updated_rewardable_amount)
 	}
 
@@ -432,10 +436,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_commitment_pool_weight(
 		commitment_id: T::CommitmentId,
 		updated_rewardable_amount: BalanceFor<T, I>,
+		stake: &StakeFor<T, I>,
 	) -> Result<(), Error<T, I>> {
-		let commmitment_cooldown = Stakes::<T, I>::get(commitment_id)
-			.ok_or(Error::<T, I>::CommitmentNotFound)?
-			.cooldown_period;
+		let commmitment_cooldown = stake.cooldown_period;
 		for (pool_id, metric) in ComputeCommitments::<T, I>::iter_prefix(commitment_id) {
 			// This is here solely to ensure we always work on a state where the commitment_id's reward is distributed.
 			// Currently dropping reward since we assume we distributed down before coming here, panic in debug builds if not!
@@ -765,7 +768,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Self::update_self_delegation(commitment_id)?;
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(Zero::zero(), amount_diff))?;
+		Self::update_commitment_stake(
+			commitment_id,
+			StakeChange::Sub(Zero::zero(), amount_diff),
+			&stake,
+		)?;
 
 		Ok(())
 	}
@@ -811,7 +818,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		Self::distribute_down(commitment_id)?;
-		Self::update_commitment_stake(commitment_id, StakeChange::Sub(Zero::zero(), amount_diff))?;
+		Self::update_commitment_stake(
+			commitment_id,
+			StakeChange::Sub(Zero::zero(), amount_diff),
+			&stake,
+		)?;
 
 		let reward_weight_diff = DelegationPoolMembers::<T, I>::try_mutate(
 			who,
@@ -981,6 +992,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(stake.amount, stake.rewardable_amount),
+			&stake,
 		)?;
 		Self::update_total_stake(StakeChange::Sub(stake.amount, stake.rewardable_amount))?;
 
@@ -1037,6 +1049,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(stake.amount, stake.rewardable_amount),
+			&stake,
 		)?;
 		Self::update_total_stake(StakeChange::Sub(stake.amount, stake.rewardable_amount))?;
 

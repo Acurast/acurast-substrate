@@ -1,14 +1,15 @@
+use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
 	tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
-	Currency, Imbalance, IsType,
+	CallerTrait, Currency, EnsureOrigin, Imbalance, IsType, OriginTrait,
 };
 use frame_system::Config as FrameSystemConfig;
 pub use parachains_common::Balance;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::H256;
+use sp_core::{Get, H256};
 use sp_runtime::{
 	traits::{DispatchInfoOf, IdentifyAccount, PostDispatchInfoOf, Verify, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -19,6 +20,7 @@ use acurast_p256_crypto::MultiSignature;
 use pallet_acurast::{IsFundableCall, CU32};
 use pallet_acurast_marketplace::RegistrationExtra;
 use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
+use pallet_referenda::Track;
 use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTransaction};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -192,5 +194,30 @@ impl<
 {
 	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
 		A::is_fundable_call(call) || B::is_fundable_call(call)
+	}
+}
+
+pub struct TracksInfo<T, EO, TR>(PhantomData<(T, EO, TR)>);
+impl<T, EO, TR> pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo<T, EO, TR>
+where
+	T: frame_system::Config,
+	EO: EnsureOrigin<T::RuntimeOrigin>,
+	TR: Get<[Track<u16, Balance, BlockNumber>; 1]>,
+{
+	type Id = u16;
+	type RuntimeOrigin = <T::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, BlockNumber>>> {
+		TR::get().into_iter().map(Cow::Owned)
+	}
+
+	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+		let Some(origin) = origin.as_system_ref() else {
+			return Err(());
+		};
+		if EO::ensure_origin(origin.clone().into()).is_ok() {
+			return Ok(0);
+		}
+		Err(())
 	}
 }

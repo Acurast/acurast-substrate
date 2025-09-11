@@ -97,8 +97,9 @@ pallet-session = { git = "https://github.com/paritytech/polkadot-sdk", default-f
 # The Sudo pallet allows for a single account (called the "sudo key") to execute dispatchable functions that require a Root call.
 # Only one account can be the sudo key at a time.
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
-# The Democracy pallet handles the administration of general stakeholder voting
-pallet-democracy = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+# Governance pallets handle the administration of general stakeholder voting
+pallet-referenda = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-conviction-voting = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 # The Timestamp pallet is the recommended way to query the on-chain time instead of using an approach based on block numbers.
 # It uses inherents for timestamp data, which is provided by the block author and validated/verified by other validators.
 # The timestamp can be set only once per block and must be set each block.

@@ -7,7 +7,7 @@ use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
 use acurast_runtime_common::{types::Signature, weight};
-use pallet_acurast::ElegibleRewardAccountLookup;
+use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
@@ -32,7 +32,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
+	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
 		Acurast,
 		AcurastProcessorManager,

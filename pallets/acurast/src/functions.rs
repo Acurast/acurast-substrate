@@ -55,8 +55,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(metrics) = min_metrics {
 			let metrics: MinMetrics = metrics
 				.into_iter()
-				.map(MinMetric::checked_from)
-				.filter_map(|metric| metric)
+				.filter_map(MinMetric::checked_from)
 				.collect::<Vec<MinMetric>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyMinMetrics)?;
@@ -119,7 +118,7 @@ impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
 			Error::<T>::CertificateChainTooShort,
 		);
 
-		let attestation = validate_and_extract_attestation::<T>(account, &attestation_chain)?;
+		let attestation = validate_and_extract_attestation::<T>(account, attestation_chain)?;
 
 		if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
 			#[cfg(not(feature = "runtime-benchmarks"))]

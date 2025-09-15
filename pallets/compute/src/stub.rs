@@ -39,3 +39,15 @@ pub const fn dave_account_id() -> AccountId {
 pub const fn eve_account_id() -> AccountId {
 	AccountId32::new([4u8; 32])
 }
+
+pub const fn ferdie_account_id() -> AccountId {
+	AccountId32::new([5u8; 32])
+}
+
+pub const fn george_account_id() -> AccountId {
+	AccountId32::new([6u8; 32])
+}
+
+pub const fn henry_account_id() -> AccountId {
+	AccountId32::new([7u8; 32])
+}

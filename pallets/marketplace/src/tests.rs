@@ -2,6 +2,7 @@
 
 use frame_support::{
 	assert_err, assert_ok,
+	pallet_prelude::Zero,
 	sp_runtime::{bounded_vec, traits::Scale, Permill, Perquintill},
 	traits::{Hooks, TypedGet},
 };
@@ -1195,6 +1196,7 @@ fn test_match() {
 			RuntimeOrigin::root(),
 			*b"cpu-ops-per-second______",
 			Perquintill::from_percent(25),
+			None,
 			bounded_vec![],
 		));
 		let pool_id = AcurastCompute::last_metric_pool_id();
@@ -1396,6 +1398,7 @@ fn test_match() {
 						name: *b"cpu-ops-per-second______",
 						reward: ProvisionalBuffer::new(Perquintill::from_percent(25)),
 						total: SlidingBuffer::new(0),
+						max_stake_metric_ratio: Zero::zero()
 					}
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {

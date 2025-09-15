@@ -54,7 +54,8 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
-pallet-democracy = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-conviction-voting = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
@@ -62,6 +63,7 @@ pallet-uniques = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
+sp-arithmetic = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -128,7 +130,8 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
-	"pallet-democracy/std",
+	"pallet-referenda/std",
+	"pallet-conviction-voting/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -148,6 +151,7 @@ std = [
 	"pallet-acurast-candidate-preselection/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
+	"sp-arithmetic/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -177,7 +181,8 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
-	"pallet-democracy/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-fee-manager/runtime-benchmarks",

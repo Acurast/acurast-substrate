@@ -71,8 +71,10 @@ mod runtime {
 	pub type Uniques = pallet_uniques;
 
 	// Governance stuff.
-	#[runtime::pallet_index(15)]
-	pub type Democracy = pallet_democracy;
+	#[runtime::pallet_index(16)]
+	pub type Referenda = pallet_referenda;
+	#[runtime::pallet_index(17)]
+	pub type ConvictionVoting = pallet_conviction_voting;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]

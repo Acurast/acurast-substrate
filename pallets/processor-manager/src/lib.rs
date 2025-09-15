@@ -288,7 +288,6 @@ pub mod pallet {
 		pub fn update_processor_pairings(
 			origin: OriginFor<T>,
 			pairing_updates: ProcessorUpdatesFor<T>,
-			test: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 

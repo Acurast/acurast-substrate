@@ -78,6 +78,7 @@ parameter_types! {
 	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
 	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptvsol").into_account_truncating();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
+	pub HyperdriveTokenOperationalFeeAccount: AccountId = PalletId(*b"hyptofac").into_account_truncating();
 	pub OutgoingTransferTTL: BlockNumber = 15;
 }
 
@@ -93,6 +94,7 @@ impl crate::Config for Test {
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
+	type OperationalFeeAccount = HyperdriveTokenOperationalFeeAccount;
 
 	type WeightInfo = weights::WeightInfo<Test>;
 }

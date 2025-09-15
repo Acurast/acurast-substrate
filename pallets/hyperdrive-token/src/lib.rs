@@ -210,6 +210,30 @@ pub mod pallet {
 	pub type NextEnableNonce<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, EnableNonce, OptionQuery>;
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+		pub initial_eth_token_allocation: Option<T::Balance>,
+		pub initial_sol_token_allocation: Option<T::Balance>,
+	}
+
+	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
+		fn default() -> Self {
+			Self { initial_eth_token_allocation: None, initial_sol_token_allocation: None }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
+		fn build(&self) {
+			if let Some(init_allocation) = self.initial_eth_token_allocation {
+				_ = T::Currency::mint_into(&T::EthereumVault::get(), init_allocation.into());
+			}
+			if let Some(init_allocation) = self.initial_sol_token_allocation {
+				_ = T::Currency::mint_into(&T::SolanaVault::get(), init_allocation.into());
+			}
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Transfers tokens over Hyperdrive (IBC) to the proxy on recipient chain.

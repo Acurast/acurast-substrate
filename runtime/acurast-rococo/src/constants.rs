@@ -127,8 +127,8 @@ parameter_types! {
 		LitePackageNameTestnet::get(),
 	];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
-	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get()];
-	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get()];
+	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get(), LitePackageNameCanary::get()];
+	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get(), CorePackageNameCanary::get()];
 	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];

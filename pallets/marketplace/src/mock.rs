@@ -214,10 +214,14 @@ parameter_types! {
 	pub const MinStake: Balance = 1 * UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+	pub const InflationPerDistribution: Perquintill = Perquintill::from_percent(1);
+	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
 impl pallet_acurast_compute::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
@@ -238,6 +242,8 @@ impl pallet_acurast_compute::Config for Test {
 	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockLockup;
+	type InflationPerDistribution = InflationPerDistribution;
+	type InflationStakedBackedRation = InflationStakedBackedRation;
 	type WeightInfo = ();
 }
 

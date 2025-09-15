@@ -4,6 +4,7 @@ use frame_support::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		LockIdentifier,
 	},
+	PalletId,
 };
 
 use acurast_runtime_common::{
@@ -33,12 +34,16 @@ parameter_types! {
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
- pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
- pub const Decimals: Balance = UNIT;
+	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
+	pub const Decimals: Balance = UNIT;
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+	pub InflationPerDistribution: Perquintill = Perquintill::from_rational(835_451_506_486_784u128, 1_000_000_000_000_000_000u128);
+	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
 impl pallet_acurast_compute::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
@@ -64,6 +69,8 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 		AcurastProcessorManager,
 	>;
+	type InflationPerDistribution = InflationPerDistribution;
+	type InflationStakedBackedRation = InflationStakedBackedRation;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

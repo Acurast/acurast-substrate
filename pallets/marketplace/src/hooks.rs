@@ -172,7 +172,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 	fn update_allowed_sources_hook(
 		_who: &T::AccountId,
 		job_id: &JobId<T::AccountId>,
-		_updates: &Vec<AllowedSourcesUpdate<T::AccountId>>,
+		_updates: &[AllowedSourcesUpdate<T::AccountId>],
 	) -> DispatchResultWithPostInfo {
 		let job_status =
 			<StoredJobStatus<T>>::get(&job_id.0, job_id.1).ok_or(Error::<T>::JobStatusNotFound)?;

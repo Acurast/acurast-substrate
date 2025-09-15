@@ -19,7 +19,6 @@ pub trait WeightInfo {
 	fn end_compute_commitment() -> Weight;
 	fn reward() -> Weight;
 	fn slash() -> Weight;
-	fn fake_metrics() -> Weight;
 	fn force_end_commitment() -> Weight;
 	fn withdraw_delegation() -> Weight;
 	fn withdraw_commitment() -> Weight;
@@ -98,10 +97,6 @@ impl WeightInfo for () {
 	}
 
 	fn slash() -> Weight {
-		Weight::from_parts(10_000, 0)
-	}
-
-	fn fake_metrics() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

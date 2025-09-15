@@ -56,7 +56,7 @@ pub trait JobHooks<T: Config> {
 	fn update_allowed_sources_hook(
 		who: &<T as frame_system::Config>::AccountId,
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
-		updates: &Vec<AllowedSourcesUpdate<<T as frame_system::Config>::AccountId>>,
+		updates: &[AllowedSourcesUpdate<<T as frame_system::Config>::AccountId>],
 	) -> DispatchResultWithPostInfo;
 }
 
@@ -75,7 +75,7 @@ impl<T: Config> JobHooks<T> for () {
 	fn update_allowed_sources_hook(
 		_who: &<T as frame_system::Config>::AccountId,
 		_job_id: &JobId<<T as frame_system::Config>::AccountId>,
-		_updates: &Vec<AllowedSourcesUpdate<<T as frame_system::Config>::AccountId>>,
+		_updates: &[AllowedSourcesUpdate<<T as frame_system::Config>::AccountId>],
 	) -> DispatchResultWithPostInfo {
 		Ok(().into())
 	}

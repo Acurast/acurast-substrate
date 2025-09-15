@@ -178,7 +178,10 @@ fn test_single_processor_commit() {
 
 		// claim for epoch 1 and commit for epoch 2
 		roll_to_block(230);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), Some(250000));
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]),
+			/*Some(250000)*/ Some(82500)
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 2, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -191,7 +194,8 @@ fn test_single_processor_commit() {
 				claimed: 1,
 				status: ProcessorStatus::Active,
 				accrued: 0,
-				paid: 250000
+				//paid: 250000
+				paid: 82500,
 			})
 		);
 
@@ -228,7 +232,7 @@ fn setup() {
 			distribution_account: eve_account_id(),
 		}),
 	));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), u128::MAX));
+	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), 110_000_000));
 }
 
 fn create_pools() {
@@ -424,7 +428,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		// - Sum of reward for pool 1 and pool 2 = 0.25 UNIT + 0.125 UNIT = 0.375
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			Some(375000)
+			/*Some(375000)*/ Some(123750),
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -438,7 +442,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				claimed: 1,
 				status: ProcessorStatus::Active,
 				accrued: 0,
-				paid: 375000
+				//paid: 375000
+				paid: 123750,
 			})
 		);
 	}
@@ -451,7 +456,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		//   => 0.75 * 0.5 * 1 UNIT = 0.375 UNIT
 		assert_eq!(
 			Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			Some(375000)
+			/*Some(375000)*/ Some(123750),
 		);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 1).unwrap(),
@@ -465,7 +470,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				claimed: 1,
 				status: ProcessorStatus::Active,
 				accrued: 0,
-				paid: 375000
+				//paid: 375000
+				paid: 123750,
 			})
 		);
 	}

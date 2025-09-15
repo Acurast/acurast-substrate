@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use hex_literal::hex;
 use pallet_acurast::AccountId20;
 use sp_core::crypto::AccountId32;

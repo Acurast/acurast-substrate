@@ -40,7 +40,7 @@ pub mod pallet {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockIdentifier},
-		Parameter,
+		PalletId, Parameter,
 	};
 	use frame_system::pallet_prelude::*;
 	use frame_system::{
@@ -48,7 +48,7 @@ pub mod pallet {
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
 	use sp_runtime::{
-		traits::{One, SaturatedConversion, Saturating, Zero},
+		traits::{AccountIdConversion, One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Perbill, Perquintill,
 	};
 	use sp_std::cmp::max;
@@ -62,6 +62,7 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type PalletId: Get<PalletId>;
 		type ManagerId: Member
 			+ Parameter
 			+ MaxEncodedLen
@@ -135,6 +136,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type LockIdentifier: Get<LockIdentifier>;
 		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
+		#[pallet::constant]
+		type InflationPerDistribution: Get<Perquintill>;
+		#[pallet::constant]
+		type InflationStakedBackedRation: Get<Perquintill>;
 		/// Weight Info for extrinsics.
 		type WeightInfo: WeightInfo;
 	}
@@ -482,60 +487,56 @@ pub mod pallet {
 
 					// Handle inflation-based reward distribution on new epoch
 					{
-						if let Some(settings) = Self::reward_distribution_settings() {
-							let total_supply = T::Currency::total_issuance();
-							let inflation_amount: BalanceFor<T, I> = settings
-								.total_inflation_per_distribution
-								.mul_floor(total_supply.saturated_into::<u128>())
-								.saturated_into();
-							let current_epoch = Self::current_cycle().epoch;
+						let total_supply = T::Currency::total_issuance();
+						weight = weight.saturating_add(T::DbWeight::get().reads(1));
+						let inflation_amount: BalanceFor<T, I> = T::InflationPerDistribution::get()
+							.mul_floor(total_supply.saturated_into::<u128>())
+							.saturated_into();
+						let current_epoch = Self::current_cycle().epoch;
 
-							if !inflation_amount.is_zero() {
-								// Mint new tokens into distribution account
-								let imbalance = T::Currency::issue(inflation_amount);
-								T::Currency::resolve_creating(
-									&settings.distribution_account,
-									imbalance,
-								);
-								weight = weight.saturating_add(T::DbWeight::get().writes(1));
+						if !inflation_amount.is_zero() {
+							// Mint new tokens into distribution account
+							let imbalance = T::Currency::issue(inflation_amount);
+							T::Currency::resolve_creating(
+								&T::PalletId::get().into_account_truncating(),
+								imbalance,
+							);
+							weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-								// Calculate stake-backed amount
-								let stake_backed_amount: BalanceFor<T, I> = settings
-									.stake_backed_ratio
+							// Calculate stake-backed amount
+							let stake_backed_amount: BalanceFor<T, I> =
+								T::InflationStakedBackedRation::get()
 									.mul_floor(inflation_amount.saturated_into::<u128>())
 									.saturated_into();
-								let compute_based_amount =
-									inflation_amount.saturating_sub(stake_backed_amount);
+							let compute_based_amount =
+								inflation_amount.saturating_sub(stake_backed_amount);
 
-								// Distribute stake-backed rewards
-								if !stake_backed_amount.is_zero() {
-									if let Err(e) =
-										Self::distribute(current_epoch, stake_backed_amount)
-									{
-										log::error!(
-											target: LOG_TARGET,
-											"Failed to distribute stake-backed rewards: {:?}",
-											e
-										);
-									} else {
-										weight = weight
-											.saturating_add(T::DbWeight::get().reads_writes(10, 5));
-									}
-								}
-
-								// Store compute-based rewards
-								if !compute_based_amount.is_zero() {
-									ComputeBasedRewards::<T, I>::mutate(|r| {
-										r.mutate(current_epoch, |v| {
-											*v = compute_based_amount;
-										});
-									});
-
-									weight = weight.saturating_add(T::DbWeight::get().writes(1));
+							// Distribute stake-backed rewards
+							if !stake_backed_amount.is_zero() {
+								if let Err(e) = Self::distribute(current_epoch, stake_backed_amount)
+								{
+									log::error!(
+										target: LOG_TARGET,
+										"Failed to distribute stake-backed rewards: {:?}",
+										e
+									);
+								} else {
+									weight = weight
+										.saturating_add(T::DbWeight::get().reads_writes(10, 5));
 								}
 							}
+
+							// Store compute-based rewards
+							if !compute_based_amount.is_zero() {
+								ComputeBasedRewards::<T, I>::mutate(|r| {
+									r.mutate(current_epoch, |v| {
+										*v = compute_based_amount;
+									});
+								});
+
+								weight = weight.saturating_add(T::DbWeight::get().writes(1));
+							}
 						}
-						weight = weight.saturating_add(T::DbWeight::get().reads(2));
 					}
 				}
 			}
@@ -926,51 +927,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Fakes or remove metrics and metric averages.
-		///
-		/// This is a root-only operation for testing purposes.
-		#[pallet::call_index(16)]
-		#[pallet::weight(T::WeightInfo::fake_metrics())]
-		pub fn fake_metrics(
-			origin: OriginFor<T>,
-			reset_for_processor: Option<T::AccountId>,
-			reset_average_of_manager: Option<T::AccountId>,
-			pretend_prev_average: Option<T::AccountId>,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-
-			if let Some(processor) = reset_for_processor {
-				let _ = <Metrics<T, I>>::clear_prefix(processor, u32::MAX, None);
-			}
-
-			if let Some(manager) = reset_average_of_manager {
-				let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
-				let _ = <MetricsEraAverage<T, I>>::clear_prefix(manager_id, u32::MAX, None);
-			}
-
-			if let Some(manager) = pretend_prev_average {
-				let manager_id = T::ManagerIdProvider::manager_id_for(&manager)?;
-				for pool_id in MetricPools::<T, I>::iter_keys() {
-					<MetricsEraAverage<T, I>>::mutate(manager_id, pool_id, |avg_| {
-						if let Some(avg) = avg_.as_mut() {
-							let era = Self::current_cycle().era;
-							let cur_avg = avg.get(era);
-
-							// pretend both current and last era had the current avg
-							avg.mutate(era.saturating_sub(One::one()), |v| {
-								*v = cur_avg;
-							});
-							avg.mutate(era, |v| {
-								*v = cur_avg;
-							});
-						}
-					});
-				}
-			}
-
-			Ok(Pays::No.into())
-		}
-
 		/// Force-unstakes a commitment, removing all delegations and the commitment's own stake.
 		///
 		/// This is a root-only operation that bypasses normal cooldown and validation checks.
@@ -1029,9 +985,7 @@ pub mod pallet {
 			let reward_amount = reward.consume();
 			if !reward_amount.is_zero() {
 				T::Currency::transfer(
-					&Self::reward_distribution_settings()
-						.ok_or(Error::<T, I>::InternalError)?
-						.distribution_account,
+					&T::PalletId::get().into_account_truncating(),
 					&who,
 					reward_amount,
 					ExistenceRequirement::KeepAlive,
@@ -1196,22 +1150,14 @@ pub mod pallet {
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
-			// TODO (MIKE): zero out the non-inflation-based, fixed reward in favor of the inflation-based reward split into the compute and stake-backed reward buckets.
-			// by removing the use of `settings.total_reward_per_distribution` all together
-			let Some(settings) = Self::reward_distribution_settings() else { return Ok(None) };
-
 			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
 				return Ok(None);
 			};
 
 			let Some(claim_epoch) = Self::can_claim(processor) else { return Ok(None) };
 
-			// the reward to distribute is the fixed reward from `settings.total_reward_per_distribution` (backwards compatibility) + the inflation based reward for the claim epoch
-			let reward = settings
-				.total_reward_per_distribution
-				.checked_add(&Self::compute_based_rewards().get(claim_epoch))
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
-			if reward.is_zero() {
+			let total_reward = Self::compute_based_rewards().get(claim_epoch);
+			if total_reward.is_zero() {
 				return Ok(None);
 			}
 
@@ -1253,14 +1199,14 @@ pub mod pallet {
 			}
 
 			let reward: BalanceFor<T, I> = total_reward_ratio
-				.mul_floor::<u128>(settings.total_reward_per_distribution.into())
+				.mul_floor::<u128>(total_reward.into())
 				.saturating_add(p.accrued.into())
 				.into();
 
 			// accrue
 			#[allow(clippy::bind_instead_of_map)]
 			let _ = T::Currency::transfer(
-				&settings.distribution_account,
+				&T::PalletId::get().into_account_truncating(),
 				&manager,
 				reward,
 				ExistenceRequirement::KeepAlive,

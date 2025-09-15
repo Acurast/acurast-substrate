@@ -11,6 +11,7 @@ use frame_support::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, ConstU16, IsType, LockIdentifier,
 	},
+	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use sp_core::H256;
@@ -130,10 +131,14 @@ parameter_types! {
 
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+	pub const InflationPerDistribution: Perquintill = Perquintill::from_percent(1);
+	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
@@ -155,6 +160,8 @@ impl Config for Test {
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type WeightInfo = ();
+	type InflationPerDistribution = InflationPerDistribution;
+	type InflationStakedBackedRation = InflationStakedBackedRation;
 }
 
 /// Mock manager provider that returns manager charlie for processors alice and bob.

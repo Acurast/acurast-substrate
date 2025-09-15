@@ -143,6 +143,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
+	#[allow(clippy::large_enum_variant)]
 	pub enum Event<T: Config> {
 		/// A registration was successfully stored. [registration, job_id]
 		JobRegistrationStored(JobRegistrationFor<T>, JobId<T::AccountId>),

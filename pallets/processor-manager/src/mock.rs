@@ -161,14 +161,14 @@ impl Config for Test {
 	type ExtensionWeightInfo = weights::ExtensionWeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
-	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
+	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type AttestationHandler = Acurast;
 }
 
-pub struct MockLookup<AccountId>(PhantomData<AccountId>);
-impl<AccountId: Clone> AccountLookup<AccountId> for MockLookup<AccountId> {
+pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);
+impl<AccountId: Clone> AccountLookup<AccountId> for MockManagerProvider<AccountId> {
 	fn lookup(processor: &AccountId) -> Option<AccountId> {
 		Some(processor.clone())
 	}

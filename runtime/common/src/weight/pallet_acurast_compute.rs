@@ -111,4 +111,197 @@ impl<T: frame_system::Config> pallet_acurast_compute::WeightInfo for WeightInfo<
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+    fn offer_backing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn withdraw_backing_offer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn accept_backing_offer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn delegate() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn cooldown_delegation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn redelegate() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+     fn end_delegation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn commit_compute() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn stake_more() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn cooldown_compute_commitment() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn end_compute_commitment() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn reward() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn slash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn force_end_commitment() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 15_000_000 picoseconds.
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(10))
+	}
+    fn withdraw_delegation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+    fn withdraw_commitment() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+
+	fn delegate_more() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+
+	fn compound_delegation() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 15_000_000 picoseconds.
+		Weight::from_parts(16_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
+
+	fn compound_stake() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1381`
+		//  Estimated: `4668`
+		// Minimum execution time: 15_000_000 picoseconds.
+		Weight::from_parts(16_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4668))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
 }

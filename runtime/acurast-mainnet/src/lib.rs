@@ -49,8 +49,8 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 	#[runtime::pallet_index(3)]
 	pub type ParachainInfo = parachain_info;
-	#[runtime::pallet_index(4)]
-	pub type Sudo = pallet_sudo;
+	//#[runtime::pallet_index(4)]
+	//pub type Sudo = pallet_sudo;
 	#[runtime::pallet_index(5)]
 	pub type Scheduler = pallet_scheduler;
 	#[runtime::pallet_index(6)]

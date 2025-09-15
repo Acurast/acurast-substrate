@@ -1,5 +1,6 @@
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{assert_ok, traits::tokens::currency::Currency};
+use frame_system::RawOrigin;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::Perquintill;
 use sp_std::vec;
@@ -57,6 +58,7 @@ pub struct AcurastBenchmarkHelper;
 
 impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn registration_extra(instant_match: bool) -> ExtraFor<Runtime> {
+		setup_pools();
 		let processor = Self::funded_account(0);
 		let ad = Advertisement {
 			pricing: Pricing {
@@ -95,6 +97,51 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast", index, 1 << 60)
 	}
+}
+
+fn setup_pools() {
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_single_core______",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_cpu_multi_core_______",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_total____________",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_ram_speed____________",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_avail________",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
+	assert_ok!(AcurastCompute::create_pool(
+		RawOrigin::Root.into(),
+		*b"v1_storage_speed________",
+		Perquintill::from_percent(15),
+		None,
+		vec![].try_into().unwrap(),
+	));
 }
 
 impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
@@ -183,6 +230,7 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			RuntimeOrigin::root(),
 			name,
 			Perquintill::from_percent(25),
+			None,
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");
@@ -195,6 +243,8 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			(),
 		> {
 			total_reward_per_distribution: 12_500,
+			total_inflation_per_distribution: Perquintill::from_percent(5),
+			stake_backed_ratio: Perquintill::from_percent(70),
 			distribution_account: Self::funded_account(1),
 		});
 	}

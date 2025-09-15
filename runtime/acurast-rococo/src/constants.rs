@@ -22,7 +22,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 81,
+	spec_version: 98,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -108,6 +108,8 @@ parameter_types! {
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
+	pub const CorePackageNameCanary: &'static [u8] = b"com.acurast.attested.executor.canary";
+	pub const LitePackageNameCanary: &'static [u8] = b"com.acurast.attested.executor.sbs.canary";
 	pub const CorePackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.testnet";
 	pub const LitePackageNameTestnet: &'static [u8] = b"com.acurast.attested.executor.sbs.testnet";
 	pub const CorePackageNameDevnet: &'static [u8] = b"com.acurast.attested.executor.devnet";
@@ -117,19 +119,22 @@ parameter_types! {
 	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
 	pub const LiteSolSignatureDigest: &'static [u8] = hex_literal::hex!("e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc").as_slice();
 	pub PackageNames: Vec<&'static [u8]> = vec![
+		CorePackageNameCanary::get(),
+		LitePackageNameCanary::get(),
 		CorePackageNameDevnet::get(),
 		LitePackageNameDevnet::get(),
 		CorePackageNameTestnet::get(),
 		LitePackageNameTestnet::get(),
 	];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
-	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get()];
-	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get()];
+	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageNameDevnet::get(), LitePackageNameTestnet::get(), LitePackageNameCanary::get()];
+	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageNameDevnet::get(), CorePackageNameTestnet::get(), CorePackageNameCanary::get()];
 	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 	pub const ManagerCollectionId: u128 = 0;
+	pub const CommitmentCollectionId: u128 = 1;
 
 	/// The acurast contract on the aleph zero network
 	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();

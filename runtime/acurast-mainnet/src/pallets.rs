@@ -18,7 +18,7 @@ mod pallet_preimage_config;
 mod pallet_referenda_config;
 mod pallet_scheduler_config;
 mod pallet_session_config;
-mod pallet_sudo_config;
+//mod pallet_sudo_config;
 mod pallet_timestamp_config;
 mod pallet_transaction_payment_config;
 mod pallet_uniques_config;

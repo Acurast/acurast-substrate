@@ -27,7 +27,7 @@ pub mod pallet {
 				Mutate as MutateFungible,
 			},
 			tokens::{Fortitude, Precision, Restriction},
-			Get,
+			EnsureOrigin, Get,
 		},
 		transactional,
 	};
@@ -70,6 +70,8 @@ pub mod pallet {
 		type MessageIdHashing: Hash<Output = MessageId> + TypeInfo;
 
 		type MessageProcessor: MessageProcessor<Self::AccountId, Self::AccountId>;
+
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -175,7 +177,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			updates: OracleUpdates<T>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::UpdateOrigin::ensure_origin(origin)?;
 
 			// Process actions
 			let (added, updated, removed) =

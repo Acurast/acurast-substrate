@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
-			Self::deposit_event(Event::JobRegistrationMatched(m.clone()));
+			Self::deposit_event(Event::JobRegistrationMatchedV2(m.job_id.clone()));
 		}
 		Ok(remaining_rewards)
 	}
@@ -473,7 +473,7 @@ impl<T: Config> Pallet<T> {
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
 			<StoredJobExecutionStatus<T>>::insert(&m.job_id, m.execution_index, JobStatus::Matched);
 
-			Self::deposit_event(Event::JobExecutionMatched(m.clone()));
+			Self::deposit_event(Event::JobExecutionMatchedV2(m.job_id.clone()));
 		}
 		Ok(remaining_rewards)
 	}
@@ -1048,7 +1048,7 @@ impl<T: Config> Pallet<T> {
 			// activate hook so implementing side can react on job assignment
 			T::MarketplaceHooks::assign_job(&job_id, &assignment.pub_keys)?;
 
-			Self::deposit_event(Event::JobRegistrationAssigned(job_id, who, assignment.clone()));
+			Self::deposit_event(Event::JobRegistrationAssignedV2(job_id, who));
 		}
 		Ok(().into())
 	}

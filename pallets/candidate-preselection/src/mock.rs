@@ -4,6 +4,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, ValidatorRegistration},
 };
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
@@ -84,6 +85,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorRegistration = ValReg<Self>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 }
 

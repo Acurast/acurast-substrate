@@ -159,9 +159,11 @@ impl Config for Test {
 	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
-	type WeightInfo = ();
 	type InflationPerDistribution = InflationPerDistribution;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type WeightInfo = ();
 }
 
 /// Mock manager provider that returns manager charlie for processors alice and bob.

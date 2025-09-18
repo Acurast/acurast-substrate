@@ -6,6 +6,7 @@ use acurast_runtime_common::{
 	},
 	weight,
 };
+use frame_system::EnsureRoot;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
@@ -39,6 +40,7 @@ impl pallet_acurast::Config for Runtime {
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type ProcessorVersion = pallet_acurast::Version;
 	type MaxVersions = MaxVersions;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

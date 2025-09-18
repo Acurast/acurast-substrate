@@ -3,6 +3,7 @@ use acurast_runtime_common::{
 	types::{Balance, BlockNumber},
 	weight,
 };
+use frame_system::EnsureRoot;
 
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 use frame_support::{
@@ -71,6 +72,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	>;
 	type InflationPerDistribution = InflationPerDistribution;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

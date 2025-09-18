@@ -87,9 +87,6 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 
-	fn update_reward_distribution_settings() -> Weight {
-		Weight::from_parts(10_000, 0)
-	}
     fn offer_backing() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1381`

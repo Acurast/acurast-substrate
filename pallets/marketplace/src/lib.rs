@@ -44,7 +44,7 @@ pub mod pallet {
 			traits::{CheckedAdd, CheckedSub, Hash},
 			FixedPointOperand, FixedU128,
 		},
-		traits::tokens::Balance,
+		traits::{tokens::Balance, EnsureOrigin},
 		Blake2_128, Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
@@ -113,6 +113,10 @@ pub mod pallet {
 		type DeploymentHashing: Hash<Output = DeploymentHash> + TypeInfo;
 		/// The hashing system (algorithm) being used to generate key ids for deployments (e.g. Blake2).
 		type KeyIdHashing: Hash<Output = KeyId> + TypeInfo;
+		/// Origin allowed to call update extrinsics
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Origin allowed to call operational extrinsics
+		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 
@@ -306,6 +310,17 @@ pub mod pallet {
 		JobBecameImmutable(JobId<T::AccountId>),
 		/// Min fee per millisecond updated
 		MinFeePerMillisecondUpdated(<T as Config>::Balance),
+
+		/// A registration was successfully matched. [JobId]
+		JobRegistrationMatchedV2(JobId<T::AccountId>),
+		/// A registration was successfully matched. [JobId, SourceId]
+		JobRegistrationAssignedV2(JobId<T::AccountId>, T::AccountId),
+		/// A report for an execution has arrived. [JobId, SourceId]
+		ReportedV2(JobId<T::AccountId>, T::AccountId),
+		/// A advertisement was successfully stored. [who]
+		AdvertisementStoredV2(T::AccountId),
+		/// A registration was successfully matched. [JobId]
+		JobExecutionMatchedV2(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -469,7 +484,7 @@ pub mod pallet {
 
 			Self::do_advertise(&who, &advertisement)?;
 
-			Self::deposit_event(Event::AdvertisementStored(advertisement, who));
+			Self::deposit_event(Event::AdvertisementStoredV2(who));
 			Ok(().into())
 		}
 
@@ -554,8 +569,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// find assignment
-			let assignment = Self::do_report(&job_id, &who)?;
+			_ = Self::do_report(&job_id, &who)?;
 
 			match execution_result {
 				ExecutionResult::Success(operation_hash) => {
@@ -566,7 +580,7 @@ pub mod pallet {
 				},
 			}
 
-			Self::deposit_event(Event::Reported(job_id, who, assignment));
+			Self::deposit_event(Event::ReportedV2(job_id, who));
 			Ok(().into())
 		}
 
@@ -627,7 +641,7 @@ pub mod pallet {
 			job_id: JobId<T::AccountId>,
 			max_iterations: u8,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 			let maybe_job = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1);
 			if maybe_job.is_none() && max_iterations > 0 {
 				let mut remaining_iterations = max_iterations;
@@ -838,7 +852,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_min_fee: T::Balance,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 			<MinFeePerMillisecond<T>>::set(new_min_fee);
 			Self::deposit_event(Event::MinFeePerMillisecondUpdated(new_min_fee));
 			Ok(().into())

@@ -34,12 +34,12 @@ pub mod pallet {
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{
 			fungible::{InspectHold, MutateHold},
-			Currency, Get, UnixTime,
+			Currency, EnsureOrigin, Get, UnixTime,
 		},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
 	use frame_system::{
-		ensure_root, ensure_signed,
+		ensure_signed,
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
 	use parity_scale_codec::MaxEncodedLen;
@@ -96,6 +96,7 @@ pub mod pallet {
 			>;
 		type RuntimeHoldReason: From<HoldReason>;
 		type AttestationHandler: AttestationValidator<Self::AccountId>;
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type ExtensionWeightInfo: ExtensionWeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
@@ -476,7 +477,7 @@ pub mod pallet {
 			version: Version,
 			hash: Option<BinaryHash>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 
 			if let Some(hash) = &hash {
 				<KnownBinaryHash<T>>::insert(version, *hash);
@@ -495,7 +496,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			api_version: u32,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 
 			<ApiVersion<T>>::put(api_version);
 
@@ -532,7 +533,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_settings: Option<RewardDistributionSettings<BalanceFor<T>, T::AccountId>>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 			<ProcessorRewardDistributionSettings<T>>::set(new_settings);
 
 			Ok(().into())
@@ -544,7 +545,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			version: Version,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 			<ProcessorMinVersionForReward<T>>::insert(version.platform, version.build_number);
 			Self::deposit_event(Event::<T>::MinProcessorVersionForRewardUpdated(version));
 
@@ -638,7 +639,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 
 			<ProcessorOnboardingSettings<T>>::set(new_settings);
 

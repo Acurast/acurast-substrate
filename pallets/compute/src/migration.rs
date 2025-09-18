@@ -13,8 +13,12 @@ use sp_runtime::traits::{Saturating, Zero};
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 3] =
-		[(2, &migrate_to_v2::<T, I>), (3, &migrate_to_v3::<T, I>), (4, &migrate_to_v4::<T, I>)];
+	let migrations: [(u16, &dyn Fn() -> Weight); 4] = [
+		(2, &migrate_to_v2::<T, I>),
+		(3, &migrate_to_v3::<T, I>),
+		(4, &migrate_to_v4::<T, I>),
+		(5, &migrate_to_v5::<T, I>),
+	];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -110,6 +114,12 @@ pub fn migrate_to_v4<T: Config<I>, I: 'static>() -> Weight {
 		.saturating_add(T::DbWeight::get().writes(<CommitmentStake<T, I>>::iter().count() as u64));
 
 	weight
+}
+
+pub fn migrate_to_v5<T: Config<I>, I: 'static>() -> Weight {
+	<RewardDistributionSettings<T, I>>::kill();
+
+	T::DbWeight::get().writes(1)
 }
 
 pub mod v2 {

@@ -5,7 +5,6 @@ pub trait WeightInfo {
 	fn modify_pool_same_config() -> Weight;
 	fn modify_pool_replace_config(x: u32) -> Weight;
 	fn modify_pool_update_config(x: u32) -> Weight;
-	fn update_reward_distribution_settings() -> Weight;
 	fn offer_backing() -> Weight;
 	fn withdraw_backing_offer() -> Weight;
 	fn accept_backing_offer() -> Weight;
@@ -41,10 +40,6 @@ impl WeightInfo for () {
 	}
 
 	fn modify_pool_update_config(_x: u32) -> Weight {
-		Weight::from_parts(10_000, 0)
-	}
-
-	fn update_reward_distribution_settings() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

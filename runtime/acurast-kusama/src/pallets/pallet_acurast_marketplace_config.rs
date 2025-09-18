@@ -3,6 +3,7 @@ use acurast_runtime_common::{
 	weight,
 };
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
+use frame_system::EnsureRoot;
 use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
@@ -42,6 +43,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

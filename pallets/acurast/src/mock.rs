@@ -9,6 +9,7 @@ use frame_support::{
 	traits::{ConstU16, ConstU32, ConstU64},
 	PalletId,
 };
+use frame_system::EnsureRoot;
 use hex_literal::hex;
 use sp_core::H256;
 use sp_io;
@@ -153,6 +154,7 @@ impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type ProcessorVersion = acurast_common::Version;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type MaxVersions = CU32<2>;
 }
 

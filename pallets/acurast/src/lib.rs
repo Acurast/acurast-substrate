@@ -37,7 +37,9 @@ pub mod pallet {
 	use super::BenchmarkHelper;
 	use acurast_common::*;
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::UnixTime,
+		dispatch::DispatchResultWithPostInfo,
+		pallet_prelude::*,
+		traits::{EnsureOrigin, UnixTime},
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
@@ -77,6 +79,8 @@ pub mod pallet {
 		type ProcessorVersion: PartialOrd + Parameter;
 		#[pallet::constant]
 		type MaxVersions: Get<u32> + ParameterBound;
+		/// Origin allowd to call update_* extrinsics
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Weight Info for extrinsics. Needs to include weight of hooks called. The weights in this pallet or only correct when using the default hooks [()].
 		type WeightInfo: WeightInfo;
 
@@ -363,7 +367,7 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::UpdateOrigin::ensure_origin(origin)?;
 
 			for update in &updates {
 				match &update.operation {

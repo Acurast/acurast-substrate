@@ -3,6 +3,7 @@ use frame_support::traits::{
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 	tokens::{Fortitude, Precision, Preservation},
 };
+use frame_system::EnsureRoot;
 use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
@@ -39,6 +40,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type AttestationHandler = Acurast;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	type ExtensionWeightInfo =
 		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;

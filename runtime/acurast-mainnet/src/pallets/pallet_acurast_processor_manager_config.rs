@@ -3,6 +3,7 @@ use frame_support::traits::{
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 	tokens::{Fortitude, Precision, Preservation},
 };
+use frame_system::EnsureSignedBy;
 use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
@@ -12,7 +13,7 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balances,
+	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Admin, Balances,
 	ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent, RuntimeHoldReason, Uniques,
 };
 
@@ -39,6 +40,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type AttestationHandler = Acurast;
+	type UpdateOrigin = EnsureSignedBy<Admin, Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	type ExtensionWeightInfo =
 		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;

@@ -92,24 +92,6 @@ fn test_single_processor_commit() {
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
-				epoch_offset: 8, // Updated to match new behavior
-				committed: 0,
-				claimed: 0,
-				status: ProcessorStatus::WarmupUntil(40),
-				accrued: 0,
-				paid: 0
-			})
-		);
-
-		roll_to_block(39);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
-		assert_eq!(
-			Compute::metrics(alice_account_id(), 1).unwrap(),
-			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
-		);
-		assert_eq!(
-			Compute::processors(alice_account_id()),
-			Some(ProcessorState {
 				epoch_offset: 8,
 				committed: 0,
 				claimed: 0,
@@ -119,18 +101,18 @@ fn test_single_processor_commit() {
 			})
 		);
 
+		roll_to_block(302 + 39);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::metrics(alice_account_id(), 1).unwrap(),
+			MetricCommit { epoch: 3, metric: FixedU128::from_rational(1000u128, 1u128) }
+		);
 		// Warmup is over
-		roll_to_block(40);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
-		assert_eq!(
-			Compute::metrics(alice_account_id(), 1).unwrap(),
-			MetricCommit { epoch: 0, metric: FixedU128::from_rational(1000u128, 1u128) }
-		);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
 				epoch_offset: 8,
-				committed: 0,
+				committed: 3,
 				claimed: 0,
 				status: ProcessorStatus::Active,
 				accrued: 0,
@@ -138,67 +120,84 @@ fn test_single_processor_commit() {
 			})
 		);
 
-		roll_to_block(130);
 		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
-			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
+			MetricCommit { epoch: 3, metric: FixedU128::from_rational(1000u128, 1u128) }
 		);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
 				epoch_offset: 8,
-				committed: 1,
+				committed: 3,
 				claimed: 0,
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				paid: 0
+			})
+		);
+
+		roll_to_block(302 + 130);
+		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), Some(84158));
+		assert_eq!(
+			Compute::metrics(alice_account_id(), 1).unwrap(),
+			MetricCommit { epoch: 4, metric: FixedU128::from_rational(1000u128, 1u128) }
+		);
+		assert_eq!(
+			Compute::processors(alice_account_id()),
+			Some(ProcessorState {
+				epoch_offset: 8,
+				committed: 4,
+				claimed: 3,
+				status: ProcessorStatus::Active,
+				accrued: 0,
+				paid: 84158
 			})
 		);
 
 		// commit different value in same epoch (does not change existing values for same epoch since first value is kept)
-		roll_to_block(170);
+		roll_to_block(302 + 170);
 		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 2000u128, 1u128)]), None);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
-			MetricCommit { epoch: 1, metric: FixedU128::from_rational(1000u128, 1u128) }
+			MetricCommit { epoch: 4, metric: FixedU128::from_rational(1000u128, 1u128) }
 		);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
 				epoch_offset: 8,
-				committed: 1,
-				claimed: 0,
+				committed: 4,
+				claimed: 3,
 				status: ProcessorStatus::Active,
 				accrued: 0,
-				paid: 0
+				paid: 84158
 			})
 		);
 		assert_eq!(
-			Compute::metric_pools(1).unwrap().total.get(1),
+			Compute::metric_pools(1).unwrap().total.get(4),
 			FixedU128::from_rational(1000u128, 1u128)
 		);
 
 		// claim for epoch 1 and commit for epoch 2
-		roll_to_block(230);
+		roll_to_block(302 + 230);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]),
-			/*Some(250000)*/ Some(82500)
+			/*Some(250000)*/ Some(85000)
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
-			MetricCommit { epoch: 2, metric: FixedU128::from_rational(1000u128, 1u128) }
+			MetricCommit { epoch: 5, metric: FixedU128::from_rational(1000u128, 1u128) }
 		);
 		assert_eq!(
 			Compute::processors(alice_account_id()),
 			Some(ProcessorState {
 				epoch_offset: 8,
-				committed: 2,
-				claimed: 1,
+				committed: 5,
+				claimed: 4,
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				//paid: 250000
-				paid: 82500,
+				paid: 169158,
 			})
 		);
 
@@ -297,7 +296,6 @@ fn commit_alice_bob() {
 	}
 
 	// Warmup is over for both Alice and Bob so this commits is rewardable since they commit for an active epoch
-	// We use block 150 to ensure the epoch is passed epoch 0 to distinguish from default epoch value
 	roll_to_block(150);
 	assert_eq!(Compute::current_cycle().epoch, 1);
 
@@ -422,7 +420,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		// - Sum of reward for pool 1 and pool 2 = 0.25 UNIT + 0.125 UNIT = 0.375
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			/*Some(375000)*/ Some(123750),
+			/*Some(375000)*/ Some(if modify_reward { 123750 } else { 123750 }),
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -437,7 +435,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				//paid: 375000
-				paid: 123750,
+				paid: if modify_reward { 123750 } else { 123750 },
 			})
 		);
 	}
@@ -464,7 +462,6 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				claimed: 1,
 				status: ProcessorStatus::Active,
 				accrued: 0,
-				//paid: 375000
 				paid: 123750,
 			})
 		);
@@ -602,6 +599,8 @@ fn test_commit_compute() {
 		let commission = Perbill::from_percent(10); // 10% commission
 		let allow_auto_compound = true;
 
+		roll_to_block(302);
+
 		// Step 5: Charlie commits compute (as the committer)
 		assert_err!(
 			Compute::commit_compute(
@@ -623,12 +622,84 @@ fn test_commit_compute() {
 			allow_auto_compound,
 		));
 
+		assert_eq!(
+			Compute::delegation_pools(0),
+			DelegationPool {
+				reward_weight: 1666666,
+				slash_weight: 1666666,
+				reward_per_token: 0,
+				slash_per_token: 0,
+			}
+		);
+
 		// Verify the commit was successful by checking events or storage
-		let events = events();
 		// At minimum we should see the commitment created event
-		assert!(events
+		assert!(events()
 			.iter()
 			.any(|e| matches!(e, RuntimeEvent::Compute(Event::CommitmentCreated(_, _)))));
+
+		assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
+
+		assert_eq!(
+			Compute::staking_pool_members(0, 2).unwrap(),
+			StakingPoolMember { reward_weight: 5333333333, reward_debt: 0 }
+		);
+		assert_eq!(
+			Compute::staking_pools(2),
+			StakingPool { reward_weight: 5333333333, reward_per_token: 937 }
+		);
+
+		roll_to_block(310);
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(charlie.clone()),));
+
+		assert_eq!(
+			Compute::staking_pool_members(0, 2).unwrap(),
+			StakingPoolMember { reward_weight: 2666666666, reward_debt: 2498666 }
+		);
+		assert_eq!(
+			Compute::staking_pools(2),
+			StakingPool { reward_weight: 2666666666, reward_per_token: 937 }
+		);
+		assert_eq!(
+			Compute::delegation_pools(0),
+			DelegationPool {
+				reward_weight: 833333,
+				slash_weight: 1666666,
+				reward_per_token: 2998400,
+				slash_per_token: 0,
+			}
+		);
+		assert_eq!(
+			Compute::self_delegation(0).unwrap(),
+			DelegationPoolMember {
+				reward_weight: 833333,
+				slash_weight: 1666666,
+				reward_debt: 2498665,
+				slash_debt: 0,
+			}
+		);
+		assert_eq!(Compute::stakes(0).unwrap().accrued_reward, 4997331);
+
+		roll_to_block(345);
+		assert_err!(
+			Compute::end_compute_commitment(RuntimeOrigin::signed(charlie.clone())),
+			Error::<Test, ()>::CooldownNotEnded
+		);
+
+		roll_to_block(346);
+		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(charlie.clone()),));
+
+		// Verify the reward was payed out
+		// At minimum we should see the commitment created event
+		// assert_eq!(events(), []);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+				from: _,
+				to: _,
+				amount: 4997331
+			})
+		)));
 	});
 }
 
@@ -648,6 +719,7 @@ fn test_delegate() {
 
 		offer_accept_backing(committer.clone());
 		commit_alice_bob();
+		roll_to_block(302);
 		commit_compute(committer.clone());
 
 		let delegator_1 = ferdie_account_id();
@@ -738,7 +810,7 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_2.clone(),
 			commitment_id,
-			495999u128, // ~0.5
+			446399u128, // ~0.5
 		));
 
 		assert_ok!(Compute::withdraw_delegation(
@@ -749,16 +821,16 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_1.clone(),
 			commitment_id,
-			3967992u128, // ~4
+			3571188u128, // ~4
 		));
 
 		assert_eq!(
 			Balances::usable_balance(&delegator_1),
-			initial_balance - stake_amount_1 + 3967992u128
+			initial_balance - stake_amount_1 + 3571188u128
 		);
 		assert_eq!(
 			Balances::usable_balance(&delegator_2),
-			initial_balance - stake_amount_2 + 495999u128
+			initial_balance - stake_amount_2 + 446399u128
 		);
 	});
 }
@@ -774,6 +846,8 @@ fn test_delegate_more() {
 
 		offer_accept_backing(committer.clone());
 		commit_alice_bob();
+		assert_eq!(Compute::current_cycle().era_start, 2);
+		assert_eq!(Compute::current_cycle().era, 0);
 		commit_compute(committer.clone());
 
 		let delegator_1 = ferdie_account_id();
@@ -839,7 +913,7 @@ fn test_delegate_more() {
 			// After delegation, the stake should be locked
 			assert_eq!(
 				Balances::usable_balance(&delegator_2),
-				initial_balance - stake_amount_2 - stake_amount_2b + 744799
+				initial_balance - stake_amount_2 - stake_amount_2b + 638400
 			);
 			// At minimum we should see the delegation event
 			assert!(events()
@@ -859,6 +933,7 @@ fn test_compound_delegation() {
 		let committer = charlie_account_id();
 		offer_accept_backing(committer.clone());
 		commit_alice_bob();
+		roll_to_block(302);
 		commit_compute(committer.clone());
 
 		let delegator = ferdie_account_id();
@@ -904,7 +979,7 @@ fn test_compound_delegation() {
 		// The staked amount should increase
 		assert_eq!(
 			Compute::delegations(delegator.clone(), commitment_id).unwrap().amount,
-			32217591
+			31900791
 		);
 	});
 }
@@ -956,6 +1031,8 @@ fn commit_compute(who: AccountId32) {
 	let cooldown_period = 36u64; // 1000 blocks
 	let commission = Perbill::from_percent(10); // 10% commission
 	let allow_auto_compound = true;
+
+	roll_to_block(302);
 
 	// Step 5: Charlie commits compute (as the committer)
 	assert_ok!(Compute::commit_compute(

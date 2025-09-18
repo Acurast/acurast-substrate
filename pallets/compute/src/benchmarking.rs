@@ -10,7 +10,7 @@ use sp_core::crypto::AccountId32;
 use sp_core::*;
 use sp_std::prelude::*;
 
-use crate::{stub::alice_account_id, types::*, Pallet as Compute};
+use crate::{types::*, Pallet as Compute};
 
 use super::*;
 
@@ -137,17 +137,6 @@ benchmarks_instance_pallet! {
 		);
 	}:  {
 		assert_ok!(Compute::<T, I>::modify_pool(RawOrigin::Root.into(), 1u8, Some(*b"cpu-ops-per-second-v2___"), Some((2u32.into(), Perquintill::from_percent(30))), None, Some(new_config)));
-	}
-
-	update_reward_distribution_settings {
-		let settings = RewardDistributionSettingsFor::<T, I> {
-			total_reward_per_distribution: 1000u128.into(),
-			total_inflation_per_distribution: Perquintill::from_percent(5),
-			stake_backed_ratio: Perquintill::from_percent(70),
-			distribution_account: alice_account_id().into(),
-		};
-	}: {
-		assert_ok!(Compute::<T, I>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(settings)));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);

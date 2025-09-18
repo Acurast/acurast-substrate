@@ -173,6 +173,7 @@ impl pallet_acurast::Config for Test {
 	type JobHooks = Pallet<Test>;
 	type ProcessorVersion = u32;
 	type MaxVersions = pallet_acurast::CU32<1>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
@@ -205,7 +206,7 @@ parameter_types! {
 	pub const Era: BlockNumber = 2; // 3 hours
 	pub const MetricEpochValidity: BlockNumber = 10;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
-	 pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
+	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
 	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
 	pub const MinDelegation: Balance = 1;
@@ -244,6 +245,8 @@ impl pallet_acurast_compute::Config for Test {
 	type ManagerProviderForEligibleProcessor = MockLockup;
 	type InflationPerDistribution = InflationPerDistribution;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 }
 
@@ -414,6 +417,8 @@ impl Config for Test {
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
 	type WeightInfo = weights::WeightInfo<Test>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
 }

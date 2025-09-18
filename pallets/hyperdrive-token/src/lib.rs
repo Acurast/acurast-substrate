@@ -36,7 +36,7 @@ pub mod pallet {
 				fungible::{self, Mutate},
 				Preservation,
 			},
-			Get,
+			EnsureOrigin, Get,
 		},
 		Identity,
 	};
@@ -88,6 +88,9 @@ pub mod pallet {
 		type SolanaFeeVault: Get<Self::AccountId>;
 		#[pallet::constant]
 		type OperationalFeeAccount: Get<Self::AccountId>;
+
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		#[pallet::constant]
 		type OutgoingTransferTTL: Get<BlockNumberFor<Self>>;
@@ -292,7 +295,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			contract: AccountId20,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
 			<EthereumContract<T, I>>::set(Some(contract.clone()));
 			Self::deposit_event(Event::EthereumContractUpdated { contract });
 			Ok(())
@@ -305,7 +308,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			contract: AccountId32,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
 			<SolanaContract<T, I>>::set(Some(contract.clone()));
 			Self::deposit_event(Event::SolanaContractUpdated { contract });
 			Ok(())
@@ -314,7 +317,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::set_enabled())]
 		pub fn set_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 			<Enabled<T, I>>::set(Some(enabled));
 			Self::deposit_event(Event::PalletEnabled { enabled });
 			Ok(())
@@ -328,7 +331,7 @@ pub mod pallet {
 			enabled: bool,
 			fee: T::Balance,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 			Self::do_enable(T::OperationalFeeAccount::get(), proxy_chain, enabled, fee)?;
 			Ok(())
 		}

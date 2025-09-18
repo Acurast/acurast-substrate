@@ -135,12 +135,13 @@ impl pallet_acurast::Config for Test {
 	type EnvValueMaxSize = CU32<1024>;
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Test>;
-	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
 	type JobHooks = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 	type ProcessorVersion = acurast_common::Version;
 	type MaxVersions = CU32<2>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl Config for Test {
@@ -165,6 +166,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type AttestationHandler = Acurast;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 }
 
 pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);

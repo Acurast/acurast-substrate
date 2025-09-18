@@ -1,4 +1,5 @@
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
+use frame_system::EnsureRoot;
 use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
 use sp_std::prelude::*;
@@ -43,6 +44,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

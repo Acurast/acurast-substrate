@@ -39,14 +39,14 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		traits::{Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockIdentifier},
+		traits::{
+			Currency, EnsureOrigin, ExistenceRequirement, Get, InspectLockableCurrency,
+			LockIdentifier,
+		},
 		PalletId, Parameter,
 	};
 	use frame_system::pallet_prelude::*;
-	use frame_system::{
-		ensure_root,
-		pallet_prelude::{BlockNumberFor, OriginFor},
-	};
+	use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 	use sp_runtime::{
 		traits::{AccountIdConversion, One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Perbill, Perquintill,
@@ -140,6 +140,10 @@ pub mod pallet {
 		type InflationPerDistribution: Get<Perquintill>;
 		#[pallet::constant]
 		type InflationStakedBackedRation: Get<Perquintill>;
+		/// Origin that can create and modify pools
+		type CreateModifyPoolOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Origin that can execute operational extrinsics
+		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Weight Info for extrinsics.
 		type WeightInfo: WeightInfo;
 	}
@@ -356,7 +360,7 @@ pub mod pallet {
 	pub type ComputeBasedRewards<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, SlidingBuffer<EpochOf<T>, BalanceFor<T, I>>, ValueQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -556,7 +560,7 @@ pub mod pallet {
 			max_stake_metric_ratio: Option<FixedU128>,
 			config: MetricPoolConfigValues,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::CreateModifyPoolOrigin::ensure_origin(origin)?;
 
 			let (pool_id, pool_state) = Self::do_create_pool(
 				name,
@@ -581,7 +585,7 @@ pub mod pallet {
 			new_max_stake_metric_ratio: Option<FixedU128>,
 			new_config: Option<ModifyMetricPoolConfig>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::CreateModifyPoolOrigin::ensure_origin(origin)?;
 
 			<MetricPools<T, I>>::try_mutate(pool_id, |pool| -> Result<(), Error<T, I>> {
 				let p = pool.as_mut().ok_or(Error::<T, I>::PoolNotFound)?;
@@ -639,17 +643,6 @@ pub mod pallet {
 				Ok(())
 			})?;
 			Ok(Pays::No.into())
-		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::update_reward_distribution_settings())]
-		pub fn update_reward_distribution_settings(
-			origin: OriginFor<T>,
-			settings: Option<RewardDistributionSettingsFor<T, I>>,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-			RewardDistributionSettings::<T, I>::set(settings);
-			Ok(().into())
 		}
 
 		/// Offers backing to a manager.
@@ -901,7 +894,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: BalanceFor<T, I>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 
 			Self::distribute(Self::current_cycle().epoch, amount)?;
 
@@ -917,7 +910,7 @@ pub mod pallet {
 			committer: T::AccountId,
 			amount: BalanceFor<T, I>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 			Self::slash_delegation_pool(commitment_id, amount)?;
@@ -936,7 +929,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			committer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::OperatorOrigin::ensure_origin(origin)?;
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 

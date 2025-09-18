@@ -100,17 +100,6 @@ impl<T: frame_system::Config> pallet_acurast_compute::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `AcurastCompute::RewardDistributionSettings` (r:0 w:1)
-	/// Proof: `AcurastCompute::RewardDistributionSettings` (`max_values`: Some(1), `max_size`: Some(48), added: 543, mode: `MaxEncodedLen`)
-	fn update_reward_distribution_settings() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_500_000 picoseconds.
-		Weight::from_parts(3_740_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
     fn offer_backing() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1381`

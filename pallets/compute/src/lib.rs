@@ -3,7 +3,6 @@
 pub use datastructures::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-pub use reward::*;
 pub use traits::*;
 pub use types::*;
 
@@ -12,7 +11,6 @@ pub(crate) use pallet::STORAGE_VERSION;
 mod datastructures;
 mod hooks;
 mod migration;
-mod reward;
 mod staking;
 mod traits;
 mod types;
@@ -447,6 +445,8 @@ pub mod pallet {
 		RedelegationCommitterCooldownCannotBeShorter,
 		RedelegationCommitmentMetricsCannotBeLess,
 		AutoCompoundNotAllowed,
+		CannotCommit,
+		StaleDelegationMustBeEnded,
 	}
 
 	#[pallet::hooks]
@@ -458,13 +458,16 @@ pub mod pallet {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
+			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start and era_start will be 2.
 			let epoch_start = Self::current_cycle().epoch_start;
+			let era_start = Self::current_cycle().era_start;
 
 			let diff = block_number.saturating_sub(epoch_start);
+			let era_diff = block_number.saturating_sub(era_start);
 			if epoch_start == Zero::zero() {
 				// First time initialization - set to calculated epoch
 				let initial_epoch = diff / T::Epoch::get();
-				let initial_era = diff / (T::Era::get().saturating_mul(T::Epoch::get()));
+				let initial_era = era_diff / (T::Era::get().saturating_mul(T::Epoch::get()));
 				CurrentCycle::<T, I>::put(Cycle {
 					epoch: initial_epoch,
 					epoch_start: block_number,
@@ -481,7 +484,9 @@ pub mod pallet {
 						cycle.epoch_start = block_number;
 
 						// Check if we're at an era boundary, which we only can be when also at an epoch boundary
-						if diff % (T::Era::get().saturating_mul(T::Epoch::get())) == Zero::zero() {
+						if era_diff % (T::Era::get().saturating_mul(T::Epoch::get()))
+							== Zero::zero()
+						{
 							// Increment the sequential epoch
 							cycle.era = cycle.era.saturating_add(One::one());
 							cycle.era_start = block_number;
@@ -547,7 +552,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Pallet<T, I>
+	where
+		BlockNumberFor<T>: One,
+	{
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_pool(config.len() as u32))]
 		pub fn create_pool(
@@ -738,7 +746,8 @@ pub mod pallet {
 				};
 				let avg = <MetricsEraAverage<T, I>>::get(manager_id, c.pool_id)
 					.ok_or(Error::<T, I>::NoMetricsAverage)?;
-				let (avg_value, _) = avg.get(era);
+				let (avg_value, _) =
+					avg.get(era.checked_sub(&One::one()).ok_or(Error::<T, I>::CannotCommit)?);
 				ensure!(c.metric < avg_value, Error::<T, I>::MaxMetricCommitmentExceeded);
 				let ratio = Perquintill::from_parts(((c.metric / avg_value).into_inner()) as u64);
 				ensure!(
@@ -790,7 +799,7 @@ pub mod pallet {
 		pub fn cooldown_compute_commitment(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			Self::cooldown_stake_for(commitment_id)?;
+			Self::cooldown_commitment_for(commitment_id)?;
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentCooldownStarted(commitment_id));
 			Ok(().into())
 		}
@@ -801,7 +810,18 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			Self::end_commitment_for(&who, commitment_id)?;
+			let reward = Self::end_commitment_for(&who, commitment_id)?;
+
+			// Transfer reward to the caller if any
+			if !reward.is_zero() {
+				T::Currency::transfer(
+					&T::PalletId::get().into_account_truncating(),
+					&who,
+					reward,
+					ExistenceRequirement::KeepAlive,
+				)?;
+			}
+
 			Commission::<T, I>::remove(commitment_id);
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(commitment_id));
 			Ok(().into())
@@ -972,21 +992,16 @@ pub mod pallet {
 			let reward = Self::withdraw_committer_accrued(commitment_id)?;
 
 			// Transfer reward to the caller if any
-			let reward_amount = reward.consume();
-			if !reward_amount.is_zero() {
+			if !reward.is_zero() {
 				T::Currency::transfer(
 					&T::PalletId::get().into_account_truncating(),
 					&who,
-					reward_amount,
+					reward,
 					ExistenceRequirement::KeepAlive,
 				)?;
 			}
 
-			Self::deposit_event(Event::<T, I>::CommitterWithdrew(
-				who,
-				commitment_id,
-				reward_amount,
-			));
+			Self::deposit_event(Event::<T, I>::CommitterWithdrew(who, commitment_id, reward));
 
 			Ok(().into())
 		}

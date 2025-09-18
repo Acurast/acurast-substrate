@@ -260,6 +260,8 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	pub amount: Balance,
 	/// The rewardable_amount amount, used to separate the reduced amount in cooldown from original amount. It always holds [`Self::rewardable_amount`] <= [`Self::amount`].
 	pub rewardable_amount: Balance,
+	/// The block number when the stake was created.
+	pub created: BlockNumber,
 	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
 	///
 	/// Cooldown has to be multiple of era length, but is stored in blocks to ensure era length could be adapted.
@@ -286,10 +288,16 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 }
 
 impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumber> {
-	pub fn new(amount: Balance, cooldown_period: BlockNumber, allow_auto_compound: bool) -> Self {
+	pub fn new(
+		amount: Balance,
+		created: BlockNumber,
+		cooldown_period: BlockNumber,
+		allow_auto_compound: bool,
+	) -> Self {
 		Self {
 			amount,
 			rewardable_amount: amount,
+			created,
 			cooldown_period,
 			cooldown_started: None,
 			accrued_reward: Zero::zero(),
@@ -311,8 +319,10 @@ pub struct StakingPoolMember<Balance: Debug> {
 }
 
 /// The state for delegation pool members, taking part in (self-)delegation.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct DelegationPoolMember<Balance: Debug> {
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct DelegationPoolMember<Balance: Debug + Default> {
 	/// The weight for rewardability, i.e. balance weighted by one or several factors.
 	pub reward_weight: Balance,
 	/// The weight for slashability, i.e. balance weighted by one or several factors.

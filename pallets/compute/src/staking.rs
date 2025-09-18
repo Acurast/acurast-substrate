@@ -7,12 +7,42 @@ use frame_support::{
 	},
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
+	traits::{
+		AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, Saturating, Zero,
+	},
 	Perquintill, SaturatedConversion,
 };
 use sp_std::vec::Vec;
 
-use crate::{reward::PendingReward, *};
+use crate::*;
+
+/// Helper trait for ceiling division that rounds up instead of down
+trait CheckedDivCeil<Rhs = Self> {
+	type Output;
+
+	/// Performs ceiling division (rounding up) using checked arithmetic.
+	/// Returns `None` if the division would overflow or if the divisor is zero.
+	fn checked_div_ceil(&self, divisor: &Rhs) -> Option<Self::Output>;
+}
+
+impl<P> CheckedDivCeil for P
+where
+	P: CheckedDiv<Output = P> + CheckedAdd<Output = P> + CheckedSub<Output = P> + One + Zero + Copy,
+{
+	type Output = P;
+
+	fn checked_div_ceil(&self, divisor: &P) -> Option<P> {
+		if divisor.is_zero() {
+			return None;
+		}
+
+		// Formula: (numerator + divisor - 1) / divisor
+		// This rounds up any remainder to the next integer
+		let numerator_adjusted = self.checked_add(divisor)?.checked_sub(&P::one())?;
+
+		numerator_adjusted.checked_div(divisor)
+	}
+}
 
 #[derive(Clone, PartialEq, Eq)]
 enum StakeChange<Balance> {
@@ -67,7 +97,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	fn reward_delegation_pool(
 		commitment_id: T::CommitmentId,
-		reward: PendingReward<BalanceFor<T, I>>,
+		reward: BalanceFor<T, I>,
 	) -> Result<(), Error<T, I>> {
 		if reward.is_zero() {
 			return Ok(());
@@ -77,7 +107,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				pool.reward_per_token = pool
 					.reward_per_token
 					.checked_add(
-						&(reward.consume())
+						&(reward)
 							.checked_mul(&T::Decimals::get())
 							.ok_or(Error::<T, I>::CalculationOverflow)?
 							.checked_div(&pool.reward_weight)
@@ -139,20 +169,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			commitment_id,
 			|state| -> Result<StakeFor<T, I>, Error<T, I>> {
 				ensure!(state.is_none(), Error::<T, I>::AlreadyCommitted);
-				let s = Stake::new(amount, cooldown_period, allow_auto_compound);
+				let s = Stake::new(
+					amount,
+					<frame_system::Pallet<T>>::block_number(),
+					cooldown_period,
+					allow_auto_compound,
+				);
 				*state = Some(s.clone());
 				Ok(s)
 			},
 		)?;
 
-		Self::update_self_delegation(commitment_id)?;
+		let d = Self::update_self_delegation(commitment_id)?;
+		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_add(&d.reward_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			pool.slash_weight = pool
+				.slash_weight
+				.checked_add(&d.slash_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			Ok(())
+		})?;
 		Self::update_commitment_stake(commitment_id, StakeChange::Add(stake.amount), &stake)?;
 		Self::update_total_stake(StakeChange::Add(stake.amount))?;
 
 		Ok(())
 	}
 
-	fn update_self_delegation(commitment_id: T::CommitmentId) -> Result<(), Error<T, I>> {
+	fn update_self_delegation(
+		commitment_id: T::CommitmentId,
+	) -> Result<DelegationPoolMemberFor<T, I>, Error<T, I>> {
 		let stake = <Stakes<T, I>>::get(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 		// committer (via commitment_id) also joins the delegation pool
@@ -174,19 +222,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let reward_debt = reward_weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			.checked_div(&T::Decimals::get())
+			.checked_div_ceil(&T::Decimals::get())
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt = reward_weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).slash_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(&T::Decimals::get())
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
-		<SelfDelegation<T, I>>::insert(
-			commitment_id,
-			DelegationPoolMember { reward_weight, slash_weight, reward_debt, slash_debt },
-		);
+		let d = DelegationPoolMember { reward_weight, slash_weight, reward_debt, slash_debt };
+		<SelfDelegation<T, I>>::insert(commitment_id, &d);
 
-		Ok(())
+		Ok(d)
 	}
 
 	/// Stakes an extra (additional) amount towards an existing commitment.
@@ -218,7 +264,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)?;
 
 		Self::distribute_down(commitment_id)?;
-		Self::update_self_delegation(commitment_id)?;
+
+		let prev_d = <SelfDelegation<T, I>>::get(commitment_id).unwrap_or_default();
+		let d = Self::update_self_delegation(commitment_id)?;
+		let reward_weight_diff = d
+			.reward_weight
+			.checked_sub(&prev_d.reward_weight)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+		let slash_weight_diff = d
+			.slash_weight
+			.checked_sub(&prev_d.slash_weight)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_add(&reward_weight_diff)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			pool.slash_weight = pool
+				.slash_weight
+				.checked_add(&slash_weight_diff)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			Ok(())
+		})?;
+
 		Self::update_commitment_stake(commitment_id, StakeChange::Add(extra_amount), &stake)?;
 		Self::update_total_stake(StakeChange::Add(extra_amount))?;
 
@@ -271,7 +339,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let reward_debt = weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 			.ok_or(Error::<T, I>::CalculationOverflow)?
-			.checked_div(&T::Decimals::get())
+			.checked_div_ceil(&T::Decimals::get())
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt = weight
 			.checked_mul(&DelegationPools::<T, I>::get(commitment_id).slash_per_token)
@@ -287,7 +355,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Delegations::<T, I>::insert(
 			who,
 			commitment_id,
-			Stake::new(amount, cooldown_period, allow_auto_compound),
+			Stake::new(
+				amount,
+				<frame_system::Pallet<T>>::block_number(),
+				cooldown_period,
+				allow_auto_compound,
+			),
 		);
 		DelegationPoolMembers::<T, I>::insert(
 			who,
@@ -333,6 +406,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let old_delegation =
 			Self::delegations(who, commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
 
+		let committer_stake =
+			Stakes::<T, I>::get(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+		// We error out if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer.
+		// In this case the delegator needs to end (or redelegate) his delegation first.
+		ensure!(
+			old_delegation.created >= committer_stake.created,
+			Error::<T, I>::StaleDelegationMustBeEnded
+		);
+
 		let amount = old_delegation
 			.amount
 			.checked_add(&extra_amount)
@@ -358,7 +441,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::delegate_more_for(
 			who,
 			commitment_id,
-			Self::withdraw_delegator_accrued(who, commitment_id)?.consume(),
+			Self::withdraw_delegator_accrued(who, commitment_id)?,
 		)?;
 
 		Ok(())
@@ -369,10 +452,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		commitment_id: T::CommitmentId,
 	) -> Result<(), Error<T, I>> {
 		// compound reward to the caller if any
-		Self::stake_more_for(
-			committer,
-			Self::withdraw_committer_accrued(commitment_id)?.consume(),
-		)?;
+		Self::stake_more_for(committer, Self::withdraw_committer_accrued(commitment_id)?)?;
 
 		Ok(())
 	}
@@ -456,6 +536,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Decimals::get().saturated_into::<u128>() < FIXEDU128_DECIMALS,
 				Error::<T, I>::InternalError
 			);
+			// reward_weight = metric [18d] / (10^18 / 10^6)  * amount [6d] / 10^6
 			let reward_weight: BalanceFor<T, I> = (((metric
 				.into_inner()
 				.checked_div(
@@ -477,7 +558,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let reward_debt = reward_weight
 				.checked_mul(&StakingPools::<T, I>::get(pool_id).reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_div(&T::Decimals::get())
+				.checked_div_ceil(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			// Update pool weight based on difference between new and previous reward weight
@@ -519,7 +600,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn accrue_and_withdraw_commitment(
 		pool_id: PoolId,
 		commitment_id: T::CommitmentId,
-	) -> Result<PendingReward<BalanceFor<T, I>>, Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let pool = StakingPools::<T, I>::get(pool_id);
 
 		StakingPoolMembers::<T, I>::try_mutate(commitment_id, pool_id, |state_| {
@@ -530,16 +611,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_sub(&state.reward_debt)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.saturating_sub(state.reward_debt);
 
 			state.reward_debt = state
 				.reward_weight
 				.checked_mul(&pool.reward_per_token)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_div(&T::Decimals::get())
+				.checked_div_ceil(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
-			Ok(PendingReward::new(reward))
+			Ok(reward)
 		})
 	}
 
@@ -588,8 +668,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_sub(&state.reward_debt)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.saturating_sub(state.reward_debt);
 			let slash = state
 				.slash_weight
 				.checked_mul(&pool.slash_per_token)
@@ -612,7 +691,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.reward_weight
 					.checked_mul(&pool.reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(&T::Decimals::get())
+					.checked_div_ceil(&T::Decimals::get())
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				stake.accrued_slash = stake
 					.accrued_slash
@@ -647,8 +726,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(&T::Decimals::get())
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_sub(&state.reward_debt)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+				.saturating_sub(state.reward_debt);
 			let slash = state
 				.slash_weight
 				.checked_mul(&pool.slash_per_token)
@@ -668,7 +746,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.reward_weight
 					.checked_mul(&pool.reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(&T::Decimals::get())
+					.checked_div_ceil(&T::Decimals::get())
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				stake.accrued_slash = stake
 					.accrued_slash
@@ -689,12 +767,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn withdraw_delegator_accrued(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
-	) -> Result<PendingReward<BalanceFor<T, I>>, Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		Self::accrue_delegator(who, commitment_id)?;
 
 		Delegations::<T, I>::try_mutate(who, commitment_id, |state_| {
 			let state = state_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			let r = PendingReward::new(state.accrued_reward);
+			let r = state.accrued_reward;
 			// let s = PendingReward::new(state.accrued_slash);
 			state.accrued_reward = Zero::zero();
 			// state.accrued_slash = Zero::zero();
@@ -710,30 +788,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let reward = Self::withdraw_delegator_accrued(who, commitment_id)?;
 
 		// Transfer reward to the caller if any
-		let reward_amount = reward.consume();
 		let distribution_account = T::PalletId::get().into_account_truncating();
-		if !reward_amount.is_zero() {
+		if !reward.is_zero() {
 			T::Currency::transfer(
 				&distribution_account,
 				who,
-				reward_amount,
+				reward,
 				ExistenceRequirement::KeepAlive,
 			)
 			.map_err(|_| Error::<T, I>::InternalError)?;
 		}
 
-		Ok(reward_amount)
+		Ok(reward)
 	}
 
 	/// It is guaranteed to withdraw reward/slash only if the result is Ok.
 	pub fn withdraw_committer_accrued(
 		commitment_id: T::CommitmentId,
-	) -> Result<PendingReward<BalanceFor<T, I>>, Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		Self::accrue_committer(commitment_id)?;
 
 		Stakes::<T, I>::try_mutate(commitment_id, |state_| {
 			let state = state_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			let r = PendingReward::new(state.accrued_reward);
+			let r = state.accrued_reward;
 			// let s = PendingReward::new(state.accrued_slash);
 			state.accrued_reward = Zero::zero();
 			// state.accrued_slash = Zero::zero();
@@ -741,8 +818,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	pub fn cooldown_stake_for(commitment_id: T::CommitmentId) -> Result<(), Error<T, I>> {
+	pub fn cooldown_commitment_for(commitment_id: T::CommitmentId) -> Result<(), Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
+
+		Self::accrue_committer(commitment_id)?;
 
 		let stake = <Stakes<T, I>>::try_mutate(
 			commitment_id,
@@ -764,8 +843,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.checked_sub(&stake.rewardable_amount)
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-		Self::update_self_delegation(commitment_id)?;
-		Self::distribute_down(commitment_id)?;
+		let prev_d = <SelfDelegation<T, I>>::get(commitment_id).unwrap_or_default();
+		let d = Self::update_self_delegation(commitment_id)?;
+		let reward_weight_diff = prev_d
+			.reward_weight
+			.checked_sub(&d.reward_weight)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_sub(&reward_weight_diff)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			Ok(())
+		})?;
+
 		Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(Zero::zero(), amount_diff),
@@ -788,8 +879,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Special case: the commitment delegated to is in cooldown itself (started by committer), or even ended cooldown.
 		// In this case the start of the delegator's cooldown is pretended to have occurred at the staker's start of cooldown,
 		// as a lazy imitation of starting all delegator's cooldown together with commitment cooldown.
-		let stake = <Stakes<T, I>>::get(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
-		let cooldown_start = if let Some(c) = stake.cooldown_started {
+		let committer_stake =
+			<Stakes<T, I>>::get(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
+		let cooldown_start = if let Some(c) = committer_stake.cooldown_started {
 			c
 		} else {
 			<frame_system::Pallet<T>>::block_number()
@@ -809,13 +901,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(s.clone())
 			},
 		)?;
+
+		// We error out if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
+		// In this case the delegator needs to end (or redelegate) his delegation first.
+		ensure!(
+			stake.created >= committer_stake.created,
+			Error::<T, I>::StaleDelegationMustBeEnded
+		);
+
 		// TODO maybe improve this to be stable under multiple reductions of rewardable_amount (currently never happens)
 		let amount_diff = stake
 			.amount
 			.checked_sub(&stake.rewardable_amount)
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-		Self::distribute_down(commitment_id)?;
 		Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(Zero::zero(), amount_diff),
@@ -837,12 +936,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.saturated_into();
-				ensure!(m.reward_debt.is_zero(), Error::<T, I>::InternalError);
 				m.reward_debt = m
 					.reward_weight
 					.checked_mul(&DelegationPools::<T, I>::get(commitment_id).reward_per_token)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(&T::Decimals::get())
+					.checked_div_ceil(&T::Decimals::get())
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				prev_reward_weight
 					.checked_sub(&m.reward_weight)
@@ -935,39 +1033,44 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
 				if check_cooldown {
 					if let Some(committer_stake) = Stakes::<T, I>::get(commitment_id) {
-						match (committer_stake.cooldown_started, s.cooldown_started) {
-							(Some(committer_cooldown_start), Some(delegator_cooldown_start)) => {
-								let first = if committer_cooldown_start < delegator_cooldown_start {
-									committer_cooldown_start
-								} else {
-									delegator_cooldown_start
-								};
-								ensure!(
-									first.saturating_add(committer_stake.cooldown_period)
-										< current_block,
-									Error::<T, I>::CooldownNotEnded
-								);
-							},
-							(Some(committer_cooldown_start), None) => {
-								// inherit the committer's cooldown start
-								ensure!(
-									committer_cooldown_start
-										.saturating_add(committer_stake.cooldown_period)
-										< current_block,
-									Error::<T, I>::CooldownNotEnded
-								);
-							},
-							(None, Some(delegator_cooldown_start)) => {
-								ensure!(
-									delegator_cooldown_start
-										.saturating_add(committer_stake.cooldown_period)
-										< current_block,
-									Error::<T, I>::CooldownNotEnded
-								);
-							},
-							(None, None) => {
-								Err(Error::<T, I>::CooldownNotStarted)?;
-							},
+						// skip all cooldown checks if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
+						if s.created >= committer_stake.created {
+							match (committer_stake.cooldown_started, s.cooldown_started) {
+								(
+									Some(committer_cooldown_start),
+									Some(delegator_cooldown_start),
+								) => {
+									let first =
+										if committer_cooldown_start < delegator_cooldown_start {
+											committer_cooldown_start
+										} else {
+											delegator_cooldown_start
+										};
+									ensure!(
+										first.saturating_add(s.cooldown_period) <= current_block,
+										Error::<T, I>::CooldownNotEnded
+									);
+								},
+								(Some(committer_cooldown_start), None) => {
+									// inherit the committer's cooldown start
+									ensure!(
+										committer_cooldown_start
+											.saturating_add(committer_stake.cooldown_period)
+											<= current_block,
+										Error::<T, I>::CooldownNotEnded
+									);
+								},
+								(None, Some(delegator_cooldown_start)) => {
+									ensure!(
+										delegator_cooldown_start.saturating_add(s.cooldown_period)
+											<= current_block,
+										Error::<T, I>::CooldownNotEnded
+									);
+								},
+								(None, None) => {
+									Err(Error::<T, I>::CooldownNotStarted)?;
+								},
+							}
 						}
 					}
 					// if the commitment is gone, which means the committer even passed his cooldown without the delegator taking action (like redelegating)
@@ -1024,8 +1127,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn end_commitment_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
-	) -> Result<(), Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
+
+		let reward = Self::withdraw_committer_accrued(commitment_id)?;
 
 		let stake = <Stakes<T, I>>::try_mutate(
 			commitment_id,
@@ -1033,7 +1138,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 				let cooldown_start = s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
 				ensure!(
-					cooldown_start.saturating_add(s.cooldown_period) < current_block,
+					cooldown_start.saturating_add(s.cooldown_period) <= current_block,
 					Error::<T, I>::CooldownNotEnded
 				);
 
@@ -1043,7 +1148,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		<SelfDelegation<T, I>>::remove(commitment_id);
 
-		Self::distribute_down(commitment_id)?;
 		Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(stake.amount, stake.rewardable_amount),
@@ -1057,7 +1161,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// we cannot clear all delegators here because it would make this call non-constant in number of delegators.
 		// We let them remain in the delegation pool and make sure ending delegation is tolerating the commitment already gone.
 
-		Ok(())
+		Ok(reward)
 	}
 
 	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {
@@ -1139,6 +1243,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(())
 			})?;
 		}
+		Self::update_total_stake(StakeChange::Sub(total_amount_to_remove, total_amount_to_remove))?;
 
 		// Remove self-delegation
 		<SelfDelegation<T, I>>::remove(commitment_id);

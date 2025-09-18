@@ -569,6 +569,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
+			_ = Self::do_report(&job_id, &who)?;
+
 			match execution_result {
 				ExecutionResult::Success(operation_hash) => {
 					Self::deposit_event(Event::ExecutionSuccess(job_id.clone(), operation_hash))

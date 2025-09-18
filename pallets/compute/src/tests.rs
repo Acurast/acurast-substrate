@@ -1,13 +1,16 @@
 use frame_support::{assert_err, assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
-use sp_runtime::{traits::Zero, AccountId32, FixedU128, Perbill, Perquintill};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	AccountId32, FixedU128, Perbill, Perquintill,
+};
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
 	mock::*,
 	stub::*,
 	types::*,
-	Error, Event,
+	Config, Error, Event,
 };
 use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
 
@@ -223,15 +226,6 @@ fn roll_to_block(block_number: u64) {
 }
 
 fn setup() {
-	assert_ok!(Compute::update_reward_distribution_settings(
-		RuntimeOrigin::root(),
-		Some(RewardSettings {
-			total_reward_per_distribution: 1_000_000u128,
-			total_inflation_per_distribution: sp_runtime::Perquintill::zero(),
-			stake_backed_ratio: sp_runtime::Perquintill::from_percent(70),
-			distribution_account: eve_account_id(),
-		}),
-	));
 	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), 110_000_000));
 }
 
@@ -643,6 +637,11 @@ fn test_delegate() {
 	ExtBuilder.build().execute_with(|| {
 		setup();
 		create_pools();
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			<Test as Config>::PalletId::get().into_account_truncating(),
+			110_000_000
+		));
 
 		// Charlie will act as both manager and committer (same account for simplicity)
 		let committer = charlie_account_id();

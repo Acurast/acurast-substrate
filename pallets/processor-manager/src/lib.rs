@@ -54,7 +54,7 @@ pub mod pallet {
 	use crate::benchmarking::BenchmarkHelper;
 	use crate::{
 		traits::*, BalanceFor, BinaryHash, Endpoint, OnboardingSettings, ProcessorList,
-		ProcessorPairingFor, ProcessorUpdatesFor, RewardDistributionSettings,
+		ProcessorPairingFor, ProcessorUpdatesFor, Proof, RewardDistributionSettings,
 		RewardDistributionWindow, UpdateInfo,
 	};
 
@@ -221,6 +221,11 @@ pub mod pallet {
 	pub(super) type ProcessorOnboardingSettings<T: Config> =
 		StorageValue<_, OnboardingSettings<BalanceFor<T>, T::AccountId>, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn processor_migration_data)]
+	pub(super) type ProcessorMigrationData<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, Proof<T::Proof>>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -234,7 +239,7 @@ pub mod pallet {
 		ManagerCreated(T::AccountId, T::ManagerId),
 		/// Processor pairing updated. [manager_account_id, updates]
 		ProcessorPairingsUpdated(T::AccountId, ProcessorUpdatesFor<T>),
-		/// Processor pairing updated. [processor_account_id, destination]
+		/// Processor funds recovered. [processor_account_id, destination]
 		ProcessorFundsRecovered(T::AccountId, T::AccountId),
 		/// Processor paired. [processor_account_id, pairing]
 		ProcessorPaired(T::AccountId, ProcessorPairingFor<T>),
@@ -254,6 +259,12 @@ pub mod pallet {
 		ProcessorRewardSent(T::AccountId, BalanceFor<T>),
 		/// Updated the minimum required processor version to receive rewards.
 		MinProcessorVersionForRewardUpdated(Version),
+		/// Onboarding settings updated
+		OnboardingSettingsUpdated,
+		/// Processor paired. [processor_account_id, manager_account_id]
+		ProcessorPairedV2(T::AccountId, T::AccountId),
+		/// Processor migration data set [manager_account_id]
+		ProcessorMigrationDataSet(T::AccountId),
 	}
 
 	// Errors inform users that something went wrong.
@@ -347,7 +358,7 @@ pub mod pallet {
 			}
 
 			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
+			Self::deposit_event(Event::<T>::ProcessorPairedV2(who, pairing.account));
 
 			Ok(().into())
 		}
@@ -371,7 +382,7 @@ pub mod pallet {
 			}
 
 			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-			Self::deposit_event(Event::<T>::ProcessorPaired(who, pairing));
+			Self::deposit_event(Event::<T>::ProcessorPairedV2(who, pairing.account));
 
 			Ok(().into())
 		}
@@ -628,7 +639,24 @@ pub mod pallet {
 			new_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+
 			<ProcessorOnboardingSettings<T>>::set(new_settings);
+
+			Self::deposit_event(Event::<T>::OnboardingSettingsUpdated);
+			Ok(().into())
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::set_migration_data())]
+		pub fn set_migration_data(
+			origin: OriginFor<T>,
+			data: Proof<T::Proof>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			<ProcessorMigrationData<T>>::insert(&who, data);
+
+			Self::deposit_event(Event::<T>::ProcessorMigrationDataSet(who));
 
 			Ok(().into())
 		}

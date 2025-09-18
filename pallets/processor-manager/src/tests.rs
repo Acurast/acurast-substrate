@@ -1,6 +1,6 @@
 use crate::{
-	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, ProcessorPairingFor,
-	ProcessorPairingUpdateFor, RewardDistributionSettings, UpdateInfo,
+	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
+	ProcessorPairingFor, ProcessorPairingUpdateFor, Proof, RewardDistributionSettings, UpdateInfo,
 };
 use acurast_common::{AccountLookup, ListUpdateOperation, Version};
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
@@ -350,9 +350,9 @@ fn test_pair_with_manager() {
 			last_events[(last_events.len() - 2)..],
 			vec![
 				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(manager_account, 1)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPaired(
+				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
 					processor_account,
-					update
+					update.account
 				)),
 			]
 		);
@@ -402,13 +402,13 @@ fn test_multi_pair_with_manager() {
 			last_events[(last_events.len() - 3)..],
 			vec![
 				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(manager_account, 1)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPaired(
+				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
 					processor_account_1,
-					update.clone()
+					update.account.clone()
 				)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPaired(
+				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
 					processor_account_2,
-					update
+					update.account
 				)),
 			]
 		);
@@ -1005,4 +1005,54 @@ fn set_processor_update_info_failure_4() {
             Error::<Test>::ProcessorHasNoManager,
         );
     });
+}
+
+#[test]
+fn test_update_onboarding_settings() {
+	ExtBuilder.build().execute_with(|| {
+		let settings =
+			OnboardingSettings::<BalanceFor<Test>, <Test as frame_system::Config>::AccountId> {
+				funds: 100_000_000_000u128.into(),
+				max_funds: 1_000_000_000_000u128.into(),
+				funds_account: alice_account_id().into(),
+			};
+
+		assert_ok!(AcurastProcessorManager::update_onboarding_settings(
+			RuntimeOrigin::root(),
+			Some(settings)
+		));
+
+		let last_events = events();
+
+		assert_eq!(
+			last_events.last(),
+			Some(RuntimeEvent::AcurastProcessorManager(Event::OnboardingSettingsUpdated)).as_ref()
+		);
+	});
+}
+
+#[test]
+fn set_migration_data() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer, manager_account) = generate_pair_account();
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
+		let timestamp = 1657363915002u128;
+		let signature = generate_signature(&signer, &manager_account, timestamp, 1);
+		let proof = Proof { timestamp, signature };
+
+		assert_ok!(AcurastProcessorManager::set_migration_data(
+			RuntimeOrigin::signed(manager_account.clone()),
+			proof
+		));
+
+		let last_events = events();
+
+		assert_eq!(
+			last_events.last(),
+			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorMigrationDataSet(
+				manager_account
+			)))
+			.as_ref()
+		);
+	});
 }

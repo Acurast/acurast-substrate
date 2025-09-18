@@ -527,8 +527,8 @@ benchmarks! {
 		let (caller, ad) = advertise_helper::<T>(0, false);
 	}: _(RawOrigin::Signed(caller.clone()), ad.clone())
 	verify {
-		assert_last_event::<T>(Event::AdvertisementStored(
-			ad, caller
+		assert_last_event::<T>(Event::AdvertisementStoredV2(
+			caller
 		).into());
 	}
 

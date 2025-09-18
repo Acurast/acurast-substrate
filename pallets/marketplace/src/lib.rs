@@ -310,6 +310,17 @@ pub mod pallet {
 		JobBecameImmutable(JobId<T::AccountId>),
 		/// Min fee per millisecond updated
 		MinFeePerMillisecondUpdated(<T as Config>::Balance),
+
+		/// A registration was successfully matched. [JobId]
+		JobRegistrationMatchedV2(JobId<T::AccountId>),
+		/// A registration was successfully matched. [JobId, SourceId]
+		JobRegistrationAssignedV2(JobId<T::AccountId>, T::AccountId),
+		/// A report for an execution has arrived. [JobId, SourceId]
+		ReportedV2(JobId<T::AccountId>, T::AccountId),
+		/// A advertisement was successfully stored. [who]
+		AdvertisementStoredV2(T::AccountId),
+		/// A registration was successfully matched. [JobId]
+		JobExecutionMatchedV2(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -473,7 +484,7 @@ pub mod pallet {
 
 			Self::do_advertise(&who, &advertisement)?;
 
-			Self::deposit_event(Event::AdvertisementStored(advertisement, who));
+			Self::deposit_event(Event::AdvertisementStoredV2(who));
 			Ok(().into())
 		}
 
@@ -558,9 +569,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// find assignment
-			let assignment = Self::do_report(&job_id, &who)?;
-
 			match execution_result {
 				ExecutionResult::Success(operation_hash) => {
 					Self::deposit_event(Event::ExecutionSuccess(job_id.clone(), operation_hash))
@@ -570,7 +578,7 @@ pub mod pallet {
 				},
 			}
 
-			Self::deposit_event(Event::Reported(job_id, who, assignment));
+			Self::deposit_event(Event::ReportedV2(job_id, who));
 			Ok(().into())
 		}
 

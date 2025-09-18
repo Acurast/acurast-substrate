@@ -65,6 +65,7 @@ pub trait WeightInfo {
 	fn set_management_endpoint() -> Weight;
 	fn onboard() -> Weight;
 	fn update_onboarding_settings() -> Weight;
+	fn set_migration_data() -> Weight;
 }
 
 pub trait ExtensionWeightInfo {

@@ -1,15 +1,14 @@
 use acurast_common::{CommitmentIdProvider, PoolId};
 use frame_support::{
 	pallet_prelude::*,
-	sp_runtime::SaturatedConversion,
 	traits::{
 		Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockableCurrency,
 		WithdrawReasons,
 	},
 };
 use sp_runtime::{
-	traits::{CheckedAdd, CheckedSub, Saturating, Zero},
-	Perquintill,
+	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
+	Perquintill, SaturatedConversion,
 };
 use sp_std::vec::Vec;
 
@@ -712,11 +711,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Transfer reward to the caller if any
 		let reward_amount = reward.consume();
+		let distribution_account = T::PalletId::get().into_account_truncating();
 		if !reward_amount.is_zero() {
 			T::Currency::transfer(
-				&Self::reward_distribution_settings()
-					.ok_or(Error::<T, I>::InternalError)?
-					.distribution_account,
+				&distribution_account,
 				who,
 				reward_amount,
 				ExistenceRequirement::KeepAlive,
@@ -1066,12 +1064,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::unlock_funds(who, stake.amount);
 		// Transfer the already unlocked stake with accrued slash, be sure to fail hard on errors!a
 		if !stake.accrued_slash.is_zero() {
-			let settings =
-				Self::reward_distribution_settings().ok_or(Error::<T, I>::InternalError)?;
+			let distribution_account = T::PalletId::get().into_account_truncating();
 			// Transfer the slashed amount from user to distribution account
 			T::Currency::transfer(
 				who,
-				&settings.distribution_account,
+				&distribution_account,
 				stake.accrued_slash,
 				ExistenceRequirement::AllowDeath,
 			)

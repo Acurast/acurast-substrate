@@ -313,5 +313,11 @@ benchmarks! {
 		};
 	}: _(RawOrigin::Root, Some(settings))
 
+	set_migration_data {
+		set_timestamp::<T>(1000);
+		let manager_account: T::AccountId = generate_account(0).into();
+		let item = processor_pairing::<T>(manager_account.clone());
+	}: _(RawOrigin::Signed(manager_account), item.proof.unwrap())
+
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
 }

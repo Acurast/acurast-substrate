@@ -316,21 +316,17 @@ pub type JobAssignmentFor<T> = JobAssignment<
 	PartialEq,
 	Copy,
 	PalletError,
+	Default,
 )]
 pub enum JobStatus {
 	/// Status after a job got registered.
+	#[default]
 	Open,
 	/// Status after a valid match for a job got submitted.
 	Matched,
 	/// Status after a number of acknowledgments were submitted by sources.
 	Assigned(u8),
 	// The implicit final status leads to removal of job from status storage.
-}
-
-impl Default for JobStatus {
-	fn default() -> Self {
-		JobStatus::Open
-	}
 }
 
 /// Keeps track of the SLA during and after a job's schedule is completed.

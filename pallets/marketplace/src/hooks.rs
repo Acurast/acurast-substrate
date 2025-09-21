@@ -86,7 +86,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 			.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
 
-		<JobKeyIds<T>>::remove(&job_id);
+		<JobKeyIds<T>>::remove(job_id);
 
 		match job_status {
 			JobStatus::Open => {

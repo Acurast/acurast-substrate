@@ -118,7 +118,7 @@ where
 					let extra: T::RegistrationExtra = RegistrationExtra {
 						requirements: JobRequirements {
 							assignment_strategy,
-							slots: j.extra.slots.into(),
+							slots: j.extra.slots,
 							reward: T::Balance::from(j.extra.reward),
 							min_reputation: j.extra.min_reputation,
 							processor_version: None,
@@ -158,8 +158,8 @@ where
 							j.required_modules
 								.iter()
 								.map(|item| {
-									Ok(JobModule::try_from(*item as u32)
-										.map_err(|_| Self::Error::InvalidJobModule)?)
+									JobModule::try_from(*item as u32)
+										.map_err(|_| Self::Error::InvalidJobModule)
 								})
 								.collect::<Result<Vec<_>, Self::Error>>()?,
 						)
@@ -172,13 +172,13 @@ where
 					ParsedAction::RegisterJob(job_id, registration)
 				},
 				ActionPayloadV1::DeregisterJob(job_id) => {
-					ParsedAction::DeregisterJob((origin, job_id as u128))
+					ParsedAction::DeregisterJob((origin, job_id))
 				},
 				ActionPayloadV1::FinalizeJob(payload) => ParsedAction::FinalizeJob(
-					payload.iter().map(|id| (origin.clone(), *id as u128)).collect(),
+					payload.iter().map(|id| (origin.clone(), *id)).collect(),
 				),
 				ActionPayloadV1::SetJobEnvironment(payload) => {
-					let job_id = (origin, payload.job_id as u128);
+					let job_id = (origin, payload.job_id);
 
 					let variables = payload
 						.processors
@@ -260,7 +260,5 @@ impl MessageEncoder for SubstrateMessageEncoder {
 
 /// Helper function to covert the BoundedVec [`PubKeyBytes`] to an Substrate address.
 pub fn public_key_to_address_bytes(pub_key: &PubKeyBytes) -> [u8; 32] {
-	let account_id_bytes = blake2_256(pub_key);
-
-	account_id_bytes
+	blake2_256(pub_key)
 }

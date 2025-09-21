@@ -238,9 +238,11 @@ where
 
 /// Manages each job's budget by reserving/unreserving rewards that are externally strored, e.g. on a pallet account in `pallet_balances`.
 pub trait JobBudget<T: frame_system::Config + Config> {
+	#[allow(clippy::result_unit_err)]
 	fn reserve(job_id: &JobId<T::AccountId>, reward: T::Balance) -> Result<(), ()>;
 
 	/// Unreserve exactly `reward` from reserved balance and fails if this exceeds the reserved amount.
+	#[allow(clippy::result_unit_err)]
 	fn unreserve(job_id: &JobId<T::AccountId>, reward: T::Balance) -> Result<(), ()>;
 
 	/// Unreserves the remaining balance.

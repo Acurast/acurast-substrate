@@ -210,7 +210,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SentToProxy(message));
 
-			Ok(().into())
+			Ok(())
 		}
 	}
 
@@ -238,7 +238,7 @@ pub mod pallet {
 						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
 					T::ActionExecutor::execute(action)?;
 
-					Ok(().into())
+					Ok(())
 				},
 				SubjectFor::<T>::Vara(_) => {
 					let action =

@@ -1061,7 +1061,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(bool, AssignmentFor<T>), DispatchError> {
 		Ok(<StoredMatches<T>>::try_mutate(
 			processor,
-			&job_id,
+			job_id,
 			|m| -> Result<(bool, AssignmentFor<T>), Error<T>> {
 				// CHECK that job was matched previously to calling source
 				let assignment = m.as_mut().ok_or(Error::<T>::CannotAcknowledgeWhenNotMatched)?;
@@ -1103,7 +1103,7 @@ impl<T: Config> Pallet<T> {
 			},
 			ExecutionSpecifier::Index(execution_index) => {
 				let new_status = <StoredJobExecutionStatus<T>>::try_mutate(
-					&job_id,
+					job_id,
 					execution_index,
 					|status| -> Result<JobStatus, Error<T>> {
 						*status = match status {
@@ -1130,7 +1130,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), DispatchError> {
 		match execution {
 			ExecutionSpecifier::All => {
-				<NextReportIndex<T>>::insert(&job_id, processor, 0);
+				<NextReportIndex<T>>::insert(job_id, processor, 0);
 				Ok::<_, DispatchError>(())
 			},
 			ExecutionSpecifier::Index(execution_index) => {

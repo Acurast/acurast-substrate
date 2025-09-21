@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::type_complexity)]
 
 extern crate core;
 
@@ -296,7 +297,7 @@ pub mod pallet {
 			contract: AccountId20,
 		) -> DispatchResult {
 			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
-			<EthereumContract<T, I>>::set(Some(contract.clone()));
+			<EthereumContract<T, I>>::set(Some(contract));
 			Self::deposit_event(Event::EthereumContractUpdated { contract });
 			Ok(())
 		}
@@ -431,14 +432,13 @@ pub mod pallet {
                 })?;
 			}
 
-			let action =
-				Action::TransferToken(amount.into(), None, transfer_nonce as u64, dest.clone());
+			let action = Action::TransferToken(amount.into(), None, transfer_nonce, dest.clone());
 			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
 
 			let _message = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
 				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
 				// payer is the fee pallet account (see transfer above)
-				&fee_vault.into(),
+				&fee_vault,
 				T::MessageIdHashing::hash_of(&transfer_nonce),
 				recipient,
 				encoded,
@@ -489,7 +489,7 @@ pub mod pallet {
 
 			let _ = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
 				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
-				&fee_vault.into(),
+				&fee_vault,
 				T::MessageIdHashing::hash_of(complete_nonce),
 				recipient,
 				encoded,

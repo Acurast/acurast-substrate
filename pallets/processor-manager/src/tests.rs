@@ -473,10 +473,8 @@ fn test_advertise_for_success() {
 		let last_events = events();
 		assert_eq!(
 			last_events.last(),
-			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorAdvertisement(
-				manager_account,
+			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorAdvertisementV2(
 				processor_account,
-				()
 			)))
 			.as_ref()
 		);

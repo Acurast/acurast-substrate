@@ -266,6 +266,8 @@ pub mod pallet {
 		ProcessorPairedV2(T::AccountId, T::AccountId),
 		/// Processor migration data set [manager_account_id]
 		ProcessorMigrationDataSet(T::AccountId),
+		/// Processor advertisement. [processor_account_id]
+		ProcessorAdvertisementV2(T::AccountId),
 	}
 
 	// Errors inform users that something went wrong.
@@ -439,11 +441,7 @@ pub mod pallet {
 
 			T::AdvertisementHandler::advertise_for(&processor_account_id, &advertisement)?;
 
-			Self::deposit_event(Event::<T>::ProcessorAdvertisement(
-				who,
-				processor_account_id,
-				advertisement,
-			));
+			Self::deposit_event(Event::<T>::ProcessorAdvertisementV2(processor_account_id));
 
 			Ok(().into())
 		}

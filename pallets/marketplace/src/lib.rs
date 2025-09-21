@@ -695,7 +695,7 @@ pub mod pallet {
 			let job_id = (multi_origin, pallet_acurast::Pallet::<T>::next_job_id());
 
 			let deployment_hash = T::DeploymentHashing::hash(
-				&(job_id.0.clone(), (&registration.script).clone()).encode(),
+				&(job_id.0.clone(), registration.script.clone()).encode(),
 			);
 
 			match mutability.clone() {
@@ -766,7 +766,7 @@ pub mod pallet {
 					};
 					<Editors<T>>::insert(&job_id, derived_editor);
 
-					<DeploymentKeyIds<T>>::insert(&deployment_hash, key_id);
+					<DeploymentKeyIds<T>>::insert(deployment_hash, key_id);
 
 					// we only ever write once to his map on the creation of the job, so the key_id is immutable for the lifetime of a job
 					<JobKeyIds<T>>::insert(&job_id, key_id);
@@ -774,7 +774,7 @@ pub mod pallet {
 			};
 
 			// insert deployment hash
-			<DeploymentHashes<T>>::insert(&job_id.0, &job_id.1, deployment_hash);
+			<DeploymentHashes<T>>::insert(&job_id.0, job_id.1, deployment_hash);
 
 			pallet_acurast::Pallet::<T>::register_for(job_id, registration, min_metrics)
 		}

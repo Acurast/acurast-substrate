@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_arithmetic::{fixed_point::FixedU128, Permill};
 

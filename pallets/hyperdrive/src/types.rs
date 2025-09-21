@@ -161,9 +161,9 @@ impl From<&IncomingAction> for RawOutgoingAction {
 }
 
 /// Convert [RawOutgoingAction] to an index
-impl Into<u16> for RawOutgoingAction {
-	fn into(self: Self) -> u16 {
-		self as u16
+impl From<RawOutgoingAction> for u16 {
+	fn from(val: RawOutgoingAction) -> Self {
+		val as u16
 	}
 }
 

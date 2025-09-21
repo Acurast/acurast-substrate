@@ -66,9 +66,9 @@ impl TryFrom<u32> for RawAction {
 }
 
 /// Convert [RawOutgoingAction] to an index
-impl Into<u32> for RawAction {
-	fn into(self: Self) -> u32 {
-		self as u32
+impl From<RawAction> for u32 {
+	fn from(val: RawAction) -> Self {
+		val as u32
 	}
 }
 

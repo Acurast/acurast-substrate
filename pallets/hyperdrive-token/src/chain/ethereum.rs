@@ -130,7 +130,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 		Ok(match action {
 			Action::TransferToken(amount, asset_id, transfer_nonce, dest) => match dest {
 				MultiOrigin::Ethereum20(account_id) => {
-					let mut buffer = vec![0u8; 52];
+					let mut buffer = [0u8; 52];
 
 					let raw_action: RawAction = action.into();
 					let raw_action_encoded: u32 = raw_action.into();
@@ -147,7 +147,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 			},
 			Action::Noop => vec![],
 			Action::SetEnabled(enabled) => {
-				let mut buffer = vec![0u8; 5];
+				let mut buffer = [0u8; 5];
 
 				let raw_action: RawAction = action.into();
 				let raw_action_encoded: u32 = raw_action.into();

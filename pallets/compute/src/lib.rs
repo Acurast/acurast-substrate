@@ -954,7 +954,7 @@ pub mod pallet {
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::force_end_commitment_for(commitment_id)?;
+			Self::force_end_commitment_for(commitment_id);
 
 			Commission::<T, I>::remove(commitment_id);
 

@@ -8,9 +8,7 @@ use frame_support::{
 };
 use sp_core::{U256, U512};
 use sp_runtime::{
-	traits::{
-		AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero,
-	},
+	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
 	Perquintill, SaturatedConversion,
 };
 use sp_std::vec::Vec;
@@ -1258,7 +1256,7 @@ where
 
 	/// Force-unstakes a commitment by removing all delegations and the commitment's own stake.
 	/// This bypasses normal cooldown and validation checks.
-	pub fn force_end_commitment_for(commitment_id: T::CommitmentId) -> Result<(), DispatchError> {
+	pub fn force_end_commitment_for(commitment_id: T::CommitmentId) {
 		// Calculate total amounts to be removed for updating global totals
 		let mut total_delegation_amount: BalanceFor<T, I> = Zero::zero();
 		let mut total_stake_amount: BalanceFor<T, I> = Zero::zero();
@@ -1269,10 +1267,9 @@ where
 		for (delegator, delegation_commitment_id, stake) in all_delegations {
 			if delegation_commitment_id == commitment_id {
 				// Update delegator totals
-				<DelegatorTotal<T, I>>::try_mutate(&delegator, |s| -> Result<(), Error<T, I>> {
-					*s = s.checked_sub(&stake.amount).ok_or(Error::<T, I>::CalculationOverflow)?;
-					Ok(())
-				})?;
+				<DelegatorTotal<T, I>>::mutate(&delegator, |s| {
+					*s = s.saturating_sub(stake.amount);
+				});
 
 				// Remove delegation pool member
 				<DelegationPoolMembers<T, I>>::remove(&delegator, commitment_id);
@@ -1281,9 +1278,7 @@ where
 				Self::unlock_funds(&delegator, stake.amount);
 
 				// Add to total delegation amount
-				total_delegation_amount = total_delegation_amount
-					.checked_add(&stake.amount)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				total_delegation_amount = total_delegation_amount.saturating_add(stake.amount);
 
 				// Remove this specific delegation
 				<Delegations<T, I>>::remove(&delegator, commitment_id);
@@ -1291,12 +1286,9 @@ where
 		}
 
 		// Update total delegated
-		<TotalDelegated<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-			*s = s
-				.checked_sub(&total_delegation_amount)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
-			Ok(())
-		})?;
+		<TotalDelegated<T, I>>::mutate(|s| {
+			*s = s.saturating_sub(total_delegation_amount);
+		});
 
 		// Remove commitment's own stake
 		if let Some(stake) = <Stakes<T, I>>::take(commitment_id) {
@@ -1304,20 +1296,18 @@ where
 		}
 
 		// Calculate total amount to remove from global stake
-		let total_amount_to_remove = total_delegation_amount
-			.checked_add(&total_stake_amount)
-			.ok_or(Error::<T, I>::CalculationOverflow)?;
+		let total_amount_to_remove = total_delegation_amount.saturating_add(total_stake_amount);
 
 		// Update global totals
 		if !total_amount_to_remove.is_zero() {
-			<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-				*s = s
-					.checked_sub(&total_amount_to_remove)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
-				Ok(())
-			})?;
+			<TotalStake<T, I>>::mutate(|s| {
+				*s = s.saturating_sub(total_amount_to_remove);
+			});
 		}
-		Self::update_total_stake(StakeChange::Sub(total_amount_to_remove, total_amount_to_remove))?;
+		let _ = Self::update_total_stake(StakeChange::Sub(
+			total_amount_to_remove,
+			total_amount_to_remove,
+		));
 
 		// Remove self-delegation
 		<SelfDelegation<T, I>>::remove(commitment_id);
@@ -1333,8 +1323,6 @@ where
 
 		// Update commitment stake to zero (this should be last)
 		<CommitmentStake<T, I>>::remove(commitment_id);
-
-		Ok(())
 	}
 
 	fn delegation_ratio(commitment_id: T::CommitmentId) -> Perquintill {

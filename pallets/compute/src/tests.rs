@@ -183,7 +183,7 @@ fn test_single_processor_commit() {
 		roll_to_block(230);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]),
-			/*Some(250000)*/ Some(82500)
+			/*Some(250000)*/ Some(642123287671233)
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -198,7 +198,7 @@ fn test_single_processor_commit() {
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				//paid: 250000
-				paid: 82500,
+				paid: 642123287671233,
 			})
 		);
 
@@ -422,7 +422,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		// - Sum of reward for pool 1 and pool 2 = 0.25 UNIT + 0.125 UNIT = 0.375
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			/*Some(375000)*/ Some(123750),
+			/*Some(375000)*/ Some(963184931506849),
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -437,7 +437,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				//paid: 375000
-				paid: 123750,
+				paid: 963184931506849,
 			})
 		);
 	}
@@ -450,7 +450,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		//   => 0.75 * 0.5 * 1 UNIT = 0.375 UNIT
 		assert_eq!(
 			Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			/*Some(375000)*/ Some(123750),
+			/*Some(375000)*/ Some(963184931506849),
 		);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 1).unwrap(),
@@ -465,7 +465,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				status: ProcessorStatus::Active,
 				accrued: 0,
 				//paid: 375000
-				paid: 123750,
+				paid: 963184931506849,
 			})
 		);
 	}

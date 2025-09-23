@@ -69,6 +69,8 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(14)]
 	pub type Uniques = pallet_uniques;
+	#[runtime::pallet_index(15)]
+	pub type Vesting = pallet_vesting;
 
 	// Governance stuff.
 	#[runtime::pallet_index(16)]

@@ -1,4 +1,7 @@
-use acurast_runtime_common::types::{AccountId, AuraId, Signature};
+use acurast_runtime_common::{
+	constants::UNIT,
+	types::{AccountId, AuraId, Signature},
+};
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::core::__reexports::serde_json;
 use sc_service::ChainType;
@@ -92,6 +95,7 @@ pub fn acurast_local_config(relay_chain: &str) -> ChainSpec {
 			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
 			(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
+			(accountid_from_str("5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe"), 100 * UNIT),
 		],
 		DEFAULT_PARACHAIN_ID.into(),
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -134,6 +138,16 @@ fn genesis_config(
 		},
 		"sudo": {
 			"key": Some(sudo_account)
+		},
+		"vesting": {
+			"vesting": [
+				[
+					accountid_from_str("5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe"),
+					10,
+					100,
+					UNIT / 100,
+				]
+			]
 		}
 	})
 }

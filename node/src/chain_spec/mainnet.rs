@@ -63,6 +63,7 @@ pub fn acurast_config() -> ChainSpec {
 			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
 		],
 		MAINNET_PARACHAIN_ID.into(),
+		acurast_sudo_account(),
 	))
 	.build()
 }
@@ -71,6 +72,7 @@ fn genesis_config(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<(AccountId, acurast_runtime::Balance)>,
 	id: ParaId,
+	sudo_account: Option<AccountId>,
 ) -> serde_json::Value {
 	serde_json::json!({
 		"balances": {
@@ -97,6 +99,9 @@ fn genesis_config(
 		},
 		"polkadotXcm": {
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
+		},
+		"sudo": {
+			"key": sudo_account
 		}
 	})
 }
@@ -112,6 +117,6 @@ pub fn fee_manager_pallet_account() -> AccountId {
 }
 
 /// returns the root account id.
-pub fn acurast_sudo_account() -> AccountId {
-	accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC")
+pub fn acurast_sudo_account() -> Option<AccountId> {
+	Some(accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC"))
 }

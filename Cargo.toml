@@ -45,7 +45,9 @@ futures = "0.3.21"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }
-acurast-common = { path = "./pallets/acurast/common", default-features = false, features = ["attestation"] }
+acurast-common = { path = "./pallets/acurast/common", default-features = false, features = [
+	"attestation",
+] }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
 pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features = false }
 # This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
@@ -109,6 +111,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 # A pallet simple used to assigning unique identifiers.
 pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-vesting = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 # This pallet is used to support multisig accounts, allowing multiple signed origins (accounts)
 # to coordinate and dispatch calls from a well-known origin, derivable deterministically from a
 # set of account IDs that must approve it

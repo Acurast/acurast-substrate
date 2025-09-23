@@ -63,6 +63,7 @@ pallet-uniques = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
+pallet-vesting = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -149,6 +150,7 @@ std = [
 	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-hyperdrive-token/std",
 	"pallet-acurast-candidate-preselection/std",
+	"pallet-vesting/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
 	"sp-arithmetic/std",
@@ -192,6 +194,7 @@ runtime-benchmarks = [
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
 	"pallet-acurast-candidate-preselection/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

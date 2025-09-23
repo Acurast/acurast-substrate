@@ -49,8 +49,8 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 	#[runtime::pallet_index(3)]
 	pub type ParachainInfo = parachain_info;
-	//#[runtime::pallet_index(4)]
-	//pub type Sudo = pallet_sudo;
+	#[runtime::pallet_index(4)]
+	pub type Sudo = pallet_sudo;
 	#[runtime::pallet_index(5)]
 	pub type Scheduler = pallet_scheduler;
 	#[runtime::pallet_index(6)]
@@ -69,6 +69,8 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(14)]
 	pub type Uniques = pallet_uniques;
+	#[runtime::pallet_index(15)]
+	pub type Vesting = pallet_vesting;
 
 	// Governance stuff.
 	#[runtime::pallet_index(16)]

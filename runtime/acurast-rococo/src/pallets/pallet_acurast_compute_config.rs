@@ -31,14 +31,14 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 10; // 10 blocks (for testing purposes)
 	pub const MaxCooldownPeriod: BlockNumber = 3600; // ~1 hour
-	pub const MinDelegation: Balance = 1 * UNIT;
+	pub const MinDelegation: Balance = UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
-	pub const MinStake: Balance = 1 * UNIT;
+	pub const MinStake: Balance = UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub InflationPerDistribution: Perquintill = Perquintill::from_rational(835_451_506_486_784u128, 1_000_000_000_000_000_000u128);
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
@@ -70,7 +70,7 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 		AcurastProcessorManager,
 	>;
-	type InflationPerDistribution = InflationPerDistribution;
+	type InflationPerEpoch = InflationPerEpoch;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;

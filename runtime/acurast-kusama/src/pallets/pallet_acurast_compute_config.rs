@@ -25,20 +25,20 @@ use crate::{
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const Era: BlockNumber = 18; // 24 hours
-	pub const MetricEpochValidity: BlockNumber = 16 * 90;
+	pub const Era: BlockNumber = 16; // 24 hours
+	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 432000; // ~1 month
 	pub const MaxCooldownPeriod: BlockNumber = 20736000; // ~4 years
-	pub const MinDelegation: Balance = 1 * UNIT;
+	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub InflationPerDistribution: Perquintill = Perquintill::from_rational(835_451_506_486_784u128, 1_000_000_000_000_000_000u128);
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
@@ -70,7 +70,7 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 		AcurastProcessorManager,
 	>;
-	type InflationPerDistribution = InflationPerDistribution;
+	type InflationPerEpoch = InflationPerEpoch;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;

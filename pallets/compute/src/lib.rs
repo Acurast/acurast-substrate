@@ -137,7 +137,7 @@ pub mod pallet {
 		type LockIdentifier: Get<LockIdentifier>;
 		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
 		#[pallet::constant]
-		type InflationPerDistribution: Get<Perquintill>;
+		type InflationPerEpoch: Get<BalanceFor<Self, I>>;
 		#[pallet::constant]
 		type InflationStakedBackedRation: Get<Perquintill>;
 		/// Origin that can create and modify pools
@@ -491,11 +491,8 @@ pub mod pallet {
 
 					// Handle inflation-based reward distribution on new epoch
 					{
-						let total_supply = T::Currency::total_issuance();
 						weight = weight.saturating_add(T::DbWeight::get().reads(1));
-						let inflation_amount: BalanceFor<T, I> = T::InflationPerDistribution::get()
-							.mul_floor(total_supply.saturated_into::<u128>())
-							.saturated_into();
+						let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
 						let current_epoch = Self::current_cycle().epoch;
 
 						if !inflation_amount.is_zero() {

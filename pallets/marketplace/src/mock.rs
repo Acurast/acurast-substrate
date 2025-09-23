@@ -216,7 +216,7 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerDistribution: Perquintill = Perquintill::from_percent(1);
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
@@ -243,7 +243,7 @@ impl pallet_acurast_compute::Config for Test {
 	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockLockup;
-	type InflationPerDistribution = InflationPerDistribution;
+	type InflationPerEpoch = InflationPerEpoch;
 	type InflationStakedBackedRation = InflationStakedBackedRation;
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;

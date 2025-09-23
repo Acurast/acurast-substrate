@@ -1088,6 +1088,19 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		/// Clear all staking pool entries.
+		///
+		/// This is a root-only operation that removes all staking pool data.
+		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::force_clear_staking_pools())]
+		pub fn force_clear_staking_pools(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			T::OperatorOrigin::ensure_origin(origin)?;
+
+			let _ = StakingPools::<T, I>::clear(u32::MAX, None);
+
+			Ok(Pays::No.into())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {

@@ -19,6 +19,7 @@ pub trait WeightInfo {
 	fn reward() -> Weight;
 	fn slash() -> Weight;
 	fn force_end_commitment() -> Weight;
+	fn force_clear_staking_pools() -> Weight;
 	fn withdraw_delegation() -> Weight;
 	fn withdraw_commitment() -> Weight;
 	fn delegate_more() -> Weight;
@@ -96,6 +97,10 @@ impl WeightInfo for () {
 	}
 
 	fn force_end_commitment() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+    fn force_clear_staking_pools() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

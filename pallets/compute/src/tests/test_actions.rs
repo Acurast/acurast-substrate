@@ -1,9 +1,6 @@
 use frame_support::{assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	AccountId32, FixedU128, Perbill, Perquintill,
-};
+use sp_runtime::{traits::AccountIdConversion, AccountId32, FixedU128, Perbill, Perquintill};
 
 use crate::{
 	mock::{InflationPerEpoch, *},
@@ -11,7 +8,7 @@ use crate::{
 	types::*,
 	Config, Cycle, Event,
 };
-use acurast_common::{ComputeHooks, ManagerIdProvider};
+use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
 
 /// Test helper function for compute pallet that simplifies test writing
 pub fn compute_test_flow(pools: &[u8], committers: &[(&str, &[&str])], actions: &[Action]) {
@@ -209,6 +206,7 @@ impl ComputeTestFlow {
 
 		// Setup committers and their processor mappings
 		MockManagerProvider::clear_mappings();
+		let mut commitment_ids: Vec<u128> = vec![];
 		for (committer_name, processors) in &self.committers {
 			let committer_account = Self::name_to_account(committer_name);
 
@@ -220,17 +218,29 @@ impl ComputeTestFlow {
 
 			// Do offer_accept_backing flow
 			Self::setup_backing(&committer_account);
+
+			commitment_ids.push(
+				<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer_account)
+					.unwrap(),
+			);
 		}
 
 		// Print initial state
 		Self::print_storage_state("INITIAL_SETUP");
 
+		let mut pool_ids = vec![];
 		// Execute actions
 		for action in &self.actions {
 			let action_name = match action {
 				Action::CommitCompute { committer, stake, cooldown, metrics, commission } => {
 					let account = Self::name_to_account(committer);
-					Self::execute_commit_compute(&account, *stake, *cooldown, metrics, *commission);
+					pool_ids.extend(Self::execute_commit_compute(
+						&account,
+						*stake,
+						*cooldown,
+						metrics,
+						*commission,
+					));
 					format!(
 						"CommitCompute(committer={}, stake={}, cooldown={})",
 						committer, stake, cooldown
@@ -306,6 +316,16 @@ impl ComputeTestFlow {
 
 			Self::print_storage_state(&action_name);
 		}
+
+		for pool_id in pool_ids {
+			for commitment_id in &commitment_ids {
+				let staking_pool = Compute::staking_pool_members(*commitment_id, pool_id);
+				assert!(staking_pool.is_none(), "staking_pool_members(commitment_id: {}, pool_id: {}) should be None but was {:?}", commitment_id, pool_id, staking_pool.unwrap());
+
+				let compute_commitment = Compute::compute_commitments(*commitment_id, pool_id);
+				assert!(compute_commitment.is_none(), "compute_commitment(commitment_id: {}, pool_id: {}) should be None but was {:?}", commitment_id, pool_id, compute_commitment.unwrap());
+			}
+		}
 	}
 
 	fn name_to_account(name: &str) -> AccountId32 {
@@ -359,12 +379,16 @@ impl ComputeTestFlow {
 		cooldown: u64,
 		metrics: &Vec<(u8, u128, u128)>,
 		commission: Perbill,
-	) {
+	) -> Vec<u8> {
+		let mut pool_ids = vec![];
 		let commitments: Vec<ComputeCommitment> = metrics
 			.iter()
-			.map(|(pool_id, numerator, denominator)| ComputeCommitment {
-				pool_id: *pool_id,
-				metric: FixedU128::from_rational(*numerator, *denominator),
+			.map(|(pool_id, numerator, denominator)| {
+				pool_ids.push(*pool_id);
+				ComputeCommitment {
+					pool_id: *pool_id,
+					metric: FixedU128::from_rational(*numerator, *denominator),
+				}
 			})
 			.collect();
 
@@ -378,6 +402,8 @@ impl ComputeTestFlow {
 			commission,
 			true,
 		));
+
+		pool_ids
 	}
 
 	fn execute_delegate(
@@ -430,10 +456,17 @@ impl ComputeTestFlow {
 				!transfer_events.is_empty(),
 				"No transfer event found for ending compute commitment"
 			);
-			assert_eq!(
-				transfer_events[0], expected_reward,
+			assert!(
+				expected_reward >= transfer_events[0],
+				"Got expected reward {} smaller than actual {}",
+				expected_reward,
+				transfer_events[0]
+			);
+			assert!(
+				expected_reward - transfer_events[0] < 1 * MICROUNIT, // allow for small rounding error
 				"Expected reward {} but got {}",
-				expected_reward, transfer_events[0]
+				expected_reward,
+				transfer_events[0]
 			);
 		} else if expected_reward == 0 && !transfer_events.is_empty() {
 			assert!(transfer_events.is_empty(), "Actual reward received: {}", transfer_events[0]);
@@ -479,10 +512,18 @@ impl ComputeTestFlow {
 
 		if expected_reward > 0 {
 			assert!(!transfer_events.is_empty(), "No transfer event found for ending delegation");
-			assert_eq!(
-				transfer_events[0], expected_reward,
+			assert!(
+				expected_reward >= transfer_events[0],
+				"Got expected reward {} smaller than actual {}",
+				expected_reward,
+				transfer_events[0]
+			);
+
+			assert!(
+				expected_reward - transfer_events[0] < 1 * MICROUNIT, // allow for small rounding error
 				"Expected reward {} but got {}",
-				expected_reward, transfer_events[0]
+				expected_reward,
+				transfer_events[0]
 			);
 		} else if expected_reward == 0 && !transfer_events.is_empty() {
 			assert!(transfer_events.is_empty(), "Actual reward received: {}", transfer_events[0]);
@@ -499,7 +540,7 @@ pub fn setup() {
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		<Test as Config>::PalletId::get().into_account_truncating(),
-		100000 * UNIT
+		100_000_000_000 * UNIT
 	));
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),

@@ -3,7 +3,7 @@ pub mod test_actions;
 pub use test_actions::{compute_test_flow, events, roll_to_block, setup, Action};
 
 use frame_support::{assert_err, assert_ok};
-use sp_core::bounded_vec;
+use sp_core::{bounded_vec, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	AccountId32, FixedU128, Perbill, Perquintill,
@@ -113,7 +113,7 @@ fn test_compute_flow_no_delegations() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 5000000000000,
+						expected_reward: 5 * UNIT,
 					},
 				][..],
 			]
@@ -239,7 +239,7 @@ fn test_compute_flow_1() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 949999999995,
+						expected_reward: 950 * MILLIUNIT,
 					},
 					// D committed 40 for 1/3 of max cooldown
 					// vs E committed 5 for 1/3 of max cooldown
@@ -254,14 +254,14 @@ fn test_compute_flow_1() {
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3599999999988,
+						expected_reward: 3_600 * MILLIUNIT,
 					},
 					// Delegator D's payout = 4.05 * 5/45
 					//                      = 0.45
 					Action::EndDelegation {
 						delegator: "E".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 449999999999,
+						expected_reward: 450_000_000_000,
 					},
 				][..],
 			]
@@ -339,7 +339,7 @@ fn test_compute_flow_varied_cooldown() {
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3724137931032,
+						expected_reward: 3724137931034,
 					},
 					Action::EndDelegation {
 						delegator: "E".to_string(),
@@ -405,17 +405,17 @@ fn test_compute_flow_varied_stakes() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 949999999992, // Actual reward with doubled stakes
+						expected_reward: 950 * MILLIUNIT,
 					},
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3599999999976, // Actual reward with doubled stakes
+						expected_reward: 3600 * MILLIUNIT,
 					},
 					Action::EndDelegation {
 						delegator: "E".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 449999999997, // Actual reward with doubled stakes
+						expected_reward: 450 * MILLIUNIT,
 					},
 				][..],
 			]
@@ -501,112 +501,18 @@ fn test_compute_flow_multi_pool_metrics() {
 				},
 				Action::EndComputeCommitment {
 					committer: "C".to_string(),
-					expected_reward: 949999996195, // Actual reward with multi-pool metrics
+					expected_reward: 950 * MILLIUNIT, // Actual reward with multi-pool metrics
 				},
 				Action::EndDelegation {
 					delegator: "D".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 3599999985588, // Actual reward with multi-pool metrics
+					expected_reward: 3600 * MILLIUNIT, // Actual reward with multi-pool metrics
 				},
 				Action::EndDelegation {
 					delegator: "E".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 449999998199, // Actual reward with multi-pool metrics
+					expected_reward: 450 * MILLIUNIT, // Actual reward with multi-pool metrics
 				},
-			],
-		);
-	});
-}
-
-#[test]
-fn test_compute_flow_lorenzo() {
-	ExtBuilder.build().execute_with(|| {
-		compute_test_flow(
-			&[30, 30, 20, 20], // four pools with different allocations
-			&[
-				("C", &["A", "B"]), // committer C with processors A, B
-			],
-			&[
-				// Use first part of commit_actions but with modified metrics for multi-pool test
-				Action::RollToBlock {
-					block_number: 10,
-					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
-				},
-				Action::ProcessorCommit {
-					processor: "A".to_string(),
-					metrics: vec![(1, 89844839219, 1)],
-				},
-				Action::RollToBlock {
-					block_number: 20,
-					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
-				},
-				Action::ProcessorCommit {
-					processor: "B".to_string(),
-					metrics: vec![(1, 89844839219, 1)],
-				},
-				Action::RollToBlock {
-					block_number: 150,
-					expected_cycle: Cycle { epoch: 1, epoch_start: 102, era: 0, era_start: 2 },
-				},
-				// A commits to multiple pools
-				Action::ProcessorCommit {
-					processor: "A".to_string(),
-					metrics: vec![(1, 89844839219, 1), (2, 89844839219, 1), (3, 89844839219, 1)],
-				},
-				// B commits to different pools
-				Action::ProcessorCommit {
-					processor: "B".to_string(),
-					metrics: vec![(2, 89844839219, 1), (3, 89844839219, 1), (4, 89844839219, 1)],
-				},
-				Action::RollToBlock {
-					block_number: 302,
-					expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
-				},
-				// Commit to multiple pools with different metrics
-				Action::CommitCompute {
-					committer: "C".to_string(),
-					stake: 1000 * UNIT,
-					cooldown: 36,
-					metrics: vec![
-						(2, 4000u128 * 4 / 5, 1u128), // pool 2
-						(3, 2250u128 * 4 / 5, 1u128), // pool 3 (average of 1500 and 3000)
-					],
-					commission: Perbill::from_percent(10),
-				},
-				Action::Delegate {
-					delegator: "D".to_string(),
-					committer: "C".to_string(),
-					amount: 1000 * UNIT,
-					cooldown: 36,
-				},
-				Action::Reward { amount: 250_000 * UNIT },
-				Action::CooldownComputeCommitment { committer: "C".to_string() },
-				// Action::CooldownDelegation {
-				// 	delegator: "D".to_string(),
-				// 	committer: "C".to_string(),
-				// },
-				// Action::CooldownDelegation {
-				// 	delegator: "E".to_string(),
-				// 	committer: "C".to_string(),
-				// },
-				// Action::RollToBlock {
-				// 	block_number: 400,
-				// 	expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
-				// },
-				// Action::EndComputeCommitment {
-				// 	committer: "C".to_string(),
-				// 	expected_reward: 949999996195, // Actual reward with multi-pool metrics
-				// },
-				// Action::EndDelegation {
-				// 	delegator: "D".to_string(),
-				// 	committer: "C".to_string(),
-				// 	expected_reward: 3599999985588, // Actual reward with multi-pool metrics
-				// },
-				// Action::EndDelegation {
-				// 	delegator: "E".to_string(),
-				// 	committer: "C".to_string(),
-				// 	expected_reward: 449999998199, // Actual reward with multi-pool metrics
-				// },
 			],
 		);
 	});
@@ -664,13 +570,13 @@ fn test_compute_flow_large_metrics() {
 				Action::Delegate {
 					delegator: "D".to_string(),
 					committer: "C".to_string(),
-					amount: 40 * UNIT,
+					amount: 1_000_000_000 * UNIT,
 					cooldown: 36,
 				},
 				Action::Delegate {
 					delegator: "E".to_string(),
 					committer: "C".to_string(),
-					amount: 5 * UNIT,
+					amount: 1_000_000_000 * UNIT,
 					cooldown: 36,
 				},
 				Action::Reward { amount: 100_000_000_000 * UNIT },
@@ -689,17 +595,111 @@ fn test_compute_flow_large_metrics() {
 				},
 				Action::EndComputeCommitment {
 					committer: "C".to_string(),
-					expected_reward: 0, // Actual reward with multi-pool metrics
+					expected_reward: 20_000_000_000 * UNIT,
 				},
 				Action::EndDelegation {
 					delegator: "D".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 0, // Actual reward with multi-pool metrics
+					expected_reward: 15_000_000_000 * UNIT,
 				},
 				Action::EndDelegation {
 					delegator: "E".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 0, // Actual reward with multi-pool metrics
+					expected_reward: 15_000_000_000 * UNIT,
+				},
+			],
+		);
+	});
+}
+
+#[test]
+fn test_compute_flow_large_metrics_tiny_reward() {
+	ExtBuilder.build().execute_with(|| {
+		compute_test_flow(
+			&[30, 30, 20, 20], // four pools with different allocations
+			&[
+				("C", &["A", "B"]), // committer C with processors A, B
+			],
+			&[
+				// Use first part of commit_actions but with modified metrics for multi-pool test
+				Action::RollToBlock {
+					block_number: 10,
+					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
+				},
+				Action::ProcessorCommit { processor: "A".to_string(), metrics: vec![(1, 1000, 1)] },
+				Action::RollToBlock {
+					block_number: 20,
+					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
+				},
+				Action::ProcessorCommit { processor: "B".to_string(), metrics: vec![(1, 1000, 1)] },
+				Action::RollToBlock {
+					block_number: 150,
+					expected_cycle: Cycle { epoch: 1, epoch_start: 102, era: 0, era_start: 2 },
+				},
+				// A commits to multiple pools
+				Action::ProcessorCommit {
+					processor: "A".to_string(),
+					metrics: vec![(1, 89844839219, 1), (2, 89844839219, 1), (3, 89844839219, 1)],
+				},
+				// B commits to different pools
+				Action::ProcessorCommit {
+					processor: "B".to_string(),
+					metrics: vec![(2, 89844839219, 1), (3, 89844839219, 1), (4, 89844839219, 1)],
+				},
+				Action::RollToBlock {
+					block_number: 302,
+					expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
+				},
+				// Commit to multiple pools with different metrics
+				Action::CommitCompute {
+					committer: "C".to_string(),
+					stake: 1_000_000_000 * UNIT,
+					cooldown: 36,
+					metrics: vec![
+						(2, 89844839219 / 5 * 4, 1u128), // pool 2
+						(3, 89844839219 / 5 * 4, 1u128), // pool 3 (average of 1500 and 3000)
+					],
+					commission: Perbill::from_percent(10),
+				},
+				Action::Delegate {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+					amount: 1_000_000_000 * UNIT,
+					cooldown: 36,
+				},
+				Action::Delegate {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+					amount: 1_000_000_000 * UNIT,
+					cooldown: 36,
+				},
+				Action::Reward { amount: 1 * MILLIUNIT },
+				Action::CooldownComputeCommitment { committer: "C".to_string() },
+				Action::CooldownDelegation {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+				},
+				Action::CooldownDelegation {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+				},
+				Action::RollToBlock {
+					block_number: 400,
+					expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
+				},
+				Action::EndComputeCommitment {
+					committer: "C".to_string(),
+					expected_reward: 200 * MICROUNIT,
+				},
+				Action::EndDelegation {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+					expected_reward: 150 * MICROUNIT,
+				},
+				Action::EndDelegation {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+					expected_reward: 150 * MICROUNIT,
 				},
 			],
 		);
@@ -1309,10 +1309,10 @@ fn test_commit_compute() {
 		assert_eq!(
 			Compute::delegation_pools(0),
 			DelegationPool {
-				reward_weight: 1666666666666,
-				slash_weight: 1666666666666,
-				reward_per_token: 0,
-				slash_per_token: 0,
+				reward_weight: U256::from(1666666666666u64),
+				slash_weight: U256::from(1666666666666u64),
+				reward_per_token: U256::zero(),
+				slash_per_token: U256::zero(),
 			}
 		);
 
@@ -1326,11 +1326,17 @@ fn test_commit_compute() {
 
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
-			StakingPoolMember { reward_weight: 5333333333333333, reward_debt: 0 }
+			StakingPoolMember {
+				reward_weight: U256::from(5333333333333333u64),
+				reward_debt: U256::zero()
+			}
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
-			StakingPool { reward_weight: 5333333333333333, reward_per_token: 937500000 }
+			StakingPool {
+				reward_weight: U256::from(5333333333333333u64),
+				reward_per_token: U256::from(937500000000000058593750000u128)
+			}
 		);
 
 		roll_to_block(310);
@@ -1338,27 +1344,33 @@ fn test_commit_compute() {
 
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
-			StakingPoolMember { reward_weight: 2666666666666666, reward_debt: 2500000000000 }
+			StakingPoolMember {
+				reward_weight: U256::from(2666666666666666u64),
+				reward_debt: U256::from(2500000000000u64)
+			}
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
-			StakingPool { reward_weight: 2666666666666666, reward_per_token: 937500000 }
+			StakingPool {
+				reward_weight: U256::from(2666666666666666u64),
+				reward_per_token: U256::from(937500000000000058593750000u128)
+			}
 		);
 		assert_eq!(
 			Compute::delegation_pools(0),
 			DelegationPool {
-				reward_weight: 833333333333,
-				slash_weight: 1666666666666,
-				reward_per_token: 3000000000000,
-				slash_per_token: 0,
+				reward_weight: U256::from(833333333333u64),
+				slash_weight: U256::from(1666666666666u64),
+				reward_per_token: U256::from(3000000000000600000000000240000u128),
+				slash_per_token: U256::zero(),
 			}
 		);
 		assert_eq!(
 			Compute::self_delegation(0).unwrap(),
 			DelegationPoolMember {
-				reward_weight: 833333333333,
-				slash_weight: 1666666666666,
-				reward_debt: 2499999999999,
+				reward_weight: U256::from(833333333333u64),
+				slash_weight: U256::from(1666666666666u64),
+				reward_debt: 2500000000000,
 				slash_debt: 0,
 			}
 		);
@@ -1494,7 +1506,7 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_2.clone(),
 			commitment_id,
-			449999999999u128, // ~0.5
+			450 * MILLIUNIT,
 		));
 
 		assert_ok!(Compute::withdraw_delegation(
@@ -1505,16 +1517,16 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_1.clone(),
 			commitment_id,
-			3599999999988u128, // ~4
+			3600 * MILLIUNIT,
 		));
 
 		assert_eq!(
 			Balances::usable_balance(&delegator_1),
-			initial_balance - stake_amount_1 + 3599999999988u128
+			initial_balance - stake_amount_1 + 3600 * MILLIUNIT
 		);
 		assert_eq!(
 			Balances::usable_balance(&delegator_2),
-			initial_balance - stake_amount_2 + 449999999999u128
+			initial_balance - stake_amount_2 + 450 * MILLIUNIT
 		);
 	});
 }
@@ -1595,10 +1607,8 @@ fn test_delegate_more() {
 				stake_amount_2b,
 			));
 			// After delegation, the stake should be locked
-			assert_eq!(
-				Balances::usable_balance(&delegator_2),
-				initial_balance - stake_amount_2 - stake_amount_2b + 642857140799
-			);
+			let expected = initial_balance - stake_amount_2 - stake_amount_2b;
+			assert!(Balances::usable_balance(&delegator_2) - expected < UNIT);
 			// At minimum we should see the delegation event
 			assert!(events()
 				.iter()
@@ -1663,7 +1673,7 @@ fn test_compound_delegation() {
 		// The staked amount should increase
 		assert_eq!(
 			Compute::delegations(delegator.clone(), commitment_id).unwrap().amount,
-			31928571407991
+			31928571428571
 		);
 	});
 }

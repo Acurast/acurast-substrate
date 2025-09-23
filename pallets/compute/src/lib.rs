@@ -279,14 +279,8 @@ pub mod pallet {
 	/// Pool member state as a map `commitment_id` -> `pool_id` -> [`StakingPoolMember`].
 	#[pallet::storage]
 	#[pallet::getter(fn staking_pool_members)]
-	pub(super) type StakingPoolMembers<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		Identity,
-		T::CommitmentId,
-		Identity,
-		PoolId,
-		StakingPoolMemberFor<T, I>,
-	>;
+	pub(super) type StakingPoolMembers<T: Config<I>, I: 'static = ()> =
+		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, StakingPoolMember>;
 
 	/// Tracks a commitment's backing stake, inclusive committer stake and delegated stakes received as (total_amount, rewardable_amount).
 	///
@@ -337,7 +331,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn staking_pools)]
 	pub type StakingPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, PoolId, StakingPoolFor<T, I>, ValueQuery>;
+		StorageMap<_, Identity, PoolId, StakingPool, ValueQuery>;
 
 	/// Storage for staking metadata for each provider's own pool for constant-time reward distribution among delegators to each provider and metric the provider committed to.
 	///
@@ -345,7 +339,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn delegation_pools)]
 	pub(super) type DelegationPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, DelegationPoolFor<T, I>, ValueQuery>;
+		StorageMap<_, Identity, T::CommitmentId, DelegationPool, ValueQuery>;
 
 	/// The current epoch with sequential epoch number that increases every [`T::Epoch`] and the start of current epoch.
 	#[pallet::storage]

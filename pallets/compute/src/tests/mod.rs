@@ -518,6 +518,100 @@ fn test_compute_flow_multi_pool_metrics() {
 	});
 }
 
+#[test]
+fn test_compute_flow_large_metrics() {
+	ExtBuilder.build().execute_with(|| {
+		compute_test_flow(
+			&[30, 30, 20, 20], // four pools with different allocations
+			&[
+				("C", &["A", "B"]), // committer C with processors A, B
+			],
+			&[
+				// Use first part of commit_actions but with modified metrics for multi-pool test
+				Action::RollToBlock {
+					block_number: 10,
+					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
+				},
+				Action::ProcessorCommit { processor: "A".to_string(), metrics: vec![(1, 1000, 1)] },
+				Action::RollToBlock {
+					block_number: 20,
+					expected_cycle: Cycle { epoch: 0, epoch_start: 2, era: 0, era_start: 2 },
+				},
+				Action::ProcessorCommit { processor: "B".to_string(), metrics: vec![(1, 1000, 1)] },
+				Action::RollToBlock {
+					block_number: 150,
+					expected_cycle: Cycle { epoch: 1, epoch_start: 102, era: 0, era_start: 2 },
+				},
+				// A commits to multiple pools
+				Action::ProcessorCommit {
+					processor: "A".to_string(),
+					metrics: vec![(1, 89844839219, 1), (2, 89844839219, 1), (3, 89844839219, 1)],
+				},
+				// B commits to different pools
+				Action::ProcessorCommit {
+					processor: "B".to_string(),
+					metrics: vec![(2, 89844839219, 1), (3, 89844839219, 1), (4, 89844839219, 1)],
+				},
+				Action::RollToBlock {
+					block_number: 302,
+					expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
+				},
+				// Commit to multiple pools with different metrics
+				Action::CommitCompute {
+					committer: "C".to_string(),
+					stake: 1_000_000_000 * UNIT,
+					cooldown: 36,
+					metrics: vec![
+						(2, 89844839219 / 5 * 4, 1u128), // pool 2
+						(3, 89844839219 / 5 * 4, 1u128), // pool 3 (average of 1500 and 3000)
+					],
+					commission: Perbill::from_percent(10),
+				},
+				Action::Delegate {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+					amount: 40 * UNIT,
+					cooldown: 36,
+				},
+				Action::Delegate {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+					amount: 5 * UNIT,
+					cooldown: 36,
+				},
+				Action::Reward { amount: 1_000_000_000 * UNIT },
+				Action::CooldownComputeCommitment { committer: "C".to_string() },
+				Action::CooldownDelegation {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+				},
+				Action::CooldownDelegation {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+				},
+				Action::RollToBlock {
+					block_number: 400,
+					expected_cycle: Cycle { epoch: 3, epoch_start: 302, era: 1, era_start: 302 },
+				},
+				Action::EndComputeCommitment {
+					committer: "C".to_string(),
+					expected_reward: 0, // Actual reward with multi-pool metrics
+				},
+				Action::EndDelegation {
+					delegator: "D".to_string(),
+					committer: "C".to_string(),
+					expected_reward: 0, // Actual reward with multi-pool metrics
+				},
+				Action::EndDelegation {
+					delegator: "E".to_string(),
+					committer: "C".to_string(),
+					expected_reward: 0, // Actual reward with multi-pool metrics
+				},
+			],
+		);
+	});
+}
+
 fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
 	let withdrew_events: Vec<_> = events()
 		.into_iter()

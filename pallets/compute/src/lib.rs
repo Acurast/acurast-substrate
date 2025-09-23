@@ -450,7 +450,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
+	where
+		BalanceFor<T, I>: From<u128>,
+	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			crate::migration::migrate::<T, I>()
 		}
@@ -555,6 +558,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		BlockNumberFor<T>: One,
+		BalanceFor<T, I>: From<u128>,
 	{
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_pool(config.len() as u32))]

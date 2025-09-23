@@ -501,24 +501,76 @@ pub fn setup() {
 		<Test as Config>::PalletId::get().into_account_truncating(),
 		100000 * UNIT
 	));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), 1_000_000_000 * UNIT));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		alice_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		bob_account_id(),
+		1_000_000_000 * UNIT
+	));
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		charlie_account_id(),
 		1_000_000_000 * UNIT
 	));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), dave_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), eve_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ferdie_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), george_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), henry_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ivan_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), judy_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), kate_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), luke_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), maria_account_id(), 1_000_000_000 * UNIT));
-	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), nick_account_id(), 1_000_000_000 * UNIT));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		dave_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		eve_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		ferdie_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		george_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		henry_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		ivan_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		judy_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		kate_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		luke_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		maria_account_id(),
+		1_000_000_000 * UNIT
+	));
+	assert_ok!(Balances::force_set_balance(
+		RuntimeOrigin::root(),
+		nick_account_id(),
+		1_000_000_000 * UNIT
+	));
 }
 
 pub fn roll_to_block(block_number: u64) {

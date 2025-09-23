@@ -113,7 +113,7 @@ fn test_compute_flow_no_delegations() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 4992000,
+						expected_reward: 5000000000000,
 					},
 				][..],
 			]
@@ -239,7 +239,7 @@ fn test_compute_flow_1() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 942395,
+						expected_reward: 949999999995,
 					},
 					// D committed 40 for 1/3 of max cooldown
 					// vs E committed 5 for 1/3 of max cooldown
@@ -254,14 +254,14 @@ fn test_compute_flow_1() {
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3571188,
+						expected_reward: 3599999999988,
 					},
 					// Delegator D's payout = 4.05 * 5/45
 					//                      = 0.45
 					Action::EndDelegation {
 						delegator: "E".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 446399,
+						expected_reward: 449999999999,
 					},
 				][..],
 			]
@@ -334,17 +334,17 @@ fn test_compute_flow_varied_cooldown() {
 					//                      = 1.35
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 957786,
+						expected_reward: 965517241378,
 					},
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3694320,
+						expected_reward: 3724137931032,
 					},
 					Action::EndDelegation {
 						delegator: "E".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 307860,
+						expected_reward: 310344827586,
 					},
 				][..],
 			]
@@ -405,17 +405,17 @@ fn test_compute_flow_varied_stakes() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 932259, // Actual reward with doubled stakes
+						expected_reward: 949999999992, // Actual reward with doubled stakes
 					},
 					Action::EndDelegation {
 						delegator: "D".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 3532776, // Actual reward with doubled stakes
+						expected_reward: 3599999999976, // Actual reward with doubled stakes
 					},
 					Action::EndDelegation {
 						delegator: "E".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 441597, // Actual reward with doubled stakes
+						expected_reward: 449999999997, // Actual reward with doubled stakes
 					},
 				][..],
 			]
@@ -501,17 +501,17 @@ fn test_compute_flow_multi_pool_metrics() {
 				},
 				Action::EndComputeCommitment {
 					committer: "C".to_string(),
-					expected_reward: 943661, // Actual reward with multi-pool metrics
+					expected_reward: 949999996195, // Actual reward with multi-pool metrics
 				},
 				Action::EndDelegation {
 					delegator: "D".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 3575988, // Actual reward with multi-pool metrics
+					expected_reward: 3599999985588, // Actual reward with multi-pool metrics
 				},
 				Action::EndDelegation {
 					delegator: "E".to_string(),
 					committer: "C".to_string(),
-					expected_reward: 446998, // Actual reward with multi-pool metrics
+					expected_reward: 449999998199, // Actual reward with multi-pool metrics
 				},
 			],
 		);
@@ -579,7 +579,7 @@ fn test_compute_flow_large_metrics() {
 					amount: 5 * UNIT,
 					cooldown: 36,
 				},
-				Action::Reward { amount: 1_000_000_000 * UNIT },
+				Action::Reward { amount: 100_000_000_000 * UNIT },
 				Action::CooldownComputeCommitment { committer: "C".to_string() },
 				Action::CooldownDelegation {
 					delegator: "D".to_string(),
@@ -1215,8 +1215,8 @@ fn test_commit_compute() {
 		assert_eq!(
 			Compute::delegation_pools(0),
 			DelegationPool {
-				reward_weight: 1666666,
-				slash_weight: 1666666,
+				reward_weight: 1666666666666,
+				slash_weight: 1666666666666,
 				reward_per_token: 0,
 				slash_per_token: 0,
 			}
@@ -1232,11 +1232,11 @@ fn test_commit_compute() {
 
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
-			StakingPoolMember { reward_weight: 5333333333, reward_debt: 0 }
+			StakingPoolMember { reward_weight: 5333333333333333, reward_debt: 0 }
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
-			StakingPool { reward_weight: 5333333333, reward_per_token: 937 }
+			StakingPool { reward_weight: 5333333333333333, reward_per_token: 937500000 }
 		);
 
 		roll_to_block(310);
@@ -1244,31 +1244,31 @@ fn test_commit_compute() {
 
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
-			StakingPoolMember { reward_weight: 2666666666, reward_debt: 2498667 }
+			StakingPoolMember { reward_weight: 2666666666666666, reward_debt: 2500000000000 }
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
-			StakingPool { reward_weight: 2666666666, reward_per_token: 937 }
+			StakingPool { reward_weight: 2666666666666666, reward_per_token: 937500000 }
 		);
 		assert_eq!(
 			Compute::delegation_pools(0),
 			DelegationPool {
-				reward_weight: 833333,
-				slash_weight: 1666666,
-				reward_per_token: 2998400,
+				reward_weight: 833333333333,
+				slash_weight: 1666666666666,
+				reward_per_token: 3000000000000,
 				slash_per_token: 0,
 			}
 		);
 		assert_eq!(
 			Compute::self_delegation(0).unwrap(),
 			DelegationPoolMember {
-				reward_weight: 833333,
-				slash_weight: 1666666,
-				reward_debt: 2498666,
+				reward_weight: 833333333333,
+				slash_weight: 1666666666666,
+				reward_debt: 2499999999999,
 				slash_debt: 0,
 			}
 		);
-		assert_eq!(Compute::stakes(0).unwrap().accrued_reward, 4997331);
+		assert_eq!(Compute::stakes(0).unwrap().accrued_reward, 4999999999998);
 
 		roll_to_block(345);
 		assert_err!(
@@ -1287,7 +1287,7 @@ fn test_commit_compute() {
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: _,
 				to: _,
-				amount: 4997331
+				amount: 4999999999998
 			})
 		)));
 	});
@@ -1400,7 +1400,7 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_2.clone(),
 			commitment_id,
-			446399u128, // ~0.5
+			449999999999u128, // ~0.5
 		));
 
 		assert_ok!(Compute::withdraw_delegation(
@@ -1411,16 +1411,16 @@ fn test_delegate() {
 		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
 			delegator_1.clone(),
 			commitment_id,
-			3571188u128, // ~4
+			3599999999988u128, // ~4
 		));
 
 		assert_eq!(
 			Balances::usable_balance(&delegator_1),
-			initial_balance - stake_amount_1 + 3571188u128
+			initial_balance - stake_amount_1 + 3599999999988u128
 		);
 		assert_eq!(
 			Balances::usable_balance(&delegator_2),
-			initial_balance - stake_amount_2 + 446399u128
+			initial_balance - stake_amount_2 + 449999999999u128
 		);
 	});
 }
@@ -1503,7 +1503,7 @@ fn test_delegate_more() {
 			// After delegation, the stake should be locked
 			assert_eq!(
 				Balances::usable_balance(&delegator_2),
-				initial_balance - stake_amount_2 - stake_amount_2b + 638400
+				initial_balance - stake_amount_2 - stake_amount_2b + 642857140799
 			);
 			// At minimum we should see the delegation event
 			assert!(events()
@@ -1569,7 +1569,7 @@ fn test_compound_delegation() {
 		// The staked amount should increase
 		assert_eq!(
 			Compute::delegations(delegator.clone(), commitment_id).unwrap().amount,
-			31900791
+			31928571407991
 		);
 	});
 }

@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 
 use acurast_runtime_common::{
+	constants::MainnetTokenConversionPalletId,
 	types::{AccountId, Balance},
 	weight,
 };
@@ -9,15 +10,16 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_acurast_hyperdrive::ParsedAction;
 use pallet_acurast_hyperdrive_ibc::{LayerFor, MessageBody, SubjectFor};
 use polkadot_core_primitives::BlakeTwo256;
+use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
 	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastHyperdriveToken, AcurastMarketplace,
-	AcurastPalletAccount, Admin, AlephZeroContract, AlephZeroContractSelector, Balances,
-	HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount,
-	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, IncomingTTL,
-	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
-	OperationalFeeAccount, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
-	VaraContract,
+	AcurastPalletAccount, AcurastTokenConversion, Admin, AlephZeroContract,
+	AlephZeroContractSelector, Balances, HyperdriveTokenEthereumFeeVault,
+	HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount, HyperdriveTokenSolanaFeeVault,
+	HyperdriveTokenSolanaVault, IncomingTTL, MinDeliveryConfirmationSignatures,
+	MinReceiptConfirmationSignatures, MinTTL, OperationalFeeAccount, OutgoingTransferTTL, Runtime,
+	RuntimeEvent, RuntimeHoldReason, VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -109,6 +111,11 @@ impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
 		)) == message.recipient
 		{
 			AcurastHyperdriveToken::process(message)
+		} else if SubjectFor::<Runtime>::AcurastCanary(
+			MainnetTokenConversionPalletId::get().into_account_truncating(),
+		) == message.recipient
+		{
+			AcurastTokenConversion::process(message)
 		} else {
 			// TODO fail this?
 			Ok(().into())

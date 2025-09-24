@@ -80,6 +80,7 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -164,6 +165,7 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -7926,6 +7928,31 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-acurast-token-conversion"
+version = "0.18.2"
+dependencies = [
+ "acurast-hyperdrive-substrate-core",
+ "derive_more 0.99.18",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-acurast",
+ "pallet-acurast-hyperdrive-ibc",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]

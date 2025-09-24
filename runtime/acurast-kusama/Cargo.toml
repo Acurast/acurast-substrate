@@ -37,6 +37,7 @@ pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-hyperdrive-token = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
 pallet-acurast-candidate-preselection = { workspace = true }
+pallet-acurast-token-conversion = { workspace = true }
 
 acurast-runtime-common = { workspace = true }
 
@@ -150,6 +151,7 @@ std = [
 	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-hyperdrive-token/std",
 	"pallet-acurast-candidate-preselection/std",
+	"pallet-acurast-token-conversion/std",
 	"pallet-vesting/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
@@ -194,6 +196,7 @@ runtime-benchmarks = [
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
 	"pallet-acurast-candidate-preselection/runtime-benchmarks",
+	"pallet-acurast-token-conversion/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",

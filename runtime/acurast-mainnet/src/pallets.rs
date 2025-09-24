@@ -8,6 +8,7 @@ mod pallet_acurast_hyperdrive_config;
 mod pallet_acurast_marketplace_config;
 mod pallet_acurast_processor_manager_config;
 mod pallet_acurast_rewards_treasury_config;
+mod pallet_acurast_token_conversion;
 mod pallet_aura_config;
 mod pallet_authorship_config;
 mod pallet_balances_config;

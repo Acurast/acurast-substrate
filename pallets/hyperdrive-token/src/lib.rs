@@ -418,7 +418,7 @@ pub mod pallet {
 				// hyperdrive-ibc reserves the fee on the payer's account, but we want the reserves being on a central per-proxy pallet account,
 				// since these fees can never be recovered to the source of a transfer (can only be retried with usually higher fee/ttl)
 				T::Currency::transfer(
-                &source,
+                	&source,
                     &fee_vault,
                     fee.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(),
                     Preservation::Preserve,
@@ -564,14 +564,8 @@ pub mod pallet {
 					{
 						Err(Error::<T, I>::InvalidSender)?
 					}
-					let action = <EthereumActionDecoder<
-					I,
-					T::ParsableAccountId,
-					T::AccountId,
-				> as types::ActionDecoder<T::AccountId>>::decode(
-					&message.payload
-				)
-				.map_err(|e| Error::<T, I>::EthereumActionDecoderError(e as u8))?;
+					let action = <EthereumActionDecoder<I, T::ParsableAccountId, T::AccountId> as types::ActionDecoder<T::AccountId>>::decode(&message.payload)
+						.map_err(|e| Error::<T, I>::EthereumActionDecoderError(e as u8))?;
 					Ok((ProxyChain::Ethereum, action))
 				},
 				// TODO implement solana

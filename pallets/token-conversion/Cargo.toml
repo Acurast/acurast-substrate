@@ -1,0 +1,74 @@
+[package]
+name = "pallet-acurast-token-conversion"
+description = "The Token Conversion pallet enables the conversion of the native token from/to different Acurast chains (e.g. Acurast Canary to Acurast Mainnet)."
+authors = { workspace = true }
+version = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+edition = "2021"
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+log = { workspace = true }
+parity-scale-codec = { workspace = true }
+sp-core = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+
+# Acurast
+pallet-acurast = { workspace = true }
+pallet-acurast-hyperdrive-ibc = { workspace = true }
+acurast-hyperdrive-substrate-core = { workspace = true }
+
+# SDKs
+derive_more = { workspace = true }
+
+# Benchmarks
+frame-benchmarking = { workspace = true, optional = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+pallet-balances = { workspace = true }
+
+[dev-dependencies]
+sp-runtime = { workspace = true }
+log = { workspace = true }
+pallet-balances = { workspace = true, features = ["std"] }
+sp-tracing = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+	"hex/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-acurast/std",
+	"pallet-acurast-hyperdrive-ibc/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"pallet-balances/std",
+	"acurast-hyperdrive-substrate-core/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"pallet-acurast/runtime-benchmarks",
+	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+]
+try-runtime = ["frame-support/try-runtime"]

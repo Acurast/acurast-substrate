@@ -883,7 +883,7 @@ pub mod pallet {
 				};
 				let avg = <MetricsEraAverage<T, I>>::get(manager_id, c.pool_id)
 					.ok_or(Error::<T, I>::NoMetricsAverage)?;
-				let (avg_value, _) =
+				let (avg_value, avg_count) =
 					avg.get(era.checked_sub(&One::one()).ok_or(Error::<T, I>::CannotCommit)?);
 				ensure!(c.metric < avg_value, Error::<T, I>::MaxMetricCommitmentExceeded);
 				let ratio = Perquintill::from_parts(((c.metric / avg_value).into_inner()) as u64);
@@ -892,7 +892,13 @@ pub mod pallet {
 					Error::<T, I>::MaxMetricCommitmentExceeded
 				);
 
-				ComputeCommitments::<T, I>::insert(commitment_id, c.pool_id, c.metric);
+				ComputeCommitments::<T, I>::insert(
+					commitment_id,
+					c.pool_id,
+					c.metric
+						.checked_mul(&FixedU128::from_u32(avg_count))
+						.ok_or(Error::<T, I>::CalculationOverflow)?,
+				);
 				count += 1;
 			}
 			ensure!(count > 0, Error::<T, I>::ZeroMetricsForValidPools);

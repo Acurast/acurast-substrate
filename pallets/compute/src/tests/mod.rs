@@ -1327,15 +1327,15 @@ fn test_commit_compute() {
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
 			StakingPoolMember {
-				reward_weight: U256::from(5333333333333333u64),
+				reward_weight: U256::from(10666666666666666u64),
 				reward_debt: U256::zero()
 			}
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
 			StakingPool {
-				reward_weight: U256::from(5333333333333333u64),
-				reward_per_token: U256::from(937500000000000058593750000u128)
+				reward_weight: U256::from(10666666666666666u64),
+				reward_per_token: U256::from(468750000000000029296875000u128)
 			}
 		);
 
@@ -1345,15 +1345,15 @@ fn test_commit_compute() {
 		assert_eq!(
 			Compute::staking_pool_members(0, 2).unwrap(),
 			StakingPoolMember {
-				reward_weight: U256::from(2666666666666666u64),
+				reward_weight: U256::from(5333333333333333u64),
 				reward_debt: U256::from(2500000000000u64)
 			}
 		);
 		assert_eq!(
 			Compute::staking_pools(2),
 			StakingPool {
-				reward_weight: U256::from(2666666666666666u64),
-				reward_per_token: U256::from(937500000000000058593750000u128)
+				reward_weight: U256::from(5333333333333333u64),
+				reward_per_token: U256::from(468750000000000029296875000u128)
 			}
 		);
 		assert_eq!(

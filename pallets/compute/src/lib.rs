@@ -572,12 +572,14 @@ pub mod pallet {
 		InternalError,
 		MaxStakeMetricRatioExceeded,
 		CommitmentNotInCooldown,
+		CommitmentInCooldown,
 		DelegatorInCooldown,
 		RedelegationCommitterCooldownCannotBeShorter,
 		RedelegationCommitmentMetricsCannotBeLess,
 		AutoCompoundNotAllowed,
 		CannotCommit,
 		StaleDelegationMustBeEnded,
+		EndStaleDelegationsFirst,
 	}
 
 	#[pallet::hooks]

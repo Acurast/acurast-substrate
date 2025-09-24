@@ -201,10 +201,16 @@ where
 
 		let commitment_id = T::CommitmentIdProvider::commitment_id_for(who)
 			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
+
 		let stake = <Stakes<T, I>>::try_mutate(
 			commitment_id,
 			|state| -> Result<StakeFor<T, I>, Error<T, I>> {
 				ensure!(state.is_none(), Error::<T, I>::AlreadyCommitted);
+				ensure!(
+					Self::commitment_stake(commitment_id).0.is_zero(),
+					Error::<T, I>::EndStaleDelegationsFirst
+				);
+
 				let s = Stake::new(
 					amount,
 					<frame_system::Pallet<T>>::block_number(),
@@ -287,6 +293,7 @@ where
 			commitment_id,
 			|stake_| -> Result<StakeFor<T, I>, Error<T, I>> {
 				let stake = stake_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+				ensure!(stake.cooldown_started.is_none(), Error::<T, I>::CommitmentInCooldown);
 				let prev_amount = stake.amount;
 				let amount = prev_amount
 					.checked_add(&extra_amount)
@@ -1129,7 +1136,11 @@ where
 		Self::update_total_stake(StakeChange::Sub(stake.amount, stake.rewardable_amount))?;
 
 		// keep ComputeCommitments around for delegations that have not ended
-		if udpated_commitment_stake.is_zero() {
+		if udpated_commitment_stake.is_zero()
+			&& Stakes::<T, I>::get(commitment_id)
+				.map(|committer_stake| stake.created >= committer_stake.created)
+				.unwrap_or(true)
+		{
 			let _ = <ComputeCommitments<T, I>>::clear_prefix(commitment_id, u32::MAX, None);
 		}
 

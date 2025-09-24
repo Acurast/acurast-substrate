@@ -883,7 +883,8 @@ where
 			.checked_sub(&stake.rewardable_amount)
 			.ok_or(Error::<T, I>::CalcError18)?;
 
-		let prev_d = <SelfDelegation<T, I>>::get(commitment_id).unwrap_or_default();
+		let prev_d =
+			<SelfDelegation<T, I>>::get(commitment_id).ok_or(Error::<T, I>::InternalError)?;
 		let d = Self::update_self_delegation(commitment_id)?;
 		let reward_weight_diff = prev_d
 			.reward_weight

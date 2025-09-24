@@ -6,8 +6,9 @@ use frame_support::{
 		DispatchError, Perquintill,
 	},
 	traits::{Currency, IsType},
+    pallet_prelude::One,
 };
-use frame_system::RawOrigin;
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_core::*;
 use sp_std::prelude::*;
 
@@ -185,7 +186,11 @@ where
 	(caller, job)
 }
 
-fn setup_pools<T: pallet_acurast_compute::Config>() {
+fn setup_pools<T: pallet_acurast_compute::Config>()
+where
+	BlockNumberFor<T>: One,
+	BalanceFor<T>: From<u128>,
+{
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
@@ -519,6 +524,7 @@ benchmarks! {
 		T: pallet_acurast::Config + pallet_balances::Config + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config + pallet_acurast_compute::Config,
 		<T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		BalanceFor<T>: IsType<u128>,
+		BlockNumberFor<T>: One,
 	}
 
 	advertise {

@@ -105,14 +105,14 @@ where
 			if !pool.reward_weight.is_zero() {
 				let extra = U256::from(amount.saturated_into::<u128>())
 					.checked_mul(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcDistributeTop1)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(pool.reward_weight)
-					.ok_or(Error::<T, I>::CalcDistributeTop2)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				// NOTE: reward_per_token is used as reward_per_weight
 				pool.reward_per_token = pool
 					.reward_per_token
 					.checked_add(extra)
-					.ok_or(Error::<T, I>::CalcDistributeTop3)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 			}
 
 			Ok(())
@@ -143,14 +143,14 @@ where
 			if !pool.reward_weight.is_zero() {
 				let extra = U256::from(reward.saturated_into::<u128>())
 					.checked_mul(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcRewardDelPool1)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(pool.reward_weight)
-					.ok_or(Error::<T, I>::CalcRewardDelPool2)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				// NOTE: reward_per_token is used as reward_per_weight
 				pool.reward_per_token = pool
 					.reward_per_token
 					.checked_add(extra)
-					.ok_or(Error::<T, I>::CalcRewardDelPool3)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 			}
 			Ok(())
 		})
@@ -164,13 +164,13 @@ where
 			if !pool.slash_weight.is_zero() {
 				let extra = U256::from(amount.saturated_into::<u128>())
 					.checked_mul(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcSlashDelPool1)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(pool.slash_weight)
-					.ok_or(Error::<T, I>::CalcSlashDelPool2)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				pool.slash_per_token = pool
 					.slash_per_token
 					.checked_add(extra)
-					.ok_or(Error::<T, I>::CalcSlashDelPool3)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 			}
 			Ok(())
 		})
@@ -227,11 +227,11 @@ where
 			pool.reward_weight = pool
 				.reward_weight
 				.checked_add(d.reward_weight)
-				.ok_or(Error::<T, I>::CalcUpdateSelfDel9)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			pool.slash_weight = pool
 				.slash_weight
 				.checked_add(d.slash_weight)
-				.ok_or(Error::<T, I>::CalcUpdateSelfDel10)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 		Self::update_commitment_stake(commitment_id, StakeChange::Add(stake.amount), &stake)?;
@@ -249,29 +249,29 @@ where
 		// reward_weight reduces during cooldown
 		let reward_weight = U256::from(stake.rewardable_amount.saturated_into::<u128>())
 			.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel1)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel2)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		// slash weight remains always like initial, also during cooldown
 		let slash_weight = U256::from(stake.amount.saturated_into::<u128>())
 			.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel3)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel4)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		let reward_debt_u256 = reward_weight
 			.checked_mul(DelegationPools::<T, I>::get(commitment_id).reward_per_token)
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel5)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel6)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let reward_debt: BalanceFor<T, I> = reward_debt_u256.as_u128().into();
 
 		let slash_debt_u256 = slash_weight
 			.checked_mul(DelegationPools::<T, I>::get(commitment_id).slash_per_token)
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel7)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(U256::from(PER_TOKEN_DECIMALS))
-			.ok_or(Error::<T, I>::CalcUpdateSelfDel8)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt: BalanceFor<T, I> = slash_debt_u256.as_u128().into();
 		let d = DelegationPoolMember { reward_weight, slash_weight, reward_debt, slash_debt };
 		<SelfDelegation<T, I>>::insert(commitment_id, &d);
@@ -299,7 +299,7 @@ where
 				stake.amount = stake
 					.amount
 					.checked_add(&extra_amount)
-					.ok_or(Error::<T, I>::CalcCommitStake1)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				stake.rewardable_amount = stake.amount;
 
 				// locking is on accounts (while all other storage points are relative to `commitment_id`)
@@ -314,20 +314,20 @@ where
 		let reward_weight_diff = d
 			.reward_weight
 			.checked_sub(prev_d.reward_weight)
-			.ok_or(Error::<T, I>::CalcCommitStake2)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_weight_diff = d
 			.slash_weight
 			.checked_sub(prev_d.slash_weight)
-			.ok_or(Error::<T, I>::CalcCommitStake3)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
 			pool.reward_weight = pool
 				.reward_weight
 				.checked_add(reward_weight_diff)
-				.ok_or(Error::<T, I>::CalcCommitStake4)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			pool.slash_weight = pool
 				.slash_weight
 				.checked_add(slash_weight_diff)
-				.ok_or(Error::<T, I>::CalcCommitStake5)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 
@@ -377,23 +377,23 @@ where
 
 		let weight_u256 = U256::from(amount.saturated_into::<u128>())
 			.checked_mul(U256::from(cooldown_period.saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcDelegateFor1)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-			.ok_or(Error::<T, I>::CalcDelegateFor2)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let weight = weight_u256;
 
 		let reward_debt_u256 = weight_u256
 			.checked_mul(DelegationPools::<T, I>::get(commitment_id).reward_per_token)
-			.ok_or(Error::<T, I>::CalcDelegateFor3)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-			.ok_or(Error::<T, I>::CalcDelegateFor4)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let reward_debt: BalanceFor<T, I> = reward_debt_u256.as_u128().into();
 
 		let slash_debt_u256 = weight_u256
 			.checked_mul(DelegationPools::<T, I>::get(commitment_id).slash_per_token)
-			.ok_or(Error::<T, I>::CalcDelegateFor5)?
+			.ok_or(Error::<T, I>::CalculationOverflow)?
 			.checked_div(U256::from(PER_TOKEN_DECIMALS))
-			.ok_or(Error::<T, I>::CalcDelegateFor6)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let slash_debt: BalanceFor<T, I> = slash_debt_u256.as_u128().into();
 
 		ensure!(
@@ -424,19 +424,23 @@ where
 
 		// UPDATE per pool weights and global TOTALS
 		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
-			pool.reward_weight =
-				pool.reward_weight.checked_add(weight).ok_or(Error::<T, I>::CalcDelegateFor7)?;
-			pool.slash_weight =
-				pool.slash_weight.checked_add(weight).ok_or(Error::<T, I>::CalcDelegateFor8)?;
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_add(weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			pool.slash_weight = pool
+				.slash_weight
+				.checked_add(weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 		// delegator_total += amount
 		<DelegatorTotal<T, I>>::try_mutate(who, |s| -> Result<(), Error<T, I>> {
-			*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalcDelegateFor9)?;
+			*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 		<TotalDelegated<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-			*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalcDelegateFor10)?;
+			*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 
@@ -464,7 +468,7 @@ where
 		let amount = old_delegation
 			.amount
 			.checked_add(&extra_amount)
-			.ok_or(Error::<T, I>::CalcDelegateMoreFor1)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		Self::end_delegation_for(who, commitment_id, false)?;
@@ -506,13 +510,13 @@ where
 		match change {
 			StakeChange::Add(amount) => {
 				<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-					*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalcUpdateTotalStake1)?;
+					*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok(())
 				})
 			},
 			StakeChange::Sub(amount, _) => {
 				<TotalStake<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-					*s = s.checked_sub(&amount).ok_or(Error::<T, I>::CalcUpdateTotalStake2)?;
+					*s = s.checked_sub(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok(())
 				})
 			},
@@ -532,10 +536,10 @@ where
 				|(total_amount, rewardable_amount)| -> Result<(BalanceFor<T, I>, BalanceFor<T, I>), Error<T, I>> {
 					*total_amount = total_amount
 						.checked_add(&amount)
-						.ok_or(Error::<T, I>::CalcUpdateCommitStake1)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					*rewardable_amount = rewardable_amount
 						.checked_add(&amount)
-						.ok_or(Error::<T, I>::CalcUpdateCommitStake2)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok((*total_amount, *rewardable_amount))
 				},
 			),
@@ -544,10 +548,10 @@ where
 				|(total_amount, rewardable_amount)| -> Result<(BalanceFor<T, I>, BalanceFor<T, I>), Error<T, I>> {
 					*total_amount = total_amount
 						.checked_sub(&diff)
-						.ok_or(Error::<T, I>::CalcUpdateCommitStake3)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					*rewardable_amount = rewardable_amount
 						.checked_sub(&rewardable_diff)
-						.ok_or(Error::<T, I>::CalcUpdateCommitStake4)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok((*total_amount, *rewardable_amount))
 				},
 			),
@@ -584,41 +588,41 @@ where
 			// reward_weight = metric * amount * cooldown / max_cooldown
 			let reward_weight = U256::from(metric.into_inner())
 				.checked_mul(U256::from(updated_rewardable_amount.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight1)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_mul(U256::from(commmitment_cooldown.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight2)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight3)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(FIXEDU128_DECIMALS))
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight4)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			let reward_debt = reward_weight
 				.checked_mul(StakingPools::<T, I>::get(pool_id).reward_per_token)
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight5)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight6)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			// Update pool weight based on difference between new and previous reward weight
 			if reward_weight >= prev_reward_weight {
 				let weight_diff = reward_weight
 					.checked_sub(prev_reward_weight)
-					.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight7)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				StakingPools::<T, I>::try_mutate(pool_id, |pool| {
 					pool.reward_weight = pool
 						.reward_weight
 						.checked_add(weight_diff)
-						.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight8)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok(())
 				})?;
 			} else {
 				let weight_diff = prev_reward_weight
 					.checked_sub(reward_weight)
-					.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight9)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				StakingPools::<T, I>::try_mutate(pool_id, |pool| {
 					pool.reward_weight = pool
 						.reward_weight
 						.checked_sub(weight_diff)
-						.ok_or(Error::<T, I>::CalcUpdateCommitPoolWeight10)?;
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					Ok(())
 				})?;
 			}
@@ -649,9 +653,9 @@ where
 			let reward_u256 = state
 				.reward_weight
 				.checked_mul(pool.reward_per_token)
-				.ok_or(Error::<T, I>::CalcAccrueCommit1)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcAccrueCommit2)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let reward_amount: BalanceFor<T, I> = reward_u256.as_u128().into();
 			let prev_reward_debt_balance: BalanceFor<T, I> = state.reward_debt.as_u128().into();
 			let reward = reward_amount.saturating_sub(prev_reward_debt_balance);
@@ -659,9 +663,9 @@ where
 			state.reward_debt = state
 				.reward_weight
 				.checked_mul(pool.reward_per_token)
-				.ok_or(Error::<T, I>::CalcAccrueCommit3)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcAccrueCommit4)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(reward)
 		})
 	}
@@ -676,7 +680,7 @@ where
 		let commission_amount = commission_rate.mul_floor(reward);
 		let delegator_reward = reward
 			.checked_sub(&commission_amount)
-			.ok_or(Error::<T, I>::CalcApplyCommission1)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		// Add commission to committer's accrued reward
 		if !commission_amount.is_zero() {
@@ -686,7 +690,7 @@ where
 				committer_stake.accrued_reward = committer_stake
 					.accrued_reward
 					.checked_add(&commission_amount)
-					.ok_or(Error::<T, I>::CalcApplyCommission2)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				Ok(())
 			})?;
 		}
@@ -707,21 +711,20 @@ where
 			let state = state_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
 			let reward_u256 = U256::from(state.reward_weight.saturated_into::<u128>())
 				.checked_mul(U256::from(pool.reward_per_token.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcAccrueDelegator1)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcAccrueDelegator2)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let reward: BalanceFor<T, I> = reward_u256.as_u128().into();
 			let reward = reward.saturating_sub(state.reward_debt);
 
 			let slash_u256 = U256::from(state.slash_weight.saturated_into::<u128>())
 				.checked_mul(U256::from(pool.slash_per_token.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcAccrueDelegator3)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcAccrueDelegator4)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash: BalanceFor<T, I> = slash_u256.as_u128().into();
-			let slash = slash
-				.checked_sub(&state.slash_debt)
-				.ok_or(Error::<T, I>::CalcAccrueDelegator5)?;
+			let slash =
+				slash.checked_sub(&state.slash_debt).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			// Apply commission and get the delegator's portion
 			let delegator_reward = Self::apply_commission(commitment_id, reward)?;
@@ -731,20 +734,22 @@ where
 				stake.accrued_reward = stake
 					.accrued_reward
 					.checked_add(&delegator_reward)
-					.ok_or(Error::<T, I>::CalcError1)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let reward_debt_u256 = U256::from(state.reward_weight.saturated_into::<u128>())
 					.checked_mul(U256::from(pool.reward_per_token.saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError2)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcError3)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				state.reward_debt = reward_debt_u256.as_u128().into();
-				stake.accrued_slash =
-					stake.accrued_slash.checked_add(&slash).ok_or(Error::<T, I>::CalcError4)?;
+				stake.accrued_slash = stake
+					.accrued_slash
+					.checked_add(&slash)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let slash_debt_u256 = U256::from(state.slash_weight.saturated_into::<u128>())
 					.checked_mul(U256::from(pool.slash_per_token.saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError5)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcError6)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				state.slash_debt = slash_debt_u256.as_u128().into();
 				Ok(())
 			})
@@ -765,37 +770,42 @@ where
 			let state = state_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 			let reward_u256 = U256::from(state.reward_weight.saturated_into::<u128>())
 				.checked_mul(U256::from(pool.reward_per_token.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcError7)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcError8)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let reward_amount: BalanceFor<T, I> = reward_u256.as_u128().into();
 			let reward = reward_amount.saturating_sub(state.reward_debt);
 			let slash_u256 = U256::from(state.slash_weight.saturated_into::<u128>())
 				.checked_mul(U256::from(pool.slash_per_token.saturated_into::<u128>()))
-				.ok_or(Error::<T, I>::CalcError9)?
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
-				.ok_or(Error::<T, I>::CalcError10)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash_amount: BalanceFor<T, I> = slash_u256.as_u128().into();
-			let slash =
-				slash_amount.checked_sub(&state.slash_debt).ok_or(Error::<T, I>::CalcError11)?;
+			let slash = slash_amount
+				.checked_sub(&state.slash_debt)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			Stakes::<T, I>::try_mutate(commitment_id, |staker_| {
 				let stake = staker_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-				stake.accrued_reward =
-					stake.accrued_reward.checked_add(&reward).ok_or(Error::<T, I>::CalcError12)?;
+				stake.accrued_reward = stake
+					.accrued_reward
+					.checked_add(&reward)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let reward_debt_u256 = U256::from(state.reward_weight.saturated_into::<u128>())
 					.checked_mul(U256::from(pool.reward_per_token.saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError13)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcError14)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				state.reward_debt = reward_debt_u256.as_u128().into();
-				stake.accrued_slash =
-					stake.accrued_slash.checked_add(&slash).ok_or(Error::<T, I>::CalcError15)?;
+				stake.accrued_slash = stake
+					.accrued_slash
+					.checked_add(&slash)
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let slash_debt_u256 = U256::from(state.slash_weight.saturated_into::<u128>())
 					.checked_mul(U256::from(pool.slash_per_token.saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError16)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcError17)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				state.slash_debt = slash_debt_u256.as_u128().into();
 				Ok(())
 			})
@@ -880,7 +890,7 @@ where
 		let amount_diff = stake
 			.amount
 			.checked_sub(&stake.rewardable_amount)
-			.ok_or(Error::<T, I>::CalcError18)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		let prev_d =
 			<SelfDelegation<T, I>>::get(commitment_id).ok_or(Error::<T, I>::InternalError)?;
@@ -888,12 +898,12 @@ where
 		let reward_weight_diff = prev_d
 			.reward_weight
 			.checked_sub(d.reward_weight)
-			.ok_or(Error::<T, I>::CalcError19)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
 			pool.reward_weight = pool
 				.reward_weight
 				.checked_sub(reward_weight_diff)
-				.ok_or(Error::<T, I>::CalcError20)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 
@@ -953,7 +963,7 @@ where
 		let amount_diff = stake
 			.amount
 			.checked_sub(&stake.rewardable_amount)
-			.ok_or(Error::<T, I>::CalcError21)?;
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		Self::update_commitment_stake(
 			commitment_id,
@@ -969,20 +979,20 @@ where
 				let prev_reward_weight = m.reward_weight;
 				let reward_weight = U256::from(stake.rewardable_amount.saturated_into::<u128>())
 					.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError22)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-					.ok_or(Error::<T, I>::CalcError23)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				m.reward_weight = reward_weight;
 
 				let reward_debt = reward_weight
 					.checked_mul(DelegationPools::<T, I>::get(commitment_id).reward_per_token)
-					.ok_or(Error::<T, I>::CalcError24)?
+					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalcError25)?;
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				m.reward_debt = reward_debt.as_u128().into();
 				prev_reward_weight
 					.checked_sub(m.reward_weight)
-					.ok_or(Error::<T, I>::CalcError26)
+					.ok_or(Error::<T, I>::CalculationOverflow)
 			},
 		)?;
 
@@ -991,7 +1001,7 @@ where
 			pool.reward_weight = pool
 				.reward_weight
 				.checked_sub(reward_weight_diff)
-				.ok_or(Error::<T, I>::CalcError27)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 
@@ -1148,20 +1158,20 @@ where
 			pool.reward_weight = pool
 				.reward_weight
 				.checked_sub(state.reward_weight)
-				.ok_or(Error::<T, I>::CalcError28)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			pool.slash_weight = pool
 				.slash_weight
 				.checked_sub(state.slash_weight)
-				.ok_or(Error::<T, I>::CalcError29)?;
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 		// delegator_total -= amount
 		<DelegatorTotal<T, I>>::try_mutate(who, |s| -> Result<(), Error<T, I>> {
-			*s = s.checked_sub(&stake.amount).ok_or(Error::<T, I>::CalcError30)?;
+			*s = s.checked_sub(&stake.amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 		<TotalDelegated<T, I>>::try_mutate(|s| -> Result<(), Error<T, I>> {
-			*s = s.checked_sub(&stake.amount).ok_or(Error::<T, I>::CalcError31)?;
+			*s = s.checked_sub(&stake.amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 			Ok(())
 		})?;
 

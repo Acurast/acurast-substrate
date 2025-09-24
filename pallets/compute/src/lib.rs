@@ -1080,26 +1080,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Force-unstakes a commitment, removing all delegations and the commitment's own stake.
-		///
-		/// This is a root-only operation that bypasses normal cooldown and validation checks.
-		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::force_end_commitment())]
-		pub fn force_end_commitment(
-			origin: OriginFor<T>,
-			committer: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			T::OperatorOrigin::ensure_origin(origin)?;
-
-			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
-
-			Self::force_end_commitment_for(commitment_id);
-
-			Commission::<T, I>::remove(commitment_id);
-
-			Ok(Pays::No.into())
-		}
-
 		/// Withdraws accrued rewards and slashes for a delegator.
 		///
 		/// The caller must be a delegator to the specified commitment.
@@ -1226,19 +1206,6 @@ pub mod pallet {
 			Self::compound_committer(&committer, commitment_id)?;
 
 			Ok(().into())
-		}
-
-		/// Clear all staking pool entries.
-		///
-		/// This is a root-only operation that removes all staking pool data.
-		#[pallet::call_index(23)]
-		#[pallet::weight(T::WeightInfo::force_clear_staking_pools())]
-		pub fn force_clear_staking_pools(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			T::OperatorOrigin::ensure_origin(origin)?;
-
-			let _ = StakingPools::<T, I>::clear(u32::MAX, None);
-
-			Ok(Pays::No.into())
 		}
 	}
 

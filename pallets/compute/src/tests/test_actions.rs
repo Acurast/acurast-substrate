@@ -32,9 +32,13 @@ pub enum Action {
 		committer: String,
 		stake: u128,
 		cooldown: u64,
-		metrics: Vec<(u8, u128, u128)>,
+		metrics: Vec<(u8, u128, u128)>, // (pool_id, numerator, denominator)
 		commission: Perbill,
-	}, // (pool_id, numerator, denominator)
+	},
+	StakeMore {
+		committer: String,
+		extra_amount: u128,
+	},
 	Reward {
 		amount: u128,
 	},
@@ -246,6 +250,11 @@ impl ComputeTestFlow {
 						committer, stake, cooldown
 					)
 				},
+				Action::StakeMore { committer, extra_amount } => {
+					let account = Self::name_to_account(committer);
+					Self::execute_stake_more(&account, *extra_amount);
+					format!("StakeMore(committer={}, extra_amount={})", committer, extra_amount)
+				},
 				Action::Reward { amount } => {
 					assert_ok!(Compute::reward(RuntimeOrigin::root(), *amount));
 					format!("Reward(amount={})", amount)
@@ -406,6 +415,10 @@ impl ComputeTestFlow {
 		pool_ids
 	}
 
+	fn execute_stake_more(committer: &AccountId32, extra_amount: u128) {
+		assert_ok!(Compute::stake_more(RuntimeOrigin::signed(committer.clone()), extra_amount,));
+	}
+
 	fn execute_delegate(
 		delegator: &AccountId32,
 		committer: &AccountId32,
@@ -422,7 +435,17 @@ impl ComputeTestFlow {
 	}
 
 	fn execute_cooldown_compute_commitment(who: &AccountId32) {
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&who).unwrap();
+		let prev_stake = Compute::stakes(commitment_id).unwrap();
+		let prev_self_delegation = Compute::self_delegation(commitment_id).unwrap();
+
 		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(who.clone())));
+		let after_stake = Compute::stakes(commitment_id).unwrap();
+		let after_self_delegation = Compute::self_delegation(commitment_id).unwrap();
+
+		assert!(after_stake.rewardable_amount < prev_stake.rewardable_amount);
+		assert!(after_self_delegation.reward_weight < prev_self_delegation.reward_weight);
 	}
 
 	fn execute_cooldown_delegation(delegator: &AccountId32, committer: &AccountId32) {

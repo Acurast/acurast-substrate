@@ -289,26 +289,25 @@ where
 		let commitment_id = T::CommitmentIdProvider::commitment_id_for(who)
 			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
 
+		Self::accrue_committer(commitment_id)?;
+
 		let stake = <Stakes<T, I>>::try_mutate(
 			commitment_id,
 			|stake_| -> Result<StakeFor<T, I>, Error<T, I>> {
 				let stake = stake_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 				ensure!(stake.cooldown_started.is_none(), Error::<T, I>::CommitmentInCooldown);
-				let prev_amount = stake.amount;
-				let amount = prev_amount
+				stake.amount = stake
+					.amount
 					.checked_add(&extra_amount)
 					.ok_or(Error::<T, I>::CalcCommitStake1)?;
+				stake.rewardable_amount = stake.amount;
 
 				// locking is on accounts (while all other storage points are relative to `commitment_id`)
-				Self::lock_funds(who, amount, LockReason::Staking)?;
-
-				stake.amount = amount;
+				Self::lock_funds(who, stake.amount, LockReason::Staking)?;
 
 				Ok(stake.clone())
 			},
 		)?;
-
-		Self::distribute_down(commitment_id)?;
 
 		let prev_d = <SelfDelegation<T, I>>::get(commitment_id).unwrap_or_default();
 		let d = Self::update_self_delegation(commitment_id)?;
@@ -1094,7 +1093,7 @@ where
 									// inherit the committer's cooldown start
 									ensure!(
 										committer_cooldown_start
-											.saturating_add(committer_stake.cooldown_period)
+											.saturating_add(s.cooldown_period)
 											<= current_block,
 										Error::<T, I>::CooldownNotEnded
 									);

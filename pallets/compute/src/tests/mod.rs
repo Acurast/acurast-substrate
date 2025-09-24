@@ -271,6 +271,89 @@ fn test_compute_flow_1() {
 }
 
 #[test]
+fn test_compute_stake_more() {
+	ExtBuilder.build().execute_with(|| {
+		compute_test_flow(
+			&[30, 50, 20], // three pools matching original test
+			&[
+				("C", &["A", "B"]), // committer C with processors A, B
+			],
+			&[
+				&commit_actions()[..],
+				&[
+					Action::CommitCompute {
+						committer: "C".to_string(),
+						stake: 5 * UNIT,
+						cooldown: 36, // 1/3 of max
+						metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
+						commission: Perbill::from_percent(10),
+					}, // Maximal possible commitment value: 80% of average for pool 2
+					Action::Delegate {
+						delegator: "D".to_string(),
+						committer: "C".to_string(),
+						amount: 40 * UNIT,
+						cooldown: 36,
+					},
+					Action::Delegate {
+						delegator: "E".to_string(),
+						committer: "C".to_string(),
+						amount: 5 * UNIT,
+						cooldown: 36,
+					},
+					Action::Reward { amount: 10 * UNIT },
+					Action::StakeMore { committer: "C".to_string(), extra_amount: 10 * UNIT },
+					Action::CooldownComputeCommitment { committer: "C".to_string() },
+					Action::CooldownDelegation {
+						delegator: "D".to_string(),
+						committer: "C".to_string(),
+					},
+					Action::CooldownDelegation {
+						delegator: "E".to_string(),
+						committer: "C".to_string(),
+					},
+					Action::RollToBlock {
+						block_number: 400, // Advance past cooldown period (started at 302, +36 blocks + buffer)
+						expected_cycle: Cycle {
+							epoch: 3,
+							epoch_start: 302,
+							era: 1,
+							era_start: 302,
+						},
+					},
+					Action::EndComputeCommitment {
+						committer: "C".to_string(),
+						expected_reward: 950 * MILLIUNIT,
+					},
+					// D committed 40 for 1/3 of max cooldown
+					// vs E committed 5 for 1/3 of max cooldown
+					// That makes D get 40/45 of delegators' total payout
+					//
+					// NOTE: committer has equal 1/3 of max cooldown so equal weight as delegators from this perspective
+					// total delegator payout = 10 [single reward] * 0.5 [metric commitment] * 1/1 [cooldown ratio] * 45/(45 + 5) [delegator vs total commitment stake] * 0.9 [commission]
+					//                        = 4.05
+					//
+					// Delegator D's payout = 4.05 * 40/45
+					//                      = 3.6
+					Action::EndDelegation {
+						delegator: "D".to_string(),
+						committer: "C".to_string(),
+						expected_reward: 3_600 * MILLIUNIT,
+					},
+					// Delegator D's payout = 4.05 * 5/45
+					//                      = 0.45
+					Action::EndDelegation {
+						delegator: "E".to_string(),
+						committer: "C".to_string(),
+						expected_reward: 450_000_000_000,
+					},
+				][..],
+			]
+			.concat(),
+		);
+	});
+}
+
+#[test]
 fn test_compute_flow_varied_cooldown() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(

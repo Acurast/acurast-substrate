@@ -1,14 +1,14 @@
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	assert_ok,
+	pallet_prelude::One,
 	sp_runtime::{
 		traits::{IdentifyAccount, Verify},
 		DispatchError, Perquintill,
 	},
 	traits::{Currency, IsType},
-    pallet_prelude::One,
 };
-use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_core::*;
 use sp_std::prelude::*;
 

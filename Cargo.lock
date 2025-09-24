@@ -7703,6 +7703,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "jsonrpsee 0.16.3",
  "log",
+ "pallet-acurast-processor-manager",
  "pallet-balances",
  "pallet-timestamp",
  "pallet-uniques",

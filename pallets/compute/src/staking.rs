@@ -1092,8 +1092,7 @@ where
 								(Some(committer_cooldown_start), None) => {
 									// inherit the committer's cooldown start
 									ensure!(
-										committer_cooldown_start
-											.saturating_add(s.cooldown_period)
+										committer_cooldown_start.saturating_add(s.cooldown_period)
 											<= current_block,
 										Error::<T, I>::CooldownNotEnded
 									);

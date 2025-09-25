@@ -38,7 +38,7 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B
+	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(1);
 }
 

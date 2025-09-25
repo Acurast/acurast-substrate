@@ -11,7 +11,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
 	Perquintill, SaturatedConversion,
 };
-use sp_std::vec::Vec;
 
 use crate::types::PER_TOKEN_DECIMALS;
 use crate::*;

@@ -1,14 +1,16 @@
 //! Benchmarking setup for pallet-acurast-compute
 
 use frame_benchmarking::{benchmarks_instance_pallet, whitelist_account};
-use frame_support::{assert_ok, traits::IsType};
+use frame_support::{
+	assert_ok,
+	traits::{Hooks, IsType},
+};
 use sp_runtime::{
 	traits::{IdentifyAccount, StaticLookup, Verify},
 	AccountId32, FixedU128, Perquintill,
 };
 
-use frame_system::pallet_prelude::BlockNumberFor;
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use sp_core::*;
 use sp_std::prelude::*;
 
@@ -48,6 +50,20 @@ fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
 	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
+pub fn roll_to_block<T: Config<I>, I: 'static>(block_number: BlockNumberFor<T>)
+where
+	BlockNumberFor<T>: IsType<u32>,
+	BalanceFor<T, I>: From<u128>,
+{
+	let current_block: u32 = System::<T>::block_number().into();
+	let start: u32 = current_block + 1;
+	let end: u32 = block_number.into();
+	for block in start..=end {
+		System::<T>::set_block_number(block.into());
+		Compute::<T, I>::on_initialize(block.into());
+	}
+}
+
 fn set_timestamp<T: pallet_timestamp::Config>(timestamp: u32) {
 	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
 }
@@ -56,7 +72,7 @@ benchmarks_instance_pallet! {
 	where_clause {
 		where
 		T: Config<I> + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config,
-		BlockNumberFor<T>: From<u32>,
+		BlockNumberFor<T>: IsType<u32>,
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32> + From<[u8; 32]>,
 		BalanceFor<T, I>: IsType<u128>,
@@ -67,7 +83,7 @@ benchmarks_instance_pallet! {
 	create_pool {
 		let x in 0 .. CONFIG_VALUES_MAX_LENGTH;
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
@@ -80,7 +96,7 @@ benchmarks_instance_pallet! {
 
 	modify_pool_same_config {
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -104,7 +120,7 @@ benchmarks_instance_pallet! {
 	modify_pool_replace_config {
 		let x in 0 .. CONFIG_VALUES_MAX_LENGTH;
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -136,7 +152,7 @@ benchmarks_instance_pallet! {
 	modify_pool_update_config {
 		let x in 0 .. CONFIG_VALUES_MAX_LENGTH;
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -174,7 +190,7 @@ benchmarks_instance_pallet! {
 
 	offer_backing {
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = alice_account_id().into();
 		let committer: T::AccountId = bob_account_id().into();
@@ -185,7 +201,7 @@ benchmarks_instance_pallet! {
 
 	withdraw_backing_offer {
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = alice_account_id().into();
 		let committer: T::AccountId = bob_account_id().into();
@@ -199,7 +215,7 @@ benchmarks_instance_pallet! {
 
 	accept_backing_offer {
 		set_timestamp::<T>(1000);
-		run_to_block::<T, I>(100u32.into());
+		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = alice_account_id().into();
 		let committer: T::AccountId = bob_account_id().into();

@@ -1,6 +1,9 @@
 use frame_benchmarking::{account, define_benchmarks};
-use frame_support::{assert_ok, traits::tokens::currency::Currency};
-use frame_system::RawOrigin;
+use frame_support::{
+	assert_ok,
+	traits::{tokens::currency::Currency, Hooks},
+};
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::Perquintill;
 #[cfg(not(feature = "std"))]
@@ -249,5 +252,9 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			stake_backed_ratio: Perquintill::from_percent(70),
 			distribution_account: Self::funded_account(1),
 		});
+	}
+
+	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
+		AcurastCompute::on_initialize(block_number);
 	}
 }

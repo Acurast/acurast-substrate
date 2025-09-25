@@ -15,7 +15,7 @@ use frame_support::{
 	},
 	traits::{Get, IsType},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use sp_std::prelude::*;
 
@@ -26,6 +26,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn attest_account(account: &T::AccountId);
 	fn create_compute_pool() -> PoolId;
 	fn setup_compute_settings();
+	fn on_initialize(block_number: BlockNumberFor<T>);
 }
 
 fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
@@ -44,6 +45,19 @@ where
 
 fn run_to_block<T: Config>(new_block: BlockNumberFor<T>) {
 	frame_system::Pallet::<T>::set_block_number(new_block);
+}
+
+pub fn roll_to_block<T: Config>(block_number: BlockNumberFor<T>)
+where
+	BlockNumberFor<T>: IsType<u32>,
+{
+	let current_block: u32 = System::<T>::block_number().into();
+	let start: u32 = current_block + 1;
+	let end: u32 = block_number.into();
+	for block in start..=end {
+		System::<T>::set_block_number(block.into());
+		T::BenchmarkHelper::on_initialize(block.into());
+	}
 }
 
 pub fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
@@ -87,6 +101,7 @@ benchmarks! {
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32> + From<[u8; 32]>,
 		BalanceFor<T>: IsType<u128>,
+		BlockNumberFor<T>: IsType<u32>,
 		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 	}
 
@@ -156,7 +171,7 @@ benchmarks! {
 			caller.clone(),
 			RewardDistributionWindow::new(0, &distribution_settings),
 		);
-		run_to_block::<T>(100u32.into());
+		roll_to_block::<T>(100u32.into());
 		Pallet::<T>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(distribution_settings))?;
 		let update = generate_pairing_update_add::<T>(0);
 		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
@@ -176,11 +191,10 @@ benchmarks! {
 		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
 
 		// make sure warmup of 1800 block passed
-		run_to_block::<T>(1900u32.into());
+		roll_to_block::<T>(1901u32.into());
 		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
 
-		// make sure claim is performed by moving to next epoch, 900 blocks later
-		run_to_block::<T>(2700u32.into());
+		roll_to_block::<T>(2701u32.into());
 	}: _(RawOrigin::Signed(caller), version)
 
 	heartbeat_with_metrics {
@@ -201,7 +215,7 @@ benchmarks! {
 			caller.clone(),
 			RewardDistributionWindow::new(0, &distribution_settings),
 		);
-		run_to_block::<T>(100u32.into());
+		roll_to_block::<T>(100u32.into());
 		Pallet::<T>::update_reward_distribution_settings(RawOrigin::Root.into(), Some(distribution_settings))?;
 		let update = generate_pairing_update_add::<T>(0);
 		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
@@ -221,11 +235,11 @@ benchmarks! {
 		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
 
 		// make sure warmup of 1800 block passed
-		run_to_block::<T>(1900u32.into());
+		roll_to_block::<T>(1901u32.into());
 		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
 
-		// make sure claim is performed by moving to next epoch, 900 blocks later
-		run_to_block::<T>(2700u32.into());
+		// make sure warmup of 1800 block passed
+		roll_to_block::<T>(2701u32.into());
 	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
 	update_binary_hash {

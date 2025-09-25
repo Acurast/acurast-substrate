@@ -3,6 +3,7 @@ use core::ops::Add;
 use acurast_common::PoolId;
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_core::U256;
 use sp_runtime::{
 	traits::{Debug, One, Saturating, Zero},
 	FixedU128, Perquintill,
@@ -23,6 +24,8 @@ pub type ProcessorStatusFor<T> = ProcessorStatus<BlockNumberFor<T>>;
 pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
+/// Precision constant for U256 calculations (10^30)
+pub const PER_TOKEN_DECIMALS: u128 = 1_000_000_000_000_000_000_000_000_000_000;
 pub type MetricPoolConfigValues =
 	BoundedVec<MetricPoolConfigValue, ConstU32<CONFIG_VALUES_MAX_LENGTH>>;
 
@@ -37,10 +40,7 @@ pub type MetricPoolName = [u8; 24];
 pub type MetricPoolConfigName = [u8; 24];
 
 pub type StakeFor<T, I> = Stake<BalanceFor<T, I>, BlockNumberFor<T>>;
-pub type StakingPoolMemberFor<T, I> = StakingPoolMember<BalanceFor<T, I>>;
 pub type DelegationPoolMemberFor<T, I> = DelegationPoolMember<BalanceFor<T, I>>;
-pub type StakingPoolFor<T, I> = StakingPool<BalanceFor<T, I>>;
-pub type DelegationPoolFor<T, I> = DelegationPool<BalanceFor<T, I>>;
 
 #[derive(
 	RuntimeDebug,
@@ -260,6 +260,8 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	pub amount: Balance,
 	/// The rewardable_amount amount, used to separate the reduced amount in cooldown from original amount. It always holds [`Self::rewardable_amount`] <= [`Self::amount`].
 	pub rewardable_amount: Balance,
+	/// The block number when the stake was created.
+	pub created: BlockNumber,
 	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
 	///
 	/// Cooldown has to be multiple of era length, but is stored in blocks to ensure era length could be adapted.
@@ -286,10 +288,16 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 }
 
 impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumber> {
-	pub fn new(amount: Balance, cooldown_period: BlockNumber, allow_auto_compound: bool) -> Self {
+	pub fn new(
+		amount: Balance,
+		created: BlockNumber,
+		cooldown_period: BlockNumber,
+		allow_auto_compound: bool,
+	) -> Self {
 		Self {
 			amount,
 			rewardable_amount: amount,
+			created,
 			cooldown_period,
 			cooldown_started: None,
 			accrued_reward: Zero::zero(),
@@ -303,20 +311,22 @@ impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumbe
 
 /// The state for delegation pool members, taking part in (self-)delegation.
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct StakingPoolMember<Balance: Debug> {
+pub struct StakingPoolMember {
 	/// The weight for rewardability, i.e. balance weighted by one or several factors.
-	pub reward_weight: Balance,
+	pub reward_weight: U256,
 	/// The weighted reward debt before this staker joined a pool.
-	pub reward_debt: Balance,
+	pub reward_debt: U256,
 }
 
 /// The state for delegation pool members, taking part in (self-)delegation.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct DelegationPoolMember<Balance: Debug> {
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct DelegationPoolMember<Balance: Debug + Default> {
 	/// The weight for rewardability, i.e. balance weighted by one or several factors.
-	pub reward_weight: Balance,
+	pub reward_weight: U256,
 	/// The weight for slashability, i.e. balance weighted by one or several factors.
-	pub slash_weight: Balance,
+	pub slash_weight: U256,
 	/// The weighted reward debt before this staker joined a pool.
 	pub reward_debt: Balance,
 	/// The weighted slash debt before this staker joined a pool.
@@ -326,19 +336,19 @@ pub struct DelegationPoolMember<Balance: Debug> {
 #[derive(
 	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
 )]
-pub struct StakingPool<Balance: Debug + Default> {
-	pub reward_weight: Balance,
-	pub reward_per_token: Balance,
+pub struct StakingPool {
+	pub reward_weight: U256,
+	pub reward_per_token: U256,
 }
 
 #[derive(
 	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
 )]
-pub struct DelegationPool<Balance: Debug + Default> {
-	pub reward_weight: Balance,
-	pub slash_weight: Balance,
-	pub reward_per_token: Balance,
-	pub slash_per_token: Balance,
+pub struct DelegationPool {
+	pub reward_weight: U256,
+	pub slash_weight: U256,
+	pub reward_per_token: U256,
+	pub slash_per_token: U256,
 }
 
 #[derive(Clone, PartialEq, Eq)]

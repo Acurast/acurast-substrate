@@ -19,8 +19,10 @@ pub mod weights;
 pub mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub use benchmarking::BenchmarkHelper;
+pub use benchmarking::{processor_pairing, BenchmarkHelper};
 pub use pallet::*;
+#[cfg(feature = "runtime-benchmarks")]
+pub use stub::generate_account;
 pub use traits::*;
 pub use types::*;
 

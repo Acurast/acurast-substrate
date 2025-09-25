@@ -1,8 +1,3 @@
-use acurast_runtime_common::{
-	constants::{MICROUNIT, MILLIUNIT, UNIT},
-	types::{AccountId, Balance, BlockNumber},
-	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-};
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
 	ord_parameter_types, pallet_prelude::DispatchClass, parameter_types,
@@ -13,6 +8,12 @@ use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
+
+use acurast_runtime_common::{
+	constants::{HOURS, MICROUNIT, MILLIUNIT, UNIT},
+	types::{AccountId, Balance, BlockNumber},
+	weight::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
 
 use crate::{apis::RUNTIME_API_VERSIONS, deposit, RuntimeHoldReason};
 
@@ -27,23 +28,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	system_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 // Provide a common factor between runtimes based on a supply of 1_000_000_000_000 tokens == 1 UNIT.
 pub const SUPPLY_FACTOR: Balance = 1;
@@ -154,26 +138,30 @@ parameter_types! {
 	pub HyperdriveTokenEthereumVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
 	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
 	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptvsol").into_account_truncating();
+	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.mainnet";
 	pub const LitePackageName: &'static [u8] = b"com.acurast.attested.executor.sbs.mainnet";
+	pub const CorePackageNameCanary: &'static [u8] = b"com.acurast.attested.executor.canary";
+	pub const LitePackageNameCanary: &'static [u8] = b"com.acurast.attested.executor.sbs.canary";
 	pub const BundleId: &'static [u8] = b"GV2452922R.com.acurast.executor";
 	pub const CoreSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
 	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
 	pub const LiteSolSignatureDigest: &'static [u8] = hex_literal::hex!("e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc").as_slice();
-	pub PackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), LitePackageName::get()];
+	pub PackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), LitePackageName::get(), CorePackageNameCanary::get(), LitePackageNameCanary::get()];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
-	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageName::get()];
-	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageName::get()];
+	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageName::get(), LitePackageNameCanary::get()];
+	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), CorePackageNameCanary::get()];
 	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];
 	pub const ReportTolerance: u64 = 120_000;
 
 	pub const ManagerCollectionId: u128 = 0;
+	pub const CommitmentCollectionId: u128 = 1;
 
 	/// The acurast contract on the aleph zero network
 	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
@@ -208,9 +196,5 @@ parameter_types! {
 
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
-
 	pub const Admin: AccountId = ADMIN_ACCOUNT_ID;
-
-	pub const CouncilAccountId: AccountId = ADMIN_ACCOUNT_ID;
-	pub const TechCommitteeAccountId: AccountId = ADMIN_ACCOUNT_ID;
 }

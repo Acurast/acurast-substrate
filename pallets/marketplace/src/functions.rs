@@ -1,16 +1,19 @@
-use frame_support::{ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError};
+use frame_support::{
+	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
+};
 use pallet_acurast::{
-	utils::ensure_source_verified, AccountLookup, JobId, JobRegistrationFor, StoredJobRegistration,
+	utils::ensure_source_verified, AccountLookup, IsFundableCall, JobId, JobRegistrationFor,
+	StoredJobRegistration,
 };
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
 use sp_std::prelude::*;
 
 use crate::{
-	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Config, Error,
-	ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager, StorageTracker,
-	StoredAdvertisementPricing, StoredAdvertisementRestriction, StoredAverageRewardV3,
-	StoredMatches, StoredReputation, StoredStorageCapacity,
+	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Call, Config,
+	Error, ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager,
+	StorageTracker, StoredAdvertisementPricing, StoredAdvertisementRestriction,
+	StoredAverageRewardV3, StoredMatches, StoredReputation, StoredStorageCapacity,
 };
 
 impl<T: Config> Pallet<T> {
@@ -125,16 +128,12 @@ impl<T: Config> Pallet<T> {
 		<NextReportIndex<T>>::try_mutate_exists(job_id, processor, |value| {
 			let mut missing_reports = 0;
 			let mut expected_report_index = (*value).unwrap_or(execution_index);
-			let is_report_timely = Self::check_report_is_timely(
-				&registration,
-				&assignment,
-				now,
-				expected_report_index,
-			)
-			.is_ok();
+			let is_report_timely =
+				Self::check_report_is_timely(registration, assignment, now, expected_report_index)
+					.is_ok();
 
 			if !is_report_timely && expected_report_index != execution_index {
-				Self::check_report_is_timely(&registration, &assignment, now, execution_index)?;
+				Self::check_report_is_timely(registration, assignment, now, execution_index)?;
 				missing_reports = execution_index.saturating_sub(expected_report_index);
 				expected_report_index = execution_index;
 			}
@@ -251,7 +250,7 @@ impl<T: Config> Pallet<T> {
 		processor: &T::AccountId,
 		job_id: &JobId<T::AccountId>,
 	) -> DispatchResult {
-		if let Some(assignment) = <StoredMatches<T>>::get(processor, &job_id) {
+		if let Some(assignment) = <StoredMatches<T>>::get(processor, job_id) {
 			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
 				let now = Self::now()?;
 				let job_end_time =
@@ -267,5 +266,24 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		Ok(())
+	}
+}
+
+impl<T: Config> IsFundableCall<T::RuntimeCall> for Pallet<T>
+where
+	T::RuntimeCall: IsSubType<Call<T>>,
+{
+	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
+		let Some(call) = T::RuntimeCall::is_sub_type(call) else {
+			return false;
+		};
+		matches!(
+			call,
+			Call::advertise { .. }
+				| Call::acknowledge_match { .. }
+				| Call::acknowledge_execution_match { .. }
+				| Call::report { .. }
+				| Call::cleanup_assignments { .. }
+		)
 	}
 }

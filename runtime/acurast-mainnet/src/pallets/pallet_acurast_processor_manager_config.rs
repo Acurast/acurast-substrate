@@ -3,17 +3,18 @@ use frame_support::traits::{
 	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 	tokens::{Fortitude, Precision, Preservation},
 };
+use frame_system::EnsureSignedBy;
 use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
 use acurast_runtime_common::{types::Signature, weight};
-use pallet_acurast::ElegibleRewardAccountLookup;
+use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balances,
-	ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent, Uniques,
+	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Admin, Balances,
+	ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent, RuntimeHoldReason, Uniques,
 };
 
 impl pallet_acurast_processor_manager::Config for Runtime {
@@ -31,13 +32,18 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
 	type AdvertisementHandler = AdvertisementHandlerImpl;
 	type Currency = Balances;
-	type EligibleRewardAccountLookup = ElegibleRewardAccountLookup<
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,
 	>;
+	type AttestationHandler = Acurast;
+	type UpdateOrigin = EnsureSignedBy<Admin, Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
+	type ExtensionWeightInfo =
+		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }

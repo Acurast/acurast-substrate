@@ -1,5 +1,4 @@
 # Acurast
-## 🚧🚧🚧 The project is still a work in progress 🚧🚧🚧
 
 Acurast Substrate is a [Cumulus](https://github.com/paritytech/cumulus/)-based parachain. The [Cumulus Parachain Template](https://github.com/paritytech/cumulus/tree/master/parachain-template) was used as the base for the node and runtime implementation.
 
@@ -32,7 +31,7 @@ make build-release
 ### Build for Kusama
 
 ```sh
-cargo build --no-default-features --features "std" --release
+cargo build --no-default-features --features "acurast-kusama,std" --release
 
 # or
 

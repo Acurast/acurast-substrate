@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 parity-scale-codec = { workspace = true }
 sp-core = { workspace = true }
 
-acurast-common = { path = "../acurast/common", default-features = false }
+acurast-common = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -45,6 +45,9 @@ serde = { version = "1.0.188", features = [
 thiserror = { version = "1.0", optional = true }
 log = { workspace = true }
 
+# benchmarks
+pallet-acurast-processor-manager = { workspace = true, optional = true }
+
 [dev-dependencies]
 sp-io = { workspace = true, features = ["std"] }
 sp-core = { workspace = true, features = ["std"] }
@@ -53,6 +56,7 @@ pallet-uniques = { workspace = true, features = ["std"] }
 pallet-timestamp = { workspace = true, features = ["std"] }
 hex-literal = { version = "0.4" }
 serde_json = "1.0.85"
+pallet-acurast-processor-manager = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
@@ -80,6 +84,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+    "pallet-acurast-processor-manager/runtime-benchmarks",
 	"hex-literal",
 ]
 try-runtime = ["frame-support/try-runtime"]

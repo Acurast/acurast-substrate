@@ -4,7 +4,7 @@ use frame_support::{
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::{MetricInput, Version};
+use crate::{Attestation, AttestationChain, MetricInput, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -16,6 +16,12 @@ pub trait ManagerIdProvider<AccountId, ManagerId> {
 	fn create_manager_id(id: ManagerId, owner: &AccountId) -> DispatchResult;
 	fn manager_id_for(owner: &AccountId) -> Result<ManagerId, DispatchError>;
 	fn owner_for(manager_id: ManagerId) -> Result<AccountId, DispatchError>;
+}
+
+pub trait CommitmentIdProvider<AccountId, CommitmentId> {
+	fn create_commitment_id(id: CommitmentId, owner: &AccountId) -> DispatchResult;
+	fn commitment_id_for(owner: &AccountId) -> Result<CommitmentId, DispatchError>;
+	fn owner_for(commitment_id: CommitmentId) -> Result<AccountId, DispatchError>;
 }
 
 /// A trait to describe hooks the `pallet_acruast_compute` provides.
@@ -51,4 +57,19 @@ pub trait EnsureAttested<AccountId> {
 
 pub trait AccountLookup<AccountId> {
 	fn lookup(processor: &AccountId) -> Option<AccountId>;
+}
+
+pub trait AttestationValidator<AccountId> {
+	fn validate(
+		attestation_chain: &AttestationChain,
+		account: &AccountId,
+	) -> Result<Attestation, DispatchError>;
+	fn validate_and_store(
+		attestation_chain: AttestationChain,
+		account: AccountId,
+	) -> DispatchResult;
+}
+
+pub trait IsFundableCall<Call> {
+	fn is_fundable_call(call: &Call) -> bool;
 }

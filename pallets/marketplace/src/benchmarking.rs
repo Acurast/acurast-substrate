@@ -1,13 +1,14 @@
 use frame_benchmarking::{benchmarks, whitelist_account};
 use frame_support::{
 	assert_ok,
+	pallet_prelude::One,
 	sp_runtime::{
 		traits::{IdentifyAccount, Verify},
 		DispatchError, Perquintill,
 	},
 	traits::{Currency, IsType},
 };
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_core::*;
 use sp_std::prelude::*;
 
@@ -185,41 +186,51 @@ where
 	(caller, job)
 }
 
-fn setup_pools<T: pallet_acurast_compute::Config>() {
+fn setup_pools<T: pallet_acurast_compute::Config>()
+where
+	BlockNumberFor<T>: One,
+	BalanceFor<T>: From<u128>,
+{
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 }
@@ -513,6 +524,7 @@ benchmarks! {
 		T: pallet_acurast::Config + pallet_balances::Config + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config + pallet_acurast_compute::Config,
 		<T as frame_system::Config>::AccountId: IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		BalanceFor<T>: IsType<u128>,
+		BlockNumberFor<T>: One,
 	}
 
 	advertise {
@@ -521,8 +533,8 @@ benchmarks! {
 		let (caller, ad) = advertise_helper::<T>(0, false);
 	}: _(RawOrigin::Signed(caller.clone()), ad.clone())
 	verify {
-		assert_last_event::<T>(Event::AdvertisementStored(
-			ad, caller
+		assert_last_event::<T>(Event::AdvertisementStoredV2(
+			caller
 		).into());
 	}
 

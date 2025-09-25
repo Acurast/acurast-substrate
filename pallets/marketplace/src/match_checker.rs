@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
-			Self::deposit_event(Event::JobRegistrationMatched(m.clone()));
+			Self::deposit_event(Event::JobRegistrationMatchedV2(m.job_id.clone()));
 		}
 		Ok(remaining_rewards)
 	}
@@ -473,7 +473,7 @@ impl<T: Config> Pallet<T> {
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
 			<StoredJobExecutionStatus<T>>::insert(&m.job_id, m.execution_index, JobStatus::Matched);
 
-			Self::deposit_event(Event::JobExecutionMatched(m.clone()));
+			Self::deposit_event(Event::JobExecutionMatchedV2(m.job_id.clone()));
 		}
 		Ok(remaining_rewards)
 	}
@@ -1048,7 +1048,7 @@ impl<T: Config> Pallet<T> {
 			// activate hook so implementing side can react on job assignment
 			T::MarketplaceHooks::assign_job(&job_id, &assignment.pub_keys)?;
 
-			Self::deposit_event(Event::JobRegistrationAssigned(job_id, who, assignment.clone()));
+			Self::deposit_event(Event::JobRegistrationAssignedV2(job_id, who));
 		}
 		Ok(().into())
 	}
@@ -1061,7 +1061,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(bool, AssignmentFor<T>), DispatchError> {
 		Ok(<StoredMatches<T>>::try_mutate(
 			processor,
-			&job_id,
+			job_id,
 			|m| -> Result<(bool, AssignmentFor<T>), Error<T>> {
 				// CHECK that job was matched previously to calling source
 				let assignment = m.as_mut().ok_or(Error::<T>::CannotAcknowledgeWhenNotMatched)?;
@@ -1103,7 +1103,7 @@ impl<T: Config> Pallet<T> {
 			},
 			ExecutionSpecifier::Index(execution_index) => {
 				let new_status = <StoredJobExecutionStatus<T>>::try_mutate(
-					&job_id,
+					job_id,
 					execution_index,
 					|status| -> Result<JobStatus, Error<T>> {
 						*status = match status {
@@ -1130,7 +1130,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), DispatchError> {
 		match execution {
 			ExecutionSpecifier::All => {
-				<NextReportIndex<T>>::insert(&job_id, processor, 0);
+				<NextReportIndex<T>>::insert(job_id, processor, 0);
 				Ok::<_, DispatchError>(())
 			},
 			ExecutionSpecifier::Index(execution_index) => {

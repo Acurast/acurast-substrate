@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use frame_support::{assert_err, assert_ok, BoundedVec};
 use hex_literal::hex;
 use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};

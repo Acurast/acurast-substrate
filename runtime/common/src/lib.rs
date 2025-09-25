@@ -7,7 +7,8 @@ pub mod check_nonce;
 pub mod types;
 pub mod utils;
 pub mod weight;
-pub mod weights;
+
+extern crate alloc;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats

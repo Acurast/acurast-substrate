@@ -17,7 +17,7 @@ use frame_support::traits::ValidatorRegistration;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{IsType, StorageVersion, ValidatorRegistration},
+		traits::{EnsureOrigin, IsType, StorageVersion, ValidatorRegistration},
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
@@ -33,6 +33,7 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TryFrom<Self::AccountId>;
 		type ValidatorRegistration: ValidatorRegistration<Self::ValidatorId>;
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -63,7 +64,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			candidate: T::ValidatorId,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::UpdateOrigin::ensure_origin(origin)?;
 			<CandidatePreselectionList<T>>::insert(&candidate, ());
 			Self::deposit_event(Event::CandidateAdded(candidate));
 			Ok(().into())
@@ -75,7 +76,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			candidate: T::ValidatorId,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::UpdateOrigin::ensure_origin(origin)?;
 			<CandidatePreselectionList<T>>::remove(&candidate);
 			Self::deposit_event(Event::CandidateRemoved(candidate));
 			Ok(().into())

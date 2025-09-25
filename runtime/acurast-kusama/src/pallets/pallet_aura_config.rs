@@ -1,7 +1,8 @@
-use acurast_runtime_common::types::AuraId;
 use sp_core::{ConstBool, ConstU64};
 
-use crate::{MaxAuthorities, Runtime, SLOT_DURATION};
+use acurast_runtime_common::{constants::SLOT_DURATION, types::AuraId};
+
+use crate::{MaxAuthorities, Runtime};
 
 /// Runtime configuration for pallet_aura.
 impl pallet_aura::Config for Runtime {

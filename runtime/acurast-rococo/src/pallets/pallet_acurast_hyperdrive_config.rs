@@ -2,9 +2,10 @@ use core::marker::PhantomData;
 
 use acurast_runtime_common::{
 	types::{AccountId, Balance},
-	weight, weights,
+	weight,
 };
 use frame_support::{instances::Instance1, pallet_prelude::DispatchResultWithPostInfo};
+use frame_system::EnsureRoot;
 use pallet_acurast_hyperdrive::ParsedAction;
 use pallet_acurast_hyperdrive_ibc::{LayerFor, MessageBody, SubjectFor};
 use polkadot_core_primitives::BlakeTwo256;
@@ -15,7 +16,8 @@ use crate::{
 	HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount,
 	HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault, IncomingTTL,
 	MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
-	OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason, VaraContract,
+	OperationalFeeAccount, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
+	VaraContract,
 };
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -27,6 +29,7 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type AlephZeroContractSelector = AlephZeroContractSelector;
 	type VaraContract = VaraContract;
 	type Balance = Balance;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
@@ -40,7 +43,8 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
-	type WeightInfo = weights::HyperdriveWeight;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc_weights::HyperdriveWeight;
 }
 
 impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
@@ -54,8 +58,10 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
+	type OperationalFeeAccount = OperationalFeeAccount;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
-
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_hyperdrive_token::WeightInfo<Runtime>;
 }
 

@@ -1,7 +1,15 @@
-use acurast_runtime_common::types::{ExtraFor, Signature};
 use frame_benchmarking::{account, define_benchmarks};
-use frame_support::{assert_ok, traits::tokens::currency::Currency};
-use frame_system::RawOrigin;
+use frame_support::{
+	assert_ok,
+	traits::{tokens::currency::Currency, Hooks},
+};
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_core::crypto::UncheckedFrom;
+use sp_runtime::Perquintill;
+#[cfg(not(feature = "std"))]
+use sp_std::prelude::*;
+
+use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
@@ -12,10 +20,6 @@ use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSetti
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
-use sp_core::crypto::UncheckedFrom;
-use sp_runtime::Perquintill;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 use crate::{
 	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
@@ -31,6 +35,7 @@ define_benchmarks!(
 	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
+	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
 	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
@@ -48,7 +53,7 @@ fn create_funded_user(
 	let user = account(string, n, SEED);
 	Balances::make_free_balance_be(&user, amount);
 	let _ = Balances::issue(amount);
-	return user;
+	user
 }
 
 pub struct AcurastBenchmarkHelper;
@@ -104,36 +109,42 @@ fn setup_pools() {
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
 		Perquintill::from_percent(15),
+		None,
 		vec![].try_into().unwrap(),
 	));
 }
@@ -224,6 +235,7 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			RuntimeOrigin::root(),
 			name,
 			Perquintill::from_percent(25),
+			None,
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");
@@ -236,7 +248,13 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			(),
 		> {
 			total_reward_per_distribution: 12_500,
+			total_inflation_per_distribution: Perquintill::from_percent(5),
+			stake_backed_ratio: Perquintill::from_percent(70),
 			distribution_account: Self::funded_account(1),
 		});
+	}
+
+	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
+		AcurastCompute::on_initialize(block_number);
 	}
 }

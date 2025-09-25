@@ -27,7 +27,7 @@ pub mod pallet {
 				Mutate as MutateFungible,
 			},
 			tokens::{Fortitude, Precision, Restriction},
-			Get,
+			EnsureOrigin, Get,
 		},
 		transactional,
 	};
@@ -70,6 +70,8 @@ pub mod pallet {
 		type MessageIdHashing: Hash<Output = MessageId> + TypeInfo;
 
 		type MessageProcessor: MessageProcessor<Self::AccountId, Self::AccountId>;
+
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -175,7 +177,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			updates: OracleUpdates<T>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::UpdateOrigin::ensure_origin(origin)?;
 
 			// Process actions
 			let (added, updated, removed) =
@@ -183,22 +185,16 @@ pub mod pallet {
 					let (mut added, mut updated, mut removed) = acc;
 					match action {
 						OracleUpdate::Add(public, activity_window) => {
-							<OraclePublicKeys<T, I>>::set(
-								public.clone(),
-								Some(activity_window.clone()),
-							);
-							added.push((public.clone(), activity_window.clone()))
+							<OraclePublicKeys<T, I>>::set(*public, Some(activity_window.clone()));
+							added.push((*public, activity_window.clone()))
 						},
 						OracleUpdate::Update(account, activity_window) => {
-							<OraclePublicKeys<T, I>>::set(
-								account.clone(),
-								Some(activity_window.clone()),
-							);
-							updated.push((account.clone(), activity_window.clone()))
+							<OraclePublicKeys<T, I>>::set(*account, Some(activity_window.clone()));
+							updated.push((*account, activity_window.clone()))
 						},
 						OracleUpdate::Remove(account) => {
 							<OraclePublicKeys<T, I>>::remove(account);
-							removed.push(account.clone())
+							removed.push(*account)
 						},
 					}
 					(added, updated, removed)
@@ -253,7 +249,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let message = Self::outgoing_messages(&id).ok_or(Error::<T, I>::MessageNotFound)?;
+			let message = Self::outgoing_messages(id).ok_or(Error::<T, I>::MessageNotFound)?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
@@ -281,8 +277,8 @@ pub mod pallet {
 			Self::deposit_event(Event::MessageDelivered { id });
 
 			// clear
-			<OutgoingMessages<T, I>>::remove(&id);
-			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, &message.message.nonce);
+			<OutgoingMessages<T, I>>::remove(id);
+			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, message.message.nonce);
 
 			Ok(())
 		}
@@ -292,7 +288,7 @@ pub mod pallet {
 		pub fn remove_message(origin: OriginFor<T>, id: MessageId) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
-			let message = Self::outgoing_messages(&id).ok_or(Error::<T, I>::MessageNotFound)?;
+			let message = Self::outgoing_messages(id).ok_or(Error::<T, I>::MessageNotFound)?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
@@ -309,8 +305,8 @@ pub mod pallet {
 			Self::deposit_event(Event::MessageRemoved { id });
 
 			// clear
-			<OutgoingMessages<T, I>>::remove(&id);
-			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, &message.message.nonce);
+			<OutgoingMessages<T, I>>::remove(id);
+			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, message.message.nonce);
 
 			Ok(())
 		}
@@ -336,7 +332,7 @@ pub mod pallet {
 
 			let id = Self::message_id(&sender, nonce);
 			ensure!(
-				<IncomingMessages<T, I>>::get(&id).is_none(),
+				<IncomingMessages<T, I>>::get(id).is_none(),
 				Error::<T, I>::MessageAlreadyReceived
 			);
 
@@ -358,7 +354,7 @@ pub mod pallet {
 				relayer,
 			};
 			<IncomingMessages<T, I>>::insert(id, message_with_meta.clone());
-			<IncomingMessagesLookup<T, I>>::insert(&recipient, &id, ());
+			<IncomingMessagesLookup<T, I>>::insert(&recipient, id, ());
 
 			// don't fail extrinsic from here onwards
 			if let Err(e) = Self::process_message(message.clone()) {
@@ -387,12 +383,12 @@ pub mod pallet {
 			let l = ids.len();
 			let mut i = 0usize;
 			for id in ids.iter() {
-				if let Some(message) = <IncomingMessages<T, I>>::get(&id) {
-					<IncomingMessages<T, I>>::remove(&id);
+				if let Some(message) = <IncomingMessages<T, I>>::get(id) {
+					<IncomingMessages<T, I>>::remove(id);
 					if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
 						<IncomingMessagesLookup<T, I>>::remove(
 							&message.message.sender,
-							&message.message.nonce,
+							message.message.nonce,
 						);
 						i += 1;
 					}
@@ -434,7 +430,7 @@ pub mod pallet {
 			let mut valid = 0;
 			signatures.into_iter().try_for_each(
 				|(signature, public)| -> Result<(), Error<T, I>> {
-					match <OraclePublicKeys<T, I>>::get(&public) {
+					match <OraclePublicKeys<T, I>>::get(public) {
 						None => {
 							not_found.push((signature.0, public.0));
 						},
@@ -527,7 +523,7 @@ pub mod pallet {
 
 			// look for duplicates
 			let id = Self::message_id(&sender, nonce);
-			if let Some(message) = Self::outgoing_messages(&id) {
+			if let Some(message) = Self::outgoing_messages(id) {
 				// potential duplicate found: check for ttl
 				ensure!(
 					message.ttl_block < current_block,
@@ -556,7 +552,7 @@ pub mod pallet {
 				payer: payer.clone(),
 			};
 			<OutgoingMessages<T, I>>::insert(id, &message_with_meta);
-			<OutgoingMessagesLookup<T, I>>::insert(&sender, &nonce, id);
+			<OutgoingMessagesLookup<T, I>>::insert(&sender, nonce, id);
 
 			T::Currency::hold(&HoldReason::OutgoingMessageFee.into(), payer, fee)
 				.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;

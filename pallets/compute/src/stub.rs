@@ -10,7 +10,7 @@ pub type AccountId = AccountId32;
 pub type BlockNumber = u64;
 pub type AssetId = u128;
 
-pub const UNIT: Balance = 1_000_000;
+pub const UNIT: Balance = 1_000_000_000_000;
 pub const MILLIUNIT: Balance = UNIT / 1_000;
 pub const MICROUNIT: Balance = UNIT / 1_000_000;
 
@@ -38,4 +38,40 @@ pub const fn dave_account_id() -> AccountId {
 
 pub const fn eve_account_id() -> AccountId {
 	AccountId32::new([4u8; 32])
+}
+
+pub const fn ferdie_account_id() -> AccountId {
+	AccountId32::new([5u8; 32])
+}
+
+pub const fn george_account_id() -> AccountId {
+	AccountId32::new([6u8; 32])
+}
+
+pub const fn henry_account_id() -> AccountId {
+	AccountId32::new([7u8; 32])
+}
+
+pub const fn ivan_account_id() -> AccountId {
+	AccountId32::new([8u8; 32])
+}
+
+pub const fn judy_account_id() -> AccountId {
+	AccountId32::new([9u8; 32])
+}
+
+pub const fn kate_account_id() -> AccountId {
+	AccountId32::new([10u8; 32])
+}
+
+pub const fn luke_account_id() -> AccountId {
+	AccountId32::new([11u8; 32])
+}
+
+pub const fn maria_account_id() -> AccountId {
+	AccountId32::new([12u8; 32])
+}
+
+pub const fn nick_account_id() -> AccountId {
+	AccountId32::new([13u8; 32])
 }

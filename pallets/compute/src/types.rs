@@ -1,7 +1,9 @@
 use core::ops::Add;
 
+use acurast_common::PoolId;
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_core::U256;
 use sp_runtime::{
 	traits::{Debug, One, Saturating, Zero},
 	FixedU128, Perquintill,
@@ -13,6 +15,8 @@ use crate::{
 };
 
 pub type EpochOf<T> = BlockNumberFor<T>;
+pub type EraOf<T> = BlockNumberFor<T>;
+pub type CycleFor<T> = Cycle<EpochOf<T>, EraOf<T>, BlockNumberFor<T>>;
 pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 pub type ProcessorStateFor<T, I> =
 	ProcessorState<BlockNumberFor<T>, BlockNumberFor<T>, BalanceFor<T, I>>;
@@ -20,6 +24,8 @@ pub type ProcessorStatusFor<T> = ProcessorStatus<BlockNumberFor<T>>;
 pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
+/// Precision constant for U256 calculations (10^30)
+pub const PER_TOKEN_DECIMALS: u128 = 1_000_000_000_000_000_000_000_000_000_000;
 pub type MetricPoolConfigValues =
 	BoundedVec<MetricPoolConfigValue, ConstU32<CONFIG_VALUES_MAX_LENGTH>>;
 
@@ -32,6 +38,29 @@ pub type Metric = FixedU128;
 pub type MetricPoolName = [u8; 24];
 
 pub type MetricPoolConfigName = [u8; 24];
+
+pub type StakeFor<T, I> = Stake<BalanceFor<T, I>, BlockNumberFor<T>>;
+pub type DelegationPoolMemberFor<T, I> = DelegationPoolMember<BalanceFor<T, I>>;
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+)]
+pub struct Cycle<Epoch, Era, BlockNumber> {
+	pub epoch: Epoch,
+	pub epoch_start: BlockNumber,
+	pub era: Era,
+	pub era_start: BlockNumber,
+}
 
 #[derive(
 	Encode,
@@ -72,13 +101,13 @@ pub struct MetricPoolUpdateOperations {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	RuntimeDebug,
 	Clone,
 	Copy,
 	PartialEq,
 	Eq,
 )]
-pub enum ProcessorStatus<BlockNumber: Debug> {
+pub enum ProcessorStatus<BlockNumber> {
 	/// The benchmarked metric was committed but is in warmup and becomes active at the given block number.
 	///
 	/// We store the block when active instead of when first metric was seen to save on a looking up `warm_up` each time we are checking if active.
@@ -110,6 +139,8 @@ pub struct MetricPool<
 	pub name: MetricPoolName,
 	pub reward: ProvisionalBuffer<Epoch, Value>,
 	pub total: SlidingBuffer<Epoch, FixedU128>,
+	/// Maximum ratio of stake to metric for commitments to this pool. Zero value means no limit.
+	pub max_stake_metric_ratio: FixedU128,
 }
 
 impl<
@@ -140,12 +171,12 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// **Currently unused**:
 	/// It is **not** aligned with global epochs and could be used in the future to ensure commit-claim operations don't overload the chain on same block range of `[global_epoch_start, global_epoch_start + heartbeat_interval]`.
 	pub epoch_offset: BlockNumber,
-	/// The lastest epoch in which a processor committed.
+	/// The latest epoch in which a processor committed.
 	pub committed: Epoch,
-	/// The lastest epoch for which a processor claimed.
+	/// The latest epoch for which a processor claimed.
 	pub claimed: Epoch,
 	pub status: ProcessorStatus<BlockNumber>,
-	/// The amount accrued but not paid out.
+	/// The amount accrued but not yet paid out.
 	///
 	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
 	///
@@ -178,7 +209,20 @@ where
 	Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct RewardSettings<Balance, AccountId> {
+	/// The fixed reward distributed per epoch.
+	///
+	/// This amount is not minted but just taken from [`Self::distribution_account`] every epoch.
+	///
+	/// This is intended to be eventually zeroed in favor of purely inflation based rewards.
 	pub total_reward_per_distribution: Balance,
+	/// The inflation-based reward distributed per epoch as a ratio of total supply.
+	///
+	/// This amount is minted into  [`Self::distribution_account`].
+	/// A part might be actively distributed immediately after minting while another part resides on the distribution account ready for withdraw operations of staking system.
+	pub total_inflation_per_distribution: Perquintill,
+	/// The ratio of inflation-created reward that is distributed to stake-backed compute providers using commitment and delegation pools.
+	pub stake_backed_ratio: Perquintill,
+	/// The account to distribute from.
 	pub distribution_account: AccountId,
 }
 
@@ -187,3 +231,128 @@ pub type BalanceFor<T, I> =
 
 pub type RewardDistributionSettingsFor<T, I> =
 	RewardSettings<BalanceFor<T, I>, <T as frame_system::Config>::AccountId>;
+
+/// A manager's commitment of compute and stake to a specific pool.
+///
+/// The maximum commitment possible to state is `min(commitment, 0.8 * latest-completed-era-average)`.
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
+pub struct ComputeCommitment {
+	/// Identifies pool this commitment was made for.
+	pub pool_id: PoolId,
+	/// Total metric a manager commits to over all his processors to the specific pool.
+	pub metric: Metric,
+}
+
+/// The stake details, both for compute provider staking and any account delegating.
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct Stake<Balance: Debug, BlockNumber: Debug> {
+	/// The amount.
+	pub amount: Balance,
+	/// The rewardable_amount amount, used to separate the reduced amount in cooldown from original amount. It always holds [`Self::rewardable_amount`] <= [`Self::amount`].
+	pub rewardable_amount: Balance,
+	/// The block number when the stake was created.
+	pub created: BlockNumber,
+	/// Cooldown period; how long a delegator commits his delegated stake after the block of cooldown initiation.
+	///
+	/// Cooldown has to be multiple of era length, but is stored in blocks to ensure era length could be adapted.
+	/// The cooldown is only started at next era after cooldown initiation.
+	///
+	/// For delegators' [`StakeState`], the cooldown is always shorter then the cooldown of the delegatee, the compute provider (and staker).
+	pub cooldown_period: BlockNumber,
+	/// If in cooldown, when the cooldown was initiated.
+	pub cooldown_started: Option<BlockNumber>,
+	/// The amount accrued but not yet paid out or compound to amount.
+	///
+	/// This is also helpful in case the reward transfer fails, we still keep the open amount in accrued.
+	pub accrued_reward: Balance,
+	/// The slash accrued but not yet paid out or compound to amount.
+	///
+	/// Any further compound or payout operations must be preceeded by accruing potentially outstanding slash debt.
+	pub accrued_slash: Balance,
+	/// If any account (such as a courtesy service by Acurast) is allowed to compound for this stake.
+	pub allow_auto_compound: bool,
+	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued_reward`] to be paid out.
+	pub paid: Balance,
+	/// The total slash ever applied to stake or to compounded stake. There can be additional amounts waiting in [`Self.accrued_slash`] to be paid out.
+	pub applied_slash: Balance,
+}
+
+impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumber> {
+	pub fn new(
+		amount: Balance,
+		created: BlockNumber,
+		cooldown_period: BlockNumber,
+		allow_auto_compound: bool,
+	) -> Self {
+		Self {
+			amount,
+			rewardable_amount: amount,
+			created,
+			cooldown_period,
+			cooldown_started: None,
+			accrued_reward: Zero::zero(),
+			accrued_slash: Zero::zero(),
+			paid: Zero::zero(),
+			applied_slash: Zero::zero(),
+			allow_auto_compound,
+		}
+	}
+}
+
+/// The state for delegation pool members, taking part in (self-)delegation.
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct StakingPoolMember {
+	/// The weight for rewardability, i.e. balance weighted by one or several factors.
+	pub reward_weight: U256,
+	/// The weighted reward debt before this staker joined a pool.
+	pub reward_debt: U256,
+}
+
+/// The state for delegation pool members, taking part in (self-)delegation.
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct DelegationPoolMember<Balance: Debug + Default> {
+	/// The weight for rewardability, i.e. balance weighted by one or several factors.
+	pub reward_weight: U256,
+	/// The weight for slashability, i.e. balance weighted by one or several factors.
+	pub slash_weight: U256,
+	/// The weighted reward debt before this staker joined a pool.
+	pub reward_debt: Balance,
+	/// The weighted slash debt before this staker joined a pool.
+	pub slash_debt: Balance,
+}
+
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct StakingPool {
+	pub reward_weight: U256,
+	pub reward_per_token: U256,
+}
+
+#[derive(
+	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+)]
+pub struct DelegationPool {
+	pub reward_weight: U256,
+	pub slash_weight: U256,
+	pub reward_per_token: U256,
+	pub slash_per_token: U256,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum LockReason<ManagerId> {
+	Staking,
+	Delegation(ManagerId),
+}

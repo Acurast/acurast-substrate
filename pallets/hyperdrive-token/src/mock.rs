@@ -10,7 +10,7 @@ use frame_support::{
 	traits::{ConstU16, ConstU64},
 	Deserialize, PalletId, Serialize,
 };
-use frame_system as system;
+use frame_system::{self as system, EnsureRoot};
 use hex_literal::hex;
 use pallet_acurast::CU32;
 use pallet_acurast_hyperdrive_ibc::{HoldReason, LayerFor, MessageBody, SubjectFor};
@@ -69,6 +69,7 @@ impl pallet_acurast_hyperdrive_ibc::Config for Test {
 	type RuntimeHoldReason = HoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast_hyperdrive_ibc::weights::WeightInfo<Test>;
 }
 
@@ -78,6 +79,7 @@ parameter_types! {
 	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
 	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptvsol").into_account_truncating();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
+	pub HyperdriveTokenOperationalFeeAccount: AccountId = PalletId(*b"hyptofac").into_account_truncating();
 	pub OutgoingTransferTTL: BlockNumber = 15;
 }
 
@@ -93,6 +95,9 @@ impl crate::Config for Test {
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
+	type OperationalFeeAccount = HyperdriveTokenOperationalFeeAccount;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 
 	type WeightInfo = weights::WeightInfo<Test>;
 }

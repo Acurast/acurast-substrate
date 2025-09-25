@@ -1,11 +1,10 @@
 use core::iter::once;
 
+use crate::*;
 use frame_support::{ensure, pallet_prelude::*};
 use pallet_acurast::{
 	AccountLookup, AllowedSourcesUpdate, JobHooks, JobRegistrationFor, StoredJobRegistration,
 };
-
-use crate::*;
 
 impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].
@@ -87,7 +86,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 			.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
 
-		<JobKeyIds<T>>::remove(&job_id);
+		<JobKeyIds<T>>::remove(job_id);
 
 		match job_status {
 			JobStatus::Open => {
@@ -173,7 +172,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 	fn update_allowed_sources_hook(
 		_who: &T::AccountId,
 		job_id: &JobId<T::AccountId>,
-		_updates: &Vec<AllowedSourcesUpdate<T::AccountId>>,
+		_updates: &[AllowedSourcesUpdate<T::AccountId>],
 	) -> DispatchResultWithPostInfo {
 		let job_status =
 			<StoredJobStatus<T>>::get(&job_id.0, job_id.1).ok_or(Error::<T>::JobStatusNotFound)?;

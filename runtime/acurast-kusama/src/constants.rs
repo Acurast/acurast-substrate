@@ -1,8 +1,3 @@
-use acurast_runtime_common::{
-	constants::{MICROUNIT, MILLIUNIT, UNIT},
-	types::{AccountId, Balance, BlockNumber},
-	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-};
 use cumulus_primitives_core::{AggregateMessageOrigin, Weight};
 use frame_support::{
 	ord_parameter_types, pallet_prelude::DispatchClass, parameter_types,
@@ -14,6 +9,12 @@ use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
+use acurast_runtime_common::{
+	constants::{HOURS, MICROUNIT, MILLIUNIT, UNIT},
+	types::{AccountId, Balance, BlockNumber},
+	weight::{BlockExecutionWeight, ExtrinsicBaseWeight},
+};
+
 use crate::{apis::RUNTIME_API_VERSIONS, deposit, RuntimeHoldReason};
 
 #[sp_version::runtime_version]
@@ -21,29 +22,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 33,
+	spec_version: 34,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 // Provide a common factor between runtimes based on a supply of 1_000_000_000_000 tokens == 1 UNIT.
 pub const SUPPLY_FACTOR: Balance = 1;
@@ -154,6 +138,7 @@ parameter_types! {
 	pub HyperdriveTokenEthereumVault: AccountId = PalletId(*b"hyptveth").into_account_truncating();
 	pub HyperdriveTokenEthereumFeeVault: AccountId = PalletId(*b"hyptfeth").into_account_truncating();
 	pub HyperdriveTokenSolanaVault: AccountId = PalletId(*b"hyptvsol").into_account_truncating();
+	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
@@ -174,6 +159,7 @@ parameter_types! {
 	pub const ReportTolerance: u64 = 120_000;
 
 	pub const ManagerCollectionId: u128 = 0;
+	pub const CommitmentCollectionId: u128 = 1;
 
 	/// The acurast contract on the aleph zero network
 	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();

@@ -33,7 +33,7 @@ jsonrpsee = { version = "0.16.2", features = [
 	"macros",
 ], optional = true }
 sp-api = { workspace = true }
-serde = { version = "1.0.188", features = ["derive"], default-features = false }
+serde = { workspace = true }
 thiserror = { version = "1.0", optional = true }
 log = { workspace = true }
 
@@ -43,6 +43,7 @@ xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
 
 # Acurast
+acurast-common = { path = "../acurast/common", default-features = false }
 pallet-acurast = { path = "../acurast", default-features = false }
 acurast-reputation = { path = "./reputation", default-features = false }
 
@@ -57,7 +58,7 @@ pallet-acurast-compute = { workspace = true, optional = true }
 [dev-dependencies]
 base64 = { version = "0.13.0", default-features = false, features = ["alloc"] }
 hex-literal = "0.3"
-serde_json = "1.0.85"
+serde_json = { workspace = true }
 pallet-acurast-compute = { workspace = true, features = ["std"] }
 sp-version = { workspace = true, features = ["std"] }
 sp-core = { workspace = true, features = ["std"] }

@@ -1,14 +1,16 @@
-use core::marker::PhantomData;
-
+use acurast_common::ManagerIdProvider;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, DispatchError, Percent,
+		BuildStorage, Percent, Perquintill,
 	},
-	traits::AsEnsureOriginWithArg,
+	traits::{
+		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		AsEnsureOriginWithArg, LockIdentifier,
+	},
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
@@ -16,7 +18,7 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use pallet_acurast::{AccountLookup, JobModules, CU32};
+use pallet_acurast::{AccountLookup, CommitmentIdProvider, JobModules, CU32};
 
 use crate::{stub::*, *};
 
@@ -171,6 +173,7 @@ impl pallet_acurast::Config for Test {
 	type JobHooks = Pallet<Test>;
 	type ProcessorVersion = u32;
 	type MaxVersions = pallet_acurast::CU32<1>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
@@ -199,27 +202,127 @@ impl pallet_uniques::Config for Test {
 }
 
 parameter_types! {
-	pub const EpochBase: BlockNumber = 0;
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
+	pub const Era: BlockNumber = 2; // 3 hours
 	pub const MetricEpochValidity: BlockNumber = 10;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
+	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
+	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
+	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
+	pub const MinDelegation: Balance = 1;
+	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
+	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const MinStake: Balance = 1 * UNIT;
+	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
+	pub const Decimals: Balance = UNIT;
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
+	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
 impl pallet_acurast_compute::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = ComputePalletId;
+	type ManagerId = u128;
+	type CommitmentId = u128;
+	type ManagerIdProvider = AcurastManagerIdProvider;
+	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
-	type EpochBase = EpochBase;
 	type MetricValidity = MetricEpochValidity;
+	type Era = Era;
+	type MaxPools = ConstU32<30>;
+	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
+	type MinCooldownPeriod = MinCooldownPeriod;
+	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type MinDelegation = MinDelegation;
+	type MaxDelegationRatio = MaxDelegationRatio;
+	type CooldownRewardRatio = CooldownRewardRatio;
+	type MinStake = MinStake;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
-	type EligibleRewardAccountLookup = MockLookup<Self::AccountId>;
+	type Decimals = Decimals;
+	type LockIdentifier = ComputeStakingLockId;
+	type ManagerProviderForEligibleProcessor = MockLockup;
+	type InflationPerEpoch = InflationPerEpoch;
+	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 }
 
-pub struct MockLookup<AccountId>(PhantomData<AccountId>);
-impl<AccountId: Clone> AccountLookup<AccountId> for MockLookup<AccountId> {
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
-		Some(processor.clone())
+pub struct AcurastManagerIdProvider;
+impl
+	ManagerIdProvider<
+		<Test as frame_system::Config>::AccountId,
+		<Test as pallet_acurast_compute::Config>::ManagerId,
+	> for AcurastManagerIdProvider
+{
+	fn create_manager_id(
+		id: <Test as pallet_acurast_compute::Config>::ManagerId,
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(0).is_none() {
+			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+		}
+		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+	}
+
+	fn manager_id_for(
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> Result<
+		<Test as pallet_acurast_compute::Config>::ManagerId,
+		frame_support::sp_runtime::DispatchError,
+	> {
+		Uniques::owned_in_collection(&0, owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+	}
+
+	fn owner_for(
+		manager_id: <Test as pallet_acurast_compute::Config>::ManagerId,
+	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
+	{
+		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
+			"Onwer for provided Manager ID not found",
+		))
+	}
+}
+
+pub struct AcurastCommitmentIdProvider;
+impl
+	CommitmentIdProvider<
+		<Test as frame_system::Config>::AccountId,
+		<Test as pallet_acurast_compute::Config>::CommitmentId,
+	> for AcurastCommitmentIdProvider
+{
+	fn create_commitment_id(
+		id: <Test as pallet_acurast_compute::Config>::CommitmentId,
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> frame_support::pallet_prelude::DispatchResult {
+		if Uniques::collection_owner(0).is_none() {
+			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+		}
+		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+	}
+
+	fn commitment_id_for(
+		owner: &<Test as frame_system::Config>::AccountId,
+	) -> Result<
+		<Test as pallet_acurast_compute::Config>::CommitmentId,
+		frame_support::sp_runtime::DispatchError,
+	> {
+		Uniques::owned_in_collection(&0, owner)
+			.nth(0)
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+	}
+
+	fn owner_for(
+		commitment_id: <Test as pallet_acurast_compute::Config>::CommitmentId,
+	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
+	{
+		Uniques::owner(0, commitment_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
+			"Onwer for provided Manager ID not found",
+		))
 	}
 }
 
@@ -250,9 +353,9 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	}
 }
 
-pub struct ManagerOf;
+pub struct MockLockup;
 
-impl AccountLookup<<Test as frame_system::Config>::AccountId> for ManagerOf {
+impl AccountLookup<<Test as frame_system::Config>::AccountId> for MockLockup {
 	fn lookup(
 		processor: &<Test as frame_system::Config>::AccountId,
 	) -> Option<<Test as frame_system::Config>::AccountId> {
@@ -307,13 +410,15 @@ impl Config for Test {
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
-	type ManagerProvider = ManagerOf;
+	type ManagerProvider = MockLockup;
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>>;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
 	type WeightInfo = weights::WeightInfo<Test>;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
 }
@@ -331,7 +436,7 @@ impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
 		caller
 	}
 
-	fn remove_job_registration(job_id: &JobId<T::AccountId>) {}
+	fn remove_job_registration(job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

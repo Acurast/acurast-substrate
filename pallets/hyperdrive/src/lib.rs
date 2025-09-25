@@ -30,7 +30,11 @@ pub mod pallet {
 		SubstrateMessageDecoder, SubstrateMessageDecoderError, SubstrateMessageEncoder,
 		SubstrateMessageEncoderError,
 	};
-	use frame_support::{pallet_prelude::*, sp_runtime::traits::AtLeast32BitUnsigned, traits::Get};
+	use frame_support::{
+		pallet_prelude::*,
+		sp_runtime::traits::AtLeast32BitUnsigned,
+		traits::{EnsureOrigin, Get},
+	};
 	use frame_system::pallet_prelude::*;
 	use pallet_acurast_hyperdrive_ibc::{
 		ContractCall, Layer, MessageBody, OutgoingMessageWithMetaFor, Subject, SubjectFor,
@@ -69,7 +73,7 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen
 			+ TypeInfo;
-
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -146,7 +150,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			contract: ContractCall<T::AccountId>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
 			<AlephZeroContract<T, I>>::set(contract.clone());
 			Self::deposit_event(Event::AlephZeroContractUpdated { contract });
 			Ok(())
@@ -159,7 +163,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			contract: T::AccountId,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
 			<VaraContract<T, I>>::set(contract.clone());
 			Self::deposit_event(Event::VaraContractUpdated { contract });
 			Ok(())
@@ -206,7 +210,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SentToProxy(message));
 
-			Ok(().into())
+			Ok(())
 		}
 	}
 
@@ -234,7 +238,7 @@ pub mod pallet {
 						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
 					T::ActionExecutor::execute(action)?;
 
-					Ok(().into())
+					Ok(())
 				},
 				SubjectFor::<T>::Vara(_) => {
 					let action =

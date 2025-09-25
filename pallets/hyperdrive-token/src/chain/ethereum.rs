@@ -18,6 +18,10 @@ const fn amount_range() -> ops::Range<usize> {
 	4..20
 }
 
+const fn enabled_index() -> usize {
+	4
+}
+
 const fn asset_id_range() -> ops::Range<usize> {
 	20..24
 }
@@ -106,6 +110,13 @@ where
 				))
 			},
 			RawAction::Noop => Ok(Action::Noop),
+			RawAction::SetEnabled => {
+				if encoded.len() != 5 {
+					return Err(Self::Error::InvalidActionPayload);
+				}
+				let enabled = encoded[enabled_index()];
+				Ok(Action::SetEnabled(enabled != 0))
+			},
 		}
 	}
 }
@@ -119,7 +130,7 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 		Ok(match action {
 			Action::TransferToken(amount, asset_id, transfer_nonce, dest) => match dest {
 				MultiOrigin::Ethereum20(account_id) => {
-					let mut buffer = vec![0u8; 52];
+					let mut buffer = [0u8; 52];
 
 					let raw_action: RawAction = action.into();
 					let raw_action_encoded: u32 = raw_action.into();
@@ -135,6 +146,16 @@ impl<AccountId> ActionEncoder<AccountId> for EthereumActionEncoder {
 				_ => Err(ActionEncoderError::UnsupportedProxy)?,
 			},
 			Action::Noop => vec![],
+			Action::SetEnabled(enabled) => {
+				let mut buffer = [0u8; 5];
+
+				let raw_action: RawAction = action.into();
+				let raw_action_encoded: u32 = raw_action.into();
+				buffer[action_id_range()].copy_from_slice(&raw_action_encoded.to_be_bytes());
+				buffer[enabled_index()] = if *enabled { 1u8 } else { 0u8 };
+
+				buffer.to_vec()
+			},
 		})
 	}
 }

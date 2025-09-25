@@ -458,8 +458,9 @@ pub mod pallet {
 			let mut weight = T::DbWeight::get().reads(1);
 
 			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start and era_start will be 2.
-			let epoch_start = Self::current_cycle().epoch_start;
-			let era_start = Self::current_cycle().era_start;
+			let current_cycle = Self::current_cycle();
+			let epoch_start = current_cycle.epoch_start;
+			let era_start = current_cycle.era_start;
 
 			let diff = block_number.saturating_sub(epoch_start);
 			let era_diff = block_number.saturating_sub(era_start);

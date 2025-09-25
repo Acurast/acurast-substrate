@@ -37,32 +37,32 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 		// Proof Size summary in bytes:
 		//  Measured:  `30`
 		//  Estimated: `0`
-		// Minimum execution time: 4_180_000 picoseconds.
-		Weight::from_parts(4_420_000, 0)
+		// Minimum execution time: 4_099_000 picoseconds.
+		Weight::from_parts(4_240_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn check_mortality_mortal_transaction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `68`
 		//  Estimated: `0`
-		// Minimum execution time: 7_960_000 picoseconds.
-		Weight::from_parts(8_371_000, 0)
+		// Minimum execution time: 7_640_000 picoseconds.
+		Weight::from_parts(8_090_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn check_mortality_immortal_transaction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `68`
 		//  Estimated: `0`
-		// Minimum execution time: 8_020_000 picoseconds.
-		Weight::from_parts(8_540_000, 0)
+		// Minimum execution time: 7_860_000 picoseconds.
+		Weight::from_parts(8_150_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn check_non_zero_sender() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 880_000 picoseconds.
-		Weight::from_parts(950_000, 0)
+		// Minimum execution time: 860_000 picoseconds.
+		Weight::from_parts(910_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// Storage: `System::Account` (r:1 w:1)
@@ -71,8 +71,8 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 		// Proof Size summary in bytes:
 		//  Measured:  `51`
 		//  Estimated: `3593`
-		// Minimum execution time: 7_690_000 picoseconds.
-		Weight::from_parts(8_000_000, 0)
+		// Minimum execution time: 7_400_000 picoseconds.
+		Weight::from_parts(7_791_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -81,24 +81,24 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 631_000 picoseconds.
-		Weight::from_parts(711_000, 0)
+		// Minimum execution time: 669_000 picoseconds.
+		Weight::from_parts(710_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn check_tx_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 610_000 picoseconds.
-		Weight::from_parts(680_000, 0)
+		// Minimum execution time: 640_000 picoseconds.
+		Weight::from_parts(690_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn check_weight() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_431_000 picoseconds.
-		Weight::from_parts(5_810_000, 0)
+		// Minimum execution time: 5_380_000 picoseconds.
+		Weight::from_parts(5_600_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn weight_reclaim() -> Weight {
@@ -106,7 +106,7 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 3_180_000 picoseconds.
-		Weight::from_parts(3_400_000, 0)
+		Weight::from_parts(3_380_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 }

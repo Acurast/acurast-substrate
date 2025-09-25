@@ -49,8 +49,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::onboarding::exte
 		// Proof Size summary in bytes:
 		//  Measured:  `291`
 		//  Estimated: `6196`
-		// Minimum execution time: 17_745_010_000 picoseconds.
-		Weight::from_parts(17_867_340_000, 0)
+		// Minimum execution time: 17_569_257_000 picoseconds.
+		Weight::from_parts(17_614_876_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -63,8 +63,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::onboarding::exte
 		// Proof Size summary in bytes:
 		//  Measured:  `135`
 		//  Estimated: `3489`
-		// Minimum execution time: 10_660_000 picoseconds.
-		Weight::from_parts(11_270_000, 0)
+		// Minimum execution time: 10_750_000 picoseconds.
+		Weight::from_parts(11_120_000, 0)
 			.saturating_add(Weight::from_parts(0, 3489))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}

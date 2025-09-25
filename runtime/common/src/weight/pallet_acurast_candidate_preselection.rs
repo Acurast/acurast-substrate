@@ -39,8 +39,8 @@ impl<T: frame_system::Config> pallet_acurast_candidate_preselection::WeightInfo 
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 9_790_000 picoseconds.
-		Weight::from_parts(10_389_000, 0)
+		// Minimum execution time: 9_820_000 picoseconds.
+		Weight::from_parts(10_440_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -50,8 +50,8 @@ impl<T: frame_system::Config> pallet_acurast_candidate_preselection::WeightInfo 
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 9_510_000 picoseconds.
-		Weight::from_parts(9_760_000, 0)
+		// Minimum execution time: 9_360_000 picoseconds.
+		Weight::from_parts(10_050_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}

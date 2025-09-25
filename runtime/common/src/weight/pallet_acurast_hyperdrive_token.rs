@@ -53,8 +53,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `454`
 		//  Estimated: `6196`
-		// Minimum execution time: 172_850_000 picoseconds.
-		Weight::from_parts(179_980_000, 0)
+		// Minimum execution time: 161_400_000 picoseconds.
+		Weight::from_parts(166_830_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
@@ -77,8 +77,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `862`
 		//  Estimated: `4721`
-		// Minimum execution time: 141_280_000 picoseconds.
-		Weight::from_parts(144_510_000, 0)
+		// Minimum execution time: 132_530_000 picoseconds.
+		Weight::from_parts(135_220_000, 0)
 			.saturating_add(Weight::from_parts(0, 4721))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -89,8 +89,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_830_000 picoseconds.
-		Weight::from_parts(8_260_000, 0)
+		// Minimum execution time: 7_829_000 picoseconds.
+		Weight::from_parts(8_580_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -100,8 +100,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_840_000 picoseconds.
-		Weight::from_parts(8_370_000, 0)
+		// Minimum execution time: 7_950_000 picoseconds.
+		Weight::from_parts(8_390_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -111,8 +111,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_780_000 picoseconds.
-		Weight::from_parts(8_240_000, 0)
+		// Minimum execution time: 7_670_000 picoseconds.
+		Weight::from_parts(8_140_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -132,8 +132,8 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `351`
 		//  Estimated: `6196`
-		// Minimum execution time: 126_560_000 picoseconds.
-		Weight::from_parts(129_100_000, 0)
+		// Minimum execution time: 117_369_000 picoseconds.
+		Weight::from_parts(119_970_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(6))

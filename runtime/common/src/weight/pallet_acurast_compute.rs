@@ -38,97 +38,127 @@ impl<T: frame_system::Config> pallet_acurast_compute::WeightInfo for WeightInfo<
 	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:1)
 	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastCompute::MetricPools` (r:0 w:1)
-	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1203), added: 3678, mode: `MaxEncodedLen`)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1219), added: 3694, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[0, 20]`.
 	fn create_pool(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `109`
+		//  Measured:  `180`
 		//  Estimated: `3490`
-		// Minimum execution time: 16_880_000 picoseconds.
-		Weight::from_parts(17_827_921, 0)
+		// Minimum execution time: 17_190_000 picoseconds.
+		Weight::from_parts(18_536_155, 0)
 			.saturating_add(Weight::from_parts(0, 3490))
-			// Standard Error: 2_052
-			.saturating_add(Weight::from_parts(44_901, 0).saturating_mul(x.into()))
+			// Standard Error: 2_194
+			.saturating_add(Weight::from_parts(35_377, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `AcurastCompute::MetricPools` (r:1 w:1)
-	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1203), added: 3678, mode: `MaxEncodedLen`)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1219), added: 3694, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastCompute::MetricPoolLookup` (r:1 w:2)
 	/// Proof: `AcurastCompute::MetricPoolLookup` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn modify_pool_same_config() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1393`
-		//  Estimated: `4668`
-		// Minimum execution time: 18_520_000 picoseconds.
-		Weight::from_parts(19_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `1478`
+		//  Estimated: `4684`
+		// Minimum execution time: 19_610_000 picoseconds.
+		Weight::from_parts(20_190_000, 0)
+			.saturating_add(Weight::from_parts(0, 4684))
+			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `AcurastCompute::MetricPools` (r:1 w:1)
-	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1203), added: 3678, mode: `MaxEncodedLen`)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1219), added: 3694, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastCompute::MetricPoolLookup` (r:1 w:2)
 	/// Proof: `AcurastCompute::MetricPoolLookup` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[0, 20]`.
 	fn modify_pool_replace_config(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1393`
-		//  Estimated: `4668`
-		// Minimum execution time: 17_991_000 picoseconds.
-		Weight::from_parts(19_043_181, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			// Standard Error: 1_946
-			.saturating_add(Weight::from_parts(11_365, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `1478`
+		//  Estimated: `4684`
+		// Minimum execution time: 18_880_000 picoseconds.
+		Weight::from_parts(19_933_845, 0)
+			.saturating_add(Weight::from_parts(0, 4684))
+			// Standard Error: 1_859
+			.saturating_add(Weight::from_parts(19_137, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `AcurastCompute::MetricPools` (r:1 w:1)
-	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1203), added: 3678, mode: `MaxEncodedLen`)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1219), added: 3694, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastCompute::MetricPoolLookup` (r:1 w:2)
 	/// Proof: `AcurastCompute::MetricPoolLookup` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[0, 20]`.
 	fn modify_pool_update_config(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1393`
-		//  Estimated: `4668`
-		// Minimum execution time: 20_260_000 picoseconds.
-		Weight::from_parts(23_205_963, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			// Standard Error: 7_009
-			.saturating_add(Weight::from_parts(169_317, 0).saturating_mul(x.into()))
+		//  Measured:  `1478`
+		//  Estimated: `4684`
+		// Minimum execution time: 21_290_000 picoseconds.
+		Weight::from_parts(24_170_437, 0)
+			.saturating_add(Weight::from_parts(0, 4684))
+			// Standard Error: 7_536
+			.saturating_add(Weight::from_parts(176_941, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `Uniques::Account` (r:2 w:0)
+	/// Proof: `Uniques::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::BackingOffers` (r:0 w:1)
+	/// Proof: `AcurastCompute::BackingOffers` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+	fn offer_backing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `380`
+		//  Estimated: `6164`
+		// Minimum execution time: 25_850_000 picoseconds.
+		Weight::from_parts(26_750_000, 0)
+			.saturating_add(Weight::from_parts(0, 6164))
 			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-    fn offer_backing() -> Weight {
+	/// Storage: `AcurastCompute::BackingOffers` (r:1 w:1)
+	/// Proof: `AcurastCompute::BackingOffers` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+	fn withdraw_backing_offer() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1381`
-		//  Estimated: `4668`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
+		//  Measured:  `250`
+		//  Estimated: `3513`
+		// Minimum execution time: 15_580_000 picoseconds.
+		Weight::from_parts(16_120_000, 0)
+			.saturating_add(Weight::from_parts(0, 3513))
 			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-    fn withdraw_backing_offer() -> Weight {
+	/// Storage: `Uniques::Account` (r:2 w:1)
+	/// Proof: `Uniques::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::BackingOffers` (r:1 w:1)
+	/// Proof: `AcurastCompute::BackingOffers` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::NextCommitmentId` (r:1 w:1)
+	/// Proof: `AcurastCompute::NextCommitmentId` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Class` (r:1 w:1)
+	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(190), added: 2665, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:1)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::CollectionMaxSupply` (r:1 w:0)
+	/// Proof: `Uniques::CollectionMaxSupply` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::BackingLookup` (r:0 w:1)
+	/// Proof: `AcurastCompute::BackingLookup` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Backings` (r:0 w:1)
+	/// Proof: `AcurastCompute::Backings` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::ClassAccount` (r:0 w:1)
+	/// Proof: `Uniques::ClassAccount` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	fn accept_backing_offer() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1381`
-		//  Estimated: `4668`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-    fn accept_backing_offer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1381`
-		//  Estimated: `4668`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(3))
+		//  Measured:  `628`
+		//  Estimated: `6164`
+		// Minimum execution time: 71_510_000 picoseconds.
+		Weight::from_parts(74_070_000, 0)
+			.saturating_add(Weight::from_parts(0, 6164))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(8))
 	}
     fn delegate() -> Weight {
 		// Proof Size summary in bytes:
@@ -229,16 +259,6 @@ impl<T: frame_system::Config> pallet_acurast_compute::WeightInfo for WeightInfo<
 			.saturating_add(Weight::from_parts(0, 4668))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(3))
-	}
-    fn force_end_commitment() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1381`
-		//  Estimated: `4668`
-		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4668))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(10))
 	}
     fn withdraw_delegation() -> Weight {
 		// Proof Size summary in bytes:

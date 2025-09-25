@@ -1,5 +1,5 @@
 use acurast_runtime_common::{
-	constants::UNIT,
+	constants::{DAYS, UNIT},
 	types::{Balance, BlockNumber},
 	weight,
 };
@@ -29,8 +29,8 @@ parameter_types! {
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
-	pub const MinCooldownPeriod: BlockNumber = 432000; // ~1 month
-	pub const MaxCooldownPeriod: BlockNumber = 20736000; // ~4 years
+	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
+	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -38,7 +38,7 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 

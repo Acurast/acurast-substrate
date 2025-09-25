@@ -132,7 +132,6 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
 
@@ -166,18 +165,74 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-/// Mock manager provider that returns manager charlie for processors alice and bob.
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+thread_local! {
+	static MANAGER_MAPPINGS: RefCell<HashMap<AccountId32, AccountId32>> = RefCell::new({
+		let mut map = HashMap::new();
+		map.insert(alice_account_id(), charlie_account_id());
+		map.insert(bob_account_id(), charlie_account_id());
+		map
+	});
+
+	static INFLATION_PER_EPOCH: RefCell<Balance> = RefCell::new(8_561_643_835_616_438);
+}
+
+/// Dynamic parameter type for InflationPerEpoch that can be modified in tests
+pub struct InflationPerEpoch;
+impl frame_support::traits::Get<Balance> for InflationPerEpoch {
+	fn get() -> Balance {
+		INFLATION_PER_EPOCH.with(|v| *v.borrow())
+	}
+}
+
+/// Helper functions for managing inflation per epoch in tests
+impl InflationPerEpoch {
+	/// Set a custom inflation per epoch for tests
+	pub fn set(value: Balance) {
+		INFLATION_PER_EPOCH.with(|v| {
+			*v.borrow_mut() = value;
+		});
+	}
+
+	/// Reset to default value
+	pub fn reset() {
+		INFLATION_PER_EPOCH.with(|v| {
+			*v.borrow_mut() = 1 * UNIT;
+		});
+	}
+}
+
+/// Mock manager provider with configurable mappings.
 pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);
+
+impl MockManagerProvider<AccountId32> {
+	/// Set a custom processor -> manager mapping for tests
+	pub fn set_mapping(processor: AccountId32, manager: AccountId32) {
+		MANAGER_MAPPINGS.with(|mappings| {
+			mappings.borrow_mut().insert(processor, manager);
+		});
+	}
+
+	/// Clear all custom mappings
+	pub fn clear_mappings() {
+		MANAGER_MAPPINGS.with(|mappings| {
+			mappings.borrow_mut().clear();
+		});
+	}
+}
+
 impl<AccountId: Clone + IsType<AccountId32>> AccountLookup<AccountId>
 	for MockManagerProvider<AccountId>
 {
 	fn lookup(processor: &AccountId) -> Option<AccountId> {
-		const ALICE: AccountId32 = alice_account_id();
-		const BOB: AccountId32 = bob_account_id();
-		match processor.clone().into() {
-			ALICE | BOB => Some(charlie_account_id().into()),
-			_ => None,
-		}
+		let processor_id: AccountId32 = processor.clone().into();
+
+		// Check custom mappings first
+		MANAGER_MAPPINGS
+			.with(|mappings| mappings.borrow().get(&processor_id).cloned())
+			.map(|a| a.into())
 	}
 }
 

@@ -214,7 +214,6 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const MinStake: Balance = 1 * UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
@@ -240,7 +239,6 @@ impl pallet_acurast_compute::Config for Test {
 	type MinStake = MinStake;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
-	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockLockup;
 	type InflationPerEpoch = InflationPerEpoch;
@@ -249,6 +247,9 @@ impl pallet_acurast_compute::Config for Test {
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 }
+
+pub const MANAGER_COLLECTION_ID: u128 = 0;
+pub const COMMITMENT_COLLECTION_ID: u128 = 1;
 
 pub struct AcurastManagerIdProvider;
 impl
@@ -262,9 +263,13 @@ impl
 		owner: &<Test as frame_system::Config>::AccountId,
 	) -> frame_support::pallet_prelude::DispatchResult {
 		if Uniques::collection_owner(0).is_none() {
-			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+			Uniques::create_collection(
+				&MANAGER_COLLECTION_ID,
+				&alice_account_id(),
+				&alice_account_id(),
+			)?;
 		}
-		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+		Uniques::do_mint(MANAGER_COLLECTION_ID, id, owner.clone(), |_| Ok(()))
 	}
 
 	fn manager_id_for(
@@ -273,7 +278,7 @@ impl
 		<Test as pallet_acurast_compute::Config>::ManagerId,
 		frame_support::sp_runtime::DispatchError,
 	> {
-		Uniques::owned_in_collection(&0, owner)
+		Uniques::owned_in_collection(&MANAGER_COLLECTION_ID, owner)
 			.nth(0)
 			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
 	}
@@ -282,9 +287,11 @@ impl
 		manager_id: <Test as pallet_acurast_compute::Config>::ManagerId,
 	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
 	{
-		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
-			"Onwer for provided Manager ID not found",
-		))
+		Uniques::owner(MANAGER_COLLECTION_ID, manager_id).ok_or(
+			frame_support::pallet_prelude::DispatchError::Other(
+				"Onwer for provided Manager ID not found",
+			),
+		)
 	}
 }
 
@@ -299,10 +306,14 @@ impl
 		id: <Test as pallet_acurast_compute::Config>::CommitmentId,
 		owner: &<Test as frame_system::Config>::AccountId,
 	) -> frame_support::pallet_prelude::DispatchResult {
-		if Uniques::collection_owner(0).is_none() {
-			Uniques::create_collection(&0, &alice_account_id(), &alice_account_id())?;
+		if Uniques::collection_owner(COMMITMENT_COLLECTION_ID).is_none() {
+			Uniques::create_collection(
+				&COMMITMENT_COLLECTION_ID,
+				&alice_account_id(),
+				&alice_account_id(),
+			)?;
 		}
-		Uniques::do_mint(0, id, owner.clone(), |_| Ok(()))
+		Uniques::do_mint(COMMITMENT_COLLECTION_ID, id, owner.clone(), |_| Ok(()))
 	}
 
 	fn commitment_id_for(
@@ -311,18 +322,20 @@ impl
 		<Test as pallet_acurast_compute::Config>::CommitmentId,
 		frame_support::sp_runtime::DispatchError,
 	> {
-		Uniques::owned_in_collection(&0, owner)
+		Uniques::owned_in_collection(&COMMITMENT_COLLECTION_ID, owner)
 			.nth(0)
-			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Commitment ID not found"))
 	}
 
 	fn owner_for(
 		commitment_id: <Test as pallet_acurast_compute::Config>::CommitmentId,
 	) -> Result<<Test as frame_system::Config>::AccountId, frame_support::sp_runtime::DispatchError>
 	{
-		Uniques::owner(0, commitment_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
-			"Onwer for provided Manager ID not found",
-		))
+		Uniques::owner(COMMITMENT_COLLECTION_ID, commitment_id).ok_or(
+			frame_support::pallet_prelude::DispatchError::Other(
+				"Onwer for provided Commitment ID not found",
+			),
+		)
 	}
 }
 

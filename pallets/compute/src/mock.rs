@@ -130,7 +130,6 @@ parameter_types! {
 	pub const MinStake: Balance = UNIT;
 
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
 }
@@ -155,7 +154,6 @@ impl Config for Test {
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
-	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type InflationPerEpoch = InflationPerEpoch;

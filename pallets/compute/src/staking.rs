@@ -489,7 +489,7 @@ where
 		Self::delegate_more_for(
 			who,
 			commitment_id,
-			Self::withdraw_delegator_accrued(who, commitment_id)?,
+			Self::withdraw_delegation_for(who, commitment_id)?,
 		)?;
 
 		Ok(())
@@ -500,7 +500,7 @@ where
 		commitment_id: T::CommitmentId,
 	) -> Result<(), Error<T, I>> {
 		// compound reward to the caller if any
-		Self::stake_more_for(committer, Self::withdraw_committer_accrued(commitment_id)?)?;
+		Self::stake_more_for(committer, Self::withdraw_committer_for(committer, commitment_id)?)?;
 
 		Ok(())
 	}
@@ -824,6 +824,7 @@ where
 			// let s = PendingReward::new(state.accrued_slash);
 			state.accrued_reward = Zero::zero();
 			// state.accrued_slash = Zero::zero();
+			state.paid = state.paid.saturating_add(r);
 			Ok(r)
 		})
 	}
@@ -834,6 +835,28 @@ where
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let reward = Self::withdraw_delegator_accrued(who, commitment_id)?;
+
+		// Transfer reward to the caller if any
+		let distribution_account = T::PalletId::get().into_account_truncating();
+		if !reward.is_zero() {
+			T::Currency::transfer(
+				&distribution_account,
+				who,
+				reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+
+		Ok(reward)
+	}
+
+	/// It is guaranteed to withdraw reward/slash only if the result is Ok.
+	pub fn withdraw_committer_for(
+		who: &T::AccountId,
+		commitment_id: T::CommitmentId,
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		let reward = Self::withdraw_committer_accrued(commitment_id)?;
 
 		// Transfer reward to the caller if any
 		let distribution_account = T::PalletId::get().into_account_truncating();
@@ -862,6 +885,7 @@ where
 			// let s = PendingReward::new(state.accrued_slash);
 			state.accrued_reward = Zero::zero();
 			// state.accrued_slash = Zero::zero();
+			state.paid = state.paid.saturating_add(r);
 			Ok(r)
 		})
 	}
@@ -886,7 +910,7 @@ where
 			},
 		)?;
 		// TODO maybe improve this to be stable under multiple reductions of rewardable_amount (currently never happens)
-		let amount_diff = stake
+		let rewardable_amount_diff = stake
 			.amount
 			.checked_sub(&stake.rewardable_amount)
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -908,7 +932,7 @@ where
 
 		Self::update_commitment_stake(
 			commitment_id,
-			StakeChange::Sub(Zero::zero(), amount_diff),
+			StakeChange::Sub(Zero::zero(), rewardable_amount_diff),
 			&stake,
 		)?;
 
@@ -959,14 +983,14 @@ where
 		);
 
 		// TODO maybe improve this to be stable under multiple reductions of rewardable_amount (currently never happens)
-		let amount_diff = stake
+		let rewardable_amount_diff = stake
 			.amount
 			.checked_sub(&stake.rewardable_amount)
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		Self::update_commitment_stake(
 			commitment_id,
-			StakeChange::Sub(Zero::zero(), amount_diff),
+			StakeChange::Sub(Zero::zero(), rewardable_amount_diff),
 			&stake,
 		)?;
 
@@ -1185,7 +1209,7 @@ where
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 
-		let reward = Self::withdraw_committer_accrued(commitment_id)?;
+		let reward = Self::withdraw_committer_for(who, commitment_id)?;
 
 		let stake = <Stakes<T, I>>::try_mutate(
 			commitment_id,

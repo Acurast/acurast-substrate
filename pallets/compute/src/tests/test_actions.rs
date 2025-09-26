@@ -30,23 +30,32 @@ pub fn compute_test_flow(pools: &[u8], committers: &[(&str, &[&str])], actions: 
 pub enum Action {
 	CommitCompute {
 		committer: String,
-		stake: u128,
+		stake: Balance,
 		cooldown: u64,
 		metrics: Vec<(u8, u128, u128)>, // (pool_id, numerator, denominator)
 		commission: Perbill,
 	},
 	StakeMore {
 		committer: String,
-		extra_amount: u128,
+		extra_amount: Balance,
 	},
 	Reward {
-		amount: u128,
+		amount: Balance,
 	},
 	Delegate {
 		delegator: String,
 		committer: String,
-		amount: u128,
+		amount: Balance,
 		cooldown: u64,
+	},
+	WithdrawDelegation {
+		delegator: String,
+		committer: String,
+		expected_reward: Balance,
+	},
+	WithdrawCommitment {
+		committer: String,
+		expected_reward: Balance,
 	},
 	CooldownComputeCommitment {
 		committer: String,
@@ -57,12 +66,12 @@ pub enum Action {
 	},
 	EndComputeCommitment {
 		committer: String,
-		expected_reward: u128,
+		expected_reward: Balance,
 	},
 	EndDelegation {
 		delegator: String,
 		committer: String,
-		expected_reward: u128,
+		expected_reward: Balance,
 	},
 	RollToBlock {
 		block_number: u64,
@@ -259,6 +268,21 @@ impl ComputeTestFlow {
 					assert_ok!(Compute::reward(RuntimeOrigin::root(), *amount));
 					format!("Reward(amount={})", amount)
 				},
+				Action::WithdrawDelegation { delegator, committer, expected_reward } => {
+					let delegator_account = Self::name_to_account(delegator);
+					let committer_account = Self::name_to_account(committer);
+					Self::execute_withdraw_delegation(
+						&delegator_account,
+						&committer_account,
+						*expected_reward,
+					);
+					format!("WithdrawDelegation(delegator={}, committer={})", delegator, committer)
+				},
+				Action::WithdrawCommitment { committer, expected_reward } => {
+					let committer_account = Self::name_to_account(committer);
+					Self::execute_withdraw_commitment(&committer_account, *expected_reward);
+					format!("WithdrawCommitment(committer={})", committer)
+				},
 				Action::Delegate { delegator, committer, amount, cooldown } => {
 					let delegator_account = Self::name_to_account(delegator);
 					let committer_account = Self::name_to_account(committer);
@@ -419,6 +443,25 @@ impl ComputeTestFlow {
 		assert_ok!(Compute::stake_more(RuntimeOrigin::signed(committer.clone()), extra_amount,));
 	}
 
+	fn execute_withdraw_delegation(
+		delegator: &AccountId32,
+		committer: &AccountId32,
+		expected_reward: u128,
+	) {
+		events();
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone()
+		));
+		assert_transferred_amount(delegator, expected_reward);
+	}
+
+	fn execute_withdraw_commitment(committer: &AccountId32, expected_reward: u128) {
+		events();
+		assert_ok!(Compute::withdraw_commitment(RuntimeOrigin::signed(committer.clone())));
+		assert_transferred_amount(committer, expected_reward);
+	}
+
 	fn execute_delegate(
 		delegator: &AccountId32,
 		committer: &AccountId32,
@@ -461,39 +504,7 @@ impl ComputeTestFlow {
 
 		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(who.clone())));
 
-		// Check for transfer event with expected reward amount
-		let transfer_events: Vec<_> = events()
-			.into_iter()
-			.filter_map(|e| match e {
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: _,
-					to,
-					amount,
-				}) if to == *who => Some(amount),
-				_ => None,
-			})
-			.collect();
-
-		if expected_reward > 0 {
-			assert!(
-				!transfer_events.is_empty(),
-				"No transfer event found for ending compute commitment"
-			);
-			assert!(
-				expected_reward >= transfer_events[0],
-				"Got expected reward {} smaller than actual {}",
-				expected_reward,
-				transfer_events[0]
-			);
-			assert!(
-				expected_reward - transfer_events[0] < 1 * MICROUNIT, // allow for small rounding error
-				"Expected reward {} but got {}",
-				expected_reward,
-				transfer_events[0]
-			);
-		} else if expected_reward == 0 && !transfer_events.is_empty() {
-			assert!(transfer_events.is_empty(), "Actual reward received: {}", transfer_events[0]);
-		}
+		assert_transferred_amount(who, expected_reward);
 	}
 
 	fn execute_end_delegation(
@@ -651,4 +662,50 @@ pub fn events() -> Vec<RuntimeEvent> {
 	System::reset_events();
 
 	evt
+}
+
+fn first_transfer_event(who: &AccountId) -> Option<Balance> {
+	// Check for transfer event with expected reward amount
+	let transfer_events: Vec<_> = events()
+		.into_iter()
+		.filter_map(|e| match e {
+			RuntimeEvent::Balances(pallet_balances::Event::Transfer { from: _, to, amount })
+				if to == *who =>
+			{
+				Some(amount)
+			},
+			_ => None,
+		})
+		.collect();
+
+	transfer_events.first().copied()
+}
+
+fn assert_transferred_amount(who: &AccountId32, expected_reward: u128) {
+	let transferred_amount = first_transfer_event(who);
+	if expected_reward > 0 {
+		assert!(
+			transferred_amount.is_some(),
+			"No transfer event found for ending compute commitment"
+		);
+		let transferred_amount = transferred_amount.unwrap();
+		assert!(
+			expected_reward >= transferred_amount,
+			"Got expected reward {} smaller than actual {}",
+			expected_reward,
+			transferred_amount
+		);
+		assert!(
+			expected_reward - transferred_amount < 1 * MICROUNIT, // allow for small rounding error
+			"Expected reward {} but got {}",
+			expected_reward,
+			transferred_amount
+		);
+	} else if expected_reward == 0 {
+		assert!(
+			transferred_amount.is_none(),
+			"Actual reward received: {}",
+			transferred_amount.unwrap()
+		);
+	}
 }

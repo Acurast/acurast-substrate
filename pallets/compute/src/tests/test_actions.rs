@@ -1,6 +1,7 @@
 use frame_support::{assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
 use sp_runtime::{traits::AccountIdConversion, AccountId32, FixedU128, Perbill, Perquintill};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::{
 	mock::{InflationPerEpoch, *},
@@ -11,8 +12,13 @@ use crate::{
 use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
 
 /// Test helper function for compute pallet that simplifies test writing
-pub fn compute_test_flow(pools: &[u8], committers: &[(&str, &[&str])], actions: &[Action]) {
-	let flow = ComputeTestFlow {
+pub fn compute_test_flow(
+	executions: usize,
+	pools: &[u8],
+	committers: &[(&str, &[&str])],
+	actions: &[Action],
+) {
+	let mut flow = ComputeTestFlow {
 		pools: pools.to_vec(),
 		committers: committers
 			.iter()
@@ -21,9 +27,13 @@ pub fn compute_test_flow(pools: &[u8], committers: &[(&str, &[&str])], actions: 
 			})
 			.collect(),
 		actions: actions.to_vec(),
+		commitment_ids: Vec::new(),
 	};
 
-	flow.execute();
+	flow.setup();
+	for n in 0..executions {
+		flow.execute(n);
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -83,22 +93,94 @@ pub enum Action {
 	}, // (pool_id, numerator, denominator)
 }
 
+impl Display for Action {
+	fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+		match self {
+			Action::CommitCompute { committer, stake, cooldown, metrics: _, commission: _ } => {
+				write!(
+					f,
+					"CommitCompute(committer={}, stake={}, cooldown={})",
+					committer, stake, cooldown
+				)
+			},
+			Action::StakeMore { committer, extra_amount } => {
+				write!(f, "StakeMore(committer={}, extra_amount={})", committer, extra_amount)
+			},
+			Action::Reward { amount } => {
+				write!(f, "Reward(amount={})", amount)
+			},
+			Action::WithdrawDelegation { delegator, committer, expected_reward: _ } => {
+				write!(f, "WithdrawDelegation(delegator={}, committer={})", delegator, committer)
+			},
+			Action::WithdrawCommitment { committer, expected_reward: _ } => {
+				write!(f, "WithdrawCommitment(committer={})", committer)
+			},
+			Action::Delegate { delegator, committer, amount, cooldown } => {
+				write!(
+					f,
+					"Delegate(delegator={}, committer={}, amount={}, cooldown={})",
+					delegator, committer, amount, cooldown
+				)
+			},
+			Action::CooldownComputeCommitment { committer } => {
+				write!(f, "CooldownComputeCommitment(committer={})", committer)
+			},
+			Action::CooldownDelegation { delegator, committer } => {
+				write!(f, "CooldownDelegation(delegator={}, committer={})", delegator, committer)
+			},
+			Action::EndComputeCommitment { committer, expected_reward } => {
+				write!(
+					f,
+					"EndComputeCommitment(committer={}, expected_reward={})",
+					committer, expected_reward
+				)
+			},
+			Action::EndDelegation { delegator, committer, expected_reward } => {
+				write!(
+					f,
+					"EndDelegation(delegator={}, committer={}, expected_reward={})",
+					delegator, committer, expected_reward
+				)
+			},
+			Action::RollToBlock { block_number, expected_cycle: _ } => {
+				write!(f, "RollToBlock(block_number={})", block_number)
+			},
+			Action::ProcessorCommit { processor, metrics } => {
+				write!(f, "ProcessorCommit(processor={}, metrics={:?})", processor, metrics)
+			},
+		}
+	}
+}
+
 pub struct ComputeTestFlow {
 	pub pools: Vec<u8>,
 	pub committers: Vec<(String, Vec<String>)>,
 	pub actions: Vec<Action>,
+	commitment_ids: Vec<u128>,
 }
 
 impl ComputeTestFlow {
-	fn print_storage_state(action_name: &str) {
+	fn print_repetition(repetition: usize) {
 		println!(
-			"\n╔══════════════════════════════════════════════════════════════════════════════════"
-		);
-		println!("║ ACTION: {}", action_name);
+			"\n╔═══════════════════════════════════════════════════════════════════════ rep: {} ═══"
+		,repetition);
+		println!("║ START REPETITION: {}", repetition);
 		println!(
 			"╚══════════════════════════════════════════════════════════════════════════════════"
 		);
+	}
 
+	fn print_action(action: &Action, repetition: usize) {
+		println!(
+			"\n╔═══════════════════════════════════════════════════════════════════════ rep: {} ═══"
+		,repetition);
+		println!("║ ACTION: {}", action);
+		println!(
+			"╚══════════════════════════════════════════════════════════════════════════════════"
+		);
+	}
+
+	fn print_storage_state() {
 		// Print current cycle
 		let cycle = Compute::current_cycle();
 		println!("🕐 Current Cycle:");
@@ -190,12 +272,12 @@ impl ComputeTestFlow {
 		}
 	}
 
-	pub fn execute(&self) {
+	pub fn setup(&mut self) {
 		// Set inflation per epoch to 0 for tests
 		InflationPerEpoch::set(0);
 
 		// Setup
-		setup();
+		setup_balances();
 
 		// Create pools
 		for (i, &percent) in self.pools.iter().enumerate() {
@@ -219,7 +301,6 @@ impl ComputeTestFlow {
 
 		// Setup committers and their processor mappings
 		MockManagerProvider::clear_mappings();
-		let mut commitment_ids: Vec<u128> = vec![];
 		for (committer_name, processors) in &self.committers {
 			let committer_account = Self::name_to_account(committer_name);
 
@@ -232,19 +313,25 @@ impl ComputeTestFlow {
 			// Do offer_accept_backing flow
 			Self::setup_backing(&committer_account);
 
-			commitment_ids.push(
+			self.commitment_ids.push(
 				<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer_account)
 					.unwrap(),
 			);
 		}
+	}
+
+	pub fn execute(&self, repetition: usize) {
+		Self::print_repetition(repetition);
 
 		// Print initial state
-		Self::print_storage_state("INITIAL_SETUP");
+		Self::print_storage_state();
 
 		let mut pool_ids = vec![];
 		// Execute actions
 		for action in &self.actions {
-			let action_name = match action {
+			Self::print_action(action, repetition);
+
+			match action {
 				Action::CommitCompute { committer, stake, cooldown, metrics, commission } => {
 					let account = Self::name_to_account(committer);
 					pool_ids.extend(Self::execute_commit_compute(
@@ -254,19 +341,13 @@ impl ComputeTestFlow {
 						metrics,
 						*commission,
 					));
-					format!(
-						"CommitCompute(committer={}, stake={}, cooldown={})",
-						committer, stake, cooldown
-					)
 				},
 				Action::StakeMore { committer, extra_amount } => {
 					let account = Self::name_to_account(committer);
 					Self::execute_stake_more(&account, *extra_amount);
-					format!("StakeMore(committer={}, extra_amount={})", committer, extra_amount)
 				},
 				Action::Reward { amount } => {
 					assert_ok!(Compute::reward(RuntimeOrigin::root(), *amount));
-					format!("Reward(amount={})", amount)
 				},
 				Action::WithdrawDelegation { delegator, committer, expected_reward } => {
 					let delegator_account = Self::name_to_account(delegator);
@@ -276,12 +357,10 @@ impl ComputeTestFlow {
 						&committer_account,
 						*expected_reward,
 					);
-					format!("WithdrawDelegation(delegator={}, committer={})", delegator, committer)
 				},
 				Action::WithdrawCommitment { committer, expected_reward } => {
 					let committer_account = Self::name_to_account(committer);
 					Self::execute_withdraw_commitment(&committer_account, *expected_reward);
-					format!("WithdrawCommitment(committer={})", committer)
 				},
 				Action::Delegate { delegator, committer, amount, cooldown } => {
 					let delegator_account = Self::name_to_account(delegator);
@@ -292,29 +371,19 @@ impl ComputeTestFlow {
 						*amount,
 						*cooldown,
 					);
-					format!(
-						"Delegate(delegator={}, committer={}, amount={}, cooldown={})",
-						delegator, committer, amount, cooldown
-					)
 				},
 				Action::CooldownComputeCommitment { committer } => {
 					let account = Self::name_to_account(committer);
 					Self::execute_cooldown_compute_commitment(&account);
-					format!("CooldownComputeCommitment(committer={})", committer)
 				},
 				Action::CooldownDelegation { delegator, committer } => {
 					let delegator_account = Self::name_to_account(delegator);
 					let committer_account = Self::name_to_account(committer);
 					Self::execute_cooldown_delegation(&delegator_account, &committer_account);
-					format!("CooldownDelegation(delegator={}, committer={})", delegator, committer)
 				},
 				Action::EndComputeCommitment { committer, expected_reward } => {
 					let account = Self::name_to_account(committer);
 					Self::execute_end_compute_commitment(&account, *expected_reward);
-					format!(
-						"EndComputeCommitment(committer={}, expected_reward={})",
-						committer, expected_reward
-					)
 				},
 				Action::EndDelegation { delegator, committer, expected_reward } => {
 					let delegator_account = Self::name_to_account(delegator);
@@ -324,34 +393,30 @@ impl ComputeTestFlow {
 						&committer_account,
 						*expected_reward,
 					);
-					format!(
-						"EndDelegation(delegator={}, committer={}, expected_reward={})",
-						delegator, committer, expected_reward
-					)
 				},
 				Action::RollToBlock { block_number, expected_cycle } => {
-					roll_to_block(*block_number);
+					roll_to_block(*block_number + (1000usize * repetition) as u64);
 
 					let actual_cycle = Compute::current_cycle();
-					assert_eq!(
-						actual_cycle, *expected_cycle,
-						"Expected cycle {:?} at block {}, got {:?}",
-						expected_cycle, block_number, actual_cycle
-					);
-					format!("RollToBlock(block_number={})", block_number)
+					if repetition == 0 {
+						assert_eq!(
+							actual_cycle, *expected_cycle,
+							"Expected cycle {:?} at block {}, got {:?}",
+							expected_cycle, block_number, actual_cycle
+						);
+					}
 				},
 				Action::ProcessorCommit { processor, metrics } => {
 					let account = Self::name_to_account(processor);
 					Self::execute_processor_commit(&account, metrics);
-					format!("ProcessorCommit(processor={}, metrics={:?})", processor, metrics)
 				},
-			};
+			}
 
-			Self::print_storage_state(&action_name);
+			Self::print_storage_state();
 		}
 
 		for pool_id in pool_ids {
-			for commitment_id in &commitment_ids {
+			for commitment_id in &self.commitment_ids {
 				let staking_pool = Compute::staking_pool_members(*commitment_id, pool_id);
 				assert!(staking_pool.is_none(), "staking_pool_members(commitment_id: {}, pool_id: {}) should be None but was {:?}", commitment_id, pool_id, staking_pool.unwrap());
 
@@ -538,7 +603,7 @@ impl ComputeTestFlow {
 
 		// Look for DelegationEnded event
 		let delegation_ended: bool = all_events.iter().any(|e| match e {
-			RuntimeEvent::Compute(Event::DelegationEnded(del, _)) if *del == *delegator => true,
+			RuntimeEvent::Compute(Event::DelegationEnded(del, _, _)) if *del == *delegator => true,
 			_ => false,
 		});
 
@@ -570,11 +635,11 @@ impl ComputeTestFlow {
 	}
 }
 
-pub fn setup() {
+pub fn setup_balances() {
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		<Test as Config>::PalletId::get().into_account_truncating(),
-		100_000_000_000 * UNIT
+		100_000_000_000_000_000_000 * UNIT
 	));
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),

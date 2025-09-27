@@ -485,24 +485,21 @@ where
 	pub fn compound_delegator(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
-	) -> Result<(), Error<T, I>> {
-		Self::delegate_more_for(
-			who,
-			commitment_id,
-			Self::withdraw_delegation_for(who, commitment_id)?,
-		)?;
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		let compound_amount = Self::withdraw_delegation_for(who, commitment_id)?;
+		Self::delegate_more_for(who, commitment_id, compound_amount)?;
 
-		Ok(())
+		Ok(compound_amount)
 	}
 
 	pub fn compound_committer(
 		committer: &T::AccountId,
 		commitment_id: T::CommitmentId,
-	) -> Result<(), Error<T, I>> {
-		// compound reward to the caller if any
-		Self::stake_more_for(committer, Self::withdraw_committer_for(committer, commitment_id)?)?;
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		let compound_amount = Self::withdraw_committer_for(committer, commitment_id)?;
+		Self::stake_more_for(committer, compound_amount)?;
 
-		Ok(())
+		Ok(compound_amount)
 	}
 
 	fn update_total_stake(change: StakeChange<BalanceFor<T, I>>) -> Result<(), Error<T, I>> {
@@ -1092,10 +1089,10 @@ where
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		check_cooldown: bool,
-	) -> Result<(), Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 
-		Self::withdraw_delegation_for(who, commitment_id)?;
+		let reward = Self::withdraw_delegation_for(who, commitment_id)?;
 
 		let stake = <Delegations<T, I>>::try_mutate(
 			who,
@@ -1200,7 +1197,7 @@ where
 
 		Self::unlock_and_slash(who, &stake)?;
 
-		Ok(())
+		Ok(reward)
 	}
 
 	pub fn end_commitment_for(
@@ -1225,8 +1222,22 @@ where
 			},
 		)?;
 
-		<SelfDelegation<T, I>>::remove(commitment_id);
+		let state = <SelfDelegation<T, I>>::try_mutate(commitment_id, |s_| {
+			Ok(s_.take().ok_or(Error::<T, I>::InternalError)?)
+		})?;
 
+		// UPDATE per pool and global TOTALS
+		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_sub(state.reward_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			pool.slash_weight = pool
+				.slash_weight
+				.checked_sub(state.slash_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			Ok(())
+		})?;
 		let udpated_commitment_stake = Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(stake.amount, stake.rewardable_amount),

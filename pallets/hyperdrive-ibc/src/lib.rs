@@ -269,7 +269,7 @@ pub mod pallet {
 				&who,
 				message.fee,
 				Precision::BestEffort,
-				Restriction::OnHold,
+				Restriction::Free,
 				Fortitude::Polite,
 			)
 			.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;

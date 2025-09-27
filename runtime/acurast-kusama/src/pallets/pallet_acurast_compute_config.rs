@@ -36,7 +36,6 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const Decimals: Balance = UNIT;
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
 	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(1);
@@ -62,7 +61,6 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
-	type Decimals = Decimals;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
@@ -104,7 +102,7 @@ impl
 	{
 		Uniques::owned_in_collection(&CommitmentCollectionId::get(), owner)
 			.nth(0)
-			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Manager ID not found"))
+			.ok_or(frame_support::pallet_prelude::DispatchError::Other("Commitment ID not found"))
 	}
 
 	fn owner_for(
@@ -115,7 +113,7 @@ impl
 	> {
 		Uniques::owner(CommitmentCollectionId::get(), commitment_id).ok_or(
 			frame_support::pallet_prelude::DispatchError::Other(
-				"Onwer for provided Manager ID not found",
+				"Onwer for provided Commitment ID not found",
 			),
 		)
 	}

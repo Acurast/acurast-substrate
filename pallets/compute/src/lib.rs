@@ -126,7 +126,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
 		type Currency: InspectLockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
-		type Decimals: Get<BalanceFor<Self, I>>;
 		/// The single lock indentifier used for the sum of all staked and delegated amounts.
 		///
 		/// We have to use the same lock identifier since we do not want the locks to overlap;
@@ -817,17 +816,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			let reward = Self::end_commitment_for(&who, commitment_id)?;
-
-			// Transfer reward to the caller if any
-			if !reward.is_zero() {
-				T::Currency::transfer(
-					&T::PalletId::get().into_account_truncating(),
-					&who,
-					reward,
-					ExistenceRequirement::KeepAlive,
-				)?;
-			}
+			let _ = Self::end_commitment_for(&who, commitment_id)?;
 
 			Commission::<T, I>::remove(commitment_id);
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(commitment_id));
@@ -976,19 +965,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 
-			let reward = Self::withdraw_committer_accrued(commitment_id)?;
+			let reward_amount = Self::withdraw_committer_for(&who, commitment_id)?;
 
-			// Transfer reward to the caller if any
-			if !reward.is_zero() {
-				T::Currency::transfer(
-					&T::PalletId::get().into_account_truncating(),
-					&who,
-					reward,
-					ExistenceRequirement::KeepAlive,
-				)?;
-			}
-
-			Self::deposit_event(Event::<T, I>::CommitterWithdrew(who, commitment_id, reward));
+			Self::deposit_event(Event::<T, I>::CommitterWithdrew(
+				who,
+				commitment_id,
+				reward_amount,
+			));
 
 			Ok(().into())
 		}
@@ -1195,7 +1178,6 @@ pub mod pallet {
 				.saturating_add(p.accrued.into())
 				.into();
 
-			// accrue
 			#[allow(clippy::bind_instead_of_map)]
 			let _ = T::Currency::transfer(
 				&T::PalletId::get().into_account_truncating(),

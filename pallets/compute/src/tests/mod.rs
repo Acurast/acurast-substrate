@@ -1,6 +1,6 @@
 pub mod test_actions;
 
-pub use test_actions::{compute_test_flow, events, roll_to_block, setup, Action};
+pub use test_actions::{compute_test_flow, events, roll_to_block, setup_balances, Action};
 
 use frame_support::{assert_err, assert_ok};
 use sp_core::{bounded_vec, U256};
@@ -101,6 +101,7 @@ fn commit_actions_4_processors() -> Vec<Action> {
 fn test_compute_flow_no_delegations_no_rewards() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -137,6 +138,7 @@ fn test_compute_flow_no_delegations_no_rewards() {
 fn test_compute_flow_no_delegations() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -177,6 +179,7 @@ fn test_compute_flow_no_delegations() {
 fn test_compute_no_rewards() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -243,6 +246,7 @@ fn test_compute_no_rewards() {
 fn test_compute_flow_1() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -325,6 +329,7 @@ fn test_compute_flow_1() {
 fn test_compute_flow_2_committers() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -378,6 +383,7 @@ fn test_compute_flow_2_committers() {
 fn test_compute_flow_2_committers_subsequential_distinct_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -441,6 +447,7 @@ fn test_compute_flow_2_committers_subsequential_distinct_pools() {
 fn test_compute_flow_2_committers_subsequential_overlapping_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -504,6 +511,7 @@ fn test_compute_flow_2_committers_subsequential_overlapping_pools() {
 fn test_compute_flow_2_committers_one_withdraws() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -558,6 +566,7 @@ fn test_compute_flow_2_committers_one_withdraws() {
 fn test_compute_flow_2_shifted_committers_competing_metric_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -613,6 +622,7 @@ fn test_compute_flow_2_shifted_committers_competing_metric_pools() {
 fn test_compute_flow_2_shifted_committers_competing_metric_pools_with_delegations() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -692,6 +702,7 @@ fn test_compute_flow_2_shifted_committers_competing_metric_pools_with_delegation
 fn test_compute_flow_2_committers_competing_metric_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[25, 25, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -745,6 +756,7 @@ fn test_compute_flow_2_committers_competing_metric_pools() {
 fn test_compute_flow_4_processors_only_one_commits() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[50, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -786,6 +798,7 @@ fn test_compute_flow_4_processors_only_one_commits() {
 fn test_compute_flow_rewarded_metrics_pool_without_committers() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[50, 50], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -826,6 +839,7 @@ fn test_compute_flow_rewarded_metrics_pool_without_committers() {
 fn test_compute_stake_more() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // three pools matching original test
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -909,6 +923,7 @@ fn test_compute_stake_more() {
 fn test_compute_flow_varied_cooldown() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // same pools as original
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -992,6 +1007,7 @@ fn test_compute_flow_varied_cooldown() {
 fn test_compute_flow_varied_stakes() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 50, 20], // same pools as original
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -1063,6 +1079,7 @@ fn test_compute_flow_varied_stakes() {
 fn test_compute_flow_multi_pool_metrics() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 30, 20, 20], // four pools with different allocations
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -1157,6 +1174,7 @@ fn test_compute_flow_multi_pool_metrics() {
 fn test_compute_flow_large_metrics() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 30, 20, 20], // four pools with different allocations
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -1251,6 +1269,7 @@ fn test_compute_flow_large_metrics() {
 fn test_compute_flow_large_metrics_tiny_reward() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
+			2,
 			&[30, 30, 20, 20], // four pools with different allocations
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
@@ -1372,7 +1391,7 @@ fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
 #[test]
 fn test_create_pools_name_conflict() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		// create pool 1
 		{
 			assert_ok!(Compute::create_pool(
@@ -1402,7 +1421,7 @@ fn test_create_pools_name_conflict() {
 #[test]
 fn test_single_processor_commit() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		assert_ok!(Compute::create_pool(
 			RuntimeOrigin::root(),
 			*b"cpu-ops-per-second______",
@@ -1828,7 +1847,7 @@ fn check_events() {
 fn test_multiple_processor_commit() {
 	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
-		setup();
+		setup_balances();
 		create_pools();
 		commit(false, false);
 		check_events();
@@ -1839,7 +1858,7 @@ fn test_multiple_processor_commit() {
 fn test_multiple_processor_commit_reward_modified() {
 	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
-		setup();
+		setup_balances();
 		create_pools();
 		commit(false, true);
 		check_events();
@@ -1850,7 +1869,7 @@ fn test_multiple_processor_commit_reward_modified() {
 fn test_multiple_processor_commit_with_interleaving_charlie() {
 	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
-		setup();
+		setup_balances();
 		create_pools();
 		commit(true, false);
 		check_events();
@@ -1861,7 +1880,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie() {
 fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 	ExtBuilder.build().execute_with(|| {
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
-		setup();
+		setup_balances();
 		create_pools();
 		commit(true, true);
 		check_events();
@@ -1871,7 +1890,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 #[test]
 fn test_commit_compute() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		create_pools();
 
 		// Charlie will act as both manager and committer (same account for simplicity)
@@ -2037,7 +2056,7 @@ fn test_commit_compute() {
 #[test]
 fn test_delegate() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		create_pools();
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
@@ -2169,7 +2188,7 @@ fn test_delegate() {
 #[test]
 fn test_delegate_more() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		create_pools();
 
 		// Charlie will act as both manager and committer (same account for simplicity)
@@ -2255,7 +2274,7 @@ fn test_delegate_more() {
 #[test]
 fn test_compound_delegation() {
 	ExtBuilder.build().execute_with(|| {
-		setup();
+		setup_balances();
 		create_pools();
 
 		// Charlie will act as both manager and committer

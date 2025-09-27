@@ -376,16 +376,16 @@ pub mod pallet {
 		DelegatedMore(T::AccountId, T::CommitmentId),
 		/// An account started the cooldown for an accepted delegation. [delegator, commitment_id]
 		DelegationCooldownStarted(T::AccountId, T::CommitmentId),
-		/// An account passed the cooldown and ended delegation. [delegator, commitment_id]
-		DelegationEnded(T::AccountId, T::CommitmentId),
+		/// An account passed the cooldown and ended delegation. [delegator, commitment_id, reward_amount]
+		DelegationEnded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 		/// A committer staked and committed compute provided by the manager he is backing. [commitment_id]
 		ComputeCommitted(T::CommitmentId),
-		/// A committer increased its stake. [commitment_id, extra_amount]
-		StakedMore(T::CommitmentId, BalanceFor<T, I>),
+		/// A committer increased its stake. [commitment_id]
+		StakedMore(T::CommitmentId),
 		/// The cooldown for a commitment got started. [commitment_id]
 		ComputeCommitmentCooldownStarted(T::CommitmentId),
-		/// The cooldown for a commitment has ended. [commitment_id]
-		ComputeCommitmentEnded(T::CommitmentId),
+		/// The cooldown for a commitment has ended. [commitment_id, reward_amount]
+		ComputeCommitmentEnded(T::CommitmentId, BalanceFor<T, I>),
 		/// A reward got distrubuted. [amount]
 		Rewarded(BalanceFor<T, I>),
 		/// A commitment got slahsed. [commitment_id, amount]
@@ -396,6 +396,10 @@ pub mod pallet {
 		DelegatorWithdrew(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 		/// A committer withdrew his accrued rewards and slashes. [committer, commitment_id, reward_amount]
 		CommitterWithdrew(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
+		/// A delegator compounded his accrued rewards and slashes. [delegator, commitment_id, compound_amount]
+		DelegatorCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
+		/// A committer compounded his accrued rewards and slashes. [committer, commitment_id, compound_amount]
+		CommitterCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -795,7 +799,7 @@ pub mod pallet {
 			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
 			Self::validate_max_stake_metric_ratio(commitment_id)?;
 
-			Self::deposit_event(Event::<T, I>::StakedMore(commitment_id, extra_amount));
+			Self::deposit_event(Event::<T, I>::StakedMore(commitment_id));
 
 			Ok(().into())
 		}
@@ -816,10 +820,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			let _ = Self::end_commitment_for(&who, commitment_id)?;
+			let compound_amount = Self::end_commitment_for(&who, commitment_id)?;
 
 			Commission::<T, I>::remove(commitment_id);
-			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(commitment_id));
+			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(
+				commitment_id,
+				compound_amount,
+			));
 			Ok(().into())
 		}
 
@@ -895,9 +902,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::end_delegation_for(&who, commitment_id, true)?;
+			let compound_amount = Self::end_delegation_for(&who, commitment_id, true)?;
 
-			Self::deposit_event(Event::<T, I>::DelegationEnded(who, commitment_id));
+			Self::deposit_event(Event::<T, I>::DelegationEnded(
+				who,
+				commitment_id,
+				compound_amount,
+			));
 			Ok(().into())
 		}
 
@@ -1020,7 +1031,13 @@ pub mod pallet {
 				Error::<T, I>::AutoCompoundNotAllowed
 			);
 
-			Self::compound_delegator(&delegator, commitment_id)?;
+			let compound_amount = Self::compound_delegator(&delegator, commitment_id)?;
+
+			Self::deposit_event(Event::<T, I>::DelegatorCompounded(
+				delegator,
+				commitment_id,
+				compound_amount,
+			));
 
 			Ok(().into())
 		}
@@ -1050,7 +1067,13 @@ pub mod pallet {
 				Error::<T, I>::AutoCompoundNotAllowed
 			);
 
-			Self::compound_committer(&committer, commitment_id)?;
+			let compound_amount = Self::compound_committer(&committer, commitment_id)?;
+
+			Self::deposit_event(Event::<T, I>::CommitterCompounded(
+				committer,
+				commitment_id,
+				compound_amount,
+			));
 
 			Ok(().into())
 		}

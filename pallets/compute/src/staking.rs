@@ -1222,8 +1222,22 @@ where
 			},
 		)?;
 
-		<SelfDelegation<T, I>>::remove(commitment_id);
+		let state = <SelfDelegation<T, I>>::try_mutate(commitment_id, |s_| {
+			Ok(s_.take().ok_or(Error::<T, I>::InternalError)?)
+		})?;
 
+		// UPDATE per pool and global TOTALS
+		DelegationPools::<T, I>::try_mutate(commitment_id, |pool| {
+			pool.reward_weight = pool
+				.reward_weight
+				.checked_sub(state.reward_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			pool.slash_weight = pool
+				.slash_weight
+				.checked_sub(state.slash_weight)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			Ok(())
+		})?;
 		let udpated_commitment_stake = Self::update_commitment_stake(
 			commitment_id,
 			StakeChange::Sub(stake.amount, stake.rewardable_amount),

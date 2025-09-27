@@ -681,7 +681,7 @@ fn test_compute_flow_2_shifted_committers_competing_metric_pools_with_delegation
 					Action::EndDelegation {
 						delegator: "G".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 7_772_995_377_008,
+						expected_reward: 7772995377009,
 					},
 					Action::EndDelegation {
 						delegator: "H".to_string(),

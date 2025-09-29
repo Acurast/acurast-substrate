@@ -820,7 +820,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// the commitment_id does not get destroyed and might be recycled with upcoming features
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			let compound_amount = Self::end_commitment_for(&who, commitment_id)?;
+			let compound_amount = Self::end_commitment_for(&who, commitment_id, true)?;
 
 			Commission::<T, I>::remove(commitment_id);
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(

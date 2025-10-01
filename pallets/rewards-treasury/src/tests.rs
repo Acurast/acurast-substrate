@@ -6,12 +6,14 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::H256;
+use sp_runtime::traits::AccountIdConversion;
 
 use crate::{mock::*, stub::*};
 
 #[test]
 fn test_single_vest_no_rewards() {
 	ExtBuilder::default().build().execute_with(|| {
+		let account: AccountId = RTPalletId::get().into_account_truncating();
 		assert_eq!(System::block_number(), 1);
 
 		assert_ok!(Balances::mint_into(&alice_account_id(), 10 * UNIT));
@@ -20,15 +22,15 @@ fn test_single_vest_no_rewards() {
 		assert_eq!(Balances::free_balance(bob_account_id()), 20 * UNIT);
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
-			Treasury::get().clone().into(),
+			account.clone(),
 			1 * UNIT
 		));
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
-			Treasury::get().clone().into(),
+			account.clone(),
 			3 * UNIT
 		));
-		assert_eq!(Balances::free_balance(Treasury::get()), 4 * UNIT);
+		assert_eq!(Balances::free_balance(&account), 4 * UNIT);
 
 		assert_eq!(RewardsTreasury::penultimate_balance(), 0);
 
@@ -48,7 +50,7 @@ fn test_single_vest_no_rewards() {
 
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
-			Treasury::get().clone().into(),
+			account.clone(),
 			3 * UNIT
 		));
 
@@ -64,24 +66,24 @@ fn test_single_vest_no_rewards() {
 			events(),
 			[
 				RuntimeEvent::Balances(pallet_balances::Event::Burned {
-					who: Treasury::get(),
+					who: account.clone(),
 					amount: 0
 				}),
 				RuntimeEvent::RewardsTreasury(crate::Event::BurntFromTreasuryAtEndOfEpoch(0)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: alice_account_id(),
-					to: Treasury::get(),
+					to: account.clone(),
 					amount: 3 * UNIT
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Burned {
-					who: Treasury::get(),
+					who: account.clone(),
 					amount: 4 * UNIT - ExistentialDeposit::get()
 				}),
 				RuntimeEvent::RewardsTreasury(crate::Event::BurntFromTreasuryAtEndOfEpoch(
 					4 * UNIT - ExistentialDeposit::get()
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Burned {
-					who: Treasury::get(),
+					who: account.clone(),
 					amount: 3 * UNIT
 				}),
 				RuntimeEvent::RewardsTreasury(crate::Event::BurntFromTreasuryAtEndOfEpoch(

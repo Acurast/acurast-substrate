@@ -54,7 +54,7 @@ impl pallet_referenda::Config for Runtime {
 	type MaxQueued = ConstU32<100>;
 	type UndecidingTimeout = UndecidingTimeout;
 	type AlarmInterval = AlarmInterval;
-	type Tracks = TracksInfo<Self, EnsureRoot<AccountId>, Tracks>;
+	type Tracks = TracksInfo<Self, Tracks>;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
 	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;

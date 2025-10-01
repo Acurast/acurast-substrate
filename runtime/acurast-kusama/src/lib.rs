@@ -105,12 +105,8 @@ mod runtime {
 	pub type Acurast = pallet_acurast;
 	#[runtime::pallet_index(41)]
 	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
-	#[runtime::pallet_index(42)]
-	pub type AcurastFeeManager = pallet_acurast_fee_manager<Instance1>;
 	#[runtime::pallet_index(43)]
 	pub type AcurastMarketplace = pallet_acurast_marketplace;
-	#[runtime::pallet_index(44)]
-	pub type AcurastMatcherFeeManager = pallet_acurast_fee_manager<Instance2>;
 	#[runtime::pallet_index(45)]
 	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]

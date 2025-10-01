@@ -51,24 +51,48 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
-/// The permissioned multisig account `5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je`.
+// 5CGV1Sm6Qzt3s5qabiDAEjni6xT15MZ8LumkVPob4SJqAN7C
+pub const MULTISIG_MEMBER_1: AccountId = AccountId32::new([
+	8, 251, 177, 59, 216, 3, 125, 72, 41, 72, 88, 240, 125, 15, 17, 172, 138, 10, 183, 215, 145,
+	119, 239, 89, 112, 0, 234, 105, 99, 217, 189, 5,
+]);
+// 5DFhdYCuTc4uubFu6XGpiF5uKu6e7erNZa6QKExZDRFMTuv8
+pub const MULTISIG_MEMBER_2: AccountId = AccountId32::new([
+	52, 159, 43, 188, 132, 82, 63, 226, 222, 8, 14, 207, 143, 150, 49, 52, 42, 104, 136, 25, 84,
+	85, 140, 149, 166, 63, 56, 72, 146, 113, 28, 72,
+]);
+// 5DXDTbjLtDDUXzFy24Fhkjs9fY3PQwQR2ohzjQPT1JvUAcEy
+pub const MULTISIG_MEMBER_3: AccountId = AccountId32::new([
+	64, 116, 67, 152, 92, 197, 129, 25, 49, 53, 219, 79, 187, 35, 129, 198, 57, 185, 238, 224, 105,
+	205, 104, 222, 248, 190, 10, 144, 70, 218, 69, 16,
+]);
+// 5Dt7iJBxvWztigqXiXqm8EU5xVBWcUrfXA5am1e8sF1RjUuW
+pub const MULTISIG_MEMBER_4: AccountId = AccountId32::new([
+	80, 101, 18, 161, 124, 202, 251, 175, 7, 64, 113, 14, 71, 239, 46, 123, 244, 227, 85, 74, 132,
+	46, 86, 125, 95, 175, 176, 198, 50, 128, 245, 55,
+]);
+// 5EEe4WLNneqz3Fp2n61ZcTiGU6GLEvUgVmnkKaaxARSdVpdg
+pub const MULTISIG_MEMBER_5: AccountId = AccountId32::new([
+	96, 12, 36, 143, 93, 8, 144, 90, 166, 15, 141, 0, 105, 112, 187, 145, 231, 152, 24, 235, 48,
+	13, 180, 130, 11, 159, 109, 239, 177, 70, 179, 72,
+]);
+// 5EUnFHHEFd4mzTA6cjg8JfKHeteCDrcEhMdxUXSK3QzHSPe8
+pub const MULTISIG_MEMBER_6: AccountId = AccountId32::new([
+	106, 213, 34, 94, 7, 36, 164, 241, 250, 180, 251, 154, 234, 18, 223, 61, 158, 96, 7, 95, 187,
+	186, 210, 166, 202, 181, 151, 62, 172, 25, 43, 24,
+]);
+// 5EbvNf3q5Xb918UvHBuB6rPfYuom38QAqw8osV5TQeaELWxP
+pub const MULTISIG_MEMBER_7: AccountId = AccountId32::new([
+	112, 71, 53, 229, 240, 87, 176, 45, 195, 169, 238, 86, 24, 175, 3, 43, 201, 20, 148, 172, 219,
+	44, 84, 65, 29, 111, 162, 87, 219, 163, 245, 118,
+]);
+
+/// The permissioned multisig account `5E9Yq3ViHdMdtw8qdixTkDKQcNKJ9wbJ1pDoEPRZL8WUW41j`.
 ///
-/// It consists of pre-generated 1-out-of-3 multisig account built from (in this order):
-///
-/// * Hex: `0x6ed85136cf2f86fafd38ca4655ce6188fb73fc0ca3e4eecd0eac38a4c87c0b41`
-///
-///   SS58: `5Ea3PESLfJ8uKbbbFNRyyitkfXBnPq8YAhRA4c7xg4o7cDaN`
-///
-/// * Hex: `0x94161be257be99009a7ee8d454c843f28f3ed9c720a07d284c07709fbcaffe06`
-///
-///   SS58: `5FQsWe1avwD29FFTJ3DtiDsJX6JGmjtW7vkaLes1QUUVdcPV`
-///
-/// * Hex: `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
-///
-///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
+/// It consists of pre-generated 3-out-of-7 multisig account built from the members defined above (in this order).
 pub const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
-	225, 96, 141, 169, 196, 68, 108, 63, 177, 69, 193, 246, 118, 195, 160, 124, 207, 95, 169, 146,
-	34, 7, 154, 77, 28, 19, 179, 190, 41, 22, 66, 26,
+	92, 42, 77, 139, 255, 132, 23, 211, 77, 53, 218, 186, 69, 60, 178, 234, 114, 214, 95, 185, 189,
+	32, 227, 175, 88, 174, 120, 110, 220, 237, 199, 129,
 ]);
 
 // The purpose of this offset is to ensure that a democratic proposal will not apply in the same
@@ -129,7 +153,6 @@ parameter_types! {
 	pub const MinCandidates: u32 = 4;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub Admins: Vec<AccountId> = vec![];
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
@@ -141,6 +164,9 @@ parameter_types! {
 	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"trsrypid");
+
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.mainnet";
@@ -177,11 +203,10 @@ parameter_types! {
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 
 	pub const Epoch: BlockNumber = 131072;
-	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
 
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
-	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
-	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
+	pub const PreimageBaseDeposit: Balance = UNIT / 10;
+	pub const PreimageByteDeposit: Balance = MICROUNIT;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;

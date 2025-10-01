@@ -112,7 +112,8 @@ acurast-mainnet = []
 runtime-benchmarks = [
 	"acurast-rococo-runtime/runtime-benchmarks",
 	"acurast-kusama-runtime/runtime-benchmarks",
+	"acurast-mainnet-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
 
-try-runtime = ["acurast-rococo-runtime/try-runtime"]
+try-runtime = ["acurast-rococo-runtime/try-runtime", "acurast-kusama-runtime/try-runtime", "acurast-mainnet-runtime/try-runtime"]

@@ -56,12 +56,10 @@ pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
 		DefaultFeePercentage::get()
-		// AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
 	}
 
 	fn get_matcher_percentage() -> sp_runtime::Percent {
 		DefaultMatcherFeePercentage::get()
-		// AcurastMatcherFeeManager::fee_percentage(AcurastMatcherFeeManager::fee_version())
 	}
 
 	fn pallet_id() -> PalletId {

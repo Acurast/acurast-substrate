@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
 	tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, WithdrawConsequence},
-	CallerTrait, Currency, EnsureOrigin, Imbalance, IsType, OriginTrait,
+	CallerTrait, Currency, Imbalance, IsType, OriginTrait,
 };
 use frame_system::Config as FrameSystemConfig;
 pub use parachains_common::Balance;
@@ -197,11 +197,10 @@ impl<
 	}
 }
 
-pub struct TracksInfo<T, EO, TR>(PhantomData<(T, EO, TR)>);
-impl<T, EO, TR> pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo<T, EO, TR>
+pub struct TracksInfo<T, TR>(PhantomData<(T, TR)>);
+impl<T, TR> pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo<T, TR>
 where
 	T: frame_system::Config,
-	EO: EnsureOrigin<T::RuntimeOrigin>,
 	TR: Get<[Track<u16, Balance, BlockNumber>; 1]>,
 {
 	type Id = u16;
@@ -215,9 +214,9 @@ where
 		let Some(origin) = origin.as_system_ref() else {
 			return Err(());
 		};
-		if EO::ensure_origin(origin.clone().into()).is_ok() {
-			return Ok(0);
+		match origin {
+			frame_system::RawOrigin::Root => Ok(0),
+			_ => Err(()),
 		}
-		Err(())
 	}
 }

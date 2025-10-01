@@ -3,7 +3,6 @@ pub mod frame_system_extensions;
 pub mod pallet_acurast;
 pub mod pallet_acurast_candidate_preselection;
 pub mod pallet_acurast_compute;
-pub mod pallet_acurast_fee_manager;
 pub mod pallet_acurast_hyperdrive;
 pub mod pallet_acurast_hyperdrive_ibc_weights;
 pub mod pallet_acurast_hyperdrive_token;

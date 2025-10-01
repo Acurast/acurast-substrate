@@ -1,6 +1,6 @@
 use acurast_runtime_common::{
 	constants::{DAYS, UNIT},
-	types::{Balance, BlockNumber},
+	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
 use frame_system::EnsureRoot;
@@ -10,21 +10,21 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		tokens::imbalance::ResolveTo,
 		ConstU32, LockIdentifier,
 	},
-	PalletId,
 };
-use sp_runtime::Perquintill;
+use sp_runtime::{traits::AccountIdConversion, Perquintill};
 
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
-	constants::{CommitmentCollectionId, RootAccountId},
-	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, Uniques,
+	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
+	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, TreasuryPalletId, Uniques,
 };
 
 parameter_types! {
-	pub const Epoch: BlockNumber = 900; // 1.5 hours
+	pub const Epoch: BlockNumber = 5; // 1.5 hours
 	pub const Era: BlockNumber = 16; // 24 hours
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
@@ -36,9 +36,10 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
-	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(10);
+	pub TreasuryAccountId: AccountId = TreasuryPalletId::get().into_account_truncating();
 }
 
 impl pallet_acurast_compute::Config for Runtime {
@@ -69,7 +70,9 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type InflationStakedComputeRation = InflationStakedComputeRation;
+	type InflationMetricsRation = InflationMetricsRation;
+	type InflationHandler = ResolveTo<TreasuryAccountId, Balances>;
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;

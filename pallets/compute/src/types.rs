@@ -6,17 +6,17 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::{
 	traits::{Debug, One, Saturating, Zero},
-	FixedU128, Perquintill,
+	FixedU128, Perbill, Perquintill,
 };
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
-	Config,
+	Config, MemoryBuffer,
 };
 
 pub type EpochOf<T> = BlockNumberFor<T>;
 pub type EraOf<T> = BlockNumberFor<T>;
-pub type CycleFor<T> = Cycle<EpochOf<T>, EraOf<T>, BlockNumberFor<T>>;
+pub type CycleFor<T> = Cycle<EpochOf<T>, BlockNumberFor<T>>;
 pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 pub type ProcessorStateFor<T, I> =
 	ProcessorState<BlockNumberFor<T>, BlockNumberFor<T>, BalanceFor<T, I>>;
@@ -26,6 +26,7 @@ pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
 /// Precision constant for U256 calculations (10^30)
 pub const PER_TOKEN_DECIMALS: u128 = 1_000_000_000_000_000_000_000_000_000_000;
+pub const FIXEDU128_DECIMALS: u128 = 1_000_000_000_000_000_000;
 pub type MetricPoolConfigValues =
 	BoundedVec<MetricPoolConfigValue, ConstU32<CONFIG_VALUES_MAX_LENGTH>>;
 
@@ -40,7 +41,9 @@ pub type MetricPoolName = [u8; 24];
 pub type MetricPoolConfigName = [u8; 24];
 
 pub type StakeFor<T, I> = Stake<BalanceFor<T, I>, BlockNumberFor<T>>;
-pub type DelegationPoolMemberFor<T, I> = DelegationPoolMember<BalanceFor<T, I>>;
+pub type CommitmentFor<T, I> = Commitment<BalanceFor<T, I>, BlockNumberFor<T>, EpochOf<T>>;
+pub type DelegationFor<T, I> = Delegation<BalanceFor<T, I>, BlockNumberFor<T>>;
+pub type RewardBudgetFor<T, I> = RewardBudget<BalanceFor<T, I>>;
 
 #[derive(
 	RuntimeDebug,
@@ -55,11 +58,44 @@ pub type DelegationPoolMemberFor<T, I> = DelegationPoolMember<BalanceFor<T, I>>;
 	Eq,
 	Default,
 )]
-pub struct Cycle<Epoch, Era, BlockNumber> {
+pub struct RewardBudget<Balance> {
+	/// The total reward budget.
+	pub total: Balance,
+	/// The amount that got distributed, not necessarily claimed but claimable from now onwards.
+	pub distributed: Balance,
+	pub target_weight_per_compute: U256,
+
+	/// The total score (adjusted_weight * reported_metric) as a running sum over all committers to a pool.
+	pub total_score: U256,
+}
+
+impl<Balance: Debug + Zero + Copy> RewardBudget<Balance> {
+	pub fn new(total: Balance, target_weight_per_compute: U256) -> Self {
+		Self {
+			total,
+			distributed: Zero::zero(),
+			target_weight_per_compute,
+			total_score: Zero::zero(),
+		}
+	}
+}
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+)]
+pub struct Cycle<Epoch, BlockNumber> {
 	pub epoch: Epoch,
 	pub epoch_start: BlockNumber,
-	pub era: Era,
-	pub era_start: BlockNumber,
 }
 
 #[derive(
@@ -139,8 +175,6 @@ pub struct MetricPool<
 	pub name: MetricPoolName,
 	pub reward: ProvisionalBuffer<Epoch, Value>,
 	pub total: SlidingBuffer<Epoch, FixedU128>,
-	/// Maximum ratio of stake to metric for commitments to this pool. Zero value means no limit.
-	pub max_stake_metric_ratio: FixedU128,
 }
 
 impl<
@@ -149,9 +183,13 @@ impl<
 	> MetricPool<Epoch, Value>
 {
 	pub fn add(&mut self, epoch: Epoch, summand: FixedU128) {
-		self.total.mutate(epoch, |v| {
-			*v = v.saturating_add(summand);
-		});
+		self.total.mutate(
+			epoch,
+			|v| {
+				*v = v.saturating_add(summand);
+			},
+			false,
+		);
 	}
 }
 
@@ -271,17 +309,17 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	pub cooldown_period: BlockNumber,
 	/// If in cooldown, when the cooldown was initiated.
 	pub cooldown_started: Option<BlockNumber>,
-	/// The amount accrued but not yet paid out or compound to amount.
+	/// The amount accrued but not yet paid out or compounded to amount.
 	///
 	/// This is also helpful in case the reward transfer fails, we still keep the open amount in accrued.
 	pub accrued_reward: Balance,
-	/// The slash accrued but not yet paid out or compound to amount.
+	/// The slash accrued but not yet paid out or compounded to amount.
 	///
 	/// Any further compound or payout operations must be preceeded by accruing potentially outstanding slash debt.
 	pub accrued_slash: Balance,
 	/// If any account (such as a courtesy service by Acurast) is allowed to compound for this stake.
 	pub allow_auto_compound: bool,
-	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued_reward`] to be paid out.
+	/// The total amount paid out or compounded. There can be additional amounts waiting in [`Self.accrued_reward`] to be paid out.
 	pub paid: Balance,
 	/// The total slash ever applied to stake or to compounded stake. There can be additional amounts waiting in [`Self.accrued_slash`] to be paid out.
 	pub applied_slash: Balance,
@@ -309,20 +347,100 @@ impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumbe
 	}
 }
 
-/// The state for delegation pool members, taking part in (self-)delegation.
+/// The commitment state of a committer including his stake details.
 #[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct StakingPoolMember {
-	/// The weight for rewardability, i.e. balance weighted by one or several factors.
-	pub reward_weight: U256,
-	/// The weighted reward debt before this staker joined a pool.
-	pub reward_debt: U256,
+pub struct Commitment<
+	Balance: Debug,
+	BlockNumber: Debug + Ord + Copy,
+	Epoch: Debug + Ord + Copy + One + Add<Output = Epoch>,
+> {
+	pub stake: Option<Stake<Balance, BlockNumber>>,
+
+	/// The relative commission taken by committers from delegator's reward as [`Perbill`].
+	pub commission: Perbill,
+
+	pub delegations_total_amount: Balance,
+	pub delegations_total_rewardable_amount: Balance,
+
+	/// The commitments weights as a MemoryBuffer `[epoch -> weights]`.
+	///
+	///     e1        e2       e3          e4
+	/// |--------|----------|--D-----|
+	///                        |
+	///                        D first write rotates, but keeps old value as base
+	///                        clear out before e2
+	///                        #
+	///                 |
+	///          
+	///           +$ +$ # $ (problematic in e2)   
+	///                 |
+	///                 first heartbeat scores for score_committer_c out from delegations_reward_weight from e1
+	pub weights: MemoryBuffer<Epoch, CommitmentWeights>,
+
+	/// The pool rewards as a MemoryBuffer to remember it for maximum one past commitment.
+	///
+	/// The time unit is the created timestamp of the commitment, `stake.created`.
+	/// This allows to distinguish for a delegator operation if the value in `past` of MemoryBuffer was
+	/// for the commitment a delegator choose or if the delegator's commitment was already "phased out",
+	/// which is the case if his `created` timestamp is even before that of `past`.
+	pub pool_rewards: MemoryBuffer<BlockNumber, PoolReward>,
+
+    /// The epoch number in which any processor belonging to this commitment did calculate scores.
+	pub last_scoring_epoch: Epoch,
 }
 
-/// The state for delegation pool members, taking part in (self-)delegation.
 #[derive(
-	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Default,
 )]
-pub struct DelegationPoolMember<Balance: Debug + Default> {
+pub struct CommitmentWeights {
+	pub self_reward_weight: U256,
+	pub self_slash_weight: U256,
+
+	pub delegations_reward_weight: U256,
+	pub delegations_slash_weight: U256,
+}
+
+#[derive(
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Default,
+)]
+pub struct PoolReward {
+	pub reward_per_weight: U256,
+	pub slash_per_weight: U256,
+}
+
+impl CommitmentWeights {
+	pub fn total_reward_weight(&self) -> U256 {
+		self.self_reward_weight.saturating_add(self.delegations_reward_weight)
+	}
+
+	pub fn total_slash_weight(&self) -> U256 {
+		self.self_slash_weight.saturating_add(self.delegations_slash_weight)
+	}
+}
+
+/// The state of a delegator including his stake details.
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct Delegation<Balance: Debug, BlockNumber: Debug> {
+	pub stake: Stake<Balance, BlockNumber>,
+
 	/// The weight for rewardability, i.e. balance weighted by one or several factors.
 	pub reward_weight: U256,
 	/// The weight for slashability, i.e. balance weighted by one or several factors.
@@ -331,24 +449,6 @@ pub struct DelegationPoolMember<Balance: Debug + Default> {
 	pub reward_debt: Balance,
 	/// The weighted slash debt before this staker joined a pool.
 	pub slash_debt: Balance,
-}
-
-#[derive(
-	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
-)]
-pub struct StakingPool {
-	pub reward_weight: U256,
-	pub reward_per_token: U256,
-}
-
-#[derive(
-	RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Default,
-)]
-pub struct DelegationPool {
-	pub reward_weight: U256,
-	pub slash_weight: U256,
-	pub reward_per_token: U256,
-	pub slash_per_token: U256,
 }
 
 #[derive(Clone, PartialEq, Eq)]

@@ -25,16 +25,19 @@ use crate::{
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const Era: BlockNumber = 16; // 24 hours
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(20);
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
+	pub const TargetCooldownPeriod: BlockNumber = 28 * DAYS; // same as MinCooldownPeriod
+	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
@@ -50,14 +53,17 @@ impl pallet_acurast_compute::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
-	type Era = Era;
+	type BusyWeightBonus = BusyWeightBonus;
 	type MaxPools = ConstU32<30>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
 	type CooldownRewardRatio = CooldownRewardRatio;
+	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;

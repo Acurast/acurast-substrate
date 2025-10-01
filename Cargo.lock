@@ -7762,6 +7762,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.4.1",
+ "integer-sqrt",
  "jsonrpsee 0.16.3",
  "log",
  "pallet-acurast-processor-manager",

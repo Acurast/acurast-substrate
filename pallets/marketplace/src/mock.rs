@@ -203,15 +203,18 @@ impl pallet_uniques::Config for Test {
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const Era: BlockNumber = 2; // 3 hours
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(20);
 	pub const MetricEpochValidity: BlockNumber = 10;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
 	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
+	pub const TargetCooldownPeriod: BlockNumber = 72; // Target cooldown period for economic calculations
+	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
 	pub const MinDelegation: Balance = 1;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const RedelegationBlockingPeriod: BlockNumber = 2; // can redelegate once per 2 epochs
 	pub const MinStake: Balance = 1 * UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
@@ -230,14 +233,17 @@ impl pallet_acurast_compute::Config for Test {
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
 	type MetricValidity = MetricEpochValidity;
-	type Era = Era;
+	type BusyWeightBonus = BusyWeightBonus;
 	type MaxPools = ConstU32<30>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
 	type CooldownRewardRatio = CooldownRewardRatio;
+	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

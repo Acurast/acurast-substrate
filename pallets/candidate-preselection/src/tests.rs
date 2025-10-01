@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use frame_support::{assert_ok, traits::ValidatorRegistration};
 
 use crate::mock::*;

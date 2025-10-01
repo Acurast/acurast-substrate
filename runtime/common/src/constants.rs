@@ -1,3 +1,5 @@
+use frame_support::{parameter_types, PalletId};
+
 use crate::types::{Balance, BlockNumber};
 
 // the base number of indivisible units for balances
@@ -33,3 +35,8 @@ pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 /// Relay chain slot duration, in milliseconds.
 pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
+parameter_types! {
+	pub const MainnetTokenConversionPalletId: PalletId = PalletId(*b"tcmaipid");
+	pub const CanaryTokenConversionPalletId: PalletId = PalletId(*b"tccanpid");
+}

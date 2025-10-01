@@ -15,6 +15,7 @@ mod constants;
 mod pallets;
 mod types;
 mod utils;
+mod weights;
 pub mod xcm_config;
 
 pub use acurast_runtime_common::types::Balance;
@@ -119,6 +120,8 @@ mod runtime {
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 	#[runtime::pallet_index(53)]
 	pub type AcurastHyperdriveToken = pallet_acurast_hyperdrive_token<Instance1>;
+	#[runtime::pallet_index(54)]
+	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

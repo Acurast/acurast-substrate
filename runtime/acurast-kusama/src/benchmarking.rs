@@ -41,6 +41,7 @@ define_benchmarks!(
 	[pallet_acurast_compute, AcurastCompute]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
+	[pallet_acurast_token_conversion, AcurastTokenConversion]
 );
 
 fn create_funded_user(

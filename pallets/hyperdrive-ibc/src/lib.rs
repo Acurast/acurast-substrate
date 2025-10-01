@@ -568,4 +568,19 @@ pub mod pallet {
 			T::MessageProcessor::process(message.into())
 		}
 	}
+
+	impl<T: Config<I>, I: 'static> MessageSender<T, BalanceOf<T, I>> for Pallet<T, I> {
+		fn send_message(
+			sender: SubjectFor<T>,
+			payer: &T::AccountId,
+			nonce: MessageNonce,
+			recipient: SubjectFor<T>,
+			payload: Vec<u8>,
+			ttl: BlockNumberFor<T>,
+			fee: BalanceOf<T, I>,
+		) -> DispatchResult {
+			let _ = Self::do_send_message(sender, payer, nonce, recipient, payload, ttl, fee)?;
+			Ok(())
+		}
+	}
 }

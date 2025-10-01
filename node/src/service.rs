@@ -393,6 +393,7 @@ where
 	)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_consensus<RuntimeApi>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	backend: Arc<ParachainBackend>,

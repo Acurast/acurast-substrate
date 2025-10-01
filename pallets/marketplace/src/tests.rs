@@ -53,11 +53,11 @@ fn test_valid_deregister() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -78,7 +78,7 @@ fn test_valid_deregister() {
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id1));

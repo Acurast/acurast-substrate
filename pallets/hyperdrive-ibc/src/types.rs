@@ -148,6 +148,7 @@ pub enum Subject<AccountId, Contract> {
 	Vara(Layer<AccountId32, Contract>),
 	Ethereum(Layer<AccountId20, AccountId20>),
 	Solana(Layer<AccountId32, AccountId32>),
+	AcurastCanary(Layer<AccountId, Contract>),
 }
 
 #[derive(

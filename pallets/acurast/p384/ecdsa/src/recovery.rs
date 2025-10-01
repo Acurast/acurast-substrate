@@ -79,7 +79,7 @@ mod tests {
 	#[test]
 	fn try_from() {
 		for n in 0u8..=3 {
-			assert_eq!(RecoveryId::try_from(n).unwrap().to_byte(), n);
+			assert_eq!(RecoveryId::try_from(n).expect("Proper recovery id").to_byte(), n);
 		}
 
 		for n in 4u8..=255 {
@@ -89,17 +89,17 @@ mod tests {
 
 	#[test]
 	fn is_x_reduced() {
-		assert_eq!(RecoveryId::try_from(0).unwrap().is_x_reduced(), false);
-		assert_eq!(RecoveryId::try_from(1).unwrap().is_x_reduced(), false);
-		assert_eq!(RecoveryId::try_from(2).unwrap().is_x_reduced(), true);
-		assert_eq!(RecoveryId::try_from(3).unwrap().is_x_reduced(), true);
+		assert!(!RecoveryId::try_from(0).expect("Proper recovery id").is_x_reduced());
+		assert!(!RecoveryId::try_from(1).expect("Proper recovery id").is_x_reduced());
+		assert!(RecoveryId::try_from(2).expect("Proper recovery id").is_x_reduced());
+		assert!(RecoveryId::try_from(3).expect("Proper recovery id").is_x_reduced());
 	}
 
 	#[test]
 	fn is_y_odd() {
-		assert_eq!(RecoveryId::try_from(0).unwrap().is_y_odd(), false);
-		assert_eq!(RecoveryId::try_from(1).unwrap().is_y_odd(), true);
-		assert_eq!(RecoveryId::try_from(2).unwrap().is_y_odd(), false);
-		assert_eq!(RecoveryId::try_from(3).unwrap().is_y_odd(), true);
+		assert!(!RecoveryId::try_from(0).expect("Proper recovery id").is_y_odd());
+		assert!(RecoveryId::try_from(1).expect("Proper recovery id").is_y_odd());
+		assert!(!RecoveryId::try_from(2).expect("Proper recovery id").is_y_odd());
+		assert!(RecoveryId::try_from(3).expect("Proper recovery id").is_y_odd());
 	}
 }

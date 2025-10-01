@@ -29,8 +29,8 @@ parity-scale-codec = { version = "3.6.9", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
-hex = "0.4"
-hex-literal = { version = "0.4" }
+hex = { version = "0.4", default-features = false }
+hex-literal = { version = "0.4", default-features = false }
 log = { version = "^0.4.21", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
@@ -42,6 +42,7 @@ serde_json = "1.0.111"
 jsonrpsee = { version = "0.24.3", features = ["server"] }
 async-trait = "0.1.88"
 futures = "0.3.21"
+cfg-if = "1"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }
@@ -69,7 +70,9 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
 pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselection", default-features = false }
+pallet-acurast-token-conversion = { path = "./pallets/token-conversion", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
+acurast-hyperdrive-substrate-core = { path = "./hyperdrive/substrate-core", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }

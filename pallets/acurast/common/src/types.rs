@@ -61,6 +61,7 @@ pub enum MultiOrigin<AcurastAccountId> {
 	Vara(AcurastAccountId),
 	Ethereum20(AccountId20),
 	Solana(AccountId32),
+	AcurastCanary(AcurastAccountId),
 }
 
 /// The proxy describes the chain where there is a counter part to this pallet, processing messages we send and also sending messages back. This mostly will be a custom _Hyperdrive Token_ contract on the proxy chain.
@@ -83,6 +84,7 @@ pub enum ProxyChain {
 	Vara,
 	Ethereum,
 	Solana,
+	AcurastCanary,
 }
 
 impl<AcurastAccountId> From<&MultiOrigin<AcurastAccountId>> for ProxyChain {
@@ -94,6 +96,7 @@ impl<AcurastAccountId> From<&MultiOrigin<AcurastAccountId>> for ProxyChain {
 			MultiOrigin::Vara(_) => ProxyChain::Vara,
 			MultiOrigin::Ethereum(_) | MultiOrigin::Ethereum20(_) => ProxyChain::Ethereum,
 			MultiOrigin::Solana(_) => ProxyChain::Solana,
+			MultiOrigin::AcurastCanary(_) => ProxyChain::AcurastCanary,
 		}
 	}
 }
@@ -508,12 +511,10 @@ pub struct MinMetric {
 impl MinMetric {
 	pub fn checked_from(value: MetricInput) -> Option<Self> {
 		let (pool_id, numerator, denominator) = value;
-		let Some(metric) = FixedU128::checked_from_rational(
+		let metric = FixedU128::checked_from_rational(
 			numerator,
 			if denominator.is_zero() { One::one() } else { denominator },
-		) else {
-			return None;
-		};
+		)?;
 		Some(Self { pool_id, value: metric })
 	}
 }
@@ -572,10 +573,10 @@ impl<
 	> AccountLookup<AccountId> for ManagerProviderForEligibleProcessor<AccountId, EA, VP, ML>
 {
 	fn lookup(processor: &AccountId) -> Option<AccountId> {
-		if !EA::ensure_attested(processor).is_ok() {
+		if EA::ensure_attested(processor).is_err() {
 			return None;
 		}
-		let Some(version) = VP::processor_version(processor) else { return None };
+		let version = VP::processor_version(processor)?;
 		if VP::min_version_for_reward(version.platform)
 			.map(|min_version| version < min_version)
 			.unwrap_or_default()

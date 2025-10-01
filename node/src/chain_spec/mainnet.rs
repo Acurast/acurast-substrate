@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use super::{accountid_from_str, ChainSpec, Extensions, MAINNET_PARACHAIN_ID, SS58_FORMAT};
 pub(crate) use acurast_mainnet_runtime::{
-	self as acurast_runtime, Admin, HyperdriveIbcFeePalletAccount, HyperdriveTokenEthereumFeeVault,
+	self as acurast_runtime, HyperdriveIbcFeePalletAccount, HyperdriveTokenEthereumFeeVault,
 	HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount, HyperdriveTokenSolanaFeeVault,
 	HyperdriveTokenSolanaVault, EXISTENTIAL_DEPOSIT, MULTISIG_MEMBER_1, MULTISIG_MEMBER_2,
 	MULTISIG_MEMBER_3, MULTISIG_MEMBER_4, MULTISIG_MEMBER_5, MULTISIG_MEMBER_6, MULTISIG_MEMBER_7,
@@ -78,7 +78,7 @@ pub fn acurast_config() -> ChainSpec {
 		endowed_accounts(),
 		vesting(),
 		MAINNET_PARACHAIN_ID.into(),
-		acurast_sudo_account(),
+		Some(acurast_sudo_account()),
 	))
 	.build()
 }
@@ -157,8 +157,8 @@ pub fn hyperdrive_accounts() -> Vec<AccountId> {
 }
 
 /// returns the root account id.
-pub fn acurast_sudo_account() -> Option<AccountId> {
-	Some(accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC"))
+pub fn acurast_sudo_account() -> AccountId {
+	accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC")
 }
 
 pub fn endowed_accounts() -> Vec<(AccountId, Balance)> {
@@ -194,7 +194,7 @@ pub fn initial_balances() -> Vec<(AccountId, Balance)> {
 		(MULTISIG_MEMBER_5, 10 * UNIT),
 		(MULTISIG_MEMBER_6, 10 * UNIT),
 		(MULTISIG_MEMBER_7, 10 * UNIT),
-		(Admin::get(), 1000 * UNIT),
+		(acurast_sudo_account(), 1000 * UNIT),
 	];
 	balances.extend_from_slice(
 		hyperdrive_accounts()
@@ -203,9 +203,6 @@ pub fn initial_balances() -> Vec<(AccountId, Balance)> {
 			.collect::<Vec<_>>()
 			.as_slice(),
 	);
-	if let Some(root) = acurast_sudo_account() {
-		balances.push((root, 1000 * UNIT));
-	}
 
 	balances
 }
@@ -415,6 +412,20 @@ pub fn allocations() -> Vec<(AccountId, BlockNumber, BlockNumber, Balance)> {
 			VESTING_START,
 			36 * MONTH,
 			600_000 * UNIT,
+		),
+		// 46
+		(
+			aid("5FNVnF6C7wRWJu53W9vXgf7tqCYM1kZTVAjgFLH6qvNFhHQo"),
+			VESTING_START,
+			36 * MONTH,
+			1_412_831 * UNIT,
+		),
+		// 47
+		(
+			aid("5DcEVE8tK131ZGwroEUdZ3N8LcKtCYjZRfQ3cACWht5PhMWN"),
+			VESTING_START,
+			36 * MONTH,
+			769_200 * UNIT,
 		),
 		// 49
 		(

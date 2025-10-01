@@ -38,7 +38,6 @@ jsonrpsee = { version = "0.16.2", features = [
 	"server",
 	"macros",
 ], optional = true }
-sp-api = { workspace = true }
 serde = { version = "1.0.188", features = [
 	"derive",
 ], default-features = false, optional = true }

@@ -41,7 +41,10 @@ pub trait ComputeHooks<AccountId, Balance> {
 }
 
 impl<AccountId, Balance> ComputeHooks<AccountId, Balance> for () {
-	fn commit(_processor: &AccountId, _metrics: &[MetricInput]) -> Option<Balance> {
+	fn commit(_processor: &AccountId, _metrics: &[MetricInput]) -> Option<Balance>
+	where
+		Balance: IsType<u128>,
+	{
 		None
 	}
 }

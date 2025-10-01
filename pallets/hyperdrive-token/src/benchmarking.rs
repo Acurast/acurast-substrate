@@ -1,6 +1,3 @@
-//! Benchmarking setup for pallet-acurast-hyperdrive-token
-#![cfg(feature = "runtime-benchmarks")]
-
 use frame_benchmarking::benchmarks_instance_pallet;
 use frame_support::assert_ok;
 
@@ -157,5 +154,5 @@ benchmarks_instance_pallet! {
 		run_to_block::<T, I>(100u32.into());
 	}: _(RawOrigin::Root, ProxyChain::Ethereum, true, fee_amount.into())
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
+	//impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

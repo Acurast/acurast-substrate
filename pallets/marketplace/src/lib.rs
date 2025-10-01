@@ -799,7 +799,7 @@ pub mod pallet {
 				<StoredJobRegistration<T>>::mutate(&job_id.0, job_id.1, |registration| {
 					if let Some(r) = registration.as_mut() {
 						let old_script = r.script.clone();
-						(*r).script = script.clone();
+						r.script = script.clone();
 						Some(old_script)
 					} else {
 						None
@@ -814,7 +814,7 @@ pub mod pallet {
 				T::DeploymentHashing::hash(&(job_id.0.clone(), script).encode());
 
 			let _key_id = Self::transfer_key_id(original_deployment_hash, updated_deployment_hash)?;
-			<DeploymentHashes<T>>::insert(&job_id.0, &job_id.1, &updated_deployment_hash);
+			<DeploymentHashes<T>>::insert(&job_id.0, job_id.1, updated_deployment_hash);
 			// DO NOT update JobKeyIds to keep using previous keys DESPITE the job script update
 
 			Self::deposit_event(Event::JobScriptEdited(job_id));
@@ -873,7 +873,7 @@ pub mod pallet {
 					Err(Error::<T>::CannotReuseKeysFrom)
 				}
 			})?;
-			<DeploymentKeyIds<T>>::insert(&updated_deployment_hash, key_id);
+			<DeploymentKeyIds<T>>::insert(updated_deployment_hash, key_id);
 			Ok(key_id)
 		}
 	}

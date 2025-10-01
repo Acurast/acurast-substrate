@@ -155,8 +155,8 @@ parameter_types! {
 	pub const BalanceUnit: Balance = UNIT;
 
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
-	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
-	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
+	pub const PreimageBaseDeposit: Balance = UNIT;
+	pub const PreimageByteDeposit: Balance = MICROUNIT;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
@@ -168,7 +168,7 @@ parameter_types! {
 	pub const DepositFactor: Balance = deposit(0, 20);
 	pub const MaxSignatories: u32 = 100;
 
-	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0;
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 

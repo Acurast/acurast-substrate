@@ -1,3 +1,5 @@
+#![allow(clippy::erasing_op)]
+
 pub mod test_actions;
 
 pub use test_actions::{compute_test_flow, events, roll_to_block, setup_balances, Action};

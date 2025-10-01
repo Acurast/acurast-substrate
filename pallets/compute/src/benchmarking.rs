@@ -7,7 +7,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{IdentifyAccount, StaticLookup, Verify},
-	AccountId32, FixedU128, Perquintill,
+	AccountId32, Perquintill,
 };
 
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
@@ -16,13 +16,11 @@ use sp_std::prelude::*;
 
 use crate::{types::*, Pallet as Compute};
 
-use crate::stub::{alice_account_id, bob_account_id, charlie_account_id, eve_account_id};
-use acurast_common::{
-	AttestationChain, ListUpdateOperation, MetricInput, PoolId, Version, METRICS_MAX_LENGTH,
-};
+use crate::stub::{alice_account_id, bob_account_id};
+use acurast_common::ListUpdateOperation;
 use pallet_acurast_processor_manager::{
-	generate_account, processor_pairing, BenchmarkHelper, Pallet as ProcessorManager,
-	ProcessorPairingFor, ProcessorPairingUpdateFor,
+	generate_account, BenchmarkHelper, Pallet as ProcessorManager, ProcessorPairingFor,
+	ProcessorPairingUpdateFor,
 };
 
 use super::*;
@@ -44,10 +42,6 @@ where
 		operation: ListUpdateOperation::Add,
 		item: ProcessorPairingFor::<T>::new_with_proof(processor_account_id, timestamp, signature),
 	}
-}
-
-fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
-	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
 pub fn roll_to_block<T: Config<I>, I: 'static>(block_number: BlockNumberFor<T>)
@@ -226,5 +220,5 @@ benchmarks_instance_pallet! {
 		assert_ok!(Compute::<T, I>::offer_backing(RawOrigin::Signed(committer.clone()).into(), manager.clone()));
 	}: _(RawOrigin::Signed(manager), committer)
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
+	//impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

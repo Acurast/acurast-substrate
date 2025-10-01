@@ -1010,9 +1010,9 @@ fn test_update_onboarding_settings() {
 	ExtBuilder.build().execute_with(|| {
 		let settings =
 			OnboardingSettings::<BalanceFor<Test>, <Test as frame_system::Config>::AccountId> {
-				funds: 100_000_000_000u128.into(),
-				max_funds: 1_000_000_000_000u128.into(),
-				funds_account: alice_account_id().into(),
+				funds: 100_000_000_000u128,
+				max_funds: 1_000_000_000_000u128,
+				funds_account: alice_account_id(),
 			};
 
 		assert_ok!(AcurastProcessorManager::update_onboarding_settings(

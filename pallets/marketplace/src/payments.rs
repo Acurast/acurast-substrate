@@ -108,6 +108,9 @@ where
 					Preservation::Preserve,
 				)?;
 			},
+			MultiOrigin::AcurastCanary(_) => {
+				return Err(DispatchError::Other("Unexpected MultiOrigin"));
+			},
 		};
 
 		Budget::reserve(job_id, reward)
@@ -229,6 +232,9 @@ where
 					remaining.saturated_into(),
 					Preservation::Preserve,
 				)?;
+			},
+			MultiOrigin::AcurastCanary(_) => {
+				return Err(DispatchError::Other("Unexpected MultiOrigin"));
 			},
 		};
 

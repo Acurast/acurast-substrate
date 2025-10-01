@@ -6,11 +6,12 @@ use sp_runtime::str_array as s;
 
 use acurast_runtime_common::{
 	constants::{DAYS, HOURS, UNIT},
-	types::{AccountId, Balance, BlockNumber, TracksInfo},
+	types::{Balance, BlockNumber, TracksInfo},
 };
 
 use crate::{
-	Admin, Balances, Preimage, Referenda, Runtime, RuntimeCall, RuntimeEvent, Scheduler, System,
+	Admin, Balances, EnsureAdminOrRoot, Preimage, Referenda, Runtime, RuntimeCall, RuntimeEvent,
+	Scheduler, System,
 };
 
 const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
@@ -31,7 +32,7 @@ parameter_types! {
 			max_deciding: 1,
 			decision_deposit: 100 * UNIT,
 			prepare_period: 2 * HOURS,
-			decision_period: 18 * HOURS,
+			decision_period: 20 * HOURS,
 			confirm_period: 2 * HOURS,
 			min_enactment_period: 2 * HOURS,
 			min_approval: APP_ROOT,
@@ -46,9 +47,9 @@ impl pallet_referenda::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type Scheduler = Scheduler;
-	type SubmitOrigin = EnsureSignedBy<Admin, AccountId>;
-	type CancelOrigin = EnsureSignedBy<Admin, AccountId>;
-	type KillOrigin = EnsureSignedBy<Admin, AccountId>;
+	type SubmitOrigin = EnsureSignedBy<Admin, Self::AccountId>;
+	type CancelOrigin = EnsureAdminOrRoot;
+	type KillOrigin = EnsureAdminOrRoot;
 	type Slash = ();
 	type Votes = pallet_conviction_voting::VotesOf<Self>;
 	type Tally = pallet_conviction_voting::TallyOf<Self>;
@@ -56,7 +57,7 @@ impl pallet_referenda::Config for Runtime {
 	type MaxQueued = ConstU32<100>;
 	type UndecidingTimeout = UndecidingTimeout;
 	type AlarmInterval = AlarmInterval;
-	type Tracks = TracksInfo<Self, EnsureSignedBy<Admin, AccountId>, Tracks>;
+	type Tracks = TracksInfo<Self, Tracks>;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
 	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;

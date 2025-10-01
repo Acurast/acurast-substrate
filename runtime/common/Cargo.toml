@@ -29,7 +29,6 @@ serde = { version = "1.0.188", optional = true, features = ["derive"] }
 # Acurast
 pallet-acurast = { workspace = true }
 pallet-acurast-marketplace = { workspace = true }
-pallet-acurast-fee-manager = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-compute = { workspace = true }
@@ -130,7 +129,6 @@ std = [
 	"pallet-uniques/std",
 	"pallet-multisig/std",
 	"pallet-acurast/std",
-	"pallet-acurast-fee-manager/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-compute/std",
@@ -171,7 +169,6 @@ runtime-benchmarks = [
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-marketplace/runtime-benchmarks",
-	"pallet-acurast-fee-manager/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-acurast-compute/runtime-benchmarks",
 	"pallet-acurast-hyperdrive/runtime-benchmarks",

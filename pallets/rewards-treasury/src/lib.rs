@@ -13,11 +13,13 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
+		sp_runtime::traits::AccountIdConversion,
 		traits::{
 			fungible::Inspect,
 			tokens::{fungible::Mutate, Fortitude, Precision, Preservation},
 			Get,
 		},
+		PalletId,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_balances;
@@ -36,7 +38,7 @@ pub mod pallet {
 		type Epoch: Get<BlockNumberFor<Self>>;
 		/// The ID for this pallet
 		#[pallet::constant]
-		type Treasury: Get<<Self as frame_system::Config>::AccountId>;
+		type PalletId: Get<PalletId>;
 	}
 
 	#[pallet::storage]
@@ -75,7 +77,7 @@ pub mod pallet {
 				(match <PenultimateBalance<T, I>>::try_mutate(
 					|penultimate_balance| -> Result<T::Balance, DispatchError> {
 						let actual_burnt = <pallet_balances::Pallet<T, I> as Mutate<_>>::burn_from(
-							&T::Treasury::get(),
+							&T::PalletId::get().into_account_truncating(),
 							penultimate_balance.to_owned(),
 							Preservation::Preserve,
 							Precision::BestEffort,
@@ -85,7 +87,7 @@ pub mod pallet {
 
 						*penultimate_balance =
 							<pallet_balances::Pallet<T, I> as Inspect<_>>::reducible_balance(
-								&T::Treasury::get(),
+								&T::PalletId::get().into_account_truncating(),
 								Preservation::Preserve,
 								Fortitude::Polite,
 							);

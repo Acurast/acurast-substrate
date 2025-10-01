@@ -38,7 +38,8 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B
-	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(30);
 }
 
 impl pallet_acurast_compute::Config for Runtime {
@@ -69,7 +70,9 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type InflationStakedComputeRation = InflationStakedComputeRation;
+	type InflationMetricsRation = InflationMetricsRation;
+	type InflationHandler = ();
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;

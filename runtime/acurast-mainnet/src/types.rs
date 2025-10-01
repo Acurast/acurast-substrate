@@ -115,7 +115,8 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(c: &RuntimeCall) -> bool {
 		match c {
 			// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
-			RuntimeCall::Balances(..) => false,
+			RuntimeCall::Balances(_) => false,
+			RuntimeCall::Uniques(_) => false,
 			_ => true,
 		}
 	}

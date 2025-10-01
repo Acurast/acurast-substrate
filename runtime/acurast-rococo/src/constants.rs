@@ -95,7 +95,6 @@ parameter_types! {
 	pub const MinCandidates: u32 = 2;
 	pub const MaxInvulnerables: u32 = 100;
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub Admins: Vec<AccountId> = vec![];
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
@@ -150,7 +149,6 @@ parameter_types! {
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 
 	pub const Epoch: BlockNumber = 131072;
-	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
 
 	pub const DivestTolerance: BlockNumber = 128;
 	pub const MaximumLockingPeriod: BlockNumber = 16777216; // ~8 years

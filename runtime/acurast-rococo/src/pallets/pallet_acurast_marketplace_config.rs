@@ -15,8 +15,8 @@ use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastCompute, AcurastFeeManager, AcurastHyperdrive, AcurastMarketplace,
-	AcurastMatcherFeeManager, AcurastPalletId, AcurastProcessorManager, Balances,
+	AcurastCompute, AcurastHyperdrive, AcurastMarketplace, AcurastPalletId,
+	AcurastProcessorManager, Balances, DefaultFeePercentage, DefaultMatcherFeePercentage,
 	FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance,
 	Runtime, RuntimeEvent,
 };
@@ -55,11 +55,11 @@ impl pallet_acurast_marketplace::Config for Runtime {
 pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
-		AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
+		DefaultFeePercentage::get()
 	}
 
 	fn get_matcher_percentage() -> sp_runtime::Percent {
-		AcurastMatcherFeeManager::fee_percentage(AcurastMatcherFeeManager::fee_version())
+		DefaultMatcherFeePercentage::get()
 	}
 
 	fn pallet_id() -> PalletId {

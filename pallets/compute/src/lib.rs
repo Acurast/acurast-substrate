@@ -38,8 +38,9 @@ pub mod pallet {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		traits::{
-			Currency, EnsureOrigin, ExistenceRequirement, Get, InspectLockableCurrency,
-			LockIdentifier,
+			fungible::{Balanced, Credit},
+			Currency, EnsureOrigin, ExistenceRequirement, Get, Imbalance, InspectLockableCurrency,
+			LockIdentifier, OnUnbalanced,
 		},
 		PalletId, Parameter,
 	};
@@ -125,7 +126,8 @@ pub mod pallet {
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
-		type Currency: InspectLockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		type Currency: InspectLockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
+			+ Balanced<Self::AccountId, Balance = BalanceFor<Self, I>>;
 		/// The single lock indentifier used for the sum of all staked and delegated amounts.
 		///
 		/// We have to use the same lock identifier since we do not want the locks to overlap;
@@ -136,7 +138,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type InflationPerEpoch: Get<BalanceFor<Self, I>>;
 		#[pallet::constant]
-		type InflationStakedBackedRation: Get<Perquintill>;
+		type InflationStakedComputeRation: Get<Perquintill>;
+		#[pallet::constant]
+		type InflationMetricsRation: Get<Perquintill>;
+		/// Handler of remaining inflation.
+		type InflationHandler: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 		/// Origin that can create and modify pools
 		type CreateModifyPoolOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Origin that can execute operational extrinsics
@@ -505,20 +511,27 @@ pub mod pallet {
 
 						if !inflation_amount.is_zero() {
 							// Mint new tokens into distribution account
-							let imbalance = T::Currency::issue(inflation_amount);
-							T::Currency::resolve_creating(
-								&T::PalletId::get().into_account_truncating(),
-								imbalance,
-							);
-							weight = weight.saturating_add(T::DbWeight::get().writes(1));
-
+							let mut imbalance =
+								<T::Currency as Balanced<T::AccountId>>::issue(inflation_amount);
 							// Calculate stake-backed amount
 							let stake_backed_amount: BalanceFor<T, I> =
-								T::InflationStakedBackedRation::get()
+								T::InflationStakedComputeRation::get()
 									.mul_floor(inflation_amount.saturated_into::<u128>())
 									.saturated_into();
-							let compute_based_amount =
-								inflation_amount.saturating_sub(stake_backed_amount);
+							let compute_based_amount = T::InflationMetricsRation::get()
+								.mul_ceil(inflation_amount.saturated_into::<u128>())
+								.saturated_into();
+							let compute_imbalance = imbalance
+								.extract(stake_backed_amount.saturating_add(compute_based_amount));
+							let resolve_result = T::Currency::resolve(
+								&T::PalletId::get().into_account_truncating(),
+								compute_imbalance,
+							);
+							if let Err(credit) = resolve_result {
+								imbalance = imbalance.merge(credit);
+							}
+							T::InflationHandler::on_unbalanced(imbalance);
+							weight = weight.saturating_add(T::DbWeight::get().writes(2));
 
 							// Distribute stake-backed rewards
 							if !stake_backed_amount.is_zero() {

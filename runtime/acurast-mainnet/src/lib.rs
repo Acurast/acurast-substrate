@@ -105,12 +105,8 @@ mod runtime {
 	pub type Acurast = pallet_acurast;
 	#[runtime::pallet_index(41)]
 	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
-	#[runtime::pallet_index(42)]
-	pub type AcurastFeeManager = pallet_acurast_fee_manager<Instance1>;
 	#[runtime::pallet_index(43)]
 	pub type AcurastMarketplace = pallet_acurast_marketplace;
-	#[runtime::pallet_index(44)]
-	pub type AcurastMatcherFeeManager = pallet_acurast_fee_manager<Instance2>;
 	#[runtime::pallet_index(45)]
 	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]
@@ -128,4 +124,47 @@ mod runtime {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ByteArray;
+	use sp_runtime::AccountId32;
+	use std::str::FromStr;
+
+	#[test]
+	fn create() {
+		let signatories = &mut [
+			AccountId32::from_str("5CGV1Sm6Qzt3s5qabiDAEjni6xT15MZ8LumkVPob4SJqAN7C").unwrap(),
+			AccountId32::from_str("5EUnFHHEFd4mzTA6cjg8JfKHeteCDrcEhMdxUXSK3QzHSPe8").unwrap(),
+			AccountId32::from_str("5DXDTbjLtDDUXzFy24Fhkjs9fY3PQwQR2ohzjQPT1JvUAcEy").unwrap(),
+			AccountId32::from_str("5DFhdYCuTc4uubFu6XGpiF5uKu6e7erNZa6QKExZDRFMTuv8").unwrap(),
+			AccountId32::from_str("5EEe4WLNneqz3Fp2n61ZcTiGU6GLEvUgVmnkKaaxARSdVpdg").unwrap(),
+			AccountId32::from_str("5Dt7iJBxvWztigqXiXqm8EU5xVBWcUrfXA5am1e8sF1RjUuW").unwrap(),
+			AccountId32::from_str("5EbvNf3q5Xb918UvHBuB6rPfYuom38QAqw8osV5TQeaELWxP").unwrap(),
+		];
+		signatories.sort();
+
+		for (index, account) in signatories.iter().enumerate() {
+			println!("-----------------");
+			println!("Member {}:", index + 1);
+			println!("Address: {:?}", account.to_string());
+			println!("Bytes: {:?}", account.as_slice());
+			println!("-----------------");
+		}
+
+		let multisig_account = Multisig::multi_account_id(signatories, 3);
+		println!("-----------------");
+		println!("Multisig:");
+		println!("Address: {:?}", multisig_account.to_string());
+		println!("Bytes: {:?}", multisig_account.as_slice());
+		println!("-----------------");
+
+		assert_eq!(ADMIN_ACCOUNT_ID.as_slice(), multisig_account.as_slice());
+		assert_eq!(
+			"5E9Yq3ViHdMdtw8qdixTkDKQcNKJ9wbJ1pDoEPRZL8WUW41j",
+			multisig_account.to_string()
+		);
+	}
 }

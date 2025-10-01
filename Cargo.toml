@@ -50,8 +50,6 @@ acurast-common = { path = "./pallets/acurast/common", default-features = false, 
 ] }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
 pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features = false }
-# This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { path = "./pallets/fee-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { path = "./pallets/processor-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.

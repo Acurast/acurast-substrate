@@ -231,20 +231,18 @@ fn validate_rsa(
 	signature: &BitString,
 	pbk: &RSAPbk,
 ) -> Result<(), ValidationError> {
-	let computed = {
-		let signature_num = BigUint::from_bytes_be(signature.as_bytes());
-		let computed = signature_num.modpow(&pbk.exponent, &pbk.modulus);
-		computed.to_bytes_be()
-	};
+	use rsa::signature::Verifier;
 
-	// read hash digest and consume hasher
-	let hashed = &sha2::Sha256::digest(payload)[..];
-
-	let unpadded = &computed[computed.len() - hashed.len()..];
-
-	if hashed != unpadded {
-		return Err(ValidationError::InvalidSignature);
-	}
+	let modulus = rsa::BigUint::from_bytes_be(pbk.modulus.to_bytes_be().as_slice());
+	let exponent = rsa::BigUint::from_bytes_be(pbk.exponent.to_bytes_be().as_slice());
+	let pk =
+		rsa::RsaPublicKey::new(modulus, exponent).map_err(|_| ValidationError::InvalidSignature)?;
+	let verifying_key = rsa::pkcs1v15::VerifyingKey::<sha2::Sha256>::new(pk);
+	let signature = rsa::pkcs1v15::Signature::try_from(signature.as_bytes())
+		.map_err(|_| ValidationError::InvalidSignature)?;
+	verifying_key
+		.verify(payload, &signature)
+		.map_err(|_| ValidationError::InvalidSignature)?;
 
 	Ok(())
 }

@@ -470,10 +470,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Advertise resources by providing a [AdvertisementFor].
-		///
-		/// If the source has another active advertisement, the advertisement is updated given the updates does not
-		/// violate any system invariants. For example, if the ad is currently assigned, changes to pricing are prohibited
-		/// and only capacity updates will be tolerated.
 		#[pallet::call_index(0)]
 		#[pallet::weight(< T as Config >::WeightInfo::advertise())]
 		pub fn advertise(

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use frame_benchmarking::{account, benchmarks, whitelist_account};
 use frame_support::{assert_ok, sp_runtime::traits::Get, BoundedVec};
 use frame_system::RawOrigin;
@@ -120,7 +122,7 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(true, false);
 		let local_job_id = 1;
-	}: _(RawOrigin::Signed(caller.clone()), local_job_id.clone())
+	}: _(RawOrigin::Signed(caller.clone()), local_job_id)
 	verify {
 		assert_last_event::<T>(Event::<T>::JobRegistrationRemoved(
 			(MultiOrigin::Acurast(caller), local_job_id)
@@ -133,7 +135,7 @@ benchmarks! {
 		let (caller, job) = register_job::<T>(true, false);
 		let mut updates: Vec<AllowedSourcesUpdate<T::AccountId>> = vec![];
 		for i in 0..x {
-			(&mut updates).push(AllowedSourcesUpdate {
+			updates.push(AllowedSourcesUpdate {
 				operation: ListUpdateOperation::Add,
 				item: account("processor", i, SEED),
 			})
@@ -160,11 +162,15 @@ benchmarks! {
 	}
 
 	update_certificate_revocation_list {
+		let x in 1 .. T::MaxCertificateRevocationListUpdates::get();
 		set_timestamp::<T>(1000);
-		let updates =  vec![CertificateRevocationListUpdate {
-			operation: ListUpdateOperation::Add,
-			item: hex!("15905857467176635834").to_vec().try_into().unwrap()
-		}];
+		let mut updates: Vec<CertificateRevocationListUpdate> = vec![];
+		for i in 0..x {
+			updates.push(CertificateRevocationListUpdate {
+				operation: ListUpdateOperation::Add,
+				item: hex!("15905857467176635834").to_vec().try_into().unwrap()
+			});
+		}
 	}: _(RawOrigin::Root, updates.clone().try_into().unwrap())
 	verify {
 		assert_last_event::<T>(Event::CertificateRevocationListUpdated.into());
@@ -215,5 +221,5 @@ benchmarks! {
 		let local_job_id = 1;
 	}: _(RawOrigin::Signed(caller.clone()), local_job_id, e.try_into().unwrap())
 
-	impl_benchmark_test_suite!(Acurast, mock::ExtBuilder::default().build(), mock::Test);
+	impl_benchmark_test_suite!(Acurast, mock::ExtBuilder.build(), mock::Test);
 }

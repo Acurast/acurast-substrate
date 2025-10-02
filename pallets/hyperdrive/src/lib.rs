@@ -229,7 +229,9 @@ pub mod pallet {
 	{
 		fn process(message: MessageBody<T::AccountId, T::AccountId>) -> DispatchResultWithPostInfo {
 			match message.sender {
-				SubjectFor::<T>::AlephZero(_) => {
+				SubjectFor::<T>::AlephZero(Layer::Contract(c))
+					if c == Self::aleph_zero_contract() =>
+				{
 					let action =
 						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
 							&message.payload,
@@ -240,7 +242,9 @@ pub mod pallet {
 
 					Ok(())
 				},
-				SubjectFor::<T>::Vara(_) => {
+				SubjectFor::<T>::Vara(Layer::Contract(c))
+					if c == ContractCall { contract: Self::vara_contract(), selector: None } =>
+				{
 					let action =
 						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
 							&message.payload,

@@ -130,7 +130,7 @@ where
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
 		// Extract fee from the processor reward
-		let fee_percentage = AssetSplit::get_fee_percentage(); // TODO: fee will be indexed by version in the future
+		let fee_percentage = AssetSplit::get_fee_percentage();
 		let fee = fee_percentage.mul_floor(reward);
 
 		// Subtract the fee from the reward

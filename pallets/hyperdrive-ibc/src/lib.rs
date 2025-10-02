@@ -383,15 +383,16 @@ pub mod pallet {
 			let l = ids.len();
 			let mut i = 0usize;
 			for id in ids.iter() {
-				if let Some(message) = <IncomingMessages<T, I>>::get(id) {
+				let Some(message) = <IncomingMessages<T, I>>::get(id) else {
+					continue;
+				};
+				if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
 					<IncomingMessages<T, I>>::remove(id);
-					if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
-						<IncomingMessagesLookup<T, I>>::remove(
-							&message.message.sender,
-							message.message.nonce,
-						);
-						i += 1;
-					}
+					<IncomingMessagesLookup<T, I>>::remove(
+						&message.message.recipient,
+						message.message.nonce,
+					);
+					i += 1;
 				}
 			}
 
@@ -428,13 +429,14 @@ pub mod pallet {
 				[u8; PUBLIC_KEY_SERIALIZED_SIZE],
 			)> = Default::default();
 			let mut valid = 0;
+			let mut checked: Vec<Public> = vec![];
 			signatures.into_iter().try_for_each(
 				|(signature, public)| -> Result<(), Error<T, I>> {
 					match <OraclePublicKeys<T, I>>::get(public) {
 						None => {
 							not_found.push((signature.0, public.0));
 						},
-						Some(activity_window) => {
+						Some(activity_window) if !checked.contains(&public) => {
 							// valid window is defined inclusive start_block, exclusive end_block
 
 							if activity_window.start_block <= current_block
@@ -454,10 +456,12 @@ pub mod pallet {
 									);
 								};
 								valid += 1;
+								checked.push(public);
 							} else {
 								outside_activity_window.push((signature.0, public.0));
 							}
 						},
+						_ => {},
 					}
 
 					Ok(())

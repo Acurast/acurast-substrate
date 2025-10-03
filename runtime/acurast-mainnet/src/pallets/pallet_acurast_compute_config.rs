@@ -14,13 +14,13 @@ use frame_support::{
 		ConstU32, LockIdentifier,
 	},
 };
-use sp_runtime::{traits::AccountIdConversion, Perquintill};
+use sp_runtime::Perquintill;
 
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
 	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
-	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, TreasuryPalletId, Uniques,
+	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -39,7 +39,7 @@ parameter_types! {
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
 	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(10);
-	pub TreasuryAccountId: AccountId = TreasuryPalletId::get().into_account_truncating();
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
 impl pallet_acurast_compute::Config for Runtime {

@@ -64,6 +64,7 @@ pallet-multisig = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 pallet-vesting = { workspace = true }
+pallet-treasury = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -149,6 +150,7 @@ std = [
 	"pallet-acurast-candidate-preselection/std",
 	"pallet-acurast-token-conversion/std",
 	"pallet-vesting/std",
+	"pallet-treasury/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
 	"sp-arithmetic/std",
@@ -196,6 +198,7 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

@@ -21,6 +21,7 @@ mod pallet_session_config;
 mod pallet_sudo_config;
 mod pallet_timestamp_config;
 mod pallet_transaction_payment_config;
+mod pallet_treasury_config;
 mod pallet_uniques_config;
 mod pallet_utility_config;
 mod pallet_vesting_config;

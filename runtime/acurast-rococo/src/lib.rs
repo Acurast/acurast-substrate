@@ -77,6 +77,8 @@ mod runtime {
 	pub type Referenda = pallet_referenda;
 	#[runtime::pallet_index(17)]
 	pub type ConvictionVoting = pallet_conviction_voting;
+	#[runtime::pallet_index(18)]
+	pub type Treasury = pallet_treasury;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]

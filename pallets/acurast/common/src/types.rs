@@ -1,3 +1,5 @@
+extern crate alloc;
+
 mod account20;
 
 #[cfg(feature = "attestation")]
@@ -8,6 +10,7 @@ pub use bounded_attestation::*;
 
 pub use account20::*;
 
+use base58::FromBase58;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{FixedPointNumber as _, FixedU128},
@@ -21,6 +24,9 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) const SCRIPT_PREFIX: &[u8] = b"ipfs://";
 pub(crate) const SCRIPT_LENGTH: u32 = 53;
+const CIDV0_LENGHT: usize = 34;
+const CIDV0_PREFIX: &[u8] = &[0x12, 0x20];
+const CIDV0_STR_PREFIX: &str = "Qm";
 
 /// Type representing the utf8 bytes of a string containing the value of an ipfs url.
 /// The ipfs url is expected to point to a script.
@@ -28,8 +34,29 @@ pub type Script = BoundedVec<u8, ConstU32<SCRIPT_LENGTH>>;
 pub type AllowedSources<AccountId, MaxAllowedSources> = BoundedVec<AccountId, MaxAllowedSources>;
 
 pub fn is_valid_script(script: &Script) -> bool {
+	use alloc::string::String;
+
 	let script_len: u32 = script.len().try_into().unwrap_or(0);
-	script_len == SCRIPT_LENGTH && script.starts_with(SCRIPT_PREFIX)
+	if script_len != SCRIPT_LENGTH || !script.starts_with(SCRIPT_PREFIX) {
+		return false;
+	}
+
+	let cid = String::from_utf8_lossy(&script[SCRIPT_PREFIX.len()..]);
+	if !cid.starts_with(CIDV0_STR_PREFIX) {
+		return false;
+	}
+
+	let decoded_cid_result = cid.from_base58();
+	if decoded_cid_result.is_err() {
+		return false;
+	}
+
+	let decoded_cid = decoded_cid_result.unwrap();
+	if decoded_cid.len() != CIDV0_LENGHT || !decoded_cid.starts_with(CIDV0_PREFIX) {
+		return false;
+	}
+
+	true
 }
 
 /// https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.2

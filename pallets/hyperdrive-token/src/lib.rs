@@ -25,16 +25,12 @@ pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use chain::{
-		ethereum::{EthereumActionDecoder, EthereumActionEncoder},
-		ActionDecoderError, ActionEncoderError,
-	};
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, *},
 		sp_runtime::{traits::AtLeast32BitUnsigned, SaturatedConversion},
 		traits::{
 			tokens::{
-				fungible::{self, Mutate},
+				fungible::{Inspect, Mutate},
 				Preservation,
 			},
 			EnsureOrigin, Get,
@@ -42,15 +38,20 @@ pub mod pallet {
 		Identity,
 	};
 	use frame_system::pallet_prelude::*;
-	use pallet_acurast::{AccountId20, MultiOrigin, ProxyChain};
-	use pallet_acurast_hyperdrive_ibc::{
-		BalanceOf, ContractCall, Layer, MessageBody, Subject, SubjectFor,
-	};
 	use sp_core::crypto::AccountId32;
 	use sp_runtime::traits::{Hash, Zero};
 	use sp_std::{prelude::*, vec};
 
+	use pallet_acurast::{
+		AccountId20, ContractCall, Layer, MessageBody, MessageFeeProvider, MessageProcessor,
+		MessageSender, MultiOrigin, ProxyChain, Subject,
+	};
+
 	use super::*;
+	use chain::{
+		ethereum::{EthereumActionDecoder, EthereumActionEncoder},
+		ActionDecoderError, ActionEncoderError,
+	};
 
 	/// A instantiable pallet for receiving secure state synchronizations into Acurast.
 	#[pallet::pallet]
@@ -58,9 +59,7 @@ pub mod pallet {
 
 	/// Configures the pallet.
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>:
-		frame_system::Config + pallet_acurast_hyperdrive_ibc::Config<I>
-	{
+	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -69,15 +68,17 @@ pub mod pallet {
 		type Balance: Member
 			+ Parameter
 			+ AtLeast32BitUnsigned
-			+ From<u128>
-			+ Into<u128>
+			+ IsType<u128>
 			+ Zero
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen
 			+ TypeInfo
-			+ Into<BalanceOf<Self, I>>;
+			+ Into<BalanceFor<Self, I>>;
+
+		type Currency: Inspect<Self::AccountId, Balance = Self::Balance>
+			+ Mutate<Self::AccountId, Balance = Self::Balance>;
 
 		#[pallet::constant]
 		type EthereumVault: Get<Self::AccountId>;
@@ -89,9 +90,26 @@ pub mod pallet {
 		type SolanaFeeVault: Get<Self::AccountId>;
 		#[pallet::constant]
 		type OperationalFeeAccount: Get<Self::AccountId>;
+		#[pallet::constant]
+		type MinTransferAmount: Get<Self::Balance>;
 
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		type MessageSender: MessageSender<
+			Self::AccountId,
+			Self::AccountId,
+			BalanceFor<Self, I>,
+			BlockNumberFor<Self>,
+		>;
+		type MessageIdHasher: Hash<
+				Output = <Self::MessageSender as MessageSender<
+					Self::AccountId,
+					Self::AccountId,
+					BalanceFor<Self, I>,
+					BlockNumberFor<Self>,
+				>>::MessageNonce,
+			> + TypeInfo;
 
 		#[pallet::constant]
 		type OutgoingTransferTTL: Get<BlockNumberFor<Self>>;
@@ -126,7 +144,6 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
 		/// Nested Hyperdrive (IBC) error.
-		PalletHyperdriveIBC(pallet_acurast_hyperdrive_ibc::Error<T, I>),
 		EthereumActionDecoderError(u8),
 		EthereumMessageEncoderError(u8),
 		InvalidSender,
@@ -140,12 +157,8 @@ pub mod pallet {
 		MissingContractConfiguration,
 		NotEnabled,
 		UnsupportedAction,
-	}
-
-	impl<T: Config<I>, I: 'static> From<pallet_acurast_hyperdrive_ibc::Error<T, I>> for Error<T, I> {
-		fn from(e: pallet_acurast_hyperdrive_ibc::Error<T, I>) -> Self {
-			Error::<T, I>::PalletHyperdriveIBC(e)
-		}
+		TransferAmountTooLow,
+		FeeRefundFailed,
 	}
 
 	impl<T: Config<I>, I: 'static> From<ActionDecoderError> for Error<T, I> {
@@ -230,10 +243,10 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			if let Some(init_allocation) = self.initial_eth_token_allocation {
-				_ = T::Currency::mint_into(&T::EthereumVault::get(), init_allocation.into());
+				_ = T::Currency::mint_into(&T::EthereumVault::get(), init_allocation);
 			}
 			if let Some(init_allocation) = self.initial_sol_token_allocation {
-				_ = T::Currency::mint_into(&T::SolanaVault::get(), init_allocation.into());
+				_ = T::Currency::mint_into(&T::SolanaVault::get(), init_allocation);
 			}
 		}
 	}
@@ -338,10 +351,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config<I>, I: 'static> Pallet<T, I>
-	where
-		T: pallet_acurast_hyperdrive_ibc::Config<I>,
-	{
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fn proxy_params(
 			proxy: &ProxyChain,
 		) -> Result<(SubjectFor<T>, T::AccountId, T::AccountId), Error<T, I>> {
@@ -377,7 +387,8 @@ pub mod pallet {
 			fee: T::Balance,
 			// if provided, this is a transfer retry
 			transfer_nonce: Option<TransferNonce>,
-		) -> Result<TransferNonce, Error<T, I>> {
+		) -> Result<TransferNonce, DispatchError> {
+			ensure!(amount >= T::MinTransferAmount::get(), Error::<T, I>::TransferAmountTooLow);
 			let proxy: ProxyChain = (&dest).into();
 			// recipient is the message recipient, not the recipient of amount which is `dest`
 			let (recipient, vault, fee_vault) = Self::proxy_params(&proxy)?;
@@ -389,9 +400,7 @@ pub mod pallet {
 					T::Currency::transfer(
 						&source,
 						&vault,
-						amount
-							.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(
-							),
+						amount.saturated_into::<BalanceFor<T, I>>(),
 						Preservation::Preserve,
 					)
 					.map_err(|e| {
@@ -418,33 +427,44 @@ pub mod pallet {
 				// hyperdrive-ibc reserves the fee on the payer's account, but we want the reserves being on a central per-proxy pallet account,
 				// since these fees can never be recovered to the source of a transfer (can only be retried with usually higher fee/ttl)
 				T::Currency::transfer(
-                	&source,
-                    &fee_vault,
-                    fee.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(),
-                    Preservation::Preserve,
-                ).map_err(|e| {
-                    log::error!(
-                        target: "runtime::acurast_hyperdrive_token",
-                        "error in do_transfer_native; transfer to fee_vault: {:?}",
-                        e,
-                    );
-                    Error::<T, I>::TransferToVaultFailed
-                })?;
+					&source,
+					&fee_vault,
+					fee.saturated_into::<BalanceFor<T, I>>(),
+					Preservation::Preserve,
+				)
+				.map_err(|e| {
+					log::error!(
+						target: "runtime::acurast_hyperdrive_token",
+						"error in do_transfer_native; transfer to fee_vault: {:?}",
+						e,
+					);
+					Error::<T, I>::TransferToVaultFailed
+				})?;
 			}
 
 			let action = Action::TransferToken(amount.into(), None, transfer_nonce, dest.clone());
-			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
+			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)
+				.map_err(|e| -> Error<T, I> { e.into() })?;
 
-			let _message = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
+			let complete_nonce =
+				&[proxy.encode().as_slice(), transfer_nonce.to_be_bytes().as_slice()].concat();
+
+			let (_, maybe_replaced_message) = T::MessageSender::send_message(
 				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
-				// payer is the fee pallet account (see transfer above)
 				&fee_vault,
-				T::MessageIdHashing::hash_of(&transfer_nonce),
+				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,
 				encoded,
 				T::OutgoingTransferTTL::get(),
-				fee.into(),
+				fee,
 			)?;
+
+			if let Some(replaced_message) = maybe_replaced_message {
+				let fee = replaced_message.get_fee();
+				if !fee.is_zero() {
+					_ = T::Currency::transfer(&fee_vault, &source, fee, Preservation::Preserve)?;
+				}
+			}
 
 			Self::deposit_event(Event::TransferToProxy { source, dest, amount });
 
@@ -456,7 +476,7 @@ pub mod pallet {
 			proxy: ProxyChain,
 			enabled: bool,
 			fee: T::Balance,
-		) -> Result<(), Error<T, I>> {
+		) -> Result<(), DispatchError> {
 			// recipient is the message recipient, not the recipient of amount which is `dest`
 			let (recipient, _vault, fee_vault) = Self::proxy_params(&proxy)?;
 
@@ -464,38 +484,51 @@ pub mod pallet {
 				// hyperdrive-ibc reserves the fee on the payer's account, but we want the reserves being on a central per-proxy pallet account,
 				// since these fees can never be recovered to the source of a transfer (can only be retried with usually higher fee/ttl)
 				T::Currency::transfer(
-                	&source,
-                    &fee_vault,
-                    fee.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(),
-                    Preservation::Preserve,
-                ).map_err(|e| {
-                    log::error!(
-                        target: "runtime::acurast_hyperdrive_token",
-                        "error in do_transfer_native; transfer to fee_vault: {:?}",
-                        e,
-                    );
-                    Error::<T, I>::TransferToVaultFailed
-                })?;
+					&source,
+					&fee_vault,
+					fee.saturated_into::<BalanceFor<T, I>>(),
+					Preservation::Preserve,
+				)
+				.map_err(|e| {
+					log::error!(
+						target: "runtime::acurast_hyperdrive_token",
+						"error in do_transfer_native; transfer to fee_vault: {:?}",
+						e,
+					);
+					Error::<T, I>::TransferToVaultFailed
+				})?;
 			}
 
 			let action = Action::SetEnabled(enabled);
-			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)?;
+			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)
+				.map_err(|e| -> Error<T, I> { e.into() })?;
 
 			let nonce_prefix = b"enable";
 			let nonce = Self::next_enable_nonce().unwrap_or(0);
 			NextEnableNonce::<T, I>::put(nonce + 1);
-			let complete_nonce =
-				&[nonce_prefix.as_slice(), nonce.to_be_bytes().as_slice()].concat();
+			let complete_nonce = &[
+				nonce_prefix.as_slice(),
+				proxy.encode().as_slice(),
+				nonce.to_be_bytes().as_slice(),
+			]
+			.concat();
 
-			let _ = pallet_acurast_hyperdrive_ibc::Pallet::<T, I>::do_send_message(
+			let (_, maybe_replaced_message) = T::MessageSender::send_message(
 				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
 				&fee_vault,
-				T::MessageIdHashing::hash_of(complete_nonce),
+				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,
 				encoded,
 				T::OutgoingTransferTTL::get(),
-				fee.into(),
+				fee,
 			)?;
+
+			if let Some(replaced_message) = maybe_replaced_message {
+				let fee = replaced_message.get_fee();
+				if !fee.is_zero() {
+					T::Currency::transfer(&fee_vault, &source, fee, Preservation::Preserve)?;
+				}
+			}
 
 			Ok(())
 		}
@@ -522,9 +555,7 @@ pub mod pallet {
 								T::Currency::transfer(
 									&T::EthereumVault::get(),
 									&dest_account_id,
-									amount
-										.saturated_into::<<T::Currency as fungible::Inspect<T::AccountId>>::Balance>(
-										),
+									amount.saturated_into::<BalanceFor<T, I>>(),
 									Preservation::Protect,
 								)
 								.map_err(|e| {
@@ -552,11 +583,11 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config<I>, I: 'static>
-		pallet_acurast_hyperdrive_ibc::MessageProcessor<T::AccountId, T::AccountId> for Pallet<T, I>
-	{
-		fn process(message: MessageBody<T::AccountId, T::AccountId>) -> DispatchResultWithPostInfo {
-			let (proxy, action) = match message.sender {
+	impl<T: Config<I>, I: 'static> MessageProcessor<T::AccountId, T::AccountId> for Pallet<T, I> {
+		fn process(
+			message: impl MessageBody<T::AccountId, T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			let (proxy, action) = match message.sender() {
 				SubjectFor::<T>::Ethereum(Layer::Contract(contract_call)) => {
 					if contract_call.contract
 						!= Self::ethereum_contract()
@@ -564,7 +595,7 @@ pub mod pallet {
 					{
 						Err(Error::<T, I>::InvalidSender)?
 					}
-					let action = <EthereumActionDecoder<I, T::ParsableAccountId, T::AccountId> as types::ActionDecoder<T::AccountId>>::decode(&message.payload)
+					let action = <EthereumActionDecoder<I, T::ParsableAccountId, T::AccountId> as types::ActionDecoder<T::AccountId>>::decode(&message.payload())
 						.map_err(|e| Error::<T, I>::EthereumActionDecoderError(e as u8))?;
 					Ok((ProxyChain::Ethereum, action))
 				},

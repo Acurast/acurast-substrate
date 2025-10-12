@@ -3,14 +3,13 @@ use frame_support::{
 	pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::fungible::Inspect,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_acurast::AccountId20;
-use pallet_acurast::MultiOrigin;
+use pallet_acurast::{Layer, MessageFeeProvider, MultiOrigin, Subject};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 pub use sp_core::ecdsa::{
 	Public, Signature, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 };
-use sp_core::{crypto::AccountId32, ConstU32, H256};
+use sp_core::{ConstU32, H256};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
@@ -106,6 +105,14 @@ pub struct OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract> {
 	pub payer: AccountId,
 }
 
+impl<AccountId, Balance: Copy, BlockNumber, Contract> MessageFeeProvider<Balance>
+	for OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract>
+{
+	fn get_fee(&self) -> Balance {
+		self.fee
+	}
+}
+
 /// A wrapper around an outgoing message containing metadata related to TTL.
 #[derive(
 	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
@@ -125,78 +132,31 @@ pub struct MessageBody<AccountId, Contract> {
 	pub payload: Payload,
 }
 
+impl<AccountId, Contract> pallet_acurast::MessageBody<AccountId, Contract>
+	for MessageBody<AccountId, Contract>
+{
+	fn sender(&self) -> &Subject<AccountId, Contract> {
+		&self.sender
+	}
+
+	fn recipient(&self) -> &Subject<AccountId, Contract> {
+		&self.recipient
+	}
+
+	fn payload(self) -> pallet_acurast::Payload {
+		self.payload
+	}
+}
+
 impl<AccountId, Contract> From<Message<AccountId, Contract>> for MessageBody<AccountId, Contract> {
 	fn from(m: Message<AccountId, Contract>) -> Self {
 		MessageBody { sender: m.sender, recipient: m.recipient, payload: m.payload }
 	}
 }
 
-#[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
-)]
-pub enum Subject<AccountId, Contract> {
-	Acurast(Layer<AccountId, Contract>),
-	AlephZero(Layer<AccountId32, Contract>),
-	Vara(Layer<AccountId32, Contract>),
-	Ethereum(Layer<AccountId20, AccountId20>),
-	Solana(Layer<AccountId32, AccountId32>),
-	AcurastCanary(Layer<AccountId, Contract>),
-}
-
-#[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
-)]
-pub enum Layer<AccountId, C> {
-	/// A sender/recipient extrinsic. In case of a sender, it should hold the pallet_account of either this pallet
-	/// if `hyperdrive_ibc::send_message`-extrinsic sent the message or the (internal) caller of `hyperdrive_ibc::do_send_message`.
-	Extrinsic(AccountId),
-	Contract(ContractCall<C>),
-}
-
-/// A contract call acting as a sender/recipient of a message.
-///
-/// See how to invoke another contract: https://use.ink/4.x/basics/cross-contract-calling#callbuilder
-#[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
-)]
-pub struct ContractCall<C> {
-	pub contract: C,
-	/// Selector for the message of `contract` to send payload to,
-	/// as the only argument.
-	pub selector: Option<[u8; 4]>,
-}
-
 pub type MessageIndex = u64;
 pub type MessageId = H256;
 pub type MessageNonce = H256;
-
-pub trait MessageProcessor<AccountId, Contract> {
-	fn process(message: MessageBody<AccountId, Contract>) -> DispatchResultWithPostInfo;
-}
 
 /// Tracks the progress during `submit_message`, intended to be included in events.
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]

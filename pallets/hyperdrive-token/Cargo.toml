@@ -20,10 +20,7 @@ hex = { version = "0.4", default-features = false }
 hex-literal = { version = "0.4", default-features = false }
 
 # Acurast
-pallet-acurast = { path = "../acurast", default-features = false }
-pallet-acurast-hyperdrive-ibc = { workspace = true }
-
-acurast-hyperdrive-substrate-core = { path = "../../hyperdrive/substrate-core", default-features = false }
+pallet-acurast = { workspace = true }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -39,6 +36,7 @@ alloy-sol-types = { version = "0.3.1", default-features = false }
 
 # Benchmarks
 frame-benchmarking = { workspace = true, optional = true }
+pallet-acurast-hyperdrive-ibc = { workspace = true, optional = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -55,6 +53,7 @@ sp-runtime = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true, features = ["std"] }
 sp-tracing = { workspace = true }
+cumulus-primitives-core = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
@@ -77,7 +76,6 @@ std = [
 	"pallet-balances/std",
 	"tezos-core/std",
 	"tezos-michelson/std",
-	"acurast-hyperdrive-substrate-core/std",
 ]
 
 runtime-benchmarks = [

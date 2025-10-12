@@ -7,7 +7,7 @@ use crate::VERSION;
 use crate::{STORAGE_BYTE_FEE, SUPPLY_FACTOR};
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-	items as Balance * 1 * UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
+	items as Balance * UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
 }
 
 /// The version information used to identify this runtime when compiled natively.

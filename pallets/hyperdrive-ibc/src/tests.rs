@@ -1,14 +1,15 @@
 use hex_literal::hex;
-use pallet_acurast::AccountId20;
-use sp_core::crypto::AccountId32;
-use sp_core::crypto::Ss58Codec;
-use sp_core::ecdsa::{Public, Signature};
-use sp_core::ByteArray;
-use sp_core::Encode;
+use sp_core::{
+	crypto::{AccountId32, Ss58Codec},
+	ecdsa::{Public, Signature},
+	ByteArray, Encode,
+};
 use sp_runtime::traits::Verify;
 
+use pallet_acurast::{AccountId20, ContractCall, Layer, Subject};
+
 // Assuming these are in scope:
-use crate::{ContractCall, Layer, Message, MessageId, MessageNonce, Payload, Subject};
+use crate::{Message, MessageId, MessageNonce, Payload};
 
 #[test]
 fn encodes_specific_message_correctly() {

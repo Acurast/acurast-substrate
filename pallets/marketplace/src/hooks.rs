@@ -105,8 +105,6 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				// Remove matching data and increase processor capacity
 				for (p, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					<StoredMatches<T>>::remove(&p, job_id);
-
-					<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
 				}
 
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
@@ -126,7 +124,6 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					// find assignment
 					let assignment = <StoredMatches<T>>::take(&processor, job_id);
-					<Pallet<T> as StorageTracker<T>>::unlock(&processor, &registration)?;
 
 					if let Some(assignment) = assignment {
 						if let ExecutionSpecifier::Index(index) = assignment.execution {

@@ -43,6 +43,7 @@ jsonrpsee = { version = "0.24.3", features = ["server"] }
 async-trait = "0.1.88"
 futures = "0.3.21"
 cfg-if = "1"
+base58 = "0.2"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }

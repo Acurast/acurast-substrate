@@ -1,16 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 extern crate core;
 
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod tests;
-
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
 mod traits;
 
 mod types;
@@ -18,6 +18,9 @@ pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use alloc::collections::BTreeSet;
+
+	use cumulus_primitives_core::ParaId;
 	use frame_support::{
 		dispatch::PostDispatchInfo,
 		pallet_prelude::*,
@@ -32,12 +35,16 @@ pub mod pallet {
 		transactional,
 	};
 	use frame_system::pallet_prelude::*;
-	use pallet_acurast::MultiOrigin;
 	use sp_arithmetic::traits::{Saturating, Zero};
 	use sp_runtime::traits::{Hash, Verify};
 	use sp_std::{prelude::*, vec};
 
+	use pallet_acurast::{Layer, MessageProcessor, MessageSender, MultiOrigin, Subject};
+
 	use super::*;
+
+	type NewAndMaybeOldMessage<T, I> =
+		(OutgoingMessageWithMetaFor<T, I>, Option<OutgoingMessageWithMetaFor<T, I>>);
 
 	/// A instantiable pallet for receiving secure state synchronizations into Acurast.
 	#[pallet::pallet]
@@ -48,7 +55,6 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		#[pallet::constant]
 		type MinTTL: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
@@ -57,21 +63,19 @@ pub mod pallet {
 		type MinDeliveryConfirmationSignatures: Get<u32>;
 		#[pallet::constant]
 		type MinReceiptConfirmationSignatures: Get<u32>;
-
+		#[pallet::constant]
+		type MinFee: Get<BalanceOf<Self, I>>;
 		/// The currency mechanism, used for paying for fees sending messages.
 		type Currency: InspectFungible<Self::AccountId>
 			+ MutateFungible<Self::AccountId>
 			+ HoldMutateFungible<Self::AccountId, Reason = Self::RuntimeHoldReason>;
-
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason<I>>;
-
 		/// The hashing system (algorithm) being used in the runtime (e.g. Blake2).
 		type MessageIdHashing: Hash<Output = MessageId> + TypeInfo;
-
 		type MessageProcessor: MessageProcessor<Self::AccountId, Self::AccountId>;
-
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type ParachainId: Get<ParaId>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -159,6 +163,7 @@ pub mod pallet {
 		MessageAlreadyReceived,
 		IncorrectRecipient,
 		PayloadLengthExceeded,
+		FeeTooLow,
 	}
 
 	/// A reason for the pallet placing a hold on funds.
@@ -268,11 +273,11 @@ pub mod pallet {
 				&message.payer,
 				&who,
 				message.fee,
-				Precision::BestEffort,
+				Precision::Exact,
 				Restriction::Free,
 				Fortitude::Polite,
 			)
-			.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;
+			.map_err(|_| Error::<T, I>::CouldNotReleaseHoldFee)?;
 
 			Self::deposit_event(Event::MessageDelivered { id });
 
@@ -371,7 +376,7 @@ pub mod pallet {
 
 		/// Cleans up incoming messages for which [`<T as Config<I>>::IncomingTTL`] passed.
 		#[pallet::call_index(5)]
-		#[pallet::weight(< T as Config < I >>::WeightInfo::clean_incoming())]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::clean_incoming(ids.len() as u32))]
 		pub fn clean_incoming(
 			origin: OriginFor<T>,
 			ids: MessagesCleanup,
@@ -429,7 +434,12 @@ pub mod pallet {
 				[u8; PUBLIC_KEY_SERIALIZED_SIZE],
 			)> = Default::default();
 			let mut valid = 0;
-			let mut checked: Vec<Public> = vec![];
+			let mut checked: BTreeSet<Public> = BTreeSet::new();
+			let full_message: Vec<u8> = if let Some(relayer) = &relayer {
+				(T::ParachainId::get(), message, relayer).encode()
+			} else {
+				(T::ParachainId::get(), message).encode()
+			};
 			signatures.into_iter().try_for_each(
 				|(signature, public)| -> Result<(), Error<T, I>> {
 					match <OraclePublicKeys<T, I>>::get(public) {
@@ -438,25 +448,16 @@ pub mod pallet {
 						},
 						Some(activity_window) if !checked.contains(&public) => {
 							// valid window is defined inclusive start_block, exclusive end_block
-
 							if activity_window.start_block <= current_block
 								&& activity_window
 									.end_block
 									.map_or(true, |end_block| current_block < end_block)
 							{
-								if let Some(r) = &relayer {
-									ensure!(
-										signature.verify(&(message, r).encode()[..], &public),
-										Error::<T, I>::SignatureInvalid
-									);
-								} else {
-									ensure!(
-										signature.verify(&message.encode()[..], &public),
-										Error::<T, I>::SignatureInvalid
-									);
-								};
+								let is_valid = signature.verify(full_message.as_slice(), &public);
+								#[cfg(not(feature = "runtime-benchmarks"))]
+								ensure!(is_valid, Error::<T, I>::SignatureInvalid);
 								valid += 1;
-								checked.push(public);
+								checked.insert(public);
 							} else {
 								outside_activity_window.push((signature.0, public.0));
 							}
@@ -486,7 +487,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn message_id(sender: &SubjectFor<T>, nonce: MessageNonce) -> MessageId {
+		pub(crate) fn message_id(sender: &SubjectFor<T>, nonce: MessageNonce) -> MessageId {
 			T::MessageIdHashing::hash_of(&(sender, nonce))
 		}
 
@@ -514,7 +515,7 @@ pub mod pallet {
 		/// to other pallets if the authorization for the passed `sender` has been ensured at the caller.
 		/// Be careful to not allow for unintended impersonation.
 		/// * _Exactly-once delivery_ is **not** guaranteed even the `nonce` serves as deduplication during ttl; While, after ttl passed and message fee cannot be claimed by relayer, a _different_ message with same nonce can be sent off, it cannot be guaranteed a relayer received the oracle signatures before and still submits first message to proxy.
-		pub fn do_send_message(
+		fn do_send_message(
 			sender: SubjectFor<T>,
 			payer: &T::AccountId,
 			nonce: MessageNonce,
@@ -522,18 +523,28 @@ pub mod pallet {
 			payload: Vec<u8>,
 			ttl: BlockNumberFor<T>,
 			fee: BalanceOf<T, I>,
-		) -> Result<OutgoingMessageWithMetaFor<T, I>, Error<T, I>> {
+		) -> Result<NewAndMaybeOldMessage<T, I>, Error<T, I>> {
+			ensure!(fee >= T::MinFee::get(), Error::<T, I>::FeeTooLow);
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
 			// look for duplicates
 			let id = Self::message_id(&sender, nonce);
+			let mut replaced_message: Option<OutgoingMessageWithMetaFor<T, I>> = None;
 			if let Some(message) = Self::outgoing_messages(id) {
 				// potential duplicate found: check for ttl
 				ensure!(
 					message.ttl_block < current_block,
 					Error::<T, I>::MessageWithSameNoncePending
+				);
+				// release previous fee
+				_ = T::Currency::release(
+					&HoldReason::OutgoingMessageFee.into(),
+					&message.payer,
+					message.fee,
+					Precision::Exact,
 				)
-
+				.map_err(|_| Error::<T, I>::CouldNotReleaseHoldFee)?;
+				replaced_message = Some(message);
 				// continue below and overwrite message
 			}
 
@@ -564,16 +575,22 @@ pub mod pallet {
 			log::info!("Hyperdrive-IBC message is ready to send: {:?}", &message_with_meta);
 			Self::deposit_event(Event::MessageReadyToSend { message: message_with_meta.clone() });
 
-			Ok(message_with_meta)
+			Ok((message_with_meta, replaced_message))
 		}
 
 		#[transactional]
 		fn process_message(message: MessageFor<T>) -> DispatchResultWithPostInfo {
-			T::MessageProcessor::process(message.into())
+			let message_body: MessageBody<T::AccountId, T::AccountId> = message.into();
+			T::MessageProcessor::process(message_body)
 		}
 	}
 
-	impl<T: Config<I>, I: 'static> MessageSender<T, BalanceOf<T, I>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static>
+		MessageSender<T::AccountId, T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>> for Pallet<T, I>
+	{
+		type MessageNonce = MessageNonce;
+		type OutgoingMessage = OutgoingMessageWithMetaFor<T, I>;
+
 		fn send_message(
 			sender: SubjectFor<T>,
 			payer: &T::AccountId,
@@ -582,9 +599,8 @@ pub mod pallet {
 			payload: Vec<u8>,
 			ttl: BlockNumberFor<T>,
 			fee: BalanceOf<T, I>,
-		) -> DispatchResult {
-			let _ = Self::do_send_message(sender, payer, nonce, recipient, payload, ttl, fee)?;
-			Ok(())
+		) -> Result<(Self::OutgoingMessage, Option<Self::OutgoingMessage>), DispatchError> {
+			Ok(Self::do_send_message(sender, payer, nonce, recipient, payload, ttl, fee)?)
 		}
 	}
 }

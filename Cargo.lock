@@ -17,6 +17,7 @@ name = "acurast-common"
 version = "0.19.2"
 dependencies = [
  "asn1",
+ "base58",
  "base64 0.13.1",
  "chrono",
  "ecdsa_vendored",
@@ -7790,12 +7791,14 @@ name = "pallet-acurast-hyperdrive-ibc"
 version = "0.19.2"
 dependencies = [
  "alloy-sol-types",
+ "cumulus-primitives-core",
  "derive_more 0.99.18",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal 0.3.4",
+ "hex-literal 0.4.1",
  "log",
  "once_cell",
  "pallet-acurast",
@@ -7819,8 +7822,8 @@ dependencies = [
 name = "pallet-acurast-hyperdrive-token"
 version = "0.19.2"
 dependencies = [
- "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
+ "cumulus-primitives-core",
  "derive_more 0.99.18",
  "frame-benchmarking",
  "frame-support",
@@ -7934,7 +7937,6 @@ name = "pallet-acurast-token-conversion"
 version = "0.19.2"
 dependencies = [
  "acurast-common",
- "acurast-hyperdrive-substrate-core",
  "cfg-if",
  "derive_more 0.99.18",
  "frame-benchmarking",
@@ -7943,8 +7945,6 @@ dependencies = [
  "hex",
  "hex-literal 0.4.1",
  "log",
- "pallet-acurast",
- "pallet-acurast-hyperdrive-ibc",
  "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",

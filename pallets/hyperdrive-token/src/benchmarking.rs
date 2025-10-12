@@ -36,8 +36,8 @@ benchmarks_instance_pallet! {
 
 	transfer_native {
 		let initial_balance = 1000 * UNIT;
-		let amount_to_transfer = 1 * UNIT;
-		let fee_amount = 2 * MILLIUNIT;
+		let amount_to_transfer = UNIT;
+		let fee_amount = UNIT / 10;
 
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
@@ -56,8 +56,8 @@ benchmarks_instance_pallet! {
 		));
 		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
 
-		let amount_to_transfer = 1 * UNIT;
-		let fee_amount = 2 * MILLIUNIT;
+		let amount_to_transfer = UNIT;
+		let fee_amount = UNIT / 10;
 
 		run_to_block::<T, I>(100u32.into());
 	}: {
@@ -66,9 +66,9 @@ benchmarks_instance_pallet! {
 
 	retry_transfer_native {
 		let initial_balance = 1000 * UNIT;
-		let amount_to_transfer = 1 * UNIT;
-		let fee_amount = 2 * MILLIUNIT;
-		let retry_fee_amount = 3 * MILLIUNIT;
+		let amount_to_transfer = UNIT;
+		let fee_amount = UNIT / 10;
+		let retry_fee_amount = 2 * fee_amount;
 
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
@@ -108,20 +108,18 @@ benchmarks_instance_pallet! {
 		run_to_block::<T, I>(100u32.into());
 
 		let new_contract = AccountId20(hex!("1111111111111111111111111111111111111111"));
-	}: _(RawOrigin::Root,
-		new_contract.clone())
+	}: _(RawOrigin::Root, new_contract)
 	verify {
-		assert_last_event::<T, I>(Event::EthereumContractUpdated { contract: new_contract.into() }.into());
+		assert_last_event::<T, I>(Event::EthereumContractUpdated { contract: new_contract }.into());
 	}
 
 	update_solana_contract {
 		run_to_block::<T, I>(100u32.into());
 
 		let new_contract = AccountId32::new([5u8; 32]);
-	}: _(RawOrigin::Root,
-		new_contract.clone())
+	}: _(RawOrigin::Root, new_contract.clone())
 	verify {
-		assert_last_event::<T, I>(Event::SolanaContractUpdated { contract: new_contract.into() }.into());
+		assert_last_event::<T, I>(Event::SolanaContractUpdated { contract: new_contract }.into());
 	}
 
 	set_enabled {
@@ -133,22 +131,16 @@ benchmarks_instance_pallet! {
 
 	enable_proxy_chain {
 		let initial_balance = 1000 * UNIT;
-		let fee_amount = 2 * MILLIUNIT;
+		let fee_amount = UNIT / 10;
 
 		let fee_payer: T::AccountId = T::OperationalFeeAccount::get();
 
 		assert_ok!(AcurastHyperdriveToken::<T, I>::set_enabled(RawOrigin::Root.into(), true));
 
 		// Arrange: initial balances and configuration
-		assert_ok!(
-			Balances::<T>::force_set_balance(RawOrigin::Root.into(), fee_payer.clone().into(), initial_balance.into()));
-			assert_ok!(
-			Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
-			assert_ok!(Balances::<T>::force_set_balance(
-			RawOrigin::Root.into(),
-			ethereum_fee_vault().into(),
-			initial_balance.into(),
-		));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), fee_payer.clone().into(), initial_balance.into()));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_fee_vault().into(), initial_balance.into()));
 		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
 
 		run_to_block::<T, I>(100u32.into());

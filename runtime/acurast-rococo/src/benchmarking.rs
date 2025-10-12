@@ -39,6 +39,7 @@ define_benchmarks!(
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
 	[pallet_acurast_compute, AcurastCompute]
+	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
 );

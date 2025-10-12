@@ -19,7 +19,7 @@ const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 }
 
 const APP_ROOT: Curve = Curve::make_reciprocal(4, 18, percent(80), percent(50), percent(100));
-const SUP_ROOT: Curve = Curve::make_linear(28, 18, percent(0), percent(50));
+const SUP_ROOT: Curve = Curve::make_linear(28, 18, percent(0), percent(30));
 
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;

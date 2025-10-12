@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::Schedule;
 
 macro_rules! tests {

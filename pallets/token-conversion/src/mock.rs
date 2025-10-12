@@ -4,14 +4,15 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_acurast_hyperdrive_ibc::{Layer, Subject, SubjectFor};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	AccountId32, BuildStorage,
 };
 
-use acurast_common::ProxyChain;
+use acurast_common::{Layer, ProxyChain, Subject};
+
+use crate::SubjectFor;
 
 pub type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;

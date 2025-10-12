@@ -2,6 +2,7 @@
 
 use crate::stub::*;
 use crate::{stub::AcurastAccountId, weights};
+use cumulus_primitives_core::ParaId;
 use derive_more::{Display, From, Into};
 use frame_support::{
 	derive_impl,
@@ -12,8 +13,8 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureRoot};
 use hex_literal::hex;
-use pallet_acurast::CU32;
-use pallet_acurast_hyperdrive_ibc::{HoldReason, LayerFor, MessageBody, SubjectFor};
+use pallet_acurast::{MessageBody, MessageProcessor, CU32};
+use pallet_acurast_hyperdrive_ibc::{HoldReason, LayerFor, SubjectFor};
 use sp_core::*;
 use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
@@ -53,10 +54,12 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub MinTTL: BlockNumber = 15;
-	pub IncomingTTL: BlockNumber = 50;
-	pub MinDeliveryConfirmationSignatures: u32 = 1;
-	pub MinReceiptConfirmationSignatures: u32 = 1;
+	pub const MinTTL: BlockNumber = 15;
+	pub const IncomingTTL: BlockNumber = 50;
+	pub const MinDeliveryConfirmationSignatures: u32 = 1;
+	pub const MinReceiptConfirmationSignatures: u32 = 1;
+	pub const MinFee: Balance = UNIT / 10;
+	pub const ParachainId: ParaId = ParaId::new(2000);
 }
 
 impl pallet_acurast_hyperdrive_ibc::Config for Test {
@@ -65,11 +68,13 @@ impl pallet_acurast_hyperdrive_ibc::Config for Test {
 	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
+	type MinFee = MinFee;
 	type Currency = Balances;
 	type RuntimeHoldReason = HoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type ParachainId = ParachainId;
 	type WeightInfo = pallet_acurast_hyperdrive_ibc::weights::WeightInfo<Test>;
 }
 
@@ -81,6 +86,7 @@ parameter_types! {
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub HyperdriveTokenOperationalFeeAccount: AccountId = PalletId(*b"hyptofac").into_account_truncating();
 	pub OutgoingTransferTTL: BlockNumber = 15;
+	pub const MinTransferAmount: Balance = UNIT;
 }
 
 impl crate::Config for Test {
@@ -89,6 +95,9 @@ impl crate::Config for Test {
 	type PalletAccount = HyperdriveTokenPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
 	type Balance = Balance;
+	type Currency = Balances;
+	type MessageSender = AcurastHyperdriveIbc;
+	type MessageIdHasher = BlakeTwo256;
 
 	type EthereumVault = HyperdriveTokenEthereumVault;
 	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
@@ -98,6 +107,7 @@ impl crate::Config for Test {
 	type OperationalFeeAccount = HyperdriveTokenOperationalFeeAccount;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type MinTransferAmount = MinTransferAmount;
 
 	type WeightInfo = weights::WeightInfo<Test>;
 }
@@ -107,13 +117,11 @@ impl crate::Config for Test {
 /// Forwards messages with
 /// * recipient [`HyperdriveTokenPalletAccount`] to AcurastHyperdriveToken pallet.
 pub struct HyperdriveMessageProcessor;
-impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
-	for HyperdriveMessageProcessor
-{
-	fn process(message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
-		if SubjectFor::<Test>::Acurast(LayerFor::<Test>::Extrinsic(
+impl MessageProcessor<AccountId, AccountId> for HyperdriveMessageProcessor {
+	fn process(message: impl MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
+		if &SubjectFor::<Test>::Acurast(LayerFor::<Test>::Extrinsic(
 			HyperdriveTokenPalletAccount::get(),
-		)) == message.recipient
+		)) == message.recipient()
 		{
 			AcurastHyperdriveToken::process(message)
 		} else {

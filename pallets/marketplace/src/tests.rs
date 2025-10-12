@@ -1,7 +1,11 @@
 use frame_support::{
 	assert_err, assert_ok,
 	pallet_prelude::Zero,
-	sp_runtime::{bounded_vec, traits::Scale, Permill, Perquintill},
+	sp_runtime::{
+		bounded_vec,
+		traits::{Hash, Scale},
+		Permill, Perquintill,
+	},
 	traits::{Hooks, TypedGet},
 };
 
@@ -11,6 +15,7 @@ use pallet_acurast::{
 	JobRegistrationFor, MultiOrigin, Schedule,
 };
 use pallet_acurast_compute::{MetricPool, ProvisionalBuffer, SlidingBuffer};
+use parity_scale_codec::Encode;
 use reputation::{BetaReputation, ReputationEngine};
 use sp_core::H256;
 
@@ -89,15 +94,8 @@ fn test_valid_deregister() {
 				initial_job_id + 1
 			)
 		);
-		assert_eq!(
-			Some(100_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1,
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1,));
 
 		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
 		// Job KeyID got removed
@@ -169,18 +167,18 @@ fn test_deregister_on_matched_job() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
 		later(now);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -201,27 +199,20 @@ fn test_deregister_on_matched_job() {
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
-		assert_eq!(Balances::free_balance(&alice_account_id()), 76_000_000);
+		assert_eq!(Balances::free_balance(alice_account_id()), 76_000_000);
 
 		assert_eq!(24_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_eq!(
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 		// The amount should have been refunded
-		assert_eq!(Balances::free_balance(&alice_account_id()), 100_000_000);
+		assert_eq!(Balances::free_balance(alice_account_id()), 100_000_000);
 
 		// Job got removed after the deregister call
 		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
@@ -300,7 +291,7 @@ fn test_deregister_on_assigned_job() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
@@ -312,18 +303,18 @@ fn test_deregister_on_assigned_job() {
 		let processor_initial_balance = 10_000_000u128;
 		let pallet_initial_balance = 10_000_000u128;
 
-		assert_eq!(Balances::free_balance(&alice_account_id()), consumer_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_acurast_acount()), pallet_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_fees_account()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(alice_account_id()), consumer_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_acurast_acount()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_fees_account()), pallet_initial_balance);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -344,7 +335,7 @@ fn test_deregister_on_assigned_job() {
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 
@@ -353,13 +344,9 @@ fn test_deregister_on_assigned_job() {
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
 		assert_ok!(AcurastMarketplace::acknowledge_match(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			PubKeys::default(),
 		));
@@ -369,22 +356,19 @@ fn test_deregister_on_assigned_job() {
 			* (registration1.extra.requirements.slots as u128)
 			* (registration1.schedule.execution_count() as u128);
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - total_reward
 		);
 		// assert_eq!(Balances::free_balance(&alice_account_id()), 76_000_000);
-		assert_eq!(Balances::free_balance(&processor_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - assignment.fee_per_execution
 		);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
 		let fee = fee_percentage.mul_floor(assignment.fee_per_execution);
@@ -393,7 +377,7 @@ fn test_deregister_on_assigned_job() {
 		let reward_after_fee = assignment.fee_per_execution - fee;
 
 		assert_eq!(
-			Balances::free_balance(&processor_account_id()),
+			Balances::free_balance(processor_account_id()),
 			processor_initial_balance + reward_after_fee
 		);
 
@@ -489,7 +473,7 @@ fn test_deregister_on_assigned_job_for_competing() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
@@ -501,18 +485,18 @@ fn test_deregister_on_assigned_job_for_competing() {
 		let processor_initial_balance = 10_000_000u128;
 		let pallet_initial_balance = 10_000_000u128;
 
-		assert_eq!(Balances::free_balance(&alice_account_id()), consumer_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_acurast_acount()), pallet_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_fees_account()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(alice_account_id()), consumer_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_acurast_acount()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_fees_account()), pallet_initial_balance);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -533,13 +517,13 @@ fn test_deregister_on_assigned_job_for_competing() {
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 
 		assert_eq!(24_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(bob_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 0,
@@ -557,19 +541,15 @@ fn test_deregister_on_assigned_job_for_competing() {
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
 		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			0,
 			PubKeys::default(),
 		));
 		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			job_id1.clone(),
 			0,
 			PubKeys::default(),
@@ -582,16 +562,13 @@ fn test_deregister_on_assigned_job_for_competing() {
 			* (registration1.extra.requirements.slots as u128)
 			* (registration1.schedule.execution_count() as u128);
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - total_reward
 		);
-		assert_eq!(Balances::free_balance(&processor_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
 		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
@@ -612,16 +589,16 @@ fn test_deregister_on_assigned_job_for_competing() {
 		let matcher_pauout_after_fee = matcher_payout - matcher_payout_fee;
 
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance
 				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
 		);
 		assert_eq!(
-			Balances::free_balance(&processor_2_account_id()),
+			Balances::free_balance(processor_2_account_id()),
 			processor_initial_balance + reward2_after_fee
 		);
 		assert_eq!(
-			Balances::free_balance(&processor_account_id()),
+			Balances::free_balance(processor_account_id()),
 			processor_initial_balance + reward1_after_fee
 		);
 
@@ -744,7 +721,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
@@ -756,18 +733,18 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		let processor_initial_balance = 10_000_000u128;
 		let pallet_initial_balance = 10_000_000u128;
 
-		assert_eq!(Balances::free_balance(&alice_account_id()), consumer_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&processor_account_id()), processor_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_acurast_acount()), pallet_initial_balance);
-		assert_eq!(Balances::free_balance(&pallet_fees_account()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(alice_account_id()), consumer_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_acurast_acount()), pallet_initial_balance);
+		assert_eq!(Balances::free_balance(pallet_fees_account()), pallet_initial_balance);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -788,13 +765,13 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(bob_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 0,
@@ -809,13 +786,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
 		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			0,
 			PubKeys::default(),
@@ -827,7 +800,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()).unwrap();
 
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			ExecutionResult::Success(b"JOB_EXECUTED".to_vec().try_into().unwrap()),
 		));
@@ -837,7 +810,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		later(now + registration1.schedule.interval);
 
 		assert_ok!(AcurastMarketplace::propose_execution_matching(
-			RuntimeOrigin::signed(bob_account_id()).into(),
+			RuntimeOrigin::signed(bob_account_id()),
 			vec![ExecutionMatch {
 				job_id: job_id1.clone(),
 				execution_index: 1,
@@ -853,7 +826,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		));
 
 		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			job_id1.clone(),
 			1,
 			PubKeys::default(),
@@ -877,34 +850,31 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 		let matcher_payout_afer_fee = matcher_payout - matcher_payout_fee;
 
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - total_reward
 		);
 		assert_eq!(
-			Balances::free_balance(&processor_account_id()),
+			Balances::free_balance(processor_account_id()),
 			processor_initial_balance + reward1_after_fee
 		);
-		assert_eq!(Balances::free_balance(&processor_2_account_id()), processor_initial_balance);
+		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		let fee2 = fee_percentage.mul_floor(assignment2.fee_per_execution);
 		let reward2_after_fee = assignment2.fee_per_execution - fee2;
 
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance
 				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
 		);
 		assert_eq!(
-			Balances::free_balance(&processor_2_account_id()),
+			Balances::free_balance(processor_2_account_id()),
 			processor_initial_balance + reward2_after_fee
 		);
 		assert_eq!(
-			Balances::free_balance(&processor_account_id()),
+			Balances::free_balance(processor_account_id()),
 			processor_initial_balance + reward1_after_fee
 		);
 
@@ -1074,7 +1044,7 @@ fn test_match() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
@@ -1082,13 +1052,13 @@ fn test_match() {
 
 		let chain = attestation_chain();
 		assert_ok!(Acurast::submit_attestation(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			chain.clone()
 		));
 		assert_ok!(validate_and_extract_attestation::<Test>(&processor_account_id(), &chain));
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -1120,13 +1090,13 @@ fn test_match() {
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
 
 		assert_ok!(Acurast::register_with_min_metrics(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 			bounded_vec![(pool_id, 1, 4)],
 		));
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id1));
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration2.clone(),
 		));
 		assert_eq!(12_000_000, AcurastMarketplace::reserved(&job_id2));
@@ -1136,10 +1106,6 @@ fn test_match() {
 				MultiOrigin::Acurast(alice_account_id()),
 				initial_job_id + 1
 			)
-		);
-		assert_eq!(
-			Some(100_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
 		);
 
 		let job_match1 = Match {
@@ -1158,23 +1124,19 @@ fn test_match() {
 		};
 
 		assert_ok!(AcurastMarketplace::propose_matching(
-			RuntimeOrigin::signed(charlie_account_id()).into(),
+			RuntimeOrigin::signed(charlie_account_id()),
 			vec![job_match1.clone(), job_match2.clone()].try_into().unwrap(),
 		));
 		assert_eq!(
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(60_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 		// matcher got paid out already so job budget decreased
 		assert_eq!(11804000, AcurastMarketplace::reserved(&job_id1));
 		assert_eq!(11804000, AcurastMarketplace::reserved(&job_id2));
 
 		assert_ok!(AcurastMarketplace::acknowledge_match(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			PubKeys::default(),
 		));
@@ -1189,7 +1151,7 @@ fn test_match() {
 		assert_eq!(2, System::block_number());
 
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			ExecutionResult::Success(operation_hash())
 		));
@@ -1229,38 +1191,21 @@ fn test_match() {
 			Some(JobStatus::Assigned(1)),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),
 		);
-		assert_eq!(
-			Some(60000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
 		// pretend time moved on
-		later(registration1.schedule.range(0).1 - 2000);
+		later(registration1.schedule.range(0).1);
 		assert_eq!(3, System::block_number());
 
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			ExecutionResult::Success(operation_hash())
 		));
 		// job budget decreased by reward worth one execution
 		assert_eq!(1764000, AcurastMarketplace::reserved(&job_id1));
 
-		// pretend time moved on
 		later(registration1.schedule.end_time + 1);
 		assert_eq!(4, System::block_number());
-
-		assert_eq!(1764000, AcurastMarketplace::reserved(&job_id1));
-
-		assert_ok!(AcurastMarketplace::finalize_job(
-			RuntimeOrigin::signed(processor_account_id()).into(),
-			job_id1.clone()
-		));
-
-		assert_eq!(
-			None,
-			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()),
-		);
 		assert_eq!(Some(2), AcurastMarketplace::total_assigned());
 		// reputation increased
 		assert_eq!(
@@ -1275,16 +1220,13 @@ fn test_match() {
 			Some(JobStatus::Assigned(1)),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1),
 		);
-		assert_eq!(
-			// only job2 is still blocking memory
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 
-		assert_ok!(AcurastMarketplace::finalize_jobs(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			vec![job_id1.1].try_into().unwrap(),
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1,));
+
+		assert_eq!(
+			None,
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id1.clone()),
+		);
 
 		// Job no longer assigned after finalization
 		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
@@ -1386,13 +1328,14 @@ fn test_match() {
 					job_id1.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::AcurastMarketplace(crate::Event::JobFinalized(job_id1.clone())),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
 					amount: 1_764_000
 				}),
-				RuntimeEvent::AcurastMarketplace(crate::Event::JobFinalized(job_id1.clone(),)),
+				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationRemoved(
+					job_id1.clone()
+				))
 			]
 		);
 	});
@@ -1431,7 +1374,7 @@ fn test_multi_assignments() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let _ =
 			Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 1_000_000_000);
 
@@ -1451,15 +1394,14 @@ fn test_multi_assignments() {
 			.iter()
 			.map(|(processor, attestation_chain)| {
 				assert_ok!(Acurast::submit_attestation(
-					RuntimeOrigin::signed(processor.clone()).into(),
+					RuntimeOrigin::signed(processor.clone()),
 					attestation_chain.clone()
 				));
 				let attestation =
-					validate_and_extract_attestation::<Test>(processor, &attestation_chain)
-						.unwrap();
+					validate_and_extract_attestation::<Test>(processor, attestation_chain).unwrap();
 
 				assert_ok!(AcurastMarketplace::advertise(
-					RuntimeOrigin::signed(processor.clone()).into(),
+					RuntimeOrigin::signed(processor.clone()),
 					ad.clone(),
 				));
 				assert_eq!(
@@ -1477,14 +1419,14 @@ fn test_multi_assignments() {
 					AcurastMarketplace::stored_advertisement_pricing(processor)
 				);
 
-				return attestation;
+				attestation
 			})
 			.collect();
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration.clone(),
 		));
 		assert_eq!(
@@ -1509,7 +1451,7 @@ fn test_multi_assignments() {
 		let job_match = Match { job_id: job_id1.clone(), sources: job_sources };
 
 		assert_ok!(AcurastMarketplace::propose_matching(
-			RuntimeOrigin::signed(charlie_account_id()).into(),
+			RuntimeOrigin::signed(charlie_account_id()),
 			vec![job_match.clone()].try_into().unwrap(),
 		));
 
@@ -1517,20 +1459,16 @@ fn test_multi_assignments() {
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
 		// matcher got rewarded already so job budget decreased
 		assert_eq!(264096000, AcurastMarketplace::reserved(&job_id1));
 
 		// pretend current time
-		let mut start_time = registration.schedule.start_time;
+		let start_time = registration.schedule.start_time;
 		processors.iter().for_each(|(processor, _)| {
-			start_time += 6000;
-			later(start_time);
+			//later(start_time);
+			Timestamp::set_timestamp(start_time);
 			assert_ok!(AcurastMarketplace::acknowledge_match(
-				RuntimeOrigin::signed(processor.clone()).into(),
+				RuntimeOrigin::signed(processor.clone()),
 				job_id1.clone(),
 				PubKeys::default(),
 			));
@@ -1565,7 +1503,7 @@ fn test_multi_assignments() {
 			)
 			.unwrap()
 		);
-		processors.iter().zip(0..processors.len()).for_each(|((processor, _), slot)| {
+		processors.iter().enumerate().for_each(|(slot, (processor, _))| {
 			assert_eq!(
 				Some(Assignment {
 					execution: ExecutionSpecifier::All,
@@ -1579,7 +1517,7 @@ fn test_multi_assignments() {
 				AcurastMarketplace::stored_matches(processor, job_id1.clone()),
 			);
 			assert_ok!(AcurastMarketplace::report(
-				RuntimeOrigin::signed(processor.clone()).into(),
+				RuntimeOrigin::signed(processor.clone()),
 				job_id1.clone(),
 				ExecutionResult::Success(operation_hash())
 			));
@@ -1603,13 +1541,11 @@ fn test_multi_assignments() {
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
 
-		assert_eq!(
-			Some(80_000),
-			AcurastMarketplace::stored_storage_capacity(processor_account_id())
-		);
+		let next_timestamp = registration.schedule.start_time + registration.schedule.interval;
+		Timestamp::set_timestamp(next_timestamp);
 
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id1.clone(),
 			ExecutionResult::Success(operation_hash())
 		));
@@ -1617,13 +1553,13 @@ fn test_multi_assignments() {
 		assert_eq!(258996000, AcurastMarketplace::reserved(&job_id1));
 
 		// pretend time moved on
-		later(registration.schedule.end_time + 1);
+		later(registration.schedule.end_time);
 
 		assert_eq!(258996000, AcurastMarketplace::reserved(&job_id1));
 
 		processors.iter().for_each(|(processor, _)| {
 			assert_ok!(AcurastMarketplace::report(
-				RuntimeOrigin::signed(processor.clone()).into(),
+				RuntimeOrigin::signed(processor.clone()),
 				job_id1.clone(),
 				ExecutionResult::Success(operation_hash())
 			));
@@ -1694,7 +1630,7 @@ fn test_no_match_schedule_overlap() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
@@ -1702,13 +1638,13 @@ fn test_no_match_schedule_overlap() {
 		// pretend current time
 		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 
 		// register first job
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 		assert_eq!(
@@ -1718,7 +1654,7 @@ fn test_no_match_schedule_overlap() {
 
 		// register second job
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration2.clone(),
 		));
 		assert_eq!(
@@ -1735,7 +1671,7 @@ fn test_no_match_schedule_overlap() {
 			}],
 		};
 		assert_ok!(AcurastMarketplace::propose_matching(
-			RuntimeOrigin::signed(charlie_account_id()).into(),
+			RuntimeOrigin::signed(charlie_account_id()),
 			vec![m.clone()].try_into().unwrap(),
 		));
 
@@ -1749,7 +1685,7 @@ fn test_no_match_schedule_overlap() {
 		};
 		assert_err!(
 			AcurastMarketplace::propose_matching(
-				RuntimeOrigin::signed(charlie_account_id()).into(),
+				RuntimeOrigin::signed(charlie_account_id()),
 				vec![m2.clone()].try_into().unwrap(),
 			),
 			Error::<Test>::ScheduleOverlapInMatch
@@ -1776,7 +1712,7 @@ fn test_no_match_schedule_overlap() {
 				}),
 				RuntimeEvent::Acurast(pallet_acurast::Event::JobRegistrationStoredV2((
 					job_id2.0.clone(),
-					job_id2.1.clone()
+					job_id2.1
 				))),
 				RuntimeEvent::AcurastMarketplace(crate::Event::JobRegistrationMatchedV2(
 					job_id1.clone()
@@ -1830,20 +1766,20 @@ fn test_no_match_insufficient_reputation() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		// pretend current time
 		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 
 		// register job
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 		));
 		assert_eq!(
@@ -1861,7 +1797,7 @@ fn test_no_match_insufficient_reputation() {
 		};
 		assert_err!(
 			AcurastMarketplace::propose_matching(
-				RuntimeOrigin::signed(charlie_account_id()).into(),
+				RuntimeOrigin::signed(charlie_account_id()),
 				vec![m.clone()].try_into().unwrap(),
 			),
 			Error::<Test>::InsufficientReputationInMatch
@@ -1920,14 +1856,14 @@ fn test_report_afer_last_report() {
 		},
 	};
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 
 		// pretend current time
 		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_eq!(
@@ -1942,7 +1878,7 @@ fn test_report_afer_last_report() {
 		);
 
 		assert_ok!(Acurast::register(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration.clone(),
 		));
 
@@ -1954,12 +1890,12 @@ fn test_report_afer_last_report() {
 			}],
 		};
 		assert_ok!(AcurastMarketplace::propose_matching(
-			RuntimeOrigin::signed(charlie_account_id()).into(),
+			RuntimeOrigin::signed(charlie_account_id()),
 			vec![m.clone()].try_into().unwrap(),
 		));
 
 		assert_ok!(AcurastMarketplace::acknowledge_match(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id.clone(),
 			PubKeys::default(),
 		));
@@ -1971,7 +1907,7 @@ fn test_report_afer_last_report() {
 		let mut iter = registration.schedule.iter(0).unwrap();
 		later(iter.next().unwrap() + 1000);
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id.clone(),
 			ExecutionResult::Success(operation_hash())
 		));
@@ -1979,7 +1915,7 @@ fn test_report_afer_last_report() {
 		// pretend time moved on
 		later(iter.next().unwrap() + 1000);
 		assert_ok!(AcurastMarketplace::report(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			job_id.clone(),
 			ExecutionResult::Success(operation_hash())
 		));
@@ -1988,7 +1924,7 @@ fn test_report_afer_last_report() {
 		later(registration.schedule.range(0).1 + 1000);
 		assert_err!(
 			AcurastMarketplace::report(
-				RuntimeOrigin::signed(processor_account_id()).into(),
+				RuntimeOrigin::signed(processor_account_id()),
 				job_id.clone(),
 				ExecutionResult::Success(operation_hash())
 			),
@@ -2131,30 +2067,31 @@ fn test_deploy_reuse_keys_same_editor() {
 
 	let key_id =
 		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
-	let deployhemt_hash1 =
-		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
-	let deployhemt_hash2: H256 =
-		H256::from_slice(&hex!("ff24e620db6e914a3b38895978438dd453579c867f5125e74d8cf68ae244f8c1"));
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
 		later(now);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 
 		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
 			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+
+		let deployhemt_hash1 = <Test as Config>::DeploymentHashing::hash(
+			&(job_id1.0.clone(), registration1.script.clone()).encode(),
+		);
+
 		assert_ok!(AcurastMarketplace::deploy(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 			pallet_acurast::ScriptMutability::Mutable(None),
 			None,
@@ -2163,19 +2100,21 @@ fn test_deploy_reuse_keys_same_editor() {
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
 		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
-		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(deployhemt_hash1));
 
 		// deregister job1 to demonstrate that even then we can extend job1 with job2
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		// register different script as extension
 		let job_id2: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
 			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
+
+		let deployhemt_hash2 = <Test as Config>::DeploymentHashing::hash(
+			&(job_id2.0.clone(), registration2.script.clone()).encode(),
+		);
+
 		assert_ok!(AcurastMarketplace::deploy(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration2,
 			pallet_acurast::ScriptMutability::Mutable(None),
 			Some(job_id1.clone()),
@@ -2186,9 +2125,9 @@ fn test_deploy_reuse_keys_same_editor() {
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id2.clone()));
 		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
 		// job1's deployment key no longer points to any KeyId
-		assert_eq!(None, AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+		assert_eq!(None, AcurastMarketplace::deployment_key_ids(deployhemt_hash1));
 		// the new deployment_hash of job2 now points to the key_id previously "owned" by the predecessor deployment
-		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash2));
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(deployhemt_hash2));
 	});
 }
 
@@ -2256,28 +2195,31 @@ fn test_deploy_reuse_keys_different_editor() {
 
 	let key_id =
 		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
-	let deployhemt_hash =
-		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
 		later(now);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 
 		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
 			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+
+		let deployhemt_hash = <Test as Config>::DeploymentHashing::hash(
+			&(job_id1.0.clone(), registration1.script.clone()).encode(),
+		);
+
 		assert_ok!(AcurastMarketplace::deploy(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
 			None,
@@ -2286,19 +2228,16 @@ fn test_deploy_reuse_keys_different_editor() {
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
 		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
-		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash));
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(deployhemt_hash));
 
 		// deregister job1 to demonstrate that even then we can extend job1 with job2
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		// register same script as extension (is possible even job1's editor is not equals owner)
 		let job_id2: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
 			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
 		assert_ok!(AcurastMarketplace::deploy(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration2,
 			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
 			Some(job_id1.clone()),
@@ -2309,7 +2248,7 @@ fn test_deploy_reuse_keys_different_editor() {
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id2.clone()));
 		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
 		// job1's equal job2's deployment key still point to same key_id
-		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash));
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(deployhemt_hash));
 	});
 }
 
@@ -2377,28 +2316,31 @@ fn test_deploy_reuse_keys_different_editor_script_edit_fails() {
 
 	let key_id =
 		H256::from_slice(&hex!("e2259508cea453c056f02d233c2c94b5aae27b401baabd1bbccaacfb230075a5"));
-	let deployhemt_hash1 =
-		H256::from_slice(&hex!("ae6ad92b93d5b31ea16b8d5ac67ebeabdf16ee65cd6bfd49fa7b5c4366949ca9"));
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let initial_job_id = Acurast::job_id_sequence();
 
 		// pretend current time
 		later(now);
 
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_account_id()).into(),
+			RuntimeOrigin::signed(processor_account_id()),
 			ad.clone(),
 		));
 		assert_ok!(AcurastMarketplace::advertise(
-			RuntimeOrigin::signed(processor_2_account_id()).into(),
+			RuntimeOrigin::signed(processor_2_account_id()),
 			ad.clone(),
 		));
 
 		let job_id1: (MultiOrigin<sp_core::crypto::AccountId32>, u128) =
 			(MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+
+		let deployhemt_hash1 = <Test as Config>::DeploymentHashing::hash(
+			&(job_id1.0.clone(), registration1.script.clone()).encode(),
+		);
+
 		assert_ok!(AcurastMarketplace::deploy(
-			RuntimeOrigin::signed(alice_account_id()).into(),
+			RuntimeOrigin::signed(alice_account_id()),
 			registration1.clone(),
 			pallet_acurast::ScriptMutability::Mutable(Some(bob_account_id())),
 			None,
@@ -2407,18 +2349,15 @@ fn test_deploy_reuse_keys_different_editor_script_edit_fails() {
 
 		assert_eq!(Some(key_id), AcurastMarketplace::job_key_ids(job_id1.clone()));
 		// assert_eq!(vec![key_id], <crate::pallet::DeploymentKeyIds::<Test>>::iter_keys().collect::<Vec<H256>>());
-		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(&deployhemt_hash1));
+		assert_eq!(Some(key_id), AcurastMarketplace::deployment_key_ids(deployhemt_hash1));
 
 		// deregister job1 to demonstrate that even then we can extend job1 with job2
-		assert_ok!(Acurast::deregister(
-			RuntimeOrigin::signed(alice_account_id()).into(),
-			job_id1.1
-		));
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		// register different script fails because editor of job1 is not equals owner
 		assert_err!(
 			AcurastMarketplace::deploy(
-				RuntimeOrigin::signed(alice_account_id()).into(),
+				RuntimeOrigin::signed(alice_account_id()),
 				registration2,
 				pallet_acurast::ScriptMutability::Mutable(None),
 				Some(job_id1),

@@ -1,7 +1,6 @@
 use frame_benchmarking::v2::*;
 use frame_support::{
-	dispatch::DispatchResult, pallet_prelude::*, sp_runtime::traits::AccountIdConversion,
-	traits::fungible::Mutate,
+	pallet_prelude::*, sp_runtime::traits::AccountIdConversion, traits::fungible::Mutate,
 };
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
@@ -26,7 +25,7 @@ mod benches {
 		let caller: T::AccountId = account("origin", 0, 0);
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);
@@ -34,7 +33,7 @@ mod benches {
 		// Ensure enabled
 		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
 
-		let fee: BalanceFor<T> = 1_000_000_000u128.into();
+		let fee: BalanceFor<T> = 100_000_000_000u128.into();
 
 		// measured extrinsic call — **bare** call expression, first arg must be origin
 		#[extrinsic_call]
@@ -49,15 +48,15 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 		mint_to::<T>(&pallet_account, initial_balance);
 
 		// create and process conversion
 		let msg = ConversionMessageFor::<T> {
 			account: caller.clone(),
-			amount: T::Liquidity::get().saturating_mul(From::from(2u32)),
+			amount: 1_000_000_000_000u128.into(),
 		};
-		let _: DispatchResult = TokenConversion::<T>::process_conversion(msg);
+		_ = TokenConversion::<T>::process_conversion(msg);
 
 		// compute unlock block from stored lock
 		let lock = TokenConversion::<T>::locked_conversion(&caller)
@@ -81,14 +80,14 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);
 
 		// enable pallet
 		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
 
-		let fee: BalanceFor<T> = 1_000_000_000u128.into();
+		let fee: BalanceFor<T> = 100_000_000_000u128.into();
 
 		// create conversion
 		_ = TokenConversion::<T>::convert(RawOrigin::Signed(caller.clone()).into(), fee);
@@ -111,7 +110,7 @@ mod benches {
 		let account: T::AccountId = account("target", 0, 0);
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&account, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);
@@ -119,7 +118,7 @@ mod benches {
 		// enable pallet
 		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
 
-		let fee: BalanceFor<T> = 1_000_000_000u128.into();
+		let fee: BalanceFor<T> = 100_000_000_000u128.into();
 
 		// create conversion
 		_ = TokenConversion::<T>::convert(RawOrigin::Signed(account.clone()).into(), fee);
@@ -144,11 +143,11 @@ mod benches {
 		// insert an unprocessed conversion for `target`
 		let msg = ConversionMessageFor::<T> {
 			account: caller.clone(),
-			amount: T::Liquidity::get().saturating_mul(From::from(2u32)),
+			amount: 1_000_000_000_000u128.into(),
 		};
 		_ = TokenConversion::<T>::process_conversion(msg);
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 		mint_to::<T>(&pallet_account, initial_balance);
 
 		// measured extrinsic
@@ -168,11 +167,11 @@ mod benches {
 		// insert an unprocessed conversion for `target`
 		let msg = ConversionMessageFor::<T> {
 			account: target.clone(),
-			amount: T::Liquidity::get().saturating_mul(From::from(2u32)),
+			amount: 1_000_000_000_000u128.into(),
 		};
 		_ = TokenConversion::<T>::process_conversion(msg);
 
-		let initial_balance: BalanceFor<T> = 1_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
 		mint_to::<T>(&pallet_account, initial_balance);
 
 		// measured extrinsic

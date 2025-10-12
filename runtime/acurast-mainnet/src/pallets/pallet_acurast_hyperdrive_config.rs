@@ -1,26 +1,34 @@
 use core::marker::PhantomData;
-
-use acurast_runtime_common::{
-	constants::MainnetTokenConversionPalletId,
-	types::{AccountId, Balance},
-	weight,
+use frame_support::{
+	instances::Instance1, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 };
-use frame_support::{instances::Instance1, pallet_prelude::DispatchResultWithPostInfo};
 use frame_system::EnsureRoot;
-use pallet_acurast_hyperdrive::ParsedAction;
-use pallet_acurast_hyperdrive_ibc::{LayerFor, MessageBody, SubjectFor};
 use polkadot_core_primitives::BlakeTwo256;
 use sp_runtime::traits::AccountIdConversion;
 
+use acurast_runtime_common::{
+	constants::{MainnetTokenConversionPalletId, UNIT},
+	types::{AccountId, Balance},
+	weight,
+};
+use pallet_acurast::{MessageBody, MessageProcessor};
+use pallet_acurast_hyperdrive::ParsedAction;
+use pallet_acurast_hyperdrive_ibc::{LayerFor, SubjectFor};
+
 use crate::{
-	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastHyperdriveToken, AcurastMarketplace,
+	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastHyperdriveIbc, AcurastHyperdriveToken,
 	AcurastPalletAccount, AcurastTokenConversion, AlephZeroContract, AlephZeroContractSelector,
 	Balances, EnsureAdminOrRoot, HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault,
 	HyperdriveTokenPalletAccount, HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault,
 	IncomingTTL, MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
-	OperationalFeeAccount, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
-	VaraContract,
+	OperationalFeeAccount, OutgoingTransferTTL, ParachainInfo, Runtime, RuntimeEvent,
+	RuntimeHoldReason, VaraContract,
 };
+
+parameter_types! {
+	pub const MinFee: Balance = UNIT / 10;
+	pub const MinTransferAmount: Balance = UNIT;
+}
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -31,6 +39,8 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type AlephZeroContractSelector = AlephZeroContractSelector;
 	type VaraContract = VaraContract;
 	type Balance = Balance;
+	type MessageSender = AcurastHyperdriveIbc;
+	type MessageIdHasher = BlakeTwo256;
 	type UpdateOrigin = EnsureAdminOrRoot;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
@@ -41,12 +51,14 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
+	type MinFee = MinFee;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
 	type UpdateOrigin = EnsureAdminOrRoot;
-	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc_weights::HyperdriveWeight;
+	type ParachainId = ParachainInfo;
+	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc::WeightInfo<Self>;
 }
 
 impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
@@ -55,6 +67,9 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type PalletAccount = HyperdriveTokenPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
 	type Balance = Balance;
+	type Currency = Balances;
+	type MessageSender = AcurastHyperdriveIbc;
+	type MessageIdHasher = BlakeTwo256;
 
 	type EthereumVault = HyperdriveTokenEthereumVault;
 	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
@@ -64,6 +79,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type OutgoingTransferTTL = OutgoingTransferTTL;
 	type UpdateOrigin = EnsureAdminOrRoot;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type MinTransferAmount = MinTransferAmount;
 
 	type WeightInfo = weight::pallet_acurast_hyperdrive_token::WeightInfo<Runtime>;
 }
@@ -76,7 +92,11 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 				Acurast::register_for(job_id, registration, None)
 			},
 			ParsedAction::DeregisterJob(job_id) => Acurast::deregister_for(job_id),
-			ParsedAction::FinalizeJob(job_ids) => AcurastMarketplace::finalize_jobs_for(job_ids),
+			ParsedAction::FinalizeJob(_job_ids) => {
+				log::warn!("FinalizedJob is deprecated, just use DeregisterJob instead");
+
+				Ok(().into())
+			},
 			ParsedAction::SetJobEnvironment(job_id, environments) => {
 				Acurast::set_environment_for(job_id, environments)?;
 				Ok(().into())
@@ -97,23 +117,21 @@ impl pallet_acurast_hyperdrive::ActionExecutor<Runtime> for AcurastActionExecuto
 /// * recipient [`AcurastPalletAccount`] to AcurastHyperdrive pallet,
 /// * recipient [`HyperdriveTokenPalletAccount`] to AcurastHyperdriveToken pallet.
 pub struct HyperdriveMessageProcessor;
-impl pallet_acurast_hyperdrive_ibc::MessageProcessor<AccountId, AccountId>
-	for HyperdriveMessageProcessor
-{
-	fn process(message: MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
-		if SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
+impl MessageProcessor<AccountId, AccountId> for HyperdriveMessageProcessor {
+	fn process(message: impl MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
+		if &SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
 			AcurastPalletAccount::get(),
-		)) == message.recipient
+		)) == message.recipient()
 		{
 			AcurastHyperdrive::process(message)
-		} else if SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
+		} else if &SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
 			HyperdriveTokenPalletAccount::get(),
-		)) == message.recipient
+		)) == message.recipient()
 		{
 			AcurastHyperdriveToken::process(message)
-		} else if SubjectFor::<Runtime>::Acurast(
+		} else if &SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
 			MainnetTokenConversionPalletId::get().into_account_truncating(),
-		) == message.recipient
+		)) == message.recipient()
 		{
 			AcurastTokenConversion::process(message)
 		} else {

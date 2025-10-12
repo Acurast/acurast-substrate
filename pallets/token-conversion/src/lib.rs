@@ -31,16 +31,17 @@ pub mod pallet {
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
-	use pallet_acurast::ProxyChain;
-	use pallet_acurast_hyperdrive_ibc::{
-		Layer, MessageBody, MessageId, MessageProcessor, MessageSender, Subject, SubjectFor,
-	};
 	use parity_scale_codec::Encode;
 	use sp_runtime::{
 		traits::{AccountIdConversion, Hash, Saturating, Zero},
 		Perquintill, SaturatedConversion,
 	};
 	use sp_std::{prelude::*, vec};
+
+	use acurast_common::{
+		Layer, MessageBody, MessageFeeProvider, MessageProcessor, MessageSender, ProxyChain,
+		Subject,
+	};
 
 	use super::*;
 
@@ -65,8 +66,20 @@ pub mod pallet {
 		type RuntimeFreezeReason: From<FreezeReason>;
 		type Liquidity: Get<BalanceFor<Self>>;
 		type MaxLockDuration: Get<BlockNumberFor<Self>>;
-		type MessageSender: MessageSender<Self, BalanceFor<Self>>;
-		type MessageIdHasher: Hash<Output = MessageId> + TypeInfo;
+		type MessageSender: MessageSender<
+			Self::AccountId,
+			Self::AccountId,
+			BalanceFor<Self>,
+			BlockNumberFor<Self>,
+		>;
+		type MessageIdHasher: Hash<
+				Output = <Self::MessageSender as MessageSender<
+					Self::AccountId,
+					Self::AccountId,
+					BalanceFor<Self>,
+					BlockNumberFor<Self>,
+				>>::MessageNonce,
+			> + TypeInfo;
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 		#[pallet::constant]
 		type ConvertTTL: Get<BlockNumberFor<Self>>;
@@ -108,8 +121,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn initiated_conversion)]
-	pub type InitiatedConversion<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceFor<T>>; // TODO: add block number it was initiated at
+	pub type InitiatedConversion<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		InitiatedConversionMessage<T::AccountId, BalanceFor<T>, BlockNumberFor<T>>,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn locked_conversion)]
@@ -183,8 +200,17 @@ pub mod pallet {
 				return Err(Error::<T>::BalanceTooLow)?;
 			}
 
-			<InitiatedConversion<T>>::insert(&who, burned);
-			Self::send_convert_message(&who, None, burned, fee, destination)?;
+			let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+			<InitiatedConversion<T>>::insert(
+				&who,
+				InitiatedConversionMessageFor::<T> {
+					burned,
+					fee_payer: who.clone(),
+					started_at: current_block_number,
+				},
+			);
+			Self::send_convert_message(&who, None, None, burned, fee, destination)?;
 			Self::deposit_event(Event::<T>::ConversionInitiated { account: who, amount: burned });
 
 			Ok(())
@@ -256,10 +282,11 @@ pub mod pallet {
 					}
 				}
 			};
-			let Some(burned) = Self::initiated_conversion(&who) else {
+			let Some((burned, prev_payer)) = Self::update_initiated_conversion(&who, who.clone())
+			else {
 				return Err(Error::<T>::ConversionLockNotFound)?;
 			};
-			Self::send_convert_message(&who, None, burned, fee, destination)?;
+			Self::send_convert_message(&who, None, Some(&prev_payer), burned, fee, destination)?;
 			Self::deposit_event(Event::ConversionRetried { account: who });
 			Ok(())
 		}
@@ -281,10 +308,19 @@ pub mod pallet {
 					}
 				}
 			};
-			let Some(burned) = Self::initiated_conversion(&account) else {
+			let Some((burned, prev_payer)) =
+				Self::update_initiated_conversion(&account, who.clone())
+			else {
 				return Err(Error::<T>::ConversionLockNotFound)?;
 			};
-			Self::send_convert_message(&account, Some(&who), burned, fee, destination)?;
+			Self::send_convert_message(
+				&account,
+				Some(&who),
+				Some(&prev_payer),
+				burned,
+				fee,
+				destination,
+			)?;
 			Self::deposit_event(Event::ConversionRetried { account });
 			Ok(())
 		}
@@ -340,6 +376,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+
 		fn ensure_enabled() -> Result<(), Error<T>> {
 			if !Self::enabled() {
 				return Err(Error::<T>::NotEnabled);
@@ -349,31 +389,45 @@ pub mod pallet {
 
 		fn subject_for(proxy: ProxyChain) -> Result<SubjectFor<T>, Error<T>> {
 			match proxy {
-				ProxyChain::Acurast => Ok(Subject::Acurast(Layer::Extrinsic(
-					T::PalletId::get().into_account_truncating(),
-				))),
-				ProxyChain::AcurastCanary => Ok(Subject::AcurastCanary(Layer::Extrinsic(
-					T::PalletId::get().into_account_truncating(),
-				))),
+				ProxyChain::Acurast => Ok(Subject::Acurast(Layer::Extrinsic(Self::account_id()))),
+				ProxyChain::AcurastCanary => {
+					Ok(Subject::AcurastCanary(Layer::Extrinsic(Self::account_id())))
+				},
 				_ => Err(Error::<T>::InvalidSubject),
 			}
 		}
 
+		fn update_initiated_conversion(
+			account: &T::AccountId,
+			new_fee_payer: T::AccountId,
+		) -> Option<(BalanceFor<T>, T::AccountId)> {
+			<InitiatedConversion<T>>::mutate::<_, Option<(BalanceFor<T>, T::AccountId)>, _>(
+				account,
+				|value| {
+					let Some(initiated_conversion) = value else {
+						return None;
+					};
+					let prev_payer =
+						core::mem::replace(&mut initiated_conversion.fee_payer, new_fee_payer);
+					Some((initiated_conversion.burned, prev_payer))
+				},
+			)
+		}
+
 		fn send_convert_message(
 			account: &T::AccountId,
-			fee_account: Option<&T::AccountId>,
+			fee_payer: Option<&T::AccountId>,
+			prev_fee_payer: Option<&T::AccountId>,
 			amount: BalanceFor<T>,
 			fee: BalanceFor<T>,
 			destination: SubjectFor<T>,
 		) -> DispatchResult {
-			let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
+			let pallet_account = Self::account_id();
+			let payer = fee_payer.unwrap_or(account);
+			let prev_payer = prev_fee_payer.unwrap_or(account);
 			if !fee.is_zero() {
-				let transferred = T::Currency::transfer(
-					fee_account.unwrap_or(account),
-					&pallet_account,
-					fee,
-					Preservation::Preserve,
-				)?;
+				let transferred =
+					T::Currency::transfer(payer, &pallet_account, fee, Preservation::Preserve)?;
 				if transferred != fee {
 					return Err(Error::<T>::CannotPayFee)?;
 				}
@@ -381,7 +435,7 @@ pub mod pallet {
 			let nonce = [pallet_account.encode().as_slice(), account.encode().as_slice()].concat();
 			let message = ConversionMessageFor::<T> { account: account.clone(), amount };
 			let payload = message.encode();
-			T::MessageSender::send_message(
+			let (_, maybe_replaced_message) = T::MessageSender::send_message(
 				Self::subject_for(T::Chain::get())?,
 				&pallet_account,
 				T::MessageIdHasher::hash(nonce.as_slice()),
@@ -389,7 +443,21 @@ pub mod pallet {
 				payload,
 				T::ConvertTTL::get(),
 				fee,
-			)
+			)?;
+
+			if let Some(replaced_message) = maybe_replaced_message {
+				let fee = replaced_message.get_fee();
+				if !fee.is_zero() {
+					_ = T::Currency::transfer(
+						&pallet_account,
+						prev_payer,
+						fee,
+						Preservation::Preserve,
+					)?;
+				}
+			}
+
+			Ok(())
 		}
 
 		pub(crate) fn process_conversion(
@@ -443,7 +511,7 @@ pub mod pallet {
 		fn fund(
 			conversion_message: &ConversionMessageFor<T>,
 		) -> Result<BalanceFor<T>, DispatchError> {
-			let pallet_account = T::PalletId::get().into_account_truncating();
+			let pallet_account = Self::account_id();
 			T::Currency::transfer(
 				&pallet_account,
 				&conversion_message.account,
@@ -455,7 +523,7 @@ pub mod pallet {
 		fn undo_fund(
 			conversion_message: &ConversionMessageFor<T>,
 		) -> Result<BalanceFor<T>, DispatchError> {
-			let pallet_account = T::PalletId::get().into_account_truncating();
+			let pallet_account = Self::account_id();
 			T::Currency::transfer(
 				&conversion_message.account,
 				&pallet_account,
@@ -486,7 +554,9 @@ pub mod pallet {
 	}
 
 	impl<T: Config> MessageProcessor<T::AccountId, T::AccountId> for Pallet<T> {
-		fn process(message: MessageBody<T::AccountId, T::AccountId>) -> DispatchResultWithPostInfo {
+		fn process(
+			message: impl MessageBody<T::AccountId, T::AccountId>,
+		) -> DispatchResultWithPostInfo {
 			let Some(expected_sender) = T::ReceiveFrom::get() else {
 				cfg_if::cfg_if! {
 					if #[cfg(not(feature = "runtime-benchmarks"))] {
@@ -496,11 +566,11 @@ pub mod pallet {
 					}
 				}
 			};
-			if expected_sender != message.sender {
+			if &expected_sender != message.sender() {
 				return Err(Error::<T>::InvalidSender)?;
 			}
 			let decoded_message =
-				ConversionMessageFor::<T>::decode(&mut message.payload.as_slice())
+				ConversionMessageFor::<T>::decode(&mut message.payload().as_slice())
 					.map_err(|_| Error::<T>::DecodingFailure)?;
 			Self::process_conversion(decoded_message)?;
 			Ok(().into())

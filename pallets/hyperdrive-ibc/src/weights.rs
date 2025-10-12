@@ -97,7 +97,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: AcurastHyperdriveTezos CurrentAlephZeroContract (r:0 w:1)
 	/// Proof: AcurastHyperdriveTezos CurrentAlephZeroContract (max_values: Some(1), max_size: Some(66), added: 561, mode: MaxEncodedLen)
-	fn clean_incoming() -> Weight {
+	fn clean_incoming(_x: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `295`
 		//  Estimated: `7114`

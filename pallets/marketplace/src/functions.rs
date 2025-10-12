@@ -11,9 +11,8 @@ use sp_std::prelude::*;
 
 use crate::{
 	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Call, Config,
-	Error, ExecutionSpecifier, JobRequirementsFor, NextReportIndex, Pallet, RewardManager,
-	StorageTracker, StoredAdvertisementPricing, StoredAdvertisementRestriction,
-	StoredAverageRewardV3, StoredMatches, StoredReputation, StoredStorageCapacity,
+	Error, ExecutionSpecifier, NextReportIndex, Pallet, RewardManager, StoredAdvertisementPricing,
+	StoredAdvertisementRestriction, StoredAverageRewardV3, StoredMatches, StoredReputation,
 };
 
 impl<T: Config> Pallet<T> {
@@ -22,29 +21,12 @@ impl<T: Config> Pallet<T> {
 		advertisement: &AdvertisementFor<T>,
 	) -> DispatchResult {
 		if let Some(allowed_consumers) = &advertisement.allowed_consumers {
-			let max_allowed_consumers_len = T::MaxAllowedSources::get() as usize;
+			let max_allowed_consumers_len = T::MaxAllowedConsumers::get() as usize;
 			ensure!(allowed_consumers.len() > 0, Error::<T>::TooFewAllowedConsumers);
 			ensure!(
 				allowed_consumers.len() <= max_allowed_consumers_len,
 				Error::<T>::TooManyAllowedConsumers
 			);
-		}
-
-		// update capacity to save on operations when checking available capacity
-		if let Some(old) = <StoredAdvertisementRestriction<T>>::get(processor) {
-			// allow capacity to become negative (in which case source remains assigned but does not receive new jobs assigned)
-			<StoredStorageCapacity<T>>::mutate(processor, |c| {
-				// new remaining capacity = new total capacity - (old total capacity - old remaining capacity) = old remaining capacity + new total capacity - old total capacity
-				*c = Some(
-					c.unwrap_or(0)
-						.checked_add(advertisement.storage_capacity as i64)
-						.unwrap_or(i64::MAX)
-						.checked_sub(old.storage_capacity as i64)
-						.unwrap_or(0),
-				)
-			});
-		} else {
-			<StoredStorageCapacity<T>>::insert(processor, advertisement.storage_capacity as i64);
 		}
 
 		<StoredAdvertisementRestriction<T>>::insert(
@@ -76,14 +58,6 @@ impl<T: Config> Pallet<T> {
 
 		let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 			.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
-		let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
-		let requirements: JobRequirementsFor<T> = e.into();
-
-		if requirements.is_competing() {
-			// The tracking deviates for the competing assignment strategy:
-			// already unlock storage after each reported execution since we do not support cross-execution persistence for the competing assignment model
-			<Pallet<T> as StorageTracker<T>>::unlock(processor, &registration)?;
-		};
 
 		let (missing_reports, next_expected_report_index) =
 			Self::update_next_report_index_on_report(
@@ -104,11 +78,6 @@ impl<T: Config> Pallet<T> {
 		if next_expected_report_index.is_none() {
 			<StoredMatches<T>>::remove(processor, job_id);
 			<AssignedProcessors<T>>::remove(job_id, processor);
-
-			// for single assigned slots we support cross-execution persistence and only unlock storage on job finalization
-			if requirements.is_single() {
-				<Pallet<T> as StorageTracker<T>>::unlock(processor, &registration)?;
-			}
 		}
 
 		Ok(assignment)
@@ -128,6 +97,8 @@ impl<T: Config> Pallet<T> {
 		<NextReportIndex<T>>::try_mutate_exists(job_id, processor, |value| {
 			let mut missing_reports = 0;
 			let mut expected_report_index = (*value).unwrap_or(execution_index);
+			// check if we already reported this execution.
+			ensure!(execution_index >= expected_report_index, Error::<T>::ExecutionAlreadyReported);
 			let is_report_timely =
 				Self::check_report_is_timely(registration, assignment, now, expected_report_index)
 					.is_ok();
@@ -171,6 +142,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let execution_start_time = execution_start_time.unwrap();
+		ensure!(now >= execution_start_time, Error::<T>::ReportOutsideSchedule);
 		let report_max_time = execution_start_time
 			.saturating_add(registration.schedule.duration)
 			.saturating_add(T::ReportTolerance::get());

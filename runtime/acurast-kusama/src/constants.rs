@@ -105,7 +105,6 @@ parameter_types! {
 	pub const SS58Prefix: u16 = 42;
 
 	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
-	pub const UncleGenerations: u32 = 0;
 
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;

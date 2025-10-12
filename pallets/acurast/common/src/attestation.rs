@@ -411,9 +411,7 @@ mod tests {
 	type Error = ();
 
 	impl From<ValidationError> for Error {
-		fn from(_: ValidationError) -> Self {
-			()
-		}
+		fn from(_: ValidationError) -> Self {}
 	}
 
 	#[test]

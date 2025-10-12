@@ -21,9 +21,7 @@ hex-literal = { workspace = true }
 cfg-if = { workspace = true }
 
 # Acurast
-pallet-acurast = { workspace = true }
-pallet-acurast-hyperdrive-ibc = { workspace = true }
-acurast-hyperdrive-substrate-core = { workspace = true }
+acurast-common = { workspace = true }
 
 # SDKs
 derive_more = { workspace = true }
@@ -54,20 +52,16 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-acurast/std",
-	"pallet-acurast-hyperdrive-ibc/std",
+	"acurast-common/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"acurast-hyperdrive-substrate-core/std",
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"pallet-acurast/runtime-benchmarks",
-	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

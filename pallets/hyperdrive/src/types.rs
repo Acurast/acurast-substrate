@@ -7,7 +7,7 @@ use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use strum_macros::{EnumString, IntoStaticStr};
 
-use pallet_acurast::{EnvironmentFor, JobId, JobIdSequence, JobRegistration};
+use pallet_acurast::{EnvironmentFor, JobId, JobIdSequence, JobRegistration, Subject};
 
 pub const PROXY_ADDRESS_MAX_LENGTH: u32 = 64;
 /// The Acurast proxy address on the target chain, such as a ink contract address.
@@ -183,3 +183,6 @@ pub enum IncomingAction {
 	/// A noop action that solely suits the purpose of testing that messages get sent.
 	Noop,
 }
+
+pub type SubjectFor<T> =
+	Subject<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId>;

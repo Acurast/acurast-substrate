@@ -12,8 +12,7 @@ use super::{accountid_from_str, ChainSpec, Extensions, MAINNET_PARACHAIN_ID, SS5
 pub(crate) use acurast_mainnet_runtime::{
 	self as acurast_runtime, HyperdriveIbcFeePalletAccount, HyperdriveTokenEthereumFeeVault,
 	HyperdriveTokenEthereumVault, HyperdriveTokenPalletAccount, HyperdriveTokenSolanaFeeVault,
-	HyperdriveTokenSolanaVault, EXISTENTIAL_DEPOSIT, MULTISIG_MEMBER_1, MULTISIG_MEMBER_2,
-	MULTISIG_MEMBER_3, MULTISIG_MEMBER_4, MULTISIG_MEMBER_5, MULTISIG_MEMBER_6, MULTISIG_MEMBER_7,
+	HyperdriveTokenSolanaVault, EXISTENTIAL_DEPOSIT,
 };
 
 /// The default XCM version to set in genesis config.
@@ -124,6 +123,9 @@ fn genesis_config(
 		},
 		"sudo": {
 			"key": sudo_account
+		},
+		"councilMembership": {
+			"members": council_members()
 		}
 	})
 }
@@ -161,6 +163,18 @@ pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5HRRaxPnsaCGsbNWCj9dzLcJF2RDFG56VqfAfRt7zYakqTqC")
 }
 
+fn council_members() -> Vec<AccountId> {
+	vec![
+		accountid_from_str("5CGV1Sm6Qzt3s5qabiDAEjni6xT15MZ8LumkVPob4SJqAN7C"),
+		accountid_from_str("5DFhdYCuTc4uubFu6XGpiF5uKu6e7erNZa6QKExZDRFMTuv8"),
+		accountid_from_str("5DXDTbjLtDDUXzFy24Fhkjs9fY3PQwQR2ohzjQPT1JvUAcEy"),
+		accountid_from_str("5EUnFHHEFd4mzTA6cjg8JfKHeteCDrcEhMdxUXSK3QzHSPe8"),
+		accountid_from_str("5Dt7iJBxvWztigqXiXqm8EU5xVBWcUrfXA5am1e8sF1RjUuW"),
+		accountid_from_str("5EEe4WLNneqz3Fp2n61ZcTiGU6GLEvUgVmnkKaaxARSdVpdg"),
+		accountid_from_str("5EbvNf3q5Xb918UvHBuB6rPfYuom38QAqw8osV5TQeaELWxP"),
+	]
+}
+
 pub fn endowed_accounts() -> Vec<(AccountId, Balance)> {
 	let mut res = initial_balances();
 	res.extend_from_slice(
@@ -187,19 +201,19 @@ pub fn initial_balances() -> Vec<(AccountId, Balance)> {
 		(fee_manager_pallet_account(), EXISTENTIAL_DEPOSIT),
 		(compute_pallet_account(), EXISTENTIAL_DEPOSIT),
 		(HyperdriveTokenPalletAccount::get(), UNIT),
-		(MULTISIG_MEMBER_1, 10 * UNIT),
-		(MULTISIG_MEMBER_2, 10 * UNIT),
-		(MULTISIG_MEMBER_3, 10 * UNIT),
-		(MULTISIG_MEMBER_4, 10 * UNIT),
-		(MULTISIG_MEMBER_5, 10 * UNIT),
-		(MULTISIG_MEMBER_6, 10 * UNIT),
-		(MULTISIG_MEMBER_7, 10 * UNIT),
 		(acurast_sudo_account(), 1000 * UNIT),
 	];
 	balances.extend_from_slice(
 		hyperdrive_accounts()
 			.into_iter()
 			.map(|account| (account, EXISTENTIAL_DEPOSIT))
+			.collect::<Vec<_>>()
+			.as_slice(),
+	);
+	balances.extend_from_slice(
+		council_members()
+			.into_iter()
+			.map(|m| (m, 100 * UNIT))
 			.collect::<Vec<_>>()
 			.as_slice(),
 	);

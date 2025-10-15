@@ -1,5 +1,6 @@
-use acurast_runtime_common::types::Balance;
 use sp_core::ConstU32;
+
+use acurast_runtime_common::types::Balance;
 
 use crate::{
 	ExistentialDeposit, MaxLocks, MaxReserves, Runtime, RuntimeEvent, RuntimeFreezeReason,

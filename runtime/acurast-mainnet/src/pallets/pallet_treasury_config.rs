@@ -10,7 +10,7 @@ use frame_system::EnsureWithSuccess;
 use sp_runtime::Permill;
 
 use crate::{
-	Balances, EnsureAdminOrRoot, Runtime, RuntimeEvent, System, Treasury, TreasuryPalletId,
+	Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent, System, Treasury, TreasuryPalletId,
 };
 
 parameter_types! {
@@ -24,7 +24,7 @@ parameter_types! {
 
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
-	type RejectOrigin = EnsureAdminOrRoot;
+	type RejectOrigin = EnsureCouncilOrRoot;
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
@@ -33,7 +33,7 @@ impl pallet_treasury::Config for Runtime {
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
-	type SpendOrigin = EnsureWithSuccess<EnsureAdminOrRoot, Self::AccountId, SpendLimit>;
+	type SpendOrigin = EnsureWithSuccess<EnsureCouncilOrRoot, Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = Self::Lookup;

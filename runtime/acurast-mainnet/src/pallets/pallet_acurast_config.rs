@@ -10,7 +10,7 @@ use acurast_runtime_common::{
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, EnsureAdminOrRoot,
+	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, EnsureCouncilOrRoot,
 	LitePackageNames, LiteSignatureDigests, PackageNames, Runtime, RuntimeEvent, SignatureDigests,
 };
 
@@ -40,7 +40,7 @@ impl pallet_acurast::Config for Runtime {
 	type ProcessorVersion = pallet_acurast::Version;
 	type MaxVersions = MaxVersions;
 	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
-	type UpdateOrigin = EnsureAdminOrRoot;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
 }

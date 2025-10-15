@@ -1,9 +1,9 @@
 use derive_more::{From, Into};
 use frame_support::{
-	traits::Currency,
+	traits::{Currency, EitherOfDiverse},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use pallet_acurast_processor_manager::onboarding::Onboarding;
+use frame_system::EnsureRoot;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
 use sp_std::prelude::*;
@@ -15,9 +15,10 @@ use acurast_runtime_common::{
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
-	types::{AccountId, Address, Balance, Signature},
+	types::{AccountId, Address, Balance, CouncilThreeSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
 };
+use pallet_acurast_processor_manager::onboarding::Onboarding;
 
 use crate::{AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
 
@@ -105,6 +106,8 @@ impl_opaque_keys! {
 		pub aura: Aura,
 	}
 }
+
+pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
 
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;

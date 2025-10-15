@@ -2,7 +2,7 @@ use acurast_runtime_common::types::{AccountId, Balance};
 use frame_support::traits::{fungible::HoldConsideration, LinearStoragePrice};
 
 use crate::{
-	Balances, EnsureAdminOrRoot, PreimageBaseDeposit, PreimageByteDeposit, PreimageHoldReason,
+	Balances, EnsureCouncilOrRoot, PreimageBaseDeposit, PreimageByteDeposit, PreimageHoldReason,
 	Runtime, RuntimeEvent,
 };
 
@@ -11,7 +11,7 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
-	type ManagerOrigin = EnsureAdminOrRoot;
+	type ManagerOrigin = EnsureCouncilOrRoot;
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,

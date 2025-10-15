@@ -65,6 +65,10 @@ pallet-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-treasury = { workspace = true }
+pallet-collective = { workspace = true }
+pallet-membership = { workspace = true }
+pallet-proxy = { workspace = true }
+
 sp-arithmetic = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -143,6 +147,11 @@ std = [
 	"pallet-uniques/std",
 	"pallet-multisig/std",
 	"pallet-acurast/std",
+	"pallet-vesting/std",
+	"pallet-treasury/std",
+	"pallet-collective/std",
+	"pallet-membership/std",
+	"pallet-proxy/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-compute/std",
@@ -151,8 +160,6 @@ std = [
 	"pallet-acurast-hyperdrive-token/std",
 	"pallet-acurast-candidate-preselection/std",
 	"pallet-acurast-token-conversion/std",
-	"pallet-vesting/std",
-	"pallet-treasury/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
 	"sp-arithmetic/std",
@@ -202,6 +209,9 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

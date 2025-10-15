@@ -12,7 +12,6 @@ use acurast_runtime_common::{
 	types::{Balance, BlockNumber},
 	weight,
 };
-use frame_system::EnsureRoot;
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 use sp_core::ConstU32;
 use sp_runtime::Perquintill;
@@ -20,7 +19,8 @@ use sp_runtime::Perquintill;
 use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
-	AcurastProcessorManager, Balances, RootAccountId, Runtime, RuntimeEvent, Uniques,
+	AcurastProcessorManager, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent,
+	Uniques,
 };
 
 parameter_types! {
@@ -73,8 +73,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	type InflationStakedComputeRation = InflationStakedComputeRation;
 	type InflationMetricsRation = InflationMetricsRation;
 	type InflationHandler = ();
-	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

@@ -86,10 +86,13 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -171,10 +174,13 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -369,10 +375,13 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -449,6 +458,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
  "pallet-multisig",
  "pallet-preimage",
@@ -8239,6 +8249,23 @@ dependencies = [
  "scale-info",
  "sp-runtime",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-collective"
+version = "40.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.18.5#f4dba53bfac614b054735aa725d2b0c44efda414"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]

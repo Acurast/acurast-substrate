@@ -61,6 +61,8 @@ mod runtime {
 	pub type Utility = pallet_utility;
 	#[runtime::pallet_index(9)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
+	#[runtime::pallet_index(26)]
+	pub type Proxy = pallet_proxy;
 
 	// Monetary stuff.
 	#[runtime::pallet_index(10)]
@@ -79,6 +81,10 @@ mod runtime {
 	pub type ConvictionVoting = pallet_conviction_voting;
 	#[runtime::pallet_index(18)]
 	pub type Treasury = pallet_treasury;
+	#[runtime::pallet_index(19)]
+	pub type Council = pallet_collective<Instance1>;
+	#[runtime::pallet_index(25)]
+	pub type CouncilMembership = pallet_membership<Instance1>;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]

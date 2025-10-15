@@ -6,13 +6,12 @@ use acurast_runtime_common::{
 	},
 	weight,
 };
-use frame_system::EnsureRoot;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, LitePackageNames,
-	LiteSignatureDigests, PackageNames, Runtime, RuntimeEvent, SignatureDigests,
+	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, EnsureCouncilOrRoot,
+	LitePackageNames, LiteSignatureDigests, PackageNames, Runtime, RuntimeEvent, SignatureDigests,
 };
 
 /// Runtime configuration for pallet_acurast.
@@ -40,7 +39,7 @@ impl pallet_acurast::Config for Runtime {
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type ProcessorVersion = pallet_acurast::Version;
 	type MaxVersions = MaxVersions;
-	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

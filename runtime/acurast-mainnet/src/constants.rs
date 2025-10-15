@@ -7,7 +7,6 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
 
 use acurast_runtime_common::{
 	constants::{HOURS, MICROUNIT, MILLIUNIT, UNIT},
@@ -50,54 +49,6 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
-
-// 5CGV1Sm6Qzt3s5qabiDAEjni6xT15MZ8LumkVPob4SJqAN7C
-pub const MULTISIG_MEMBER_1: AccountId = AccountId32::new([
-	8, 251, 177, 59, 216, 3, 125, 72, 41, 72, 88, 240, 125, 15, 17, 172, 138, 10, 183, 215, 145,
-	119, 239, 89, 112, 0, 234, 105, 99, 217, 189, 5,
-]);
-// 5DFhdYCuTc4uubFu6XGpiF5uKu6e7erNZa6QKExZDRFMTuv8
-pub const MULTISIG_MEMBER_2: AccountId = AccountId32::new([
-	52, 159, 43, 188, 132, 82, 63, 226, 222, 8, 14, 207, 143, 150, 49, 52, 42, 104, 136, 25, 84,
-	85, 140, 149, 166, 63, 56, 72, 146, 113, 28, 72,
-]);
-// 5DXDTbjLtDDUXzFy24Fhkjs9fY3PQwQR2ohzjQPT1JvUAcEy
-pub const MULTISIG_MEMBER_3: AccountId = AccountId32::new([
-	64, 116, 67, 152, 92, 197, 129, 25, 49, 53, 219, 79, 187, 35, 129, 198, 57, 185, 238, 224, 105,
-	205, 104, 222, 248, 190, 10, 144, 70, 218, 69, 16,
-]);
-// 5Dt7iJBxvWztigqXiXqm8EU5xVBWcUrfXA5am1e8sF1RjUuW
-pub const MULTISIG_MEMBER_4: AccountId = AccountId32::new([
-	80, 101, 18, 161, 124, 202, 251, 175, 7, 64, 113, 14, 71, 239, 46, 123, 244, 227, 85, 74, 132,
-	46, 86, 125, 95, 175, 176, 198, 50, 128, 245, 55,
-]);
-// 5EEe4WLNneqz3Fp2n61ZcTiGU6GLEvUgVmnkKaaxARSdVpdg
-pub const MULTISIG_MEMBER_5: AccountId = AccountId32::new([
-	96, 12, 36, 143, 93, 8, 144, 90, 166, 15, 141, 0, 105, 112, 187, 145, 231, 152, 24, 235, 48,
-	13, 180, 130, 11, 159, 109, 239, 177, 70, 179, 72,
-]);
-// 5EUnFHHEFd4mzTA6cjg8JfKHeteCDrcEhMdxUXSK3QzHSPe8
-pub const MULTISIG_MEMBER_6: AccountId = AccountId32::new([
-	106, 213, 34, 94, 7, 36, 164, 241, 250, 180, 251, 154, 234, 18, 223, 61, 158, 96, 7, 95, 187,
-	186, 210, 166, 202, 181, 151, 62, 172, 25, 43, 24,
-]);
-// 5EbvNf3q5Xb918UvHBuB6rPfYuom38QAqw8osV5TQeaELWxP
-pub const MULTISIG_MEMBER_7: AccountId = AccountId32::new([
-	112, 71, 53, 229, 240, 87, 176, 45, 195, 169, 238, 86, 24, 175, 3, 43, 201, 20, 148, 172, 219,
-	44, 84, 65, 29, 111, 162, 87, 219, 163, 245, 118,
-]);
-
-/// The permissioned multisig account `5E9Yq3ViHdMdtw8qdixTkDKQcNKJ9wbJ1pDoEPRZL8WUW41j`.
-///
-/// It consists of pre-generated 3-out-of-7 multisig account built from the members defined above (in this order).
-pub const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
-	92, 42, 77, 139, 255, 132, 23, 211, 77, 53, 218, 186, 69, 60, 178, 234, 114, 214, 95, 185, 189,
-	32, 227, 175, 88, 174, 120, 110, 220, 237, 199, 129,
-]);
-
-// The purpose of this offset is to ensure that a democratic proposal will not apply in the same
-// block as a round change.
-pub const ENACTMENT_OFFSET: u32 = 900;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -151,7 +102,6 @@ parameter_types! {
 	pub const MaxCandidates: u32 = 20;
 	pub const MinCandidates: u32 = 4;
 	pub const MaxInvulnerables: u32 = 100;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
@@ -220,5 +170,4 @@ parameter_types! {
 
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
-	pub const Admin: AccountId = ADMIN_ACCOUNT_ID;
 }

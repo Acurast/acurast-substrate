@@ -1,15 +1,15 @@
 use frame_support::traits::AsEnsureOriginWithArg;
-use frame_system::{EnsureRoot, EnsureRootWithSuccess};
+use frame_system::EnsureRootWithSuccess;
 use sp_core::{ConstU128, ConstU32};
 
-use crate::{Balances, RootAccountId, Runtime, RuntimeEvent};
+use crate::{Balances, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent};
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CollectionId = u128;
 	type ItemId = u128;
 	type Currency = Balances;
-	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type ForceOrigin = EnsureCouncilOrRoot;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureRootWithSuccess<Self::AccountId, RootAccountId>>;
 	type Locker = ();

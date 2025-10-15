@@ -3,7 +3,7 @@ use frame_support::{
 	traits::{Currency, EitherOfDiverse},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::EnsureRoot;
 use pallet_acurast_processor_manager::onboarding::Onboarding;
 use smallvec::smallvec;
 use sp_runtime::{generic, impl_opaque_keys, AccountId32, Perbill};
@@ -16,13 +16,11 @@ use acurast_runtime_common::{
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
-	types::{AccountId, Address, Balance, Signature},
+	types::{AccountId, Address, Balance, CouncilThreeSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
 };
 
-use crate::{
-	AcurastProcessorManager, Admin, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall,
-};
+use crate::{AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -132,9 +130,7 @@ pub struct LiquidityInfo {
 }
 
 // We allow root only to execute privileged collator selection operations.
-pub type CollatorSelectionUpdateOrigin = EnsureAdminOrRoot;
-pub type EnsureAdminOrRoot =
-	EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Admin, AccountId>>;
+pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
 
 pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,

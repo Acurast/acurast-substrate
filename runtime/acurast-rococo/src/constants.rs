@@ -7,7 +7,6 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
 
 use acurast_runtime_common::{
 	constants::{MICROUNIT, MILLIUNIT, MINUTES, UNIT},
@@ -22,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 117,
+	spec_version: 119,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -93,7 +92,6 @@ parameter_types! {
 	pub const MaxCandidates: u32 = 20;
 	pub const MinCandidates: u32 = 2;
 	pub const MaxInvulnerables: u32 = 100;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");

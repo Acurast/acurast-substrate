@@ -24,11 +24,5 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
-
-	#[doc = " The maximum amount of weight (if any) to be used from remaining weight `on_idle` which"]
-	#[doc = " should be provided to the message queue for servicing enqueued items `on_idle`."]
-	#[doc = " Useful for parachains to process messages at the same block they are received."]
-	#[doc = ""]
-	#[doc = " If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`."]
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
 }

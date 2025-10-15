@@ -1,5 +1,4 @@
 use frame_support::{parameter_types, PalletId};
-use frame_system::EnsureRoot;
 use polkadot_core_primitives::BlakeTwo256;
 use sp_runtime::traits::AccountIdConversion;
 
@@ -11,7 +10,8 @@ use pallet_acurast::{Layer, ProxyChain, Subject};
 use pallet_acurast_token_conversion::SubjectFor;
 
 use crate::{
-	AcurastHyperdriveIbc, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeFreezeReason,
+	AcurastHyperdriveIbc, Balances, EnsureCouncilOrRoot, OutgoingTransferTTL, Runtime,
+	RuntimeEvent, RuntimeFreezeReason,
 };
 
 parameter_types! {
@@ -37,6 +37,6 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type MessageIdHasher = BlakeTwo256;
 	type OnSlash = ();
 	type ConvertTTL = OutgoingTransferTTL;
-	type EnableOrigin = EnsureRoot<Self::AccountId>;
+	type EnableOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = crate::weights::pallet_acurast_token_conversion::WeightInfo<Self>;
 }

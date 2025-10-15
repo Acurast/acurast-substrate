@@ -1,16 +1,16 @@
 use frame_support::parameter_types;
-use frame_system::EnsureSignedBy;
+use pallet_collective::EnsureMember;
 use pallet_referenda::{Curve, Track, TrackInfo};
 use sp_core::ConstU32;
 use sp_runtime::str_array as s;
 
 use acurast_runtime_common::{
 	constants::{DAYS, HOURS, UNIT},
-	types::{Balance, BlockNumber, TracksInfo},
+	types::{AccountId, Balance, BlockNumber, CouncilInstance, TracksInfo},
 };
 
 use crate::{
-	Admin, Balances, EnsureAdminOrRoot, Preimage, Referenda, Runtime, RuntimeCall, RuntimeEvent,
+	Balances, EnsureCouncilOrRoot, Preimage, Referenda, Runtime, RuntimeCall, RuntimeEvent,
 	Scheduler, System,
 };
 
@@ -19,7 +19,7 @@ const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 }
 
 const APP_ROOT: Curve = Curve::make_reciprocal(4, 18, percent(80), percent(50), percent(100));
-const SUP_ROOT: Curve = Curve::make_linear(28, 18, percent(0), percent(30));
+const SUP_ROOT: Curve = Curve::make_linear(18, 18, percent(0), percent(30));
 
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
@@ -47,9 +47,9 @@ impl pallet_referenda::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type Scheduler = Scheduler;
-	type SubmitOrigin = EnsureSignedBy<Admin, Self::AccountId>;
-	type CancelOrigin = EnsureAdminOrRoot;
-	type KillOrigin = EnsureAdminOrRoot;
+	type SubmitOrigin = EnsureMember<AccountId, CouncilInstance>;
+	type CancelOrigin = EnsureCouncilOrRoot;
+	type KillOrigin = EnsureCouncilOrRoot;
 	type Slash = ();
 	type Votes = pallet_conviction_voting::VotesOf<Self>;
 	type Tally = pallet_conviction_voting::TallyOf<Self>;

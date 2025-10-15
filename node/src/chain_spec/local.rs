@@ -1,7 +1,4 @@
-use acurast_runtime_common::{
-	constants::UNIT,
-	types::{AccountId, AuraId, Signature},
-};
+use acurast_runtime_common::types::{AccountId, AuraId, Balance, Signature};
 use cumulus_primitives_core::ParaId;
 use jsonrpsee::core::__reexports::serde_json;
 use sc_service::ChainType;
@@ -10,7 +7,7 @@ use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
 
 pub(crate) use acurast_rococo_runtime::{self as acurast_runtime, EXISTENTIAL_DEPOSIT};
 
-use super::{accountid_from_str, ChainSpec, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
+use super::{ChainSpec, Extensions, DEFAULT_PARACHAIN_ID, SS58_FORMAT};
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -27,8 +24,6 @@ type AccountPublic = <Signature as Verify>::Signer;
 const NATIVE_MIN_BALANCE: u128 = 1_000_000_000_000;
 const NATIVE_TOKEN_SYMBOL: &str = "ACRST";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
-
-const FAUCET_INITIAL_BALANCE: u128 = 1_000_000_000_000_000;
 
 /// Generate collator keys from seed.
 ///
@@ -79,24 +74,7 @@ pub fn acurast_local_config(relay_chain: &str) -> ChainSpec {
 				get_collator_keys_from_seed("Bob"),
 			),
 		],
-		vec![
-			(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
-			(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
-			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
-			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_faucet_account(), FAUCET_INITIAL_BALANCE),
-			(accountid_from_str("5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe"), 100 * UNIT),
-		],
+		endowed_accounts(),
 		DEFAULT_PARACHAIN_ID.into(),
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 	))
@@ -139,17 +117,29 @@ fn genesis_config(
 		"sudo": {
 			"key": Some(sudo_account)
 		},
-		"vesting": {
-			"vesting": [
-				[
-					accountid_from_str("5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe"),
-					10,
-					100,
-					UNIT / 100,
-				]
-			]
+		"councilMembership": {
+			"members": council_members()
 		}
 	})
+}
+
+pub fn endowed_accounts() -> Vec<(AccountId, Balance)> {
+	vec![
+		(get_account_id_from_seed::<sr25519::Public>("Alice"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Bob"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Dave"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Eve"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Charlie//stash"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Dave//stash"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Eve//stash"), 1 << 60),
+		(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
+		(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+		(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+	]
 }
 
 /// Returns the pallet_acurast account id.
@@ -162,7 +152,13 @@ pub fn fee_manager_pallet_account() -> AccountId {
 	acurast_runtime::FeeManagerPalletId::get().into_account_truncating()
 }
 
-/// returns the faucet account id.
-pub fn acurast_faucet_account() -> AccountId {
-	accountid_from_str("5EyaQQEQzzXdfsvFfscDaQUFiGBk5hX4B38j1x3rH7Zko2QJ")
+fn council_members() -> Vec<AccountId> {
+	vec![
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		get_account_id_from_seed::<sr25519::Public>("Bob"),
+		get_account_id_from_seed::<sr25519::Public>("Charlie"),
+		get_account_id_from_seed::<sr25519::Public>("Dave"),
+		get_account_id_from_seed::<sr25519::Public>("Eve"),
+		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+	]
 }

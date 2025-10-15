@@ -1,13 +1,13 @@
 use crate::{
-	AcurastCandidatePreselection, Balances, CollatorSelectionUpdateOrigin, MaxCandidates,
-	MaxInvulnerables, MinCandidates, Period, PotId, Runtime, RuntimeEvent,
+	AcurastCandidatePreselection, Balances, EnsureCouncilOrRoot, MaxCandidates, MaxInvulnerables,
+	MinCandidates, Period, PotId, Runtime, RuntimeEvent,
 };
 
 /// Runtime configuration for pallet_collator_selection.
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type UpdateOrigin = CollatorSelectionUpdateOrigin;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type PotId = PotId;
 	type MaxCandidates = MaxCandidates;
 	type MinEligibleCollators = MinCandidates;

@@ -18,7 +18,7 @@ use pallet_acurast_hyperdrive_ibc::{LayerFor, SubjectFor};
 use crate::{
 	Acurast, AcurastAccountId, AcurastHyperdrive, AcurastHyperdriveIbc, AcurastHyperdriveToken,
 	AcurastPalletAccount, AcurastTokenConversion, AlephZeroContract, AlephZeroContractSelector,
-	Balances, EnsureAdminOrRoot, HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault,
+	Balances, EnsureCouncilOrRoot, HyperdriveTokenEthereumFeeVault, HyperdriveTokenEthereumVault,
 	HyperdriveTokenPalletAccount, HyperdriveTokenSolanaFeeVault, HyperdriveTokenSolanaVault,
 	IncomingTTL, MinDeliveryConfirmationSignatures, MinReceiptConfirmationSignatures, MinTTL,
 	OperationalFeeAccount, OutgoingTransferTTL, ParachainInfo, Runtime, RuntimeEvent,
@@ -41,7 +41,7 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type Balance = Balance;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;
-	type UpdateOrigin = EnsureAdminOrRoot;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }
 
@@ -56,7 +56,7 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
-	type UpdateOrigin = EnsureAdminOrRoot;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type ParachainId = ParachainInfo;
 	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc::WeightInfo<Self>;
 }
@@ -77,7 +77,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
-	type UpdateOrigin = EnsureAdminOrRoot;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type MinTransferAmount = MinTransferAmount;
 

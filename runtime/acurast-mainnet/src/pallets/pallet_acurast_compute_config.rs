@@ -3,7 +3,6 @@ use acurast_runtime_common::{
 	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
-use frame_system::EnsureRoot;
 
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 use frame_support::{
@@ -20,11 +19,12 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
 	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
-	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, Treasury, Uniques,
+	Acurast, AcurastProcessorManager, Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent,
+	Treasury, Uniques,
 };
 
 parameter_types! {
-	pub const Epoch: BlockNumber = 5; // 1.5 hours
+	pub const Epoch: BlockNumber = 900; // 1.5 hours
 	pub const Era: BlockNumber = 16; // 24 hours
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
@@ -73,8 +73,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	type InflationStakedComputeRation = InflationStakedComputeRation;
 	type InflationMetricsRation = InflationMetricsRation;
 	type InflationHandler = ResolveTo<TreasuryAccountId, Balances>;
-	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

@@ -17,8 +17,8 @@ use crate::benchmarking;
 use crate::{
 	AcurastCompute, AcurastHyperdrive, AcurastMarketplace, AcurastPalletId,
 	AcurastProcessorManager, Balances, DefaultFeePercentage, DefaultMatcherFeePercentage,
-	FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance,
-	Runtime, RuntimeEvent,
+	EnsureCouncilOrRoot, FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId,
+	ReportTolerance, Runtime, RuntimeEvent,
 };
 
 /// Runtime configuration for pallet_acurast_marketplace.
@@ -45,7 +45,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;

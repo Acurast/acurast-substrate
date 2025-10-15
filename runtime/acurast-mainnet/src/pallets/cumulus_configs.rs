@@ -6,9 +6,9 @@ use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::ConstU32;
 
 use crate::{
-	xcm_config::XcmOriginToTransactDispatchOrigin, ConsensusHook, EnsureAdminOrRoot, MessageQueue,
-	ParachainSystem, RelayOrigin, ReservedDmpWeight, ReservedXcmpWeight, Runtime, RuntimeEvent,
-	XcmpQueue,
+	xcm_config::XcmOriginToTransactDispatchOrigin, ConsensusHook, EnsureCouncilOrRoot,
+	MessageQueue, ParachainSystem, RelayOrigin, ReservedDmpWeight, ReservedXcmpWeight, Runtime,
+	RuntimeEvent, XcmpQueue,
 };
 
 /// Runtime configuration for cumulus_pallet_parachain_system.
@@ -35,7 +35,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
-	type ControllerOrigin = EnsureAdminOrRoot;
+	type ControllerOrigin = EnsureCouncilOrRoot;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 	type WeightInfo = ();

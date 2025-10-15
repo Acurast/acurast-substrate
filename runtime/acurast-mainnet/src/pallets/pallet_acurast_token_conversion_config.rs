@@ -11,17 +11,18 @@ use pallet_acurast::{Layer, ProxyChain, Subject};
 use pallet_acurast_token_conversion::SubjectFor;
 
 use crate::{
-	AcurastHyperdriveIbc, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeFreezeReason,
+	AcurastHyperdriveIbc, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent,
+	RuntimeFreezeReason, Treasury,
 };
 
 parameter_types! {
 	pub const TokenConversionPalletId: PalletId = MainnetTokenConversionPalletId::get();
-	pub TokenConversionPalletAccountId: AccountId = TokenConversionPalletId::get().into_account_truncating();
 	pub const Chain: ProxyChain = ProxyChain::Acurast;
 	pub ReceiveFrom: Option<SubjectFor<Runtime>> = Some(Subject::AcurastCanary(Layer::Extrinsic(CanaryTokenConversionPalletId::get().into_account_truncating())));
 	pub const SendTo: Option<SubjectFor<Runtime>> = None;
 	pub const Liquidity: Balance = UNIT;
 	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
 impl pallet_acurast_token_conversion::Config for Runtime {
@@ -36,7 +37,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type MaxLockDuration = MaxLockDuration;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;
-	type OnSlash = ResolveTo<TokenConversionPalletAccountId, Balances>;
+	type OnSlash = ResolveTo<TreasuryAccountId, Balances>;
 	type ConvertTTL = OutgoingTransferTTL;
 	type EnableOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = crate::weights::pallet_acurast_token_conversion::WeightInfo<Self>;

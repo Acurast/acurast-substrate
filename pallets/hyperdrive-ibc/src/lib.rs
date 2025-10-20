@@ -393,10 +393,7 @@ pub mod pallet {
 				};
 				if message.current_block.saturating_add(T::IncomingTTL::get()) < current_block {
 					<IncomingMessages<T, I>>::remove(id);
-					<IncomingMessagesLookup<T, I>>::remove(
-						&message.message.recipient,
-						message.message.nonce,
-					);
+					<IncomingMessagesLookup<T, I>>::remove(&message.message.recipient, id);
 					i += 1;
 				}
 			}
@@ -490,22 +487,6 @@ pub mod pallet {
 		pub(crate) fn message_id(sender: &SubjectFor<T>, nonce: MessageNonce) -> MessageId {
 			T::MessageIdHashing::hash_of(&(sender, nonce))
 		}
-
-		// fn outgoing_message_by_sender(
-		// 	sender: &SenderFor<T>,
-		// 	nonce: &MessageNonce,
-		// ) -> Option<OutgoingMessageWithMetaFor<T, I>> {
-		// 	let id = <OutgoingMessagesLookup<T, I>>::get(sender, nonce)?;
-		// 	<OutgoingMessages<T, I>>::get(&id)
-		// }
-
-		// fn incoming_message_by_recipient(
-		// 	recipient: &SubjectFor<T>,
-		// 	nonce: &MessageNonce,
-		// ) -> Option<IncomingMessageWithMetaFor<T>> {
-		// 	let id = <IncomingMessagesLookup<T, I>>::get(recipient, nonce)?;
-		// 	<IncomingMessages<T, I>>::get(&id)
-		// }
 
 		/// Sends a message by the given `sender` paid by a potentially different `payer`.
 		///

@@ -6,12 +6,12 @@ use frame_support::{
 		WithdrawReasons,
 	},
 };
+use integer_sqrt::IntegerSquareRoot;
 use sp_core::{U256, U512};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
 	FixedU128, Perbill, Perquintill, SaturatedConversion, Vec,
 };
-use integer_sqrt::IntegerSquareRoot;
 
 use crate::types::{FIXEDU128_DECIMALS, PER_TOKEN_DECIMALS};
 use crate::*;
@@ -167,7 +167,8 @@ where
 		let commitment =
 			Self::commitments(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
 
-		let commitment_total_weight = commitment.weights.get(last_epoch).total_reward_weight();
+		let weights = commitment.weights.get(last_epoch);
+		let commitment_total_weight = weights.total_reward_weight();
 
 		for (pool_id, _pool) in MetricPools::<T, I>::iter() {
 			// yes! it's correct to take this from current epoch, not last, because it got written in on_initialize of this epoch
@@ -175,29 +176,39 @@ where
 				StakeBasedRewards::<T, I>::get(pool_id).get(epoch).target_weight_per_compute;
 			let (metric_sum, metric_with_bonus_sum) =
 				MetricsEpochSum::<T, I>::get(manager_id, pool_id).get(last_epoch);
+			let bonus_sum = metric_with_bonus_sum
+				.checked_sub(&metric_sum)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let committed_metric_sum = ComputeCommitments::<T, I>::get(commitment_id, pool_id)
 				.ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 			// calculate min(committed_metric_sum, measured_metric_sum)
 			// compare metrics WITHOUT BONI (there is no concept for metrics committed with bonis)
-			let (commitment_bounded_metric_sum, _commitment_bounded_metric_sum_with_bonus) = if metric_sum < committed_metric_sum {
-				// fall down to actual since commitment violated, and also don't give ANY boni
-				(metric_sum, Zero::zero())
-			} else {
-				// we give the bonus because commitment was hold
-				let commitment_with_maximum_possible_bonus = FixedU128::from_inner(
-					T::BusyWeightBonus::get().mul_floor(committed_metric_sum.into_inner()),
-				);
-				if metric_with_bonus_sum > commitment_with_maximum_possible_bonus {
-					(metric_sum, commitment_with_maximum_possible_bonus)
+			let (commitment_bounded_metric_sum, bounded_bonus) =
+				if metric_sum < committed_metric_sum {
+					// fall down to actual since commitment violated, and also don't give ANY boni
+					(metric_sum, Zero::zero())
 				} else {
-					(metric_sum, metric_with_bonus_sum)
-				}
-			};
+					// we give the bonus because commitment was hold
+
+					// a committer cannot get more bonus than for the equivalent of busy devices summing up to the committed compute
+					let max_bonus = FixedU128::from_inner(
+						T::BusyWeightBonus::get().mul_floor(committed_metric_sum.into_inner()),
+					);
+					if bonus_sum > max_bonus {
+						(committed_metric_sum, max_bonus)
+					} else {
+						(committed_metric_sum, bonus_sum)
+					}
+				};
 
 			let score = {
-                let score = U256::from(commitment_bounded_metric_sum.into_inner()).checked_mul(commitment_total_weight).ok_or(Error::<T, I>::CalculationOverflow)?.checked_div(U256::from(FIXEDU128_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?.integer_sqrt();
+				let score = U256::from(commitment_bounded_metric_sum.into_inner())
+					.checked_mul(commitment_total_weight)
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(FIXEDU128_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.integer_sqrt();
 				let score_limit = target_weight_per_compute
 					.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
 					.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -212,36 +223,41 @@ where
 				}
 			};
 
-            // let bounded_bonus = _commitment_bounded_metric_sum_with_bonus - commitment_bounded_metric_sum
+			// bonus score dedicated to committer, not delegators
+			let bonus_score = {
+				// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
+				let score = U256::from(bounded_bonus.into_inner())
+					.checked_mul(weights.self_reward_weight)
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(FIXEDU128_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.integer_sqrt();
+				let score_limit = target_weight_per_compute
+					.checked_mul(U256::from(bounded_bonus.into_inner()))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(FIXEDU128_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(PER_TOKEN_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				if score_limit < score {
+					score_limit
+				} else {
+					score
+				}
+			};
 
-            // let bonus_score = {
-            //     let score = U256::from(bounded_bonus.into_inner()).checked_mul(commitment.stake.weight).ok_or(Error::<T, I>::CalculationOverflow)?.checked_div(U256::from(FIXEDU128_DECIMALS))
-			// 		.ok_or(Error::<T, I>::CalculationOverflow)?.integer_sqrt();
-			// 	let score_limit = target_weight_per_compute
-			// 		.checked_mul(U256::from(bounded_bonus.into_inner()))
-			// 		.ok_or(Error::<T, I>::CalculationOverflow)?
-			// 		.checked_div(U256::from(FIXEDU128_DECIMALS))
-			// 		.ok_or(Error::<T, I>::CalculationOverflow)?
-			// 		.checked_div(U256::from(PER_TOKEN_DECIMALS))
-			// 		.ok_or(Error::<T, I>::CalculationOverflow)?;
-			// 	if score_limit < score {
-			// 		score_limit
-			// 	} else {
-			// 		score
-			// 	}
-			// };
-
-            // TODO: transfer bonus directly as separate transfer, accrue only non-bonus
+			let score_with_bonus =
+				score.checked_add(bonus_score).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			Scores::<T, I>::mutate(commitment_id, pool_id, |s| {
-				s.set(epoch, score);
+				s.set(epoch, (score, score_with_bonus));
 			});
 
 			StakeBasedRewards::<T, I>::try_mutate(pool_id, |r| -> Result<(), Error<T, I>> {
 				r.mutate(
 					epoch,
 					|budget| {
-						budget.total_score = budget.total_score.saturating_add(score);
+						budget.total_score = budget.total_score.saturating_add(score_with_bonus);
 					},
 					false,
 				);
@@ -260,13 +276,14 @@ where
 		commitment_id: T::CommitmentId,
 		commitment: &mut CommitmentFor<T, I>,
 		pool_ids: &[PoolId],
-	) -> Result<(), Error<T, I>> {
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let committer_stake = commitment.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 		let weights = commitment.weights.get(epoch);
 		let commitment_total_weight = weights.total_reward_weight();
 
 		let mut total_delegations_reward: BalanceFor<T, I> = Zero::zero();
+		let mut total_committer_bonus: BalanceFor<T, I> = Zero::zero();
 		for pool_id in pool_ids {
 			StakeBasedRewards::<T, I>::try_mutate(pool_id, |r| -> Result<(), Error<T, I>> {
 				let budget = r.get(epoch);
@@ -275,26 +292,38 @@ where
 					return Ok(());
 				}
 
-				let score = Self::scores(commitment_id, pool_id);
+				let (score, bonus_score) = Self::scores(commitment_id, pool_id).get(epoch);
 
-				// epoch_reward = (score / total_weighted_score) * total_epoch_reward
-				let epoch_reward = score
-					.get(epoch)
+				// reward = score * budget.total / total_weighted_score
+				let reward = score
 					.checked_mul(U256::from(budget.total.saturated_into::<u128>()))
 					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(budget.total_score)
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				// Handle bonus
+				{
+					// bonus_reward = score * budget.total / total_weighted_score
+					// we have to repeat division budget.total/budget.total_score for precision reasons
+					let bonus_reward = bonus_score
+						.checked_mul(U256::from(budget.total.saturated_into::<u128>()))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(budget.total_score)
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.saturated_into::<u128>();
+					total_committer_bonus = total_committer_bonus
+						.checked_add(&bonus_reward.into())
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+				}
 
-				// split between self and delegators
+				// split epoch_reward between self and delegators
 				let self_share = weights
 					.self_reward_weight
-					.checked_mul(epoch_reward)
+					.checked_mul(reward)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div(commitment_total_weight)
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
-				let delegations_share = epoch_reward
-					.checked_sub(self_share)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
+				let delegations_share =
+					reward.checked_sub(self_share).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 				// convert back to balance type
 				let self_share_amount: BalanceFor<T, I> =
@@ -360,7 +389,7 @@ where
 				.map_err(|_| Error::<T, I>::InternalError)?;
 		}
 
-		Ok(())
+		Ok(total_committer_bonus)
 	}
 
 	/// Commitments for the first time.
@@ -505,12 +534,6 @@ where
 			if let Some(allow_auto_compound) = allow_auto_compound {
 				stake.allow_auto_compound = allow_auto_compound;
 			}
-
-			stake.amount = stake
-				.amount
-				.checked_add(&extra_amount)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
-			stake.rewardable_amount = stake.amount;
 
 			let self_reward_weight = U256::from(stake.rewardable_amount.saturated_into::<u128>())
 				.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
@@ -1281,7 +1304,8 @@ where
 				Self::unlock_funds(&delegator, stake.stake.amount);
 
 				// Add to total delegation amount
-				total_delegation_amount = total_delegation_amount.saturating_add(stake.stake.amount);
+				total_delegation_amount =
+					total_delegation_amount.saturating_add(stake.stake.amount);
 
 				// Remove this specific delegation
 				<Delegations<T, I>>::remove(&delegator, commitment_id);
@@ -1290,12 +1314,12 @@ where
 
 		// Remove commitment's own stake
 		if let Some(c) = <Commitments<T, I>>::take(commitment_id) {
-            if let Some(stake) = c.stake {
-                total_stake_amount = stake.amount;
-                if let Ok(committer) = T::CommitmentIdProvider::owner_for(commitment_id) {
-                    Self::unlock_funds(&committer, stake.amount);
-                }
-            }
+			if let Some(stake) = c.stake {
+				total_stake_amount = stake.amount;
+				if let Ok(committer) = T::CommitmentIdProvider::owner_for(commitment_id) {
+					Self::unlock_funds(&committer, stake.amount);
+				}
+			}
 		}
 
 		// Calculate total amount to remove from global stake
@@ -1307,9 +1331,7 @@ where
 				*s = s.saturating_sub(total_amount_to_remove);
 			});
 		}
-		let _ = Self::update_total_stake(StakeChange::Sub(
-			total_amount_to_remove,
-		));
+		let _ = Self::update_total_stake(StakeChange::Sub(total_amount_to_remove));
 
 		// Remove compute commitments
 		let _ = <ComputeCommitments<T, I>>::clear_prefix(commitment_id, u32::MAX, None);
@@ -1321,11 +1343,14 @@ where
 	) -> Result<Perquintill, Error<T, I>> {
 		let w = c.weights.get_latest(epoch);
 		let commitment_total_weight = w
-			.self_reward_weight
+			.self_slash_weight
 			.checked_add(w.delegations_reward_weight)
 			.ok_or(Error::<T, I>::CalculationOverflow)?;
 		let nominator: u128 = w.delegations_reward_weight.saturated_into();
 		let denominator: u128 = commitment_total_weight.saturated_into();
+		if nominator > denominator {
+			return Err(Error::<T, I>::MaxDelegationRatioExceeded);
+		}
 		Ok(if denominator > 0 {
 			Perquintill::from_rational(nominator, denominator)
 		} else {
@@ -1333,23 +1358,23 @@ where
 		})
 	}
 
-	fn delegation_ratio(
-		epoch: EpochOf<T>,
-		c: &CommitmentFor<T, I>,
-	) -> Result<Perquintill, Error<T, I>> {
-		let committer_stake = c.stake.clone().ok_or(Error::<T, I>::CommitmentNotFound)?;
-		let commitment_total_weight = committer_stake
-			.rewardable_amount
-			.checked_add(&c.delegations_total_rewardable_amount)
-			.ok_or(Error::<T, I>::CalculationOverflow)?;
-		let nominator: u128 = c.delegations_total_rewardable_amount.saturated_into();
-		let denominator: u128 = commitment_total_weight.saturated_into();
-		Ok(if denominator > 0 {
-			Perquintill::from_rational(nominator, denominator)
-		} else {
-			Perquintill::zero()
-		})
-	}
+	// fn delegation_ratio(
+	// 	epoch: EpochOf<T>,
+	// 	c: &CommitmentFor<T, I>,
+	// ) -> Result<Perquintill, Error<T, I>> {
+	// 	let committer_stake = c.stake.clone().ok_or(Error::<T, I>::CommitmentNotFound)?;
+	// 	let commitment_total_weight = committer_stake
+	// 		.rewardable_amount
+	// 		.checked_add(&c.delegations_total_rewardable_amount)
+	// 		.ok_or(Error::<T, I>::CalculationOverflow)?;
+	// 	let nominator: u128 = c.delegations_total_rewardable_amount.saturated_into();
+	// 	let denominator: u128 = commitment_total_weight.saturated_into();
+	// 	Ok(if denominator > 0 {
+	// 		Perquintill::from_rational(nominator, denominator)
+	// 	} else {
+	// 		Perquintill::zero()
+	// 	})
+	// }
 
 	/// Locks the new stake on the account. The account can have existing stake or delegations locked.
 	///

@@ -385,7 +385,7 @@ pub struct Commitment<
 	/// which is the case if his `created` timestamp is even before that of `past`.
 	pub pool_rewards: MemoryBuffer<BlockNumber, PoolReward>,
 
-    /// The epoch number in which any processor belonging to this commitment did calculate scores.
+	/// The epoch number in which any processor belonging to this commitment did calculate scores.
 	pub last_scoring_epoch: Epoch,
 }
 

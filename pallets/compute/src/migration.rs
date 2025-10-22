@@ -14,8 +14,12 @@ use sp_runtime::BoundedVec;
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 3] =
-		[(5, &migrate_to_v5::<T, I>), (6, &migrate_to_v6::<T, I>), (7, &migrate_to_v7::<T, I>)];
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 4] = [
+		(5, &migrate_to_v5::<T, I>),
+		(6, &migrate_to_v6::<T, I>),
+		(7, &migrate_to_v7::<T, I>),
+		(8, &migrate_to_v8::<T, I>),
+	];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
@@ -100,6 +104,29 @@ pub fn migrate_to_v7<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 	(weight, migration_completed)
+}
+
+/// Migrates `Scores` from `SlidingBuffer<BlockNumberFor<T>, U256>` to `SlidingBuffer<BlockNumberFor<T>, (U256, U256)>`
+/// by converting each U256 score to (score, U256::zero()) tuple
+pub fn migrate_to_v8<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	let mut weight = Weight::zero();
+
+	// Count and translate all Scores entries
+	let count = Scores::<T, I>::iter().count();
+	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
+
+	Scores::<T, I>::translate::<SlidingBuffer<BlockNumberFor<T>, sp_core::U256>, _>(
+		|commitment_id, pool_id, old_buffer| {
+			// Convert old SlidingBuffer<BlockNumberFor<T>, U256> to new SlidingBuffer<BlockNumberFor<T>, (U256, U256)>
+			// The old buffer stored just the score, the new one stores (score, bonus_score)
+			// For migration, we set bonus_score to zero for all old entries
+			Some(SlidingBuffer::new_with(old_buffer.epoch, (old_buffer.cur, sp_core::U256::zero())))
+		},
+	);
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
+
+	(weight, true)
 }
 
 pub mod v5 {

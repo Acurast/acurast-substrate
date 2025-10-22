@@ -234,9 +234,9 @@ pub mod pallet {
 	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, Metric>;
 
-	/// The actual (adjusted) scores of compute as a map `commitment_id` -> `pool_id` -> `SlidingBuffer[epoch -> score]`, corresponds to `measured_by_epoch`.
+	/// The actual (adjusted) scores of compute as a map `commitment_id` -> `pool_id` -> `SlidingBuffer[epoch -> (score, bonus_score)]`.
 	///
-	/// The adjustement involves if a commitment is in cooldown, if the stake-metric retio was superseded and if the committer get's a bonus for being busy.
+	/// The adjustement of scores involves checks if a commitment is in cooldown, if the stake-metric ratio was superseded and stored in second tuple element, if the committer gets a bonus for being busy.
 	#[pallet::storage]
 	#[pallet::getter(fn scores)]
 	pub(super) type Scores<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -245,7 +245,7 @@ pub mod pallet {
 		T::CommitmentId,
 		Identity,
 		PoolId,
-		SlidingBuffer<BlockNumberFor<T>, U256>,
+		SlidingBuffer<BlockNumberFor<T>, (U256, U256)>,
 		ValueQuery,
 	>;
 
@@ -360,7 +360,7 @@ pub mod pallet {
 	pub type V7MigrationState<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1315,7 +1315,9 @@ pub mod pallet {
 				matches!(p.status, ProcessorStatus::Active)
 			});
 
-			let manager_id = T::ManagerProviderForEligibleProcessor::lookup(processor)
+			let manager = T::ManagerProviderForEligibleProcessor::lookup(processor);
+			let manager_id = manager
+				.clone()
 				.map(|manager| T::ManagerIdProvider::manager_id_for(&manager).ok())
 				.unwrap_or(None);
 			let any_first_in_epoch = if !metrics.is_empty() {
@@ -1342,14 +1344,36 @@ pub mod pallet {
 
 						// distribute for LAST epoch
 						// use heartbeat for distribution even if not active (whatever processor heartbeats should distribute)
-						if let Err(e) =
-							Self::distribute(last_epoch, commitment_id, commitment, pool_ids)
-						{
-							log::error!(
-								target: LOG_TARGET,
-								"Distribution for stake-based rewards failed: {:?}",
-								e,
-							);
+						match Self::distribute(last_epoch, commitment_id, commitment, pool_ids) {
+							Ok(bonus) => {
+								if !bonus.is_zero() {
+									if let Some(manager) = manager {
+										#[allow(clippy::bind_instead_of_map)]
+										let _ = T::Currency::transfer(
+											&T::PalletId::get().into_account_truncating(),
+											&manager, // bonus goes to manager since he pays for fees for heartbeats, reports etc
+											bonus,
+											ExistenceRequirement::KeepAlive,
+										)
+										.or_else(|e| {
+											log::warn!(
+												target: LOG_TARGET,
+												"Failed to distribute bonus. {:?}",
+												e
+											);
+
+											Ok::<_, DispatchError>(())
+										});
+									}
+								}
+							},
+							Err(e) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Distribution for stake-based rewards failed: {:?}",
+									e,
+								);
+							},
 						}
 
 						if let Err(e) =

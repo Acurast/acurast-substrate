@@ -37,9 +37,9 @@ where
 	/// The time the `cur` value was written.
 	///
 	/// **This is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be any sequential time unit.
-	epoch: Epoch,
-	prev: Value,
-	cur: Value,
+	pub epoch: Epoch,
+	pub prev: Value,
+	pub cur: Value,
 }
 
 impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Default + Debug>

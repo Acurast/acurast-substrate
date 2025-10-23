@@ -678,53 +678,52 @@ where
 		let old_delegation =
 			Self::delegations(who, commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
 
-		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
-			let commitment = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			let committer_stake =
-				commitment.clone().stake.ok_or(Error::<T, I>::CommitmentNotFound)?;
+		let commitment =
+			Self::commitments(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
 
-			// We error out if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer.
-			// In this case the delegator needs to end his delegation first.
+		let committer_stake = commitment.clone().stake.ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+		// We error out if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer.
+		// In this case the delegator needs to end his delegation first.
+		ensure!(
+			old_delegation.stake.created >= committer_stake.created,
+			Error::<T, I>::StaleDelegationMustBeEnded
+		);
+
+		// we don't check here if there is capacity for extra_amount since it will fail below in `delegate_for` if not
+		let amount = old_delegation
+			.stake
+			.amount
+			.checked_add(&extra_amount)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+		let cooldown_period = if let Some(cooldown_period) = cooldown_period {
 			ensure!(
-				old_delegation.stake.created >= committer_stake.created,
-				Error::<T, I>::StaleDelegationMustBeEnded
+				cooldown_period >= old_delegation.stake.cooldown_period,
+				Error::<T, I>::CooldownPeriodCannotDecrease
 			);
+			cooldown_period
+		} else {
+			old_delegation.stake.cooldown_period
+		};
 
-			// we don't check here if there is capacity for extra_amount since it will fail below in `delegate_for` if not
-			let amount = old_delegation
-				.stake
-				.amount
-				.checked_add(&extra_amount)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+		let allow_auto_compound =
+			allow_auto_compound.unwrap_or(old_delegation.stake.allow_auto_compound);
 
-			let cooldown_period = if let Some(cooldown_period) = cooldown_period {
-				ensure!(
-					cooldown_period >= old_delegation.stake.cooldown_period,
-					Error::<T, I>::CooldownPeriodCannotDecrease
-				);
-				cooldown_period
-			} else {
-				old_delegation.stake.cooldown_period
-			};
-
-			let allow_auto_compound =
-				allow_auto_compound.unwrap_or(old_delegation.stake.allow_auto_compound);
-
-			// TODO: improve this two calls to not unlock and lock the amount unnecessarily
-			let reward = Self::end_delegation_for(who, commitment_id, false)?;
-			let distribution_account = T::PalletId::get().into_account_truncating();
-			if !reward.is_zero() {
-				T::Currency::transfer(
-					&distribution_account,
-					who,
-					reward,
-					ExistenceRequirement::KeepAlive,
-				)
-				.map_err(|_| Error::<T, I>::InternalError)?;
-			}
-			Self::delegate_for(who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
-			Ok(())
-		})
+		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
+		let reward = Self::end_delegation_for(who, commitment_id, false)?;
+		let distribution_account = T::PalletId::get().into_account_truncating();
+		if !reward.is_zero() {
+			T::Currency::transfer(
+				&distribution_account,
+				who,
+				reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+		Self::delegate_for(who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
+		Ok(())
 	}
 
 	pub fn compound_delegator(

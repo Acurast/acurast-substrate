@@ -1336,7 +1336,7 @@ where
 		let _ = <ComputeCommitments<T, I>>::clear_prefix(commitment_id, u32::MAX, None);
 	}
 
-	fn delegation_weight_ratio(
+	pub fn delegation_weight_ratio(
 		epoch: EpochOf<T>,
 		c: &CommitmentFor<T, I>,
 	) -> Result<Perquintill, Error<T, I>> {

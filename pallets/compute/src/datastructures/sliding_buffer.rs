@@ -143,22 +143,34 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		}, false);
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		}, false);
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
-		b.mutate(3, |v| {
-			*v = Some(3);
-		}, false);
+		b.mutate(
+			3,
+			|v| {
+				*v = Some(3);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), None);
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), Some(3));
@@ -171,15 +183,23 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		}, false);
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(4, |v| {
-			*v = Some(4);
-		}, false);
+		b.mutate(
+			4,
+			|v| {
+				*v = Some(4);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), None);
 		assert_eq!(b.get(2), None);
 		assert_eq!(b.get(4), Some(4));
@@ -192,23 +212,35 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		}, false);
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		}, false);
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
 		// here we update previous value, adjacent to current
-		b.mutate(1, |v| {
-			*v = Some(11);
-		}, false);
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(11);
+			},
+			false,
+		);
 		// ...and we expect nothing lost but previous updated
 		assert_eq!(b.get(1), Some(11));
 		assert_eq!(b.get(2), Some(2));
@@ -221,23 +253,35 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		}, false);
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		}, false);
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
 		// here we update previous value, but more than one in the past
-		b.mutate(0, |v| {
-			*v = Some(10);
-		}, false);
+		b.mutate(
+			0,
+			|v| {
+				*v = Some(10);
+			},
+			false,
+		);
 		// ...and we expect nothing lost but previous updated
 		assert_eq!(b.get(0), Some(10));
 		assert_eq!(b.get(1), None);

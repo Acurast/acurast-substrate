@@ -5,7 +5,7 @@ pub mod test_actions;
 pub use test_actions::{compute_test_flow, events, roll_to_block, setup_balances, Action};
 
 use frame_support::{assert_err, assert_ok};
-use sp_core::bounded_vec;
+use sp_core::{bounded_vec, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	AccountId32, FixedU128, Perbill, Perquintill,
@@ -1928,9 +1928,6 @@ fn test_commit_compute() {
 			)
 		);
 
-		// Step 3: Setup initial balance for Charlie to cover the stake amount
-		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), charlie.clone(), 100 * UNIT));
-
 		// Step 4: Charlie commits compute (acting as committer backing his own manager account)
 		// Start with minimal metrics to test if validation passes
 		let exceeding_commitment = bounded_vec![ComputeCommitment {
@@ -1952,13 +1949,10 @@ fn test_commit_compute() {
 		roll_to_block(202);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
 
-        // Alice & Bob recommit
+		// Alice & Bob recommit
 		{
-            Compute::commit(
-                &alice_account_id(),
-                &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-            );
-		    Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
+			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
 		}
 
 		// Step 5: Charlie commits compute (as the committer)
@@ -1992,12 +1986,9 @@ fn test_commit_compute() {
 		roll_to_block(302);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
 
-        // Alice & Bob recommit
+		// Alice & Bob recommit
 		{
-				Compute::commit(
-					&alice_account_id(),
-					&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-				);
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
 			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
 		}
 
@@ -2005,12 +1996,9 @@ fn test_commit_compute() {
 		roll_to_block(402);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
 
-        // Alice & Bob recommit
+		// Alice & Bob recommit
 		{
-				Compute::commit(
-					&alice_account_id(),
-					&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-				);
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
 			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
 		}
 
@@ -2246,25 +2234,44 @@ fn test_delegate_more() {
 		create_pools();
 
 		// Charlie will act as both manager and committer (same account for simplicity)
-		let committer = charlie_account_id();
+		let charlie = charlie_account_id();
 
-		offer_accept_backing(committer.clone());
+		offer_accept_backing(charlie.clone());
+
 		commit_alice_bob();
-		commit_compute(committer.clone());
+
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128), // Maximal possible commitment value
+			},];
+
+		let stake_amount = 10 * UNIT; // 10 tokens
+		let cooldown_period = 36u64; // 1000 blocks
+		let commission = Perbill::from_percent(10); // 10% commission
+		let allow_auto_compound = true;
+
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
+			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+		}
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(charlie.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
 
 		let delegator_1 = ferdie_account_id();
 		let delegator_2 = george_account_id();
-		let initial_balance = 100 * UNIT;
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			delegator_1.clone(),
-			initial_balance
-		));
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			delegator_2.clone(),
-			initial_balance
-		));
+		let delegator_3 = henry_account_id();
 
 		let stake_amount_1 = 25 * UNIT; // 5 tokens
 		let stake_amount_2 = 5 * UNIT; // 5 tokens
@@ -2274,13 +2281,16 @@ fn test_delegate_more() {
 		{
 			assert_ok!(Compute::delegate(
 				RuntimeOrigin::signed(delegator_1.clone()),
-				committer.clone(),
+				charlie.clone(),
 				stake_amount_1,
 				cooldown_period,
 				allow_auto_compound,
 			));
 			// After delegation, the stake should be locked
-			assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1);
+			assert_eq!(
+				Balances::usable_balance(&delegator_1),
+				1_000_000_000 * UNIT - stake_amount_1
+			);
 			// At minimum we should see the delegation event
 			assert!(events()
 				.iter()
@@ -2290,38 +2300,90 @@ fn test_delegate_more() {
 		{
 			assert_ok!(Compute::delegate(
 				RuntimeOrigin::signed(delegator_2.clone()),
-				committer.clone(),
+				charlie.clone(),
 				stake_amount_2,
 				cooldown_period,
 				allow_auto_compound,
 			));
 			// After delegation, the stake should be locked
-			assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2);
+			assert_eq!(
+				Balances::usable_balance(&delegator_2),
+				1_000_000_000 * UNIT - stake_amount_2
+			);
 			// At minimum we should see the delegation event
 			assert!(events()
 				.iter()
 				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
 		}
 
-		// TODO: Update test after refactoring - reward() function no longer exists
-		// assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
+		assert_eq!(
+			Compute::commitments(0).unwrap().delegations_total_amount,
+			stake_amount_1 + stake_amount_2
+		);
+		assert_eq!(
+			Compute::commitments(0)
+				.unwrap()
+				.weights
+				.get_current()
+				.1
+				.delegations_reward_weight,
+			U256::from(
+				(stake_amount_1 + stake_amount_2) * (cooldown_period as u128) / 108u128 - 1u128
+			) // 1 rounding error
+		);
 
-		let stake_amount_2b = 15 * UNIT; // makes it a total of 20 for delegator_2
+		// 75% filled, because 30 delegated vs 10 staked, 30/40
+		assert_eq!(
+			Compute::delegation_weight_ratio(
+				Compute::current_cycle().epoch,
+				&Compute::commitments(0).unwrap()
+			)
+			.unwrap(),
+			Perquintill::from_percent(75)
+		);
+
+		let stake_amount_2b = 20 * UNIT; // makes it a total of 25 for delegator_2, and total delegations: 50
 		{
 			assert_ok!(Compute::delegate_more(
 				RuntimeOrigin::signed(delegator_2.clone()),
-				committer.clone(),
+				charlie.clone(),
 				stake_amount_2b,
 				None,
 				None
 			));
 			// After delegation, the stake should be locked
-			let expected = initial_balance - stake_amount_2 - stake_amount_2b;
+			let expected = 1_000_000_000 * UNIT - stake_amount_2 - stake_amount_2b;
 			assert!(Balances::usable_balance(&delegator_2) - expected < UNIT);
 			// At minimum we should see the delegation event
 			assert!(events()
 				.iter()
 				.any(|e| matches!(e, RuntimeEvent::Compute(Event::DelegatedMore(_, _)))));
+			assert_eq!(
+				Compute::commitments(0)
+					.unwrap()
+					.weights
+					.get_current()
+					.1
+					.delegations_reward_weight,
+				U256::from(
+					(stake_amount_1 + stake_amount_2 + stake_amount_2b) * (cooldown_period as u128)
+						/ 108u128
+				)
+			);
+		}
+
+        {
+			let stake_amount_3_exeeds_ratio = 41 * UNIT; // exceeds because (50 +40) / 
+			assert_err!(
+				Compute::delegate(
+					RuntimeOrigin::signed(delegator_3.clone()),
+					charlie.clone(),
+					stake_amount_3_exeeds_ratio,
+					cooldown_period,
+					allow_auto_compound,
+				),
+				Error::<Test, ()>::MaxDelegationRatioExceeded
+			);
 		}
 	});
 }

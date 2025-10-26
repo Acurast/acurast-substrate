@@ -376,6 +376,21 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	}
 }
 
+pub struct MockLockup;
+
+impl ManagerLookup for MockLockup {
+	type AccountId = <Test as frame_system::Config>::AccountId;
+	type ManagerId = <Test as pallet_acurast_compute::Config>::ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
+		Some((processor.clone(), 1))
+	}
+
+	fn lookup_manager_id(_processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Some(1)
+	}
+}
+
 pub struct ProcessorLastSeenProvider;
 
 impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {

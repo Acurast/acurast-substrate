@@ -72,6 +72,7 @@ pub fn migrate_to_v6<T: Config<I>, I: 'static>() -> (Weight, bool) {
 			name: old.name,
 			reward: old.reward,
 			total: old.total,
+			total_with_bonus: old.total,
 		})
 	});
 	weight = weight.saturating_add(
@@ -116,7 +117,7 @@ pub fn migrate_to_v8<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
 
 	Scores::<T, I>::translate::<SlidingBuffer<BlockNumberFor<T>, sp_core::U256>, _>(
-		|commitment_id, pool_id, old_buffer| {
+		|_commitment_id, _pool_id, old_buffer| {
 			// Convert old SlidingBuffer<BlockNumberFor<T>, U256> to new SlidingBuffer<BlockNumberFor<T>, (U256, U256)>
 			// The old buffer stored just the score, the new one stores (score, bonus_score)
 			// For migration, we set bonus_score to zero for all old entries

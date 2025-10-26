@@ -9,7 +9,7 @@ use crate::{
 	types::*,
 	Config, Cycle, Event,
 };
-use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
+use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider, ManagerLookup};
 
 /// Test helper function for compute pallet that simplifies test writing
 pub fn compute_test_flow(
@@ -647,7 +647,9 @@ impl ComputeTestFlow {
 
 	fn execute_processor_commit(processor: &AccountId32, metrics: &Vec<(u8, u128, u128)>) {
 		let commit_data: Vec<(u8, u128, u128)> = metrics.iter().cloned().collect();
-		let _ = Compute::commit(processor, &commit_data);
+		let manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(processor).unwrap();
+		let _ = Compute::commit(processor, &manager, &commit_data);
 	}
 }
 

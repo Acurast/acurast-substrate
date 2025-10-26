@@ -13,7 +13,7 @@ impl<T: Config<I>, I: 'static> ComputeHooks<T::AccountId, T::ManagerId, BalanceF
 		processor: &T::AccountId,
 		manager: &(T::AccountId, T::ManagerId),
 		metrics: &[MetricInput],
-	) -> Option<BalanceFor<T, I>>
+	) -> BalanceFor<T, I>
 	where
 		BalanceFor<T, I>: IsType<u128>,
 	{
@@ -42,6 +42,6 @@ impl<T: Config<I>, I: 'static> ComputeHooks<T::AccountId, T::ManagerId, BalanceF
 			});
 		}
 
-		Some(reward)
+		reward
 	}
 }

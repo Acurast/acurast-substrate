@@ -18,7 +18,7 @@ use crate::{
 	types::*,
 	Config, Cycle, Error, Event,
 };
-use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider};
+use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider, ManagerLookup};
 
 fn commit_actions_2_processors() -> Vec<Action> {
 	vec![
@@ -1446,7 +1446,13 @@ fn test_single_processor_commit() {
 
 		roll_to_block(10);
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		let manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
 		// With roll_to_block calling on_initialize for each block 1-10, epoch_offset changes
 		assert_eq!(
 			Compute::processors(alice_account_id()),
@@ -1461,7 +1467,10 @@ fn test_single_processor_commit() {
 		);
 
 		roll_to_block(302 + 39);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 3, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -1479,7 +1488,10 @@ fn test_single_processor_commit() {
 			})
 		);
 
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 3, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -1498,8 +1510,8 @@ fn test_single_processor_commit() {
 
 		roll_to_block(302 + 130);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]),
-			Some(642123287671233)
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			642123287671233
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -1519,7 +1531,10 @@ fn test_single_processor_commit() {
 
 		// commit different value in same epoch (does not change existing values for same epoch since first value is kept)
 		roll_to_block(302 + 170);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 2000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 2000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
 			MetricCommit { epoch: 4, metric: FixedU128::from_rational(1000u128, 1u128) }
@@ -1543,8 +1558,8 @@ fn test_single_processor_commit() {
 		// claim for epoch 1 and commit for epoch 2
 		roll_to_block(302 + 230);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]),
-			/*Some(250000)*/ Some(642123287671233)
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			642123287671233
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -1571,6 +1586,7 @@ fn test_single_processor_commit() {
 				name: *b"cpu-ops-per-second______",
 				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
 				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				total_with_bonus: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
 			},
 		))];
 		assert!(expected.iter().all(|event| events.contains(event)));
@@ -1613,12 +1629,19 @@ fn create_pools() {
 }
 
 fn commit_alice_bob() {
+	let alice_manager =
+		<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id()).unwrap();
+	let bob_manager =
+		<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id()).unwrap();
 	// Alice commits first time
 	{
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
-		assert_eq!(Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&alice_account_id(), &alice_manager, &[(1u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::processors(alice_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(40)
@@ -1630,7 +1653,10 @@ fn commit_alice_bob() {
 	{
 		roll_to_block(20);
 		assert_eq!(Compute::metrics(bob_account_id(), 1), None);
-		assert_eq!(Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::processors(bob_account_id()).unwrap().status,
 			ProcessorStatus::WarmupUntil(50)
@@ -1645,8 +1671,12 @@ fn commit_alice_bob() {
 	// Alice commits values for epoch 1 (where she is active) for pool 1 and 2
 	{
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			None
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+			),
+			Zero::zero()
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -1671,7 +1701,10 @@ fn commit_alice_bob() {
 
 	// Bob commits values for epoch 1 (where he is active) for only pool 2
 	{
-		assert_eq!(Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]), None);
+		assert_eq!(
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]),
+			Zero::zero()
+		);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 2).unwrap(),
 			MetricCommit { epoch: 1, metric: FixedU128::from_rational(6000u128, 1u128) }
@@ -1714,6 +1747,14 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		));
 	}
 
+	let alice_manager =
+		<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id()).unwrap();
+	let bob_manager =
+		<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id()).unwrap();
+	let charlie_manager =
+		<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&charlie_account_id())
+			.unwrap();
+
 	// Charlie commits first time (to all pools)
 	if with_charlie {
 		roll_to_block(190);
@@ -1721,9 +1762,10 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
+				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			),
-			None
+			Zero::zero()
 		);
 		assert_eq!(
 			Compute::processors(charlie_account_id()).unwrap().status,
@@ -1742,9 +1784,10 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		assert_eq!(
 			Compute::commit(
 				&charlie_account_id(),
+				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			),
-			None
+			Zero::zero()
 		);
 		assert_eq!(
 			Compute::processors(charlie_account_id()).unwrap().status,
@@ -1761,8 +1804,12 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		//   => 0.25 * 0.5 * 1 UNIT = 0.125 UNIT
 		// - Sum of reward for pool 1 and pool 2 = 0.25 UNIT + 0.125 UNIT = 0.375
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			/*Some(375000)*/ Some(963184931506849),
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+			),
+			963184931506849,
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -1789,8 +1836,12 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 		// - Bob committed 6000 to pool 2 together with Alice which committed 6000, which leaves him with 3/4 of the rewards for pool 2 which are 50% of 1 UNIT
 		//   => 0.75 * 0.5 * 1 UNIT = 0.375 UNIT
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]),
-			/*Some(375000)*/ Some(963184931506849),
+			Compute::commit(
+				&bob_account_id(),
+				&bob_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
+			),
+			963184931506849,
 		);
 		assert_eq!(
 			Compute::metrics(bob_account_id(), 1).unwrap(),
@@ -1821,6 +1872,7 @@ fn check_events() {
 				name: *b"cpu-ops-per-second______",
 				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
 				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				total_with_bonus: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
 			},
 		)),
 		RuntimeEvent::Compute(Event::PoolCreated(
@@ -1830,6 +1882,7 @@ fn check_events() {
 				name: *b"mem-read-count-per-sec--",
 				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(50), None),
 				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				total_with_bonus: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
 			},
 		)),
 		RuntimeEvent::Compute(Event::PoolCreated(
@@ -1839,6 +1892,7 @@ fn check_events() {
 				name: *b"mem-write-count-per-sec-",
 				reward: ProvisionalBuffer::from_inner(Perquintill::from_percent(25), None),
 				total: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
+				total_with_bonus: SlidingBuffer::from_inner(0u64, 0.into(), 0.into()),
 			},
 		)),
 	];
@@ -1949,10 +2003,21 @@ fn test_commit_compute() {
 		roll_to_block(202);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
 
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
 		// Alice & Bob recommit
 		{
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
-			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
 		// Step 5: Charlie commits compute (as the committer)
@@ -1988,8 +2053,12 @@ fn test_commit_compute() {
 
 		// Alice & Bob recommit
 		{
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
-			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
 		// Make all rolling sums be complete (and inflation happens again)
@@ -1998,8 +2067,12 @@ fn test_commit_compute() {
 
 		// Alice & Bob recommit
 		{
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
-			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
 		// TODO: Update test after refactoring - delegation_pools storage no longer exists
@@ -2254,10 +2327,21 @@ fn test_delegate_more() {
 		roll_to_block(202);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
 
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
 		// Alice & Bob recommit
 		{
-			Compute::commit(&alice_account_id(), &[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]);
-			Compute::commit(&bob_account_id(), &[(2u8, 6000u128, 1u128)]);
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
 		assert_ok!(Compute::commit_compute(
@@ -2372,8 +2456,8 @@ fn test_delegate_more() {
 			);
 		}
 
-        {
-			let stake_amount_3_exeeds_ratio = 41 * UNIT; // exceeds because (50 +40) / 
+		{
+			let stake_amount_3_exeeds_ratio = 41 * UNIT; // exceeds because (50 +40) /
 			assert_err!(
 				Compute::delegate(
 					RuntimeOrigin::signed(delegator_3.clone()),

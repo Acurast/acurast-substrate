@@ -1185,6 +1185,7 @@ pub mod pallet {
 				name,
 				reward: ProvisionalBuffer::new(reward_ratio),
 				total: SlidingBuffer::new(Zero::zero()),
+				total_with_bonus: SlidingBuffer::new(Zero::zero()),
 			};
 			MetricPools::<T, I>::insert(pool_id, &pool);
 			<MetricPoolLookup<T, I>>::insert(name, pool_id);
@@ -1211,7 +1212,7 @@ pub mod pallet {
 
 				// Weight reward according to processor compute relative to total compute for pool identified by `pool_id`.
 				// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = epoch - 1`.
-				let pool_total: FixedU128 = pool.total.get(claim_epoch);
+				let pool_total: FixedU128 = pool.total_with_bonus.get(claim_epoch);
 
 				// check if we would divide by zero building rational
 				let compute_weighted_reward_ratio = if pool_total.is_zero() {
@@ -1334,6 +1335,13 @@ pub mod pallet {
 			} else {
 				metric
 			};
+			// sum totals
+			<MetricPools<T, I>>::mutate(pool_id, |pool| {
+				if let Some(pool) = pool.as_mut() {
+					pool.add(epoch, metric);
+					pool.add_bonus(epoch, metric_with_bonus);
+				}
+			});
 			<MetricsEpochSum<T, I>>::mutate(manager_id, pool_id, |sum| {
 				let prev_epoch = sum.epoch;
 				sum.mutate(
@@ -1380,15 +1388,7 @@ pub mod pallet {
 				if first_in_epoch {
 					// insert even if not active for tracability before warmup ended
 					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
-
 					if active {
-						// sum totals
-						<MetricPools<T, I>>::mutate(pool_id, |pool| {
-							if let Some(pool) = pool.as_mut() {
-								pool.add(epoch, metric);
-							}
-						});
-
 						if let Some(prev_sum) = Self::update_metrics_epoch_sum(
 							manager_id, *pool_id, metric, epoch, false,
 						) {
@@ -1429,13 +1429,6 @@ pub mod pallet {
 				);
 
 				if active {
-					// sum totals
-					<MetricPools<T, I>>::mutate(pool_id, |pool| {
-						if let Some(pool) = pool.as_mut() {
-							pool.add(epoch, commit.metric);
-						}
-					});
-
 					if let Some(prev_sum) = Self::update_metrics_epoch_sum(
 						manager_id,
 						pool_id,

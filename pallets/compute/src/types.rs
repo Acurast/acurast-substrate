@@ -176,6 +176,7 @@ pub struct MetricPool<
 	pub name: MetricPoolName,
 	pub reward: ProvisionalBuffer<Epoch, Value>,
 	pub total: SlidingBuffer<Epoch, FixedU128>,
+	pub total_with_bonus: SlidingBuffer<Epoch, FixedU128>,
 }
 
 impl<
@@ -185,6 +186,16 @@ impl<
 {
 	pub fn add(&mut self, epoch: Epoch, summand: FixedU128) {
 		self.total.mutate(
+			epoch,
+			|v| {
+				*v = v.saturating_add(summand);
+			},
+			false,
+		);
+	}
+
+	pub fn add_bonus(&mut self, epoch: Epoch, summand: FixedU128) {
+		self.total_with_bonus.mutate(
 			epoch,
 			|v| {
 				*v = v.saturating_add(summand);

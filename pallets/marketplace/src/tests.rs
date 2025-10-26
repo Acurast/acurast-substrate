@@ -1,6 +1,5 @@
 use frame_support::{
 	assert_err, assert_ok,
-	pallet_prelude::Zero,
 	sp_runtime::{
 		bounded_vec,
 		traits::{Hash, Scale},
@@ -12,7 +11,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_acurast::{
 	utils::validate_and_extract_attestation, Attestation, ComputeHooks, JobModules,
-	JobRegistrationFor, MultiOrigin, Schedule,
+	JobRegistrationFor, ManagerLookup, MultiOrigin, Schedule,
 };
 use pallet_acurast_compute::{MetricPool, ProvisionalBuffer, SlidingBuffer};
 use parity_scale_codec::Encode;
@@ -1083,7 +1082,12 @@ fn test_match() {
 			bounded_vec![],
 		));
 		let pool_id = AcurastCompute::last_metric_pool_id();
-		let _ = AcurastCompute::commit(&processor_account_id(), &[(pool_id, 1, 2)]);
+		let manager =
+			<Test as pallet_acurast_compute::Config>::ManagerProviderForEligibleProcessor::lookup(
+				&processor_account_id(),
+			)
+			.unwrap();
+		let _ = AcurastCompute::commit(&processor_account_id(), &manager, &[(pool_id, 1, 2)]);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
@@ -1252,6 +1256,7 @@ fn test_match() {
 						name: *b"cpu-ops-per-second______",
 						reward: ProvisionalBuffer::new(Perquintill::from_percent(25)),
 						total: SlidingBuffer::new(0),
+						total_with_bonus: SlidingBuffer::new(0),
 					}
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {

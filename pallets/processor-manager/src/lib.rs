@@ -48,8 +48,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use acurast_common::{
-		AccountLookup, AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
-		ManagerIdProvider, Metrics, Version,
+		AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
+		ManagerIdProvider, ManagerLookup, Metrics, Version,
 	};
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -76,7 +76,7 @@ pub mod pallet {
 		type Proof: Parameter + Member + Verify + MaxEncodedLen;
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
-		type ComputeHooks: ComputeHooks<Self::AccountId, BalanceFor<Self>>;
+		type ComputeHooks: ComputeHooks<Self::AccountId, Self::ManagerId, BalanceFor<Self>>;
 		type ProcessorAssetRecovery: ProcessorAssetRecovery<Self>;
 		type MaxPairingUpdates: Get<u32>;
 		type MaxProcessorsInSetUpdateInfo: Get<u32>;
@@ -85,7 +85,10 @@ pub mod pallet {
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
-		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
+		type ManagerProviderForEligibleProcessor: ManagerLookup<
+			AccountId = Self::AccountId,
+			ManagerId = Self::ManagerId,
+		>;
 		type Currency: Currency<Self::AccountId>
 			+ MutateHold<
 				Self::AccountId,
@@ -440,8 +443,12 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			_ = Self::do_reward_distribution(&who);
-			_ = T::ComputeHooks::commit(&who, &[]);
+			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
+				return Ok(().into());
+			};
+
+			_ = Self::do_reward_distribution(&who, &manager.0);
+			_ = T::ComputeHooks::commit(&who, &manager, &[]);
 
 			Ok(().into())
 		}
@@ -555,8 +562,12 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			_ = Self::do_reward_distribution(&who);
-			_ = T::ComputeHooks::commit(&who, metrics.as_ref());
+			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
+				return Ok(().into());
+			};
+
+			_ = Self::do_reward_distribution(&who, &manager.0);
+			_ = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
 
 			Ok(().into())
 		}

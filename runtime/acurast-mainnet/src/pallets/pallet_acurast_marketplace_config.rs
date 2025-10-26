@@ -37,9 +37,12 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
-	type RewardManager =
-		pallet_acurast_marketplace::AssetRewardManager<FeeManagement, Balances, AcurastMarketplace>;
-	type ManagerProvider = AcurastProcessorManager;
+	type RewardManager = pallet_acurast_marketplace::AssetRewardManager<
+		FeeManagement,
+		Balances,
+		AcurastMarketplace,
+		(),
+	>;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;

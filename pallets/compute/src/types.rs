@@ -20,6 +20,7 @@ pub type CycleFor<T> = Cycle<EpochOf<T>, BlockNumberFor<T>>;
 pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 pub type ProcessorStateFor<T, I> =
 	ProcessorState<BlockNumberFor<T>, BlockNumberFor<T>, BalanceFor<T, I>>;
+pub type MetricsRewardStateFor<T, I> = MetricsRewardState<EpochOf<T>, BalanceFor<T, I>>;
 pub type ProcessorStatusFor<T> = ProcessorStatus<BlockNumberFor<T>>;
 pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 
@@ -212,6 +213,7 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// The latest epoch in which a processor committed.
 	pub committed: Epoch,
 	/// The latest epoch for which a processor claimed.
+	#[deprecated]
 	pub claimed: Epoch,
 	pub status: ProcessorStatus<BlockNumber>,
 	/// The amount accrued but not yet paid out.
@@ -219,9 +221,19 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
 	///
 	/// Also see [`Self.paid`]:
+	#[deprecated]
 	pub accrued: Balance,
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
+	#[deprecated]
 	pub paid: Balance,
+}
+
+#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+pub struct MetricsRewardState<Epoch: Debug, Balance: Debug> {
+	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
+	pub paid: Balance,
+	/// The latest epoch for which a processor claimed.
+	pub claimed: Epoch,
 }
 
 impl<BlockNumber: Debug, Epoch: Debug, Balance: Debug> ProcessorState<BlockNumber, Epoch, Balance>
@@ -371,8 +383,8 @@ pub struct Commitment<
 	///                        clear out before e2
 	///                        #
 	///                 |
-	///          
-	///           +$ +$ # $ (problematic in e2)   
+	///
+	///           +$ +$ # $ (problematic in e2)
 	///                 |
 	///                 first heartbeat scores for score_committer_c out from delegations_reward_weight from e1
 	pub weights: MemoryBuffer<Epoch, CommitmentWeights>,

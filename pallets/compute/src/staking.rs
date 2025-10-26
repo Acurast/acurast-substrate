@@ -6,10 +6,9 @@ use frame_support::{
 		WithdrawReasons,
 	},
 };
-use integer_sqrt::IntegerSquareRoot;
 use sp_core::{U256, U512};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Saturating, Zero},
+	traits::{CheckedAdd, CheckedSub, Saturating, Zero},
 	FixedU128, Perbill, Perquintill, SaturatedConversion, Vec,
 };
 
@@ -162,22 +161,18 @@ where
 		last_epoch: EpochOf<T>,
 		epoch: EpochOf<T>,
 		commitment_id: T::CommitmentId,
-		manager_id: T::ManagerId,
+		commitment: &CommitmentFor<T, I>,
+		previous_epoch_metric_sums: &[(PoolId, (Metric, Metric))],
 	) -> Result<(), Error<T, I>> {
-		let commitment =
-			Self::commitments(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
-
 		let weights = commitment.weights.get(last_epoch);
 		let commitment_total_weight = weights.total_reward_weight();
 
-		for (pool_id, _pool) in MetricPools::<T, I>::iter() {
+		for (pool_id, (metric_sum, metric_with_bonus_sum)) in previous_epoch_metric_sums {
 			// yes! it's correct to take this from current epoch, not last, because it got written in on_initialize of this epoch
 			let target_weight_per_compute =
 				StakeBasedRewards::<T, I>::get(pool_id).get(epoch).target_weight_per_compute;
-			let (metric_sum, metric_with_bonus_sum) =
-				MetricsEpochSum::<T, I>::get(manager_id, pool_id).get(last_epoch);
 			let bonus_sum = metric_with_bonus_sum
-				.checked_sub(&metric_sum)
+				.checked_sub(metric_sum)
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let committed_metric_sum = ComputeCommitments::<T, I>::get(commitment_id, pool_id)
 				.ok_or(Error::<T, I>::CommitmentNotFound)?;
@@ -185,9 +180,9 @@ where
 			// calculate min(committed_metric_sum, measured_metric_sum)
 			// compare metrics WITHOUT BONI (there is no concept for metrics committed with bonis)
 			let (commitment_bounded_metric_sum, bounded_bonus) =
-				if metric_sum < committed_metric_sum {
+				if *metric_sum < committed_metric_sum {
 					// fall down to actual since commitment violated, and also don't give ANY boni
-					(metric_sum, Zero::zero())
+					(*metric_sum, Zero::zero())
 				} else {
 					// we give the bonus because commitment was hold
 
@@ -712,7 +707,7 @@ where
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		let reward = Self::end_delegation_for(who, commitment_id, false)?;
-		let distribution_account = T::PalletId::get().into_account_truncating();
+		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
 				&distribution_account,
@@ -850,7 +845,7 @@ where
 		let reward = Self::withdraw_delegator_accrued(who, commitment_id)?;
 
 		// Transfer reward to the caller if any
-		let distribution_account = T::PalletId::get().into_account_truncating();
+		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
 				&distribution_account,
@@ -872,7 +867,7 @@ where
 		let reward = Self::withdraw_committer_accrued(commitment_id)?;
 
 		// Transfer reward to the caller if any
-		let distribution_account = T::PalletId::get().into_account_truncating();
+		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
 				&distribution_account,
@@ -1078,7 +1073,7 @@ where
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		let reward = Self::end_delegation_for(who, old_commitment_id, false)?;
-		let distribution_account = T::PalletId::get().into_account_truncating();
+		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
 				&distribution_account,
@@ -1268,7 +1263,7 @@ where
 		Self::unlock_funds(who, stake.amount);
 		// Transfer the already unlocked stake with accrued slash, be sure to fail hard on errors!a
 		if !stake.accrued_slash.is_zero() {
-			let distribution_account = T::PalletId::get().into_account_truncating();
+			let distribution_account = Self::account_id();
 			// Transfer the slashed amount from user to distribution account
 			T::Currency::transfer(
 				who,

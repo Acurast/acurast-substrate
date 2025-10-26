@@ -35,6 +35,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
+		Self::ManagerId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,

@@ -19,7 +19,7 @@ use frame_support::{
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
-use crate::{AccountLookup, EnsureAttested, ParameterBound, ProcessorVersionProvider};
+use crate::{EnsureAttested, ManagerLookup, ParameterBound, ProcessorVersionProvider};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SCRIPT_PREFIX: &[u8] = b"ipfs://";
@@ -589,27 +589,53 @@ impl<'de, const T: u32> Deserialize<'de> for CU32<T> {
 	}
 }
 
-pub struct ManagerProviderForEligibleProcessor<AccountId, EA, VP, ML>(
-	PhantomData<(AccountId, EA, VP, ML)>,
+pub struct ManagerProviderForEligibleProcessor<AccountId, ManagerId, EA, VP, ML>(
+	PhantomData<(AccountId, ManagerId, EA, VP, ML)>,
 );
+
 impl<
 		AccountId,
+		ManagerId,
 		EA: EnsureAttested<AccountId>,
 		VP: ProcessorVersionProvider<AccountId>,
-		ML: AccountLookup<AccountId>,
-	> AccountLookup<AccountId> for ManagerProviderForEligibleProcessor<AccountId, EA, VP, ML>
+		ML: ManagerLookup<AccountId = AccountId, ManagerId = ManagerId>,
+	> ManagerProviderForEligibleProcessor<AccountId, ManagerId, EA, VP, ML>
 {
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
+	pub fn is_eligible(processor: &AccountId) -> bool {
 		if EA::ensure_attested(processor).is_err() {
-			return None;
+			return false;
 		}
-		let version = VP::processor_version(processor)?;
-		if VP::min_version_for_reward(version.platform)
-			.map(|min_version| version < min_version)
-			.unwrap_or_default()
-		{
+		let Some(version) = VP::processor_version(processor) else {
+			return false;
+		};
+		VP::min_version_for_reward(version.platform)
+			.map(|min_version| version >= min_version)
+			.unwrap_or(true)
+	}
+}
+
+impl<
+		AccountId,
+		ManagerId,
+		EA: EnsureAttested<AccountId>,
+		VP: ProcessorVersionProvider<AccountId>,
+		ML: ManagerLookup<AccountId = AccountId, ManagerId = ManagerId>,
+	> ManagerLookup for ManagerProviderForEligibleProcessor<AccountId, ManagerId, EA, VP, ML>
+{
+	type AccountId = AccountId;
+	type ManagerId = ManagerId;
+
+	fn lookup(processor: &AccountId) -> Option<(AccountId, ManagerId)> {
+		if !Self::is_eligible(processor) {
 			return None;
 		}
 		ML::lookup(processor)
+	}
+
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		if !Self::is_eligible(processor) {
+			return None;
+		}
+		ML::lookup_manager_id(processor)
 	}
 }

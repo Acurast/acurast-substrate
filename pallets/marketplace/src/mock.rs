@@ -18,7 +18,7 @@ use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
 
-use pallet_acurast::{AccountLookup, CommitmentIdProvider, JobModules, CU32};
+use pallet_acurast::{CommitmentIdProvider, JobModules, ManagerLookup, CU32};
 
 use crate::{stub::*, *};
 
@@ -376,16 +376,6 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 	}
 }
 
-pub struct MockLockup;
-
-impl AccountLookup<<Test as frame_system::Config>::AccountId> for MockLockup {
-	fn lookup(
-		processor: &<Test as frame_system::Config>::AccountId,
-	) -> Option<<Test as frame_system::Config>::AccountId> {
-		Some(processor.clone())
-	}
-}
-
 pub struct ProcessorLastSeenProvider;
 
 impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
@@ -433,8 +423,7 @@ impl Config for Test {
 	type HyperdrivePalletId = HyperdrivePalletId;
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
-	type ManagerProvider = MockLockup;
-	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>>;
+	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>, ()>;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;

@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::{stub::*, *};
-use acurast_common::{AccountLookup, AttestationChain, ManagerIdProvider, CU32};
+use acurast_common::{AttestationChain, ManagerIdProvider, ManagerLookup, CU32};
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -170,9 +170,16 @@ impl Config for Test {
 }
 
 pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);
-impl<AccountId: Clone> AccountLookup<AccountId> for MockManagerProvider<AccountId> {
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
-		Some(processor.clone())
+impl<AccountId: Clone> ManagerLookup for MockManagerProvider<AccountId> {
+	type AccountId = AccountId;
+	type ManagerId = AssetId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
+		Some((processor.clone(), 0))
+	}
+
+	fn lookup_manager_id(_processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Some(0)
 	}
 }
 

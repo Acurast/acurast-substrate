@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(deprecated)]
 
 pub use datastructures::*;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -30,7 +31,7 @@ const LOG_TARGET: &str = "runtime::acurast_compute";
 #[frame_support::pallet]
 pub mod pallet {
 	use acurast_common::{
-		AccountLookup, CommitmentIdProvider, ManagerIdProvider, MetricInput, PoolId,
+		CommitmentIdProvider, ManagerIdProvider, ManagerLookup, MetricInput, PoolId,
 	};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
@@ -38,8 +39,8 @@ pub mod pallet {
 		traits::{
 			fungible::{Balanced, Credit},
 			tokens::{Fortitude, Precision, Preservation},
-			Currency, EnsureOrigin, ExistenceRequirement, Get, Imbalance, InspectLockableCurrency,
-			LockIdentifier, OnUnbalanced,
+			Currency, EnsureOrigin, Get, Imbalance, InspectLockableCurrency, LockIdentifier,
+			OnUnbalanced,
 		},
 		PalletId, Parameter,
 	};
@@ -141,7 +142,10 @@ pub mod pallet {
 		/// Eventhough a staker can also delegate at the same time, the same funds contributing to total balance of an account is either delegated or staked, not both.
 		#[pallet::constant]
 		type LockIdentifier: Get<LockIdentifier>;
-		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
+		type ManagerProviderForEligibleProcessor: ManagerLookup<
+			AccountId = Self::AccountId,
+			ManagerId = Self::ManagerId,
+		>;
 		#[pallet::constant]
 		type InflationPerEpoch: Get<BalanceFor<Self, I>>;
 		#[pallet::constant]
@@ -198,6 +202,12 @@ pub mod pallet {
 	#[pallet::getter(fn processors)]
 	pub type Processors<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, ProcessorStateFor<T, I>>;
+
+	/// Individual processors' epoch start and active status.
+	#[pallet::storage]
+	#[pallet::getter(fn manager_metrics_rewards)]
+	pub type ManagerMetricRewards<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::ManagerId, MetricsRewardStateFor<T, I>>;
 
 	/// Storage for pools' config and current total value over all active processors.
 	#[pallet::storage]
@@ -526,10 +536,8 @@ pub mod pallet {
 								.saturated_into();
 							let compute_imbalance = imbalance
 								.extract(stake_backed_amount.saturating_add(compute_based_amount));
-							let resolve_result = T::Currency::resolve(
-								&T::PalletId::get().into_account_truncating(),
-								compute_imbalance,
-							);
+							let resolve_result =
+								T::Currency::resolve(&Self::account_id(), compute_imbalance);
 							if let Err(credit) = resolve_result {
 								imbalance = imbalance.merge(credit);
 							}
@@ -601,7 +609,7 @@ pub mod pallet {
 
 						if !unused_amount.is_zero() {
 							if let Ok(unused) = <T::Currency as Balanced<T::AccountId>>::withdraw(
-								&T::PalletId::get().into_account_truncating(),
+								&Self::account_id(),
 								unused_amount,
 								Precision::Exact,
 								Preservation::Preserve,
@@ -1149,6 +1157,12 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		BalanceFor<T, I>: From<u128>,
@@ -1179,38 +1193,19 @@ pub mod pallet {
 		}
 
 		pub(crate) fn do_claim(
-			processor: &T::AccountId,
-			pool_ids: &[PoolId],
-		) -> Result<Option<BalanceFor<T, I>>, Error<T, I>>
+			claim_epoch: EpochOf<T>,
+			claim_epoch_metric_sums: &[(PoolId, (Metric, Metric))],
+		) -> Result<BalanceFor<T, I>, Error<T, I>>
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
-			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
-				return Ok(None);
-			};
-
-			let Some(claim_epoch) = Self::can_claim(processor) else { return Ok(None) };
-
 			let total_reward = Self::compute_based_rewards().get(claim_epoch);
 			if total_reward.is_zero() {
-				return Ok(None);
+				return Ok(Zero::zero());
 			}
 
-			let mut p: ProcessorStateFor<T, I> =
-				Processors::<T, I>::get(processor).ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
-
 			let mut total_reward_ratio: Perquintill = Zero::zero();
-			for pool_id in pool_ids {
-				// we allow partial metrics committed (for backwards compatibility)
-				let Some(commit) = Metrics::<T, I>::get(processor, pool_id) else {
-					continue;
-				};
-
-				// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
-				if commit.epoch != p.committed {
-					continue;
-				}
-
+			for (pool_id, (_, metric_with_bonus_sum)) in claim_epoch_metric_sums {
 				let pool = <MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
 				let reward_ratio = pool.reward.get(claim_epoch);
 
@@ -1224,7 +1219,7 @@ pub mod pallet {
 					Zero::zero()
 				} else {
 					reward_ratio.saturating_mul(Perquintill::from_rational(
-						commit.metric.into_inner(),
+						metric_with_bonus_sum.into_inner(),
 						pool_total.into_inner(),
 					))
 				};
@@ -1233,51 +1228,10 @@ pub mod pallet {
 					total_reward_ratio.saturating_add(compute_weighted_reward_ratio);
 			}
 
-			let reward: BalanceFor<T, I> = total_reward_ratio
-				.mul_floor::<u128>(total_reward.into())
-				.saturating_add(p.accrued.into())
-				.into();
+			let reward: BalanceFor<T, I> =
+				total_reward_ratio.mul_floor::<u128>(total_reward.into()).into();
 
-			#[allow(clippy::bind_instead_of_map)]
-			let _ = T::Currency::transfer(
-				&T::PalletId::get().into_account_truncating(),
-				&manager,
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.and_then(|_| {
-				p.paid = p.paid.saturating_add(reward);
-				p.accrued = Zero::zero();
-				Ok(())
-			})
-			.or_else(|e| {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to distribute reward; accrueing instead for later pay out. {:?}",
-					e
-				);
-				// amount remains in accrued
-				p.accrued = p.accrued.saturating_add(reward);
-				Ok::<_, DispatchError>(())
-			});
-
-			p.claimed = claim_epoch;
-
-			Processors::<T, I>::insert(processor, p);
-
-			Ok(Some(reward))
-		}
-
-		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T>> {
-			let p = Processors::<T, I>::get(processor)?;
-			let current_block = <frame_system::Pallet<T>>::block_number();
-			(p.committed.saturating_add(One::one()) == Self::current_cycle().epoch
-				&& p.claimed < p.committed
-				&& match p.status {
-					ProcessorStatus::WarmupUntil(b) => b <= current_block,
-					ProcessorStatus::Active => true,
-				})
-			.then_some(p.committed)
+			Ok(reward)
 		}
 
 		/// Helper to only commit compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.
@@ -1287,12 +1241,15 @@ pub mod pallet {
 		/// See [`Self::commit`] for how this is used to commit metrics and claim for past commits.
 		pub(crate) fn do_commit(
 			processor: &T::AccountId,
+			manager: &(T::AccountId, T::ManagerId),
 			metrics: &[MetricInput],
 			pool_ids: &[PoolId],
-		) {
+			cycle: CycleFor<T>,
+		) -> BalanceFor<T, I>
+		where
+			BalanceFor<T, I>: IsType<u128>,
+		{
 			let current_block = <frame_system::Pallet<T>>::block_number();
-			// The global epoch number
-			let cycle = Self::current_cycle();
 
 			let active = Processors::<T, I>::mutate(processor, |p_| {
 				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(|| {
@@ -1315,88 +1272,61 @@ pub mod pallet {
 				matches!(p.status, ProcessorStatus::Active)
 			});
 
-			let manager = T::ManagerProviderForEligibleProcessor::lookup(processor);
-			let manager_id = manager
-				.clone()
-				.map(|manager| T::ManagerIdProvider::manager_id_for(&manager).ok())
-				.unwrap_or(None);
-			let any_first_in_epoch = if !metrics.is_empty() {
+			let manager_id = manager.1;
+			let maybe_previous_epoch_metric_sums = if !metrics.is_empty() {
 				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle)
 			} else {
 				Self::reuse_metrics(processor, manager_id, active, cycle)
 			};
 
-			if any_first_in_epoch {
-				let Some(manager_id) = manager_id else {
-					return;
-				};
+			let mut result: BalanceFor<T, I> = Zero::zero();
+
+			if let Some(previous_epoch_metric_sums) = maybe_previous_epoch_metric_sums {
+				let last_epoch = cycle.epoch.saturating_sub(One::one());
+				let metric_rewards =
+					Self::do_claim(last_epoch, previous_epoch_metric_sums.as_slice())
+						.unwrap_or_default();
+				result = result.saturating_add(metric_rewards);
 				let Some(commitment_id) = Self::backing_lookup(manager_id) else {
-					return;
+					return result;
 				};
-				Commitments::<T, I>::mutate(commitment_id, |commitment| {
+				let bonus = Commitments::<T, I>::mutate(commitment_id, |commitment| {
 					let Some(commitment) = commitment.as_mut() else {
-						return;
+						return Zero::zero();
 					};
-					if commitment.last_scoring_epoch < cycle.epoch {
-						commitment.last_scoring_epoch = cycle.epoch;
-
-						let last_epoch = cycle.epoch.saturating_sub(One::one());
-
-						// distribute for LAST epoch
-						// use heartbeat for distribution even if not active (whatever processor heartbeats should distribute)
-						match Self::distribute(last_epoch, commitment_id, commitment, pool_ids) {
-							Ok(bonus) => {
-								if !bonus.is_zero() {
-									if let Some(manager) = manager {
-										#[allow(clippy::bind_instead_of_map)]
-										let _ = T::Currency::transfer(
-											&T::PalletId::get().into_account_truncating(),
-											&manager, // bonus goes to manager since he pays for fees for heartbeats, reports etc
-											bonus,
-											ExistenceRequirement::KeepAlive,
-										)
-										.or_else(|e| {
-											log::warn!(
-												target: LOG_TARGET,
-												"Failed to distribute bonus. {:?}",
-												e
-											);
-
-											Ok::<_, DispatchError>(())
-										});
-									}
-								}
-							},
-							Err(e) => {
-								log::error!(
-									target: LOG_TARGET,
-									"Distribution for stake-based rewards failed: {:?}",
-									e,
-								);
-							},
-						}
-
-						if let Err(e) =
-							Self::score(last_epoch, cycle.epoch, commitment_id, manager_id)
-						{
-							log::error!(
-								target: LOG_TARGET,
-								"Distribution for stake-based rewards failed: {:?}",
-								e,
-							);
-						}
+					if commitment.last_scoring_epoch >= cycle.epoch {
+						return Zero::zero();
 					}
+
+					commitment.last_scoring_epoch = cycle.epoch;
+
+					// distribute for LAST epoch
+					// use heartbeat for distribution even if not active (whatever processor heartbeats should distribute)
+					let bonus = Self::distribute(last_epoch, commitment_id, commitment, pool_ids)
+						.unwrap_or_default();
+					_ = Self::score(
+						last_epoch,
+						cycle.epoch,
+						commitment_id,
+						commitment,
+						previous_epoch_metric_sums.as_slice(),
+					);
+
+					bonus
 				});
+				result = result.saturating_add(bonus);
 			}
+
+			result
 		}
 
 		fn update_metrics_epoch_sum(
 			manager_id: T::ManagerId,
-			pool_id: &PoolId,
+			pool_id: PoolId,
 			metric: Metric,
 			epoch: EpochOf<T>,
 			bonus: bool,
-		) {
+		) -> Option<(PoolId, (Metric, Metric))> {
 			let metric_with_bonus = if bonus {
 				let bonus =
 					FixedU128::from_inner(T::BusyWeightBonus::get().mul_floor(metric.into_inner()));
@@ -1405,6 +1335,7 @@ pub mod pallet {
 				metric
 			};
 			<MetricsEpochSum<T, I>>::mutate(manager_id, pool_id, |sum| {
+				let prev_epoch = sum.epoch;
 				sum.mutate(
 					epoch,
 					|(metric_sum, metric_with_bonus_sum)| {
@@ -1414,19 +1345,24 @@ pub mod pallet {
 					},
 					false,
 				);
-			});
+				if prev_epoch < epoch && epoch - prev_epoch == One::one() {
+					Some((pool_id, sum.get(prev_epoch)))
+				} else {
+					None
+				}
+			})
 		}
 
 		fn commit_new_metrics(
 			processor: &T::AccountId,
-			manager_id: Option<T::ManagerId>,
+			manager_id: T::ManagerId,
 			metrics: &[MetricInput],
 			active: bool,
 			cycle: CycleFor<T>,
-		) -> bool {
+		) -> Option<Vec<(PoolId, (Metric, Metric))>> {
 			let epoch = cycle.epoch;
 
-			let mut any_first_in_epoch = false;
+			let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 			for (pool_id, numerator, denominator) in metrics {
 				let Some(metric) = FixedU128::checked_from_rational(
 					*numerator,
@@ -1442,8 +1378,6 @@ pub mod pallet {
 					})
 					.unwrap_or(true);
 				if first_in_epoch {
-					any_first_in_epoch = true;
-
 					// insert even if not active for tracability before warmup ended
 					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
 
@@ -1455,36 +1389,39 @@ pub mod pallet {
 							}
 						});
 
-						if let Some(manager_id) = manager_id {
-							Self::update_metrics_epoch_sum(
-								manager_id, pool_id, metric, epoch, false,
-							);
+						if let Some(prev_sum) = Self::update_metrics_epoch_sum(
+							manager_id, *pool_id, metric, epoch, false,
+						) {
+							prev_metrics_sum.push(prev_sum);
 						}
 					}
 				}
 			}
-
-			any_first_in_epoch
+			if prev_metrics_sum.len() == metrics.len() {
+				Some(prev_metrics_sum)
+			} else {
+				None
+			}
 		}
 
 		fn reuse_metrics(
 			processor: &T::AccountId,
-			manager_id: Option<T::ManagerId>,
+			manager_id: T::ManagerId,
 			active: bool,
 			cycle: CycleFor<T>,
-		) -> bool {
+		) -> Option<Vec<(PoolId, (Metric, Metric))>> {
 			let epoch = cycle.epoch;
 
-			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
+			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = vec![];
 			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(processor) {
 				if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
 					to_update.push((pool_id, metric));
 				}
 			}
-			let any_first_in_epoch = !to_update.is_empty();
+			let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
+			let to_update_length = to_update.len();
 			for (pool_id, commit) in to_update {
 				// if we are here we now that this reused metric is "first_in_epoch" since we reuse maximally once per epoch
-
 				Metrics::<T, I>::insert(
 					processor,
 					pool_id,
@@ -1499,18 +1436,22 @@ pub mod pallet {
 						}
 					});
 
-					if let Some(manager_id) = manager_id {
-						Self::update_metrics_epoch_sum(
-							manager_id,
-							&pool_id,
-							commit.metric,
-							epoch,
-							true,
-						);
+					if let Some(prev_sum) = Self::update_metrics_epoch_sum(
+						manager_id,
+						pool_id,
+						commit.metric,
+						epoch,
+						true,
+					) {
+						prev_metrics_sum.push(prev_sum);
 					}
 				}
 			}
-			any_first_in_epoch
+			if prev_metrics_sum.len() == to_update_length {
+				Some(prev_metrics_sum)
+			} else {
+				None
+			}
 		}
 
 		/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.

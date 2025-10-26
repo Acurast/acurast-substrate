@@ -1,5 +1,5 @@
 use acurast_common::{
-	AccountLookup, AttestationValidator, IsFundableCall, ManagerIdProvider,
+	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup,
 	ProcessorVersionProvider, Version,
 };
 use frame_support::{
@@ -71,7 +71,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<BalanceFor<T>> {
+	pub(crate) fn do_reward_distribution(
+		processor: &T::AccountId,
+		manager: &T::AccountId,
+	) -> Option<BalanceFor<T>> {
 		let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
 			<ProcessorRewardDistributionWindow<T>>::remove(processor);
 			return None;
@@ -80,10 +83,6 @@ impl<T: Config> Pallet<T> {
 			<ProcessorRewardDistributionWindow<T>>::remove(processor);
 			return None;
 		}
-		let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		};
 		let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
 		let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
 		else {
@@ -107,7 +106,7 @@ impl<T: Config> Pallet<T> {
 		{
 			let result = T::Currency::transfer(
 				&distribution_settings.distributor_account,
-				&manager,
+				manager,
 				distribution_settings.reward_per_distribution,
 				ExistenceRequirement::KeepAlive,
 			);
@@ -186,10 +185,19 @@ impl<T: Config> ProcessorVersionProvider<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
-	fn lookup(processor: &T::AccountId) -> Option<T::AccountId> {
-		let manager_id = Self::manager_id_for_processor(processor)?;
-		T::ManagerIdProvider::owner_for(manager_id).ok()
+impl<T: Config> ManagerLookup for Pallet<T> {
+	type AccountId = T::AccountId;
+	type ManagerId = T::ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
+		let manager_id = Self::lookup_manager_id(processor)?;
+		T::ManagerIdProvider::owner_for(manager_id)
+			.ok()
+			.map(|account_id| (account_id, manager_id))
+	}
+
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Self::manager_id_for_processor(processor)
 	}
 }
 
@@ -292,7 +300,7 @@ where
 	}
 
 	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId {
-		let mut manager = Self::lookup(account);
+		let mut manager = Self::lookup(account).map(|(account_id, _)| account_id);
 
 		if manager.is_none() {
 			if let Some((pairing, _, _)) = Self::pairing_for_call(call) {

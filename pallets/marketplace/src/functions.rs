@@ -2,8 +2,7 @@ use frame_support::{
 	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
 };
 use pallet_acurast::{
-	utils::ensure_source_verified, AccountLookup, IsFundableCall, JobId, JobRegistrationFor,
-	StoredJobRegistration,
+	utils::ensure_source_verified, IsFundableCall, JobId, JobRegistrationFor, StoredJobRegistration,
 };
 use reputation::{BetaParameters, BetaReputation, ReputationEngine};
 use sp_core::Get;
@@ -67,10 +66,7 @@ impl<T: Config> Pallet<T> {
 				&assignment,
 			)?;
 
-		// the manager might have unpaired the processor in which case reward payment is skipped
-		if let Some(manager) = T::ManagerProvider::lookup(processor) {
-			T::RewardManager::pay_reward(job_id, assignment.fee_per_execution, &manager)?;
-		}
+		T::RewardManager::handle_reward(job_id, assignment.fee_per_execution)?;
 
 		Self::do_update_reputation(processor, &assignment, missing_reports)?;
 

@@ -73,6 +73,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
+		Self::ManagerId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,

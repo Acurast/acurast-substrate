@@ -2,7 +2,7 @@ use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
 	ProcessorPairingFor, ProcessorPairingUpdateFor, Proof, RewardDistributionSettings, UpdateInfo,
 };
-use acurast_common::{AccountLookup, ListUpdateOperation, Version};
+use acurast_common::{ListUpdateOperation, ManagerLookup, Version};
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
 use hex_literal::hex;
 use pallet_balances::Event as BalancesEvent;
@@ -52,7 +52,10 @@ fn test_update_processor_pairings_succeed_1() {
 		assert_ok!(call);
 		assert_eq!(Some(1), AcurastProcessorManager::last_manager_id());
 		assert_eq!(Some(1), AcurastProcessorManager::manager_id_for_processor(&processor_account));
-		assert_eq!(Some(alice_account_id()), AcurastProcessorManager::lookup(&processor_account));
+		assert_eq!(
+			Some(alice_account_id()),
+			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
+		);
 		assert!(AcurastProcessorManager::managed_processors(1, &processor_account).is_some());
 		let last_events = events();
 		assert_eq!(
@@ -127,7 +130,10 @@ fn test_update_processor_pairings_succeed_2() {
 
 		assert_eq!(Some(2), AcurastProcessorManager::last_manager_id());
 		assert_eq!(Some(2), AcurastProcessorManager::manager_id_for_processor(&processor_account));
-		assert_eq!(Some(bob_account_id()), AcurastProcessorManager::lookup(&processor_account));
+		assert_eq!(
+			Some(bob_account_id()),
+			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
+		);
 		assert!(AcurastProcessorManager::managed_processors(2, &processor_account).is_some());
 		let last_events = events();
 		assert_eq!(
@@ -342,7 +348,7 @@ fn test_pair_with_manager() {
 		assert_eq!(Some(1), AcurastProcessorManager::manager_id_for_processor(&processor_account));
 		assert_eq!(
 			Some(manager_account.clone()),
-			AcurastProcessorManager::lookup(&processor_account)
+			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
 		);
 		assert!(AcurastProcessorManager::managed_processors(1, &processor_account).is_some());
 		let last_events = events();
@@ -394,7 +400,7 @@ fn test_multi_pair_with_manager() {
 		);
 		assert_eq!(
 			Some(manager_account.clone()),
-			AcurastProcessorManager::lookup(&processor_account_1)
+			AcurastProcessorManager::lookup(&processor_account_1).map(|(account_id, _)| account_id)
 		);
 		assert!(AcurastProcessorManager::managed_processors(1, &processor_account_1).is_some());
 		let last_events = events();
@@ -442,7 +448,7 @@ fn test_onboard() {
 		assert_eq!(Some(1), AcurastProcessorManager::manager_id_for_processor(&processor_account));
 		assert_eq!(
 			Some(manager_account.clone()),
-			AcurastProcessorManager::lookup(&processor_account)
+			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
 		);
 		assert!(AcurastProcessorManager::managed_processors(1, &processor_account).is_some());
 		let last_events = events();

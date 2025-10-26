@@ -25,7 +25,7 @@ pub trait CommitmentIdProvider<AccountId, CommitmentId> {
 }
 
 /// A trait to describe hooks the `pallet_acruast_compute` provides.
-pub trait ComputeHooks<AccountId, Balance> {
+pub trait ComputeHooks<AccountId, ManagerId, Balance> {
 	/// Commits compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.
 	///
 	/// **The caller has to ensure the passed processor is allowed to commit**.
@@ -35,13 +35,21 @@ pub trait ComputeHooks<AccountId, Balance> {
 	/// # Errors
 	///
 	/// **Unknown pools are silently skipped.**
-	fn commit(processor: &AccountId, metrics: &[MetricInput]) -> Option<Balance>
+	fn commit(
+		processor: &AccountId,
+		manager: &(AccountId, ManagerId),
+		metrics: &[MetricInput],
+	) -> Option<Balance>
 	where
 		Balance: IsType<u128>;
 }
 
-impl<AccountId, Balance> ComputeHooks<AccountId, Balance> for () {
-	fn commit(_processor: &AccountId, _metrics: &[MetricInput]) -> Option<Balance>
+impl<AccountId, ManagerId, Balance> ComputeHooks<AccountId, ManagerId, Balance> for () {
+	fn commit(
+		_processor: &AccountId,
+		_manager: &(AccountId, ManagerId),
+		_metrics: &[MetricInput],
+	) -> Option<Balance>
 	where
 		Balance: IsType<u128>,
 	{
@@ -58,8 +66,12 @@ pub trait EnsureAttested<AccountId> {
 	fn ensure_attested(processor: &AccountId) -> DispatchResult;
 }
 
-pub trait AccountLookup<AccountId> {
-	fn lookup(processor: &AccountId) -> Option<AccountId>;
+pub trait ManagerLookup {
+	type AccountId;
+	type ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)>;
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId>;
 }
 
 pub trait AttestationValidator<AccountId> {

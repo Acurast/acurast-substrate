@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use acurast_common::{AccountLookup, CommitmentIdProvider, ManagerIdProvider};
+use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerLookup};
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
@@ -177,10 +177,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 thread_local! {
-	static MANAGER_MAPPINGS: RefCell<HashMap<AccountId32, AccountId32>> = RefCell::new({
+	static MANAGER_MAPPINGS: RefCell<HashMap<AccountId32, (AccountId32, <Test as Config>::ManagerId)>> = RefCell::new({
 		let mut map = HashMap::new();
-		map.insert(alice_account_id(), charlie_account_id());
-		map.insert(bob_account_id(), charlie_account_id());
+		map.insert(alice_account_id(), (charlie_account_id(), 1));
+		map.insert(bob_account_id(), (charlie_account_id(), 1));
 		map
 	});
 
@@ -219,7 +219,19 @@ impl MockManagerProvider<AccountId32> {
 	/// Set a custom processor -> manager mapping for tests
 	pub fn set_mapping(processor: AccountId32, manager: AccountId32) {
 		MANAGER_MAPPINGS.with(|mappings| {
-			mappings.borrow_mut().insert(processor, manager);
+			let manager_id = mappings
+				.borrow()
+				.values()
+				.find_map(|(account, id)| {
+					if account == &manager {
+						return Some(*id);
+					}
+					None
+				})
+				.unwrap_or(MANAGER_MAPPINGS.with_borrow(|mappings| {
+					mappings.values().map(|(_, id)| *id).max().unwrap_or_default().saturating_add(1)
+				}));
+			mappings.borrow_mut().insert(processor, (manager, manager_id));
 		});
 	}
 
@@ -231,16 +243,21 @@ impl MockManagerProvider<AccountId32> {
 	}
 }
 
-impl<AccountId: Clone + IsType<AccountId32>> AccountLookup<AccountId>
-	for MockManagerProvider<AccountId>
-{
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
+impl<AccountId: Clone + IsType<AccountId32>> ManagerLookup for MockManagerProvider<AccountId> {
+	type AccountId = AccountId;
+	type ManagerId = <Test as Config>::ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
 		let processor_id: AccountId32 = processor.clone().into();
 
 		// Check custom mappings first
 		MANAGER_MAPPINGS
 			.with(|mappings| mappings.borrow().get(&processor_id).cloned())
-			.map(|a| a.into())
+			.map(|(account_id, id)| (account_id.into(), id))
+	}
+
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Self::lookup(processor).map(|(_, id)| id)
 	}
 }
 

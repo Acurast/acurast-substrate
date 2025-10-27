@@ -706,7 +706,7 @@ where
 			allow_auto_compound.unwrap_or(old_delegation.stake.allow_auto_compound);
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
-		let reward = Self::end_delegation_for(who, commitment_id, false)?;
+		let reward = Self::end_delegation_for(who, commitment_id, false, false)?;
 		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
@@ -1072,7 +1072,7 @@ where
 		}
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
-		let reward = Self::end_delegation_for(who, old_commitment_id, false)?;
+		let reward = Self::end_delegation_for(who, old_commitment_id, false, false)?;
 		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
@@ -1098,6 +1098,7 @@ where
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		check_cooldown: bool,
+        attempt_kickout: bool,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 		let epoch = Self::current_cycle().epoch;
@@ -1167,6 +1168,10 @@ where
 			if let Some(committer_stake) = commitment.stake.clone() {
 				// skip if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
 				if delegation.stake.created >= committer_stake.created {
+                    if attempt_kickout {
+                        Err(Error::<T, I>::CannotKickout)?;
+                    }
+
 					commitment.delegations_total_amount =
 						commitment.delegations_total_amount.saturating_sub(delegation.stake.amount);
 					commitment.delegations_total_rewardable_amount = commitment
@@ -1206,6 +1211,25 @@ where
 
 		Ok(reward)
 	}
+
+    pub fn kickout_delegation(
+		delegator: &T::AccountId,
+		commitment_id: T::CommitmentId,
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+        let reward = Self::end_delegation_for(delegator, commitment_id, false, true)?;
+		let distribution_account = Self::account_id();
+		if !reward.is_zero() {
+			T::Currency::transfer(
+				&distribution_account,
+				delegator,
+				reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+
+        Ok(reward)
+    }
 
 	pub fn end_commitment_for(
 		who: &T::AccountId,

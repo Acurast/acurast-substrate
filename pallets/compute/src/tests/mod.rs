@@ -2693,7 +2693,7 @@ fn test_end_delegation_without_cooldown() {
 
 		// Call end_delegation_for directly with check_cooldown: false
 		// This should succeed even though cooldown hasn't ended
-		let compound_amount = Compute::end_delegation_for(&delegator, commitment_id, false);
+		let compound_amount = Compute::end_delegation_for(&delegator, commitment_id, false, false);
 		assert_ok!(compound_amount);
 
 		// Verify the delegation has been ended by checking storage

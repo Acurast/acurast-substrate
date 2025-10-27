@@ -405,8 +405,8 @@ pub mod pallet {
 		ComputeCommitmentCooldownStarted(T::CommitmentId),
 		/// The cooldown for a commitment has ended. [commitment_id, reward_amount]
 		ComputeCommitmentEnded(T::CommitmentId, BalanceFor<T, I>),
-		/// A delegator got kicked out. [delegator, commitment_id]
-		KickedOut(T::AccountId, T::CommitmentId),
+		/// A delegator got kicked out. [delegator, commitment_id, reward_amount]
+		KickedOut(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 		/// A commitment got slahsed. [commitment_id]
 		Slashed(T::CommitmentId),
 		/// A delegation was moved from one commitment to another. [delegator, old_commitment_id, new_commitment_id]
@@ -473,6 +473,7 @@ pub mod pallet {
 		CannotCommit,
 		StaleDelegationMustBeEnded,
 		EndStaleDelegationsFirst,
+        CannotKickout,
 	}
 
 	#[pallet::hooks]
@@ -956,7 +957,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			let reward_amount = Self::end_delegation_for(&who, commitment_id, true)?;
+			let reward_amount = Self::end_delegation_for(&who, commitment_id, true, false)?;
 
 			Self::deposit_event(Event::<T, I>::DelegationEnded(who, commitment_id, reward_amount));
 			Ok(().into())
@@ -972,9 +973,9 @@ pub mod pallet {
 			let _who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			// TODO
+		    let reward_amount = Self::end_delegation_for(&delegator, commitment_id, true, true)?;
 
-			Self::deposit_event(Event::<T, I>::KickedOut(delegator, commitment_id));
+			Self::deposit_event(Event::<T, I>::KickedOut(delegator, commitment_id, reward_amount));
 
 			Ok(Pays::No.into())
 		}

@@ -9,16 +9,17 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::ConstU32;
-use sp_runtime::BoundedVec;
+use sp_runtime::{traits::Zero, BoundedVec};
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 4] = [
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 5] = [
 		(5, &migrate_to_v5::<T, I>),
 		(6, &migrate_to_v6::<T, I>),
 		(7, &migrate_to_v7::<T, I>),
 		(8, &migrate_to_v8::<T, I>),
+		(9, &migrate_to_v9::<T, I>),
 	];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
@@ -128,6 +129,68 @@ pub fn migrate_to_v8<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
 
 	(weight, true)
+}
+
+/// Migrates `Commitment` by adding the `last_slashing_epoch` field
+pub fn migrate_to_v9<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	let mut weight = Weight::zero();
+
+	// Count and translate all Commitment entries
+	let count = Commitments::<T, I>::iter().count();
+	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
+
+	Commitments::<T, I>::translate::<v8::CommitmentFor<T, I>, _>(
+		|_commitment_id, old_commitment| {
+			// Add the new last_slashing_epoch field, initialized to zero
+			Some(CommitmentFor::<T, I> {
+				stake: old_commitment.stake,
+				commission: old_commitment.commission,
+				delegations_total_amount: old_commitment.delegations_total_amount,
+				delegations_total_rewardable_amount: old_commitment
+					.delegations_total_rewardable_amount,
+				weights: old_commitment.weights,
+				pool_rewards: old_commitment.pool_rewards,
+				last_scoring_epoch: old_commitment.last_scoring_epoch,
+				last_slashing_epoch: Zero::zero(),
+			})
+		},
+	);
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
+
+	(weight, true)
+}
+
+pub mod v8 {
+	use core::ops::Add;
+
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode};
+	use sp_runtime::{
+		traits::{Debug, One},
+		Perbill,
+	};
+
+	/// Old Commitment struct without last_slashing_epoch field
+	#[derive(
+		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+	)]
+	pub struct Commitment<
+		Balance: Debug,
+		BlockNumber: Debug + Ord + Copy,
+		Epoch: Debug + Ord + Copy + One + Add<Output = Epoch>,
+	> {
+		pub stake: Option<Stake<Balance, BlockNumber>>,
+		pub commission: Perbill,
+		pub delegations_total_amount: Balance,
+		pub delegations_total_rewardable_amount: Balance,
+		pub weights: MemoryBuffer<Epoch, CommitmentWeights>,
+		pub pool_rewards: MemoryBuffer<BlockNumber, PoolReward>,
+		pub last_scoring_epoch: Epoch,
+	}
+
+	pub type CommitmentFor<T, I> = Commitment<BalanceFor<T, I>, BlockNumberFor<T>, EpochOf<T>>;
 }
 
 pub mod v5 {

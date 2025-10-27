@@ -35,6 +35,7 @@ parameter_types! {
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
+	pub const BaseSlashAmount: Balance = 10 * UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
@@ -65,6 +66,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CooldownRewardRatio = CooldownRewardRatio;
 	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashAmount = BaseSlashAmount;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

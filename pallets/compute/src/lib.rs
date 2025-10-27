@@ -131,6 +131,9 @@ pub mod pallet {
 		/// The minimum stake by a committer.
 		#[pallet::constant]
 		type MinStake: Get<BalanceFor<Self, I>>;
+		/// The base slash amount applied when a commitment fails to deliver committed metrics.
+		#[pallet::constant]
+		type BaseSlashAmount: Get<BalanceFor<Self, I>>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
@@ -370,7 +373,7 @@ pub mod pallet {
 	pub type V7MigrationState<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -473,7 +476,9 @@ pub mod pallet {
 		CannotCommit,
 		StaleDelegationMustBeEnded,
 		EndStaleDelegationsFirst,
-        CannotKickout,
+		CannotKickout,
+		AlreadySlashed,
+		NotSlashable,
 	}
 
 	#[pallet::hooks]
@@ -973,7 +978,7 @@ pub mod pallet {
 			let _who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-		    let reward_amount = Self::end_delegation_for(&delegator, commitment_id, true, true)?;
+			let reward_amount = Self::end_delegation_for(&delegator, commitment_id, true, true)?;
 
 			Self::deposit_event(Event::<T, I>::KickedOut(delegator, commitment_id, reward_amount));
 
@@ -986,7 +991,7 @@ pub mod pallet {
 			let _who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			// TODO
+			Self::do_slash(commitment_id)?;
 
 			Self::deposit_event(Event::<T, I>::Slashed(commitment_id));
 

@@ -131,7 +131,7 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 3; // can redelegate once per 3 epochs
 	pub const MinStake: Balance = UNIT;
-
+	pub const BaseSlashAmount: Balance = UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
@@ -159,6 +159,7 @@ impl Config for Test {
 	type CooldownRewardRatio = CooldownRewardRatio;
 	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashAmount = BaseSlashAmount;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

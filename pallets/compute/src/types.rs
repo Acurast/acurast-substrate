@@ -410,6 +410,9 @@ pub struct Commitment<
 
 	/// The epoch number in which any processor belonging to this commitment did calculate scores.
 	pub last_scoring_epoch: Epoch,
+
+	/// The epoch number in which this commitment was last slashed. Used to prevent double slashing.
+	pub last_slashing_epoch: Epoch,
 }
 
 #[derive(

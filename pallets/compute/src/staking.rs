@@ -477,6 +477,7 @@ where
 					),
 					pool_rewards: MemoryBuffer::new_with(created, Default::default()),
 					last_scoring_epoch: Zero::zero(),
+					last_slashing_epoch: Zero::zero(),
 				});
 			}
 
@@ -1098,7 +1099,7 @@ where
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		check_cooldown: bool,
-        attempt_kickout: bool,
+		attempt_kickout: bool,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 		let epoch = Self::current_cycle().epoch;
@@ -1168,9 +1169,9 @@ where
 			if let Some(committer_stake) = commitment.stake.clone() {
 				// skip if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
 				if delegation.stake.created >= committer_stake.created {
-                    if attempt_kickout {
-                        Err(Error::<T, I>::CannotKickout)?;
-                    }
+					if attempt_kickout {
+						Err(Error::<T, I>::CannotKickout)?;
+					}
 
 					commitment.delegations_total_amount =
 						commitment.delegations_total_amount.saturating_sub(delegation.stake.amount);
@@ -1212,11 +1213,11 @@ where
 		Ok(reward)
 	}
 
-    pub fn kickout_delegation(
+	pub fn kickout_delegation(
 		delegator: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
-        let reward = Self::end_delegation_for(delegator, commitment_id, false, true)?;
+		let reward = Self::end_delegation_for(delegator, commitment_id, false, true)?;
 		let distribution_account = Self::account_id();
 		if !reward.is_zero() {
 			T::Currency::transfer(
@@ -1228,8 +1229,8 @@ where
 			.map_err(|_| Error::<T, I>::InternalError)?;
 		}
 
-        Ok(reward)
-    }
+		Ok(reward)
+	}
 
 	pub fn end_commitment_for(
 		who: &T::AccountId,
@@ -1281,6 +1282,139 @@ where
 		// The case of no remaining delegations is handled above by taking out the option with `c_.take()`.
 
 		Ok(reward)
+	}
+
+	pub fn do_slash(commitment_id: T::CommitmentId) -> Result<(), Error<T, I>> {
+		let epoch = Self::current_cycle().epoch;
+		let last_epoch =
+			epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::CalculationOverflow)?;
+
+		let commitment = Self::commitments(commitment_id).ok_or(Error::CommitmentNotFound)?;
+
+		// Check if already slashed in the last epoch to prevent double slashing
+		ensure!(commitment.last_slashing_epoch < last_epoch, Error::<T, I>::AlreadySlashed);
+
+		let manager_id = <Backings<T, I>>::get(commitment_id)
+			.ok_or(Error::<T, I>::NoManagerBackingCommitment)?;
+
+		// Calculate the total slash amount across all pools
+		let mut total_slash_amount: BalanceFor<T, I> = Zero::zero();
+
+		// Check all pools for which there are commitments
+		for (pool_id, committed_metric) in <ComputeCommitments<T, I>>::iter_prefix(commitment_id) {
+			// Get the pool to access its reward ratio
+			let pool = <MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
+
+			// Get the pool's reward ratio for the last epoch
+			let pool_reward_ratio = pool.reward.get(last_epoch);
+
+			// Get actual metrics delivered in the last epoch
+			let metric_epoch_sum = MetricsEpochSum::<T, I>::get(manager_id, pool_id);
+			let (actual_metric_sum, _) = metric_epoch_sum.get(last_epoch);
+
+			let missed_epochs: u128 =
+				if actual_metric_sum.is_zero() && metric_epoch_sum.epoch < last_epoch {
+					// we still now an "old" value since it got not overwritten and we can slash for all the epoch's missed
+					last_epoch.saturating_sub(metric_epoch_sum.epoch).saturated_into::<u128>()
+				} else {
+					One::one()
+				};
+
+			// Calculate slash amount for this pool
+			let pool_slash_amount: BalanceFor<T, I> =
+				if let Some(unfulfilled) = committed_metric.checked_sub(&actual_metric_sum) {
+					let unfulfilled_ratio = Perquintill::from_rational(
+						unfulfilled.into_inner(),
+						committed_metric.into_inner(),
+					);
+
+					// Calculate pool's share of base slash amount
+					let pool_max_slash = pool_reward_ratio
+						.mul_floor(T::BaseSlashAmount::get().saturated_into::<u128>());
+
+					unfulfilled_ratio.mul_floor(pool_max_slash).saturating_mul(missed_epochs).into()
+				} else {
+					// Metrics fulfilled, no slash for this pool
+					Zero::zero()
+				};
+
+			total_slash_amount = total_slash_amount
+				.checked_add(&pool_slash_amount)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+		}
+
+		ensure!(!total_slash_amount.is_zero(), Error::<T, I>::NotSlashable);
+
+		// Get the slash weights for this epoch
+		let weights = commitment.weights.get(last_epoch);
+		let total_slash_weight = weights.total_slash_weight();
+
+		// If no slash weight, nothing to slash; technically never happens but avoids division-by-zero below
+		if total_slash_weight.is_zero() {
+			return Ok(());
+		}
+
+		// Calculate self share and delegations share based on slash weights
+		let self_share_u256 = weights
+			.self_slash_weight
+			.checked_mul(U256::from(total_slash_amount.saturated_into::<u128>()))
+			.ok_or(Error::<T, I>::CalculationOverflow)?
+			.checked_div(total_slash_weight)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+		let delegations_share_u256 = U256::from(total_slash_amount.saturated_into::<u128>())
+			.checked_sub(self_share_u256)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+		// Convert to balance types
+		let self_slash_amount: BalanceFor<T, I> = self_share_u256.saturated_into::<u128>().into();
+		let delegations_slash_amount: BalanceFor<T, I> =
+			delegations_share_u256.saturated_into::<u128>().into();
+
+		// Calculate slash increase on delegation pool slash_per_weight
+		let slash_per_weight_increase =
+			if !weights.delegations_slash_weight.is_zero() && !delegations_slash_amount.is_zero() {
+				Some(
+					delegations_share_u256
+						.checked_mul(U256::from(PER_TOKEN_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(weights.delegations_slash_weight)
+						.ok_or(Error::<T, I>::CalculationOverflow)?,
+				)
+			} else {
+				None
+			};
+
+		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
+			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+			let stake = c.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+			// Apply slash to committer
+			stake.accrued_slash = stake
+				.accrued_slash
+				.checked_add(&self_slash_amount)
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+			// Apply slash to delegation pool if applicable
+			if let Some(increase) = slash_per_weight_increase {
+				c.pool_rewards
+					.mutate(
+						stake.created,
+						|r| {
+							r.slash_per_weight = r.slash_per_weight.saturating_add(increase);
+						},
+						true,
+					)
+					.map_err(|_| Error::<T, I>::InternalError)?;
+			}
+
+			// Set last_slashing_epoch to prevent double slashing
+			c.last_slashing_epoch = last_epoch;
+
+			Ok(())
+		})?;
+
+		Ok(())
 	}
 
 	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {

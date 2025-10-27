@@ -39,6 +39,7 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
 	pub const MinStake: Balance = UNIT;
+	pub const BaseSlashAmount: Balance = 10 * UNIT;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B
@@ -67,6 +68,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CooldownRewardRatio = CooldownRewardRatio;
 	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashAmount = BaseSlashAmount;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

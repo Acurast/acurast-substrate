@@ -648,6 +648,7 @@ where
 				)
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
+			Self::update_total_stake(StakeChange::Add(amount))?;
 			// delegator_total += amount
 			<DelegatorTotal<T, I>>::try_mutate(who, |s| -> Result<(), Error<T, I>> {
 				*s = s.checked_add(&amount).ok_or(Error::<T, I>::CalculationOverflow)?;

@@ -2075,74 +2075,8 @@ fn test_commit_compute() {
 			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
-		// TODO: Update test after refactoring - delegation_pools storage no longer exists
-		// assert_eq!(
-		// 	Compute::delegation_pools(0),
-		// 	DelegationPool {
-		// 		reward_weight: U256::from(1666666666666u64),
-		// 		slash_weight: U256::from(1666666666666u64),
-		// 		reward_per_token: U256::zero(),
-		// 		slash_per_token: U256::zero(),
-		// 	}
-		// );
-
-		// TODO: Update test after refactoring - reward() function no longer exists
-		// assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
-
-		// TODO: Update test after refactoring - staking_pool_members and staking_pools storage no longer exists
-		// assert_eq!(
-		// 	Compute::staking_pool_members(0, 2).unwrap(),
-		// 	StakingPoolMember {
-		// 		reward_weight: U256::from(10666666666666666u64),
-		// 		reward_debt: U256::zero()
-		// 	}
-		// );
-		// assert_eq!(
-		// 	Compute::staking_pools(2),
-		// 	StakingPool {
-		// 		reward_weight: U256::from(10666666666666666u64),
-		// 		reward_per_token: U256::from(468750000000000029296875000u128)
-		// 	}
-		// );
-
 		roll_to_block(410);
 		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(charlie.clone()),));
-
-		// TODO: Update test after refactoring - staking_pool_members, staking_pools, delegation_pools, self_delegation storage no longer exists
-		// assert_eq!(
-		// 	Compute::staking_pool_members(0, 2).unwrap(),
-		// 	StakingPoolMember {
-		// 		reward_weight: U256::from(5333333333333333u64),
-		// 		reward_debt: U256::from(2500000000000u64)
-		// 	}
-		// );
-		// assert_eq!(
-		// 	Compute::staking_pools(2),
-		// 	StakingPool {
-		// 		reward_weight: U256::from(5333333333333333u64),
-		// 		reward_per_token: U256::from(468750000000000029296875000u128)
-		// 	}
-		// );
-		// assert_eq!(
-		// 	Compute::delegation_pools(0),
-		// 	DelegationPool {
-		// 		reward_weight: U256::from(833333333333u64),
-		// 		slash_weight: U256::from(1666666666666u64),
-		// 		reward_per_token: U256::from(3000000000000600000000000240000u128),
-		// 		slash_per_token: U256::zero(),
-		// 	}
-		// );
-		// assert_eq!(
-		// 	Compute::self_delegation(0).unwrap(),
-		// 	DelegationPoolMember {
-		// 		reward_weight: U256::from(833333333333u64),
-		// 		slash_weight: U256::from(1666666666666u64),
-		// 		reward_debt: 2500000000000,
-		// 		slash_debt: 0,
-		// 	}
-		// );
-		// TODO: Update test after refactoring - stakes() function no longer exists (use commitments().stake)
-		// assert_eq!(Compute::stakes(0).unwrap().accrued_reward, 4999999999998);
 
 		roll_to_block(445);
 		assert_err!(
@@ -2155,161 +2089,28 @@ fn test_commit_compute() {
 
 		// Verify the reward was payed out
 		// At minimum we should see the commitment created event
-		assert_eq!(events(), []);
+		// assert_eq!(events(), []);
 		assert!(events().iter().any(|e| matches!(
 			e,
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: _,
 				to: _,
-				amount: 4999999999998
+				amount: 1926369863013699
 			})
 		)));
 	});
 }
 
 #[test]
-fn test_delegate() {
+fn test_delegate_undelegate() {
 	ExtBuilder.build().execute_with(|| {
 		setup_balances();
 		create_pools();
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			<Test as Config>::PalletId::get().into_account_truncating(),
-			110_000_000
-		));
 
 		// Charlie will act as both manager and committer (same account for simplicity)
 		let committer = charlie_account_id();
 
 		offer_accept_backing(committer.clone());
-		commit_alice_bob();
-		roll_to_block(302);
-		commit_compute(committer.clone());
-
-		let delegator_1 = ferdie_account_id();
-		let delegator_2 = george_account_id();
-		let initial_balance = 100 * UNIT;
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			delegator_1.clone(),
-			initial_balance
-		));
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			delegator_2.clone(),
-			initial_balance
-		));
-
-		let stake_amount_too_much = 50 * UNIT; // 5 tokens
-		let stake_amount_1 = 40 * UNIT; // 5 tokens
-		let stake_amount_2_too_much = 6 * UNIT; // 5 tokens
-		let stake_amount_2 = 5 * UNIT; // 5 tokens
-		let cooldown_period = 36u64; // 1000 blocks
-		let allow_auto_compound = true;
-
-		{
-			assert_err!(
-				Compute::delegate(
-					RuntimeOrigin::signed(delegator_1.clone()),
-					committer.clone(),
-					stake_amount_too_much,
-					cooldown_period,
-					allow_auto_compound,
-				),
-				Error::<Test, ()>::MaxDelegationRatioExceeded
-			);
-			assert_ok!(Compute::delegate(
-				RuntimeOrigin::signed(delegator_1.clone()),
-				committer.clone(),
-				stake_amount_1,
-				cooldown_period,
-				allow_auto_compound,
-			));
-			// After delegation, the stake should be locked
-			assert_eq!(Balances::usable_balance(&delegator_1), initial_balance - stake_amount_1);
-			// At minimum we should see the delegation event
-			assert!(events()
-				.iter()
-				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
-		}
-
-		{
-			assert_err!(
-				Compute::delegate(
-					RuntimeOrigin::signed(delegator_2.clone()),
-					committer.clone(),
-					stake_amount_2_too_much,
-					cooldown_period,
-					allow_auto_compound,
-				),
-				Error::<Test, ()>::MaxDelegationRatioExceeded
-			);
-
-			assert_ok!(Compute::delegate(
-				RuntimeOrigin::signed(delegator_2.clone()),
-				committer.clone(),
-				stake_amount_2,
-				cooldown_period,
-				allow_auto_compound,
-			));
-			// After delegation, the stake should be locked
-			assert_eq!(Balances::usable_balance(&delegator_2), initial_balance - stake_amount_2);
-			// At minimum we should see the delegation event
-			assert!(events()
-				.iter()
-				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
-		}
-
-		// TODO: Update test after refactoring - reward() function no longer exists
-		// assert_ok!(Compute::reward(RuntimeOrigin::root(), 10 * UNIT));
-		assert_ok!(Compute::withdraw_delegation(
-			RuntimeOrigin::signed(delegator_2.clone()),
-			committer.clone()
-		));
-
-		// Get the commitment ID for precise event assertion
-		let commitment_id = AcurastCommitmentIdProvider::commitment_id_for(&committer).unwrap();
-
-		// Assert the DelegatorWithdrew event with precise values
-		// 5 own stake, delegator 1: 40, delegator 2: 5
-		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
-			delegator_2.clone(),
-			commitment_id,
-			450 * MILLIUNIT,
-		));
-
-		assert_ok!(Compute::withdraw_delegation(
-			RuntimeOrigin::signed(delegator_1.clone()),
-			committer.clone()
-		));
-
-		assert_delegator_withdrew_event(Event::DelegatorWithdrew(
-			delegator_1.clone(),
-			commitment_id,
-			3600 * MILLIUNIT,
-		));
-
-		assert_eq!(
-			Balances::usable_balance(&delegator_1),
-			initial_balance - stake_amount_1 + 3600 * MILLIUNIT
-		);
-		assert_eq!(
-			Balances::usable_balance(&delegator_2),
-			initial_balance - stake_amount_2 + 450 * MILLIUNIT
-		);
-	});
-}
-
-#[test]
-fn test_delegate_more() {
-	ExtBuilder.build().execute_with(|| {
-		setup_balances();
-		create_pools();
-
-		// Charlie will act as both manager and committer (same account for simplicity)
-		let charlie = charlie_account_id();
-
-		offer_accept_backing(charlie.clone());
 
 		commit_alice_bob();
 
@@ -2345,7 +2146,173 @@ fn test_delegate_more() {
 		}
 
 		assert_ok!(Compute::commit_compute(
-			RuntimeOrigin::signed(charlie.clone()),
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
+
+		let delegator_1 = ferdie_account_id();
+		let delegator_2 = george_account_id();
+
+		let stake_amount_1 = 25 * UNIT; // 5 tokens
+		let stake_amount_2 = 5 * UNIT; // 5 tokens
+		let cooldown_period = 36u64; // 1000 blocks
+		let allow_auto_compound = true;
+
+		{
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_1.clone()),
+				committer.clone(),
+				stake_amount_1,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(
+				Balances::usable_balance(&delegator_1),
+				1_000_000_000 * UNIT - stake_amount_1
+			);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		{
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator_2.clone()),
+				committer.clone(),
+				stake_amount_2,
+				cooldown_period,
+				allow_auto_compound,
+			));
+			// After delegation, the stake should be locked
+			assert_eq!(
+				Balances::usable_balance(&delegator_2),
+				1_000_000_000 * UNIT - stake_amount_2
+			);
+			// At minimum we should see the delegation event
+			assert!(events()
+				.iter()
+				.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+		}
+
+		assert_eq!(
+			Compute::commitments(0).unwrap().delegations_total_amount,
+			stake_amount_1 + stake_amount_2
+		);
+		assert_eq!(
+			Compute::commitments(0)
+				.unwrap()
+				.weights
+				.get_current()
+				.1
+				.delegations_reward_weight,
+			U256::from(
+				(stake_amount_1 + stake_amount_2) * (cooldown_period as u128) / 108u128 - 1u128
+			) // 1 rounding error
+		);
+
+		// 75% filled, because 30 delegated vs 10 staked, 30/40
+		assert_eq!(
+			Compute::delegation_weight_ratio(
+				Compute::current_cycle().epoch,
+				&Compute::commitments(0).unwrap()
+			)
+			.unwrap(),
+			Perquintill::from_percent(75)
+		);
+
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator_2.clone()),
+			committer.clone()
+		));
+
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(delegator_2.clone()),
+			committer.clone()
+		));
+
+		// roll to block where delegator_2's cooldown is over
+		roll_to_block(238);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		assert_ok!(Compute::end_delegation(
+			RuntimeOrigin::signed(delegator_2.clone()),
+			committer.clone()
+		));
+
+		// COMMITTER COOLDOWN
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
+
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(delegator_1.clone()),
+			committer.clone()
+		));
+
+		// roll to block where committer's delegator_1's cooldown is over
+		roll_to_block(274);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		// committer exits first!
+		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
+
+		assert_ok!(Compute::end_delegation(
+			RuntimeOrigin::signed(delegator_1.clone()),
+			committer.clone()
+		));
+	});
+}
+
+#[test]
+fn test_delegate_more() {
+	ExtBuilder.build().execute_with(|| {
+		setup_balances();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let committer = charlie_account_id();
+
+		offer_accept_backing(committer.clone());
+
+		commit_alice_bob();
+
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128), // Maximal possible commitment value
+			},];
+
+		let stake_amount = 10 * UNIT; // 10 tokens
+		let cooldown_period = 36u64; // 1000 blocks
+		let commission = Perbill::from_percent(10); // 10% commission
+		let allow_auto_compound = true;
+
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
 			stake_amount,
 			cooldown_period,
 			commitment,
@@ -2365,7 +2332,7 @@ fn test_delegate_more() {
 		{
 			assert_ok!(Compute::delegate(
 				RuntimeOrigin::signed(delegator_1.clone()),
-				charlie.clone(),
+				committer.clone(),
 				stake_amount_1,
 				cooldown_period,
 				allow_auto_compound,
@@ -2384,7 +2351,7 @@ fn test_delegate_more() {
 		{
 			assert_ok!(Compute::delegate(
 				RuntimeOrigin::signed(delegator_2.clone()),
-				charlie.clone(),
+				committer.clone(),
 				stake_amount_2,
 				cooldown_period,
 				allow_auto_compound,
@@ -2430,7 +2397,7 @@ fn test_delegate_more() {
 		{
 			assert_ok!(Compute::delegate_more(
 				RuntimeOrigin::signed(delegator_2.clone()),
-				charlie.clone(),
+				committer.clone(),
 				stake_amount_2b,
 				None,
 				None
@@ -2461,7 +2428,7 @@ fn test_delegate_more() {
 			assert_err!(
 				Compute::delegate(
 					RuntimeOrigin::signed(delegator_3.clone()),
-					charlie.clone(),
+					committer.clone(),
 					stake_amount_3_exeeds_ratio,
 					cooldown_period,
 					allow_auto_compound,

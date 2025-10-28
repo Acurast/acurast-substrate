@@ -373,7 +373,7 @@ pub mod pallet {
 	pub type V7MigrationState<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

@@ -14,12 +14,13 @@ use sp_runtime::{traits::Zero, BoundedVec};
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 5] = [
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 6] = [
 		(5, &migrate_to_v5::<T, I>),
 		(6, &migrate_to_v6::<T, I>),
 		(7, &migrate_to_v7::<T, I>),
 		(8, &migrate_to_v8::<T, I>),
 		(9, &migrate_to_v9::<T, I>),
+		(10, &migrate_to_v10::<T, I>),
 	];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
@@ -159,6 +160,59 @@ pub fn migrate_to_v9<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
 
 	(weight, true)
+}
+
+/// Migrates `MetricPool` by adding the `total_with_bonus` field
+pub fn migrate_to_v10<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	let mut weight = Weight::zero();
+
+	// Count and translate all MetricPool entries
+	let count = MetricPools::<T, I>::iter().count();
+	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
+
+	MetricPools::<T, I>::translate::<v9::MetricPoolFor<T>, _>(|_pool_id, old_pool| {
+		// Add the new total_with_bonus field, initialized with the same value as total
+		// since we don't have historical bonus data
+		Some(MetricPoolFor::<T> {
+			config: old_pool.config,
+			name: old_pool.name,
+			reward: old_pool.reward,
+			total: old_pool.total.clone(),
+			total_with_bonus: old_pool.total,
+		})
+	});
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
+
+	(weight, true)
+}
+
+pub mod v9 {
+	use core::ops::Add;
+
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode};
+	use sp_runtime::{
+		traits::{Debug, One},
+		FixedU128, Perquintill,
+	};
+
+	/// Old MetricPool struct without total_with_bonus field
+	#[derive(
+		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+	)]
+	pub struct MetricPool<
+		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
+		Value: Copy + Default + Debug,
+	> {
+		pub config: MetricPoolConfigValues,
+		pub name: MetricPoolName,
+		pub reward: ProvisionalBuffer<Epoch, Value>,
+		pub total: SlidingBuffer<Epoch, FixedU128>,
+	}
+
+	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 }
 
 pub mod v8 {

@@ -3,7 +3,6 @@ use acurast_runtime_common::{
 	weight,
 };
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
-use frame_system::EnsureRoot;
 use pallet_acurast::{JobId, MultiOrigin, CU32};
 use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
 use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
@@ -16,8 +15,8 @@ use crate::benchmarking;
 use crate::{
 	AcurastCompute, AcurastHyperdrive, AcurastMarketplace, AcurastPalletId,
 	AcurastProcessorManager, Balances, DefaultFeePercentage, DefaultMatcherFeePercentage,
-	FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance,
-	Runtime, RuntimeEvent,
+	EnsureCouncilOrRoot, FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId,
+	ReportTolerance, Runtime, RuntimeEvent,
 };
 
 /// Runtime configuration for pallet_acurast_marketplace.
@@ -43,8 +42,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
-	type UpdateOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type UpdateOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -55,12 +54,10 @@ pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
 		DefaultFeePercentage::get()
-		// AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
 	}
 
 	fn get_matcher_percentage() -> sp_runtime::Percent {
 		DefaultMatcherFeePercentage::get()
-		// AcurastMatcherFeeManager::fee_percentage(AcurastMatcherFeeManager::fee_version())
 	}
 
 	fn pallet_id() -> PalletId {

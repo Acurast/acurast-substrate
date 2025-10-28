@@ -7,7 +7,6 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
 
 use acurast_runtime_common::{
 	constants::{MICROUNIT, MILLIUNIT, MINUTES, UNIT},
@@ -22,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 3,
-	spec_version: 117,
+	spec_version: 119,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -79,7 +78,6 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u16 = 42;
-	pub const UncleGenerations: u32 = 0;
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;
@@ -94,8 +92,6 @@ parameter_types! {
 	pub const MaxCandidates: u32 = 20;
 	pub const MinCandidates: u32 = 2;
 	pub const MaxInvulnerables: u32 = 100;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub Admins: Vec<AccountId> = vec![];
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
@@ -150,15 +146,14 @@ parameter_types! {
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 
 	pub const Epoch: BlockNumber = 131072;
-	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
 
 	pub const DivestTolerance: BlockNumber = 128;
 	pub const MaximumLockingPeriod: BlockNumber = 16777216; // ~8 years
 	pub const BalanceUnit: Balance = UNIT;
 
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
-	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
-	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
+	pub const PreimageBaseDeposit: Balance = UNIT;
+	pub const PreimageByteDeposit: Balance = MICROUNIT;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
@@ -170,7 +165,7 @@ parameter_types! {
 	pub const DepositFactor: Balance = deposit(0, 20);
 	pub const MaxSignatories: u32 = 100;
 
-	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0;
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 

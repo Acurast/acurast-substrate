@@ -1,11 +1,15 @@
-use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec};
-use pallet_acurast::MultiOrigin;
+use frame_support::{
+	pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::fungible::Inspect,
+};
+use pallet_acurast::{MultiOrigin, Subject};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use strum_macros::{EnumString, IntoStaticStr};
+
+use crate::Config;
 
 pub type TransferNonce = u64;
 pub type EnableNonce = u32;
@@ -99,3 +103,9 @@ impl From<DispatchError> for ProcessMessageResult {
 		ProcessMessageResult::ProcessingFailed(value)
 	}
 }
+
+pub type BalanceFor<T, I> =
+	<<T as Config<I>>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type SubjectFor<T> =
+	Subject<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId>;

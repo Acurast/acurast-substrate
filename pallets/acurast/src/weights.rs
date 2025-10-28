@@ -117,7 +117,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: Acurast StoredRevokedCertificate (r:0 w:1)
 	/// Proof: Acurast StoredRevokedCertificate (max_values: None, max_size: Some(37), added: 2512, mode: MaxEncodedLen)
-	fn update_certificate_revocation_list() -> Weight {
+	fn update_certificate_revocation_list(_x: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

@@ -1,5 +1,4 @@
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
-use frame_system::EnsureRoot;
 use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
 use sp_std::prelude::*;
@@ -15,10 +14,10 @@ use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastCompute, AcurastFeeManager, AcurastHyperdrive, AcurastMarketplace,
-	AcurastMatcherFeeManager, AcurastPalletId, AcurastProcessorManager, Balances,
-	FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId, ReportTolerance,
-	Runtime, RuntimeEvent,
+	AcurastCompute, AcurastHyperdrive, AcurastMarketplace, AcurastPalletId,
+	AcurastProcessorManager, Balances, DefaultFeePercentage, DefaultMatcherFeePercentage,
+	EnsureCouncilOrRoot, FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId,
+	ReportTolerance, Runtime, RuntimeEvent,
 };
 
 /// Runtime configuration for pallet_acurast_marketplace.
@@ -44,8 +43,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
-	type UpdateOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type UpdateOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
@@ -55,11 +54,11 @@ impl pallet_acurast_marketplace::Config for Runtime {
 pub struct FeeManagement;
 impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 	fn get_fee_percentage() -> sp_runtime::Percent {
-		AcurastFeeManager::fee_percentage(AcurastFeeManager::fee_version())
+		DefaultFeePercentage::get()
 	}
 
 	fn get_matcher_percentage() -> sp_runtime::Percent {
-		AcurastMatcherFeeManager::fee_percentage(AcurastMatcherFeeManager::fee_version())
+		DefaultMatcherFeePercentage::get()
 	}
 
 	fn pallet_id() -> PalletId {

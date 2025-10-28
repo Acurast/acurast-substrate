@@ -355,7 +355,7 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) => {
 					if cfg!(feature = "runtime-benchmarks") {
-						return runner.sync_run(|config| {
+						runner.sync_run(|config| {
 							match config.chain_spec.variant() {
 								#[cfg(any(
 									feature = "acurast-local",
@@ -374,7 +374,7 @@ pub fn run() -> Result<()> {
 									acurast_mainnet_runtime::Block,
 								>, ReclaimHostFunctions>(Some(config.chain_spec)),
 							}
-						});
+						})
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
@@ -408,14 +408,11 @@ pub fn run() -> Result<()> {
 					})
 				},
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) => {
-					return Err(sc_cli::Error::Input(
-						"Compile with --features=runtime-benchmarks \
+				BenchmarkCmd::Storage(_) => Err(sc_cli::Error::Input(
+					"Compile with --features=runtime-benchmarks \
 						to enable storage benchmarks."
-							.into(),
-					)
-					.into())
-				},
+						.into(),
+				)),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| match config.chain_spec.variant() {
 					#[cfg(any(
@@ -478,10 +475,10 @@ pub fn run() -> Result<()> {
 
 				// allow command line argument to overwrite para_id from chain_spec
 				let id = ParaId::from(match cli.run.parachain_id {
-					Some(id) => id.clone(),
+					Some(id) => id,
 					None => chain_spec::Extensions::try_get(&*config.chain_spec)
 						.map(|e| e.para_id)
-						.ok_or_else(|| "Could not find parachain ID in chain-spec.")?,
+						.ok_or("Could not find parachain ID in chain-spec.")?,
 				});
 
 				let parachain_account =

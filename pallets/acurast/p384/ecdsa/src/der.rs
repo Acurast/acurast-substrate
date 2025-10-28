@@ -279,11 +279,12 @@ mod tests {
 	#[test]
 	fn test_fixed_to_asn1_signature_roundtrip() {
 		let signature1 =
-			<Signature as signature_vendored::Signature>::from_bytes(&EXAMPLE_SIGNATURE).unwrap();
+			<Signature as signature_vendored::Signature>::from_bytes(&EXAMPLE_SIGNATURE)
+				.expect("Proper signature");
 
 		// Convert to ASN.1 DER and back
 		let asn1_signature = signature1.to_der();
-		let signature2 = Signature::from_der(asn1_signature.as_ref()).unwrap();
+		let signature2 = Signature::from_der(asn1_signature.as_ref()).expect("Proper signature");
 
 		assert_eq!(signature1, signature2);
 	}

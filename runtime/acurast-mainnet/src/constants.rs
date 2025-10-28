@@ -7,7 +7,6 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_runtime::{traits::AccountIdConversion, AccountId32, Perbill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
 
 use acurast_runtime_common::{
 	constants::{HOURS, MICROUNIT, MILLIUNIT, UNIT},
@@ -51,30 +50,6 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
-/// The permissioned multisig account `5DoK1CQfR86SLvmYxwBTvmavUAqfF5thayDpCvEnQDRd77Je`.
-///
-/// It consists of pre-generated 1-out-of-3 multisig account built from (in this order):
-///
-/// * Hex: `0x6ed85136cf2f86fafd38ca4655ce6188fb73fc0ca3e4eecd0eac38a4c87c0b41`
-///
-///   SS58: `5Ea3PESLfJ8uKbbbFNRyyitkfXBnPq8YAhRA4c7xg4o7cDaN`
-///
-/// * Hex: `0x94161be257be99009a7ee8d454c843f28f3ed9c720a07d284c07709fbcaffe06`
-///
-///   SS58: `5FQsWe1avwD29FFTJ3DtiDsJX6JGmjtW7vkaLes1QUUVdcPV`
-///
-/// * Hex: `0xeef4553e2fa8225cea907b6d467afbe05064a947afe54882a1085421e1d1ad66`
-///
-///   SS58: `5HU1qRoaEdeP4dNZU2JcPFNwE14SJvAWgXUfAFUqmdy4TdyQ`
-pub const ADMIN_ACCOUNT_ID: AccountId = AccountId32::new([
-	225, 96, 141, 169, 196, 68, 108, 63, 177, 69, 193, 246, 118, 195, 160, 124, 207, 95, 169, 146,
-	34, 7, 154, 77, 28, 19, 179, 190, 41, 22, 66, 26,
-]);
-
-// The purpose of this offset is to ensure that a democratic proposal will not apply in the same
-// block as a round change.
-pub const ENACTMENT_OFFSET: u32 = 900;
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 
@@ -105,7 +80,6 @@ parameter_types! {
 	pub const SS58Prefix: u16 = 42;
 
 	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
-	pub const UncleGenerations: u32 = 0;
 
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;
@@ -128,8 +102,6 @@ parameter_types! {
 	pub const MaxCandidates: u32 = 20;
 	pub const MinCandidates: u32 = 4;
 	pub const MaxInvulnerables: u32 = 100;
-	pub const ExecutiveBody: BodyId = BodyId::Executive;
-	pub Admins: Vec<AccountId> = vec![];
 
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hyperpid");
@@ -141,6 +113,8 @@ parameter_types! {
 	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
+	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
+
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.mainnet";
@@ -177,11 +151,10 @@ parameter_types! {
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 
 	pub const Epoch: BlockNumber = 131072;
-	pub Treasury: AccountId = FeeManagerPalletId::get().into_account_truncating();
 
 	pub const PreimageMaxSize: u32 = 4096 * 1024;
-	pub const PreimageBaseDeposit: Balance = 1 * UNIT;
-	pub const PreimageByteDeposit: Balance = 1 * MICROUNIT;
+	pub const PreimageBaseDeposit: Balance = UNIT / 10;
+	pub const PreimageByteDeposit: Balance = MICROUNIT;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
@@ -196,5 +169,4 @@ parameter_types! {
 
 ord_parameter_types! {
 	pub const RootAccountId: AccountId = AccountId32::new([0u8; 32]);
-	pub const Admin: AccountId = ADMIN_ACCOUNT_ID;
 }

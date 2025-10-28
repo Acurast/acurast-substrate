@@ -1,4 +1,5 @@
-use clap_num;
+#![allow(clippy::large_enum_variant)]
+
 use std::{path::PathBuf, time::Duration};
 
 /// Sub-commands supported by the collator.

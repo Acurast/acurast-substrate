@@ -131,7 +131,9 @@ parameter_types! {
 
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(30);
+	pub const TreasuryAccountId: AccountId = alice_account_id();
 }
 
 impl Config for Test {
@@ -157,7 +159,9 @@ impl Config for Test {
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedBackedRation = InflationStakedBackedRation;
+	type InflationStakedComputeRation = InflationStakedComputeRation;
+	type InflationMetricsRation = InflationMetricsRation;
+	type InflationHandler = ();
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();

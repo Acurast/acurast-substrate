@@ -12,6 +12,7 @@ edition = "2021"
 [dependencies]
 parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
+base58 = { workspace = true }
 # Substrate
 frame-support = { workspace = true }
 sp-core = { workspace = true }
@@ -20,6 +21,7 @@ sp-std = { workspace = true }
 asn1 = { version = "0.15.5", default-features = false, optional = true }
 p256 = { git = "https://github.com/Acurast/elliptic-curves", default-features = false, features = ["ecdsa", "sha256"], optional = true }
 p384 = { package = "p384_vendored", path = "../p384", default-features = false, features = ["ecdsa", "arithmetic", "expose-field"], optional = true }
+rsa = { version = "0.9", default-features = false, features = ["sha2"], optional = true }
 sha2 = { version = "0.10", default-features = false, optional = true }
 num-bigint = { version = "0.4.3", default-features = false, optional = true }
 ecdsa-vendored = { package = "ecdsa_vendored", path = "../p384/ecdsa", default-features = false, optional = true }
@@ -51,6 +53,7 @@ attestation = [
     "p256",
     "p384",
     "sha2",
+    "rsa",
     "num-bigint",
     "ecdsa-vendored",
     "chrono",

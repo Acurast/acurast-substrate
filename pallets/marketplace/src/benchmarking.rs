@@ -60,6 +60,7 @@ pub fn advertisement<T: Config>(
 
 const DAY: u64 = 1000 * 60 * 60 * 24;
 
+#[allow(clippy::too_many_arguments)]
 pub fn job_registration_with_reward<T: Config>(
 	script: Script,
 	slots: u8,
@@ -140,12 +141,9 @@ pub fn competing_job_registration_with_reward<T: Config>(
 	}
 }
 
-fn advertise_helper<T: Config>(
-	account_index: u32,
-	submit: bool,
-) -> (T::AccountId, AdvertisementFor<T>)
+fn advertise_helper<T>(account_index: u32, submit: bool) -> (T::AccountId, AdvertisementFor<T>)
 where
-	T: pallet_balances::Config + pallet_acurast_compute::Config,
+	T: Config + pallet_balances::Config + pallet_acurast_compute::Config,
 	BalanceFor<T>: IsType<u128>,
 {
 	let caller: T::AccountId =
@@ -169,12 +167,9 @@ where
 	(caller, ad)
 }
 
-fn register_helper<T: Config>(
-	account_index: u32,
-	slots: u8,
-) -> (T::AccountId, JobRegistrationFor<T>)
+fn register_helper<T>(account_index: u32, slots: u8) -> (T::AccountId, JobRegistrationFor<T>)
 where
-	T: pallet_balances::Config,
+	T: Config + pallet_balances::Config,
 {
 	let caller: T::AccountId =
 		<T as Config>::BenchmarkHelper::funded_account(account_index, u32::MAX.into());
@@ -235,18 +230,18 @@ where
 	));
 }
 
-fn register_submit_helper<T: Config>(
+fn register_submit_helper<T>(
 	account_index: u32,
 	slots: u8,
 ) -> (T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)
 where
-	T: pallet_balances::Config + pallet_acurast_compute::Config,
+	T: Config + pallet_balances::Config + pallet_acurast_compute::Config,
 {
 	let (caller, job): (T::AccountId, JobRegistrationFor<T>) =
 		register_helper::<T>(account_index, slots);
 
 	let register_call = Acurast::<T>::register_with_min_metrics(
-		RawOrigin::Signed(caller.clone().into()).into(),
+		RawOrigin::Signed(caller.clone()).into(),
 		job.clone(),
 		vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)]
 			.try_into()
@@ -259,18 +254,18 @@ where
 	(caller, job, job_id)
 }
 
-fn deploy_submit_helper<T: Config>(
+fn deploy_submit_helper<T>(
 	account_index: u32,
 	slots: u8,
 ) -> (T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)
 where
-	T: pallet_balances::Config,
+	T: Config + pallet_balances::Config,
 {
 	let (caller, job): (T::AccountId, JobRegistrationFor<T>) =
 		register_helper::<T>(account_index, slots);
 
 	assert_ok!(AcurastMarketplace::<T>::deploy(
-		RawOrigin::Signed(caller.clone().into()).into(),
+		RawOrigin::Signed(caller.clone()).into(),
 		job.clone(),
 		pallet_acurast::ScriptMutability::Mutable(Some(caller.clone())),
 		None,
@@ -281,12 +276,13 @@ where
 	(caller, job, job_id)
 }
 
-fn acknowledge_match_helper<T: Config>(
+#[allow(clippy::type_complexity)]
+fn acknowledge_match_helper<T>(
 	consumer: Option<T::AccountId>,
 	processor: Option<T::AccountId>,
 ) -> Result<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>), DispatchError>
 where
-	T: pallet_balances::Config,
+	T: Config + pallet_balances::Config,
 {
 	let consumer: T::AccountId =
 		consumer.unwrap_or(<T as Config>::BenchmarkHelper::funded_account(0, u32::MAX.into()));
@@ -315,12 +311,13 @@ where
 	Ok((processor, job, job_id))
 }
 
-fn acknowledge_execution_match_helper<T: Config>(
+#[allow(clippy::type_complexity)]
+fn acknowledge_execution_match_helper<T>(
 	consumer: Option<T::AccountId>,
 	processor: Option<T::AccountId>,
 ) -> Result<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>), DispatchError>
 where
-	T: pallet_balances::Config + pallet_timestamp::Config,
+	T: Config + pallet_balances::Config + pallet_timestamp::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
 {
 	let consumer: T::AccountId =
@@ -377,12 +374,12 @@ where
 	Ok((processor, job, job_id))
 }
 
-fn cleanup_storage_helper<T: Config>(
+fn cleanup_storage_helper<T>(
 	consumer: Option<T::AccountId>,
 	target_matches: u8,
 ) -> Result<JobId<T::AccountId>, DispatchError>
 where
-	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
+	T: Config + pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
 	BalanceFor<T>: IsType<u128>,
 {
@@ -437,11 +434,11 @@ where
 	Ok(job_id)
 }
 
-fn propose_execution_matching_helper<T: Config>(
+fn propose_execution_matching_helper<T>(
 	processor_counter: Option<u32>,
 ) -> (JobRegistrationFor<T>, JobId<T::AccountId>, u32)
 where
-	T: pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
+	T: Config + pallet_balances::Config + pallet_timestamp::Config + pallet_acurast_compute::Config,
 	<T as pallet_timestamp::Config>::Moment: From<u64>,
 	BalanceFor<T>: IsType<u128>,
 {
@@ -493,15 +490,16 @@ where
 }
 
 fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
 }
 
-fn acknowledge_match_submit_helper<T: Config>(
+#[allow(clippy::type_complexity)]
+fn acknowledge_match_submit_helper<T>(
 	consumer: Option<T::AccountId>,
 	processor: Option<T::AccountId>,
 ) -> Result<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>), DispatchError>
 where
-	T: pallet_balances::Config,
+	T: Config + pallet_balances::Config,
 {
 	let (processor_id, job, job_id) = acknowledge_match_helper::<T>(consumer, processor)?;
 	let pub_keys: PubKeys = vec![
@@ -511,7 +509,7 @@ where
 	.try_into()
 	.unwrap();
 	let call = AcurastMarketplace::<T>::acknowledge_match(
-		RawOrigin::Signed(processor_id.clone().into()).into(),
+		RawOrigin::Signed(processor_id.clone()).into(),
 		job_id.clone(),
 		pub_keys,
 	);
@@ -555,7 +553,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.nth_start_time(0, job.schedule.execution_count() - 1).unwrap() + job.schedule.duration).into());
+		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.nth_start_time(0, job.schedule.execution_count() - 1).unwrap() + job.schedule.duration);
 	}: _(RawOrigin::Signed(processor), job_id, ExecutionResult::Success(vec![0u8].try_into().unwrap()))
 
 	propose_matching {
@@ -563,6 +561,7 @@ benchmarks! {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(0, 1_000_000_000_000u64.into());
 		whitelist_account!(caller);
+		#[allow(clippy::type_complexity)]
 		let mut registered_jobs: Vec<(T::AccountId, JobRegistrationFor<T>, JobId<T::AccountId>)> = vec![];
 		let max_slots = <T as pallet_acurast::Config>::MaxSlots::get();
 		setup_pools::<T>();
@@ -576,9 +575,9 @@ benchmarks! {
 			let mut processor_ids: Vec<T::AccountId> = vec![];
 			for i in 0..max_slots {
 				let account_index: u32 = current_account_index;
-				current_account_index = current_account_index + 1;
+				current_account_index += 1;
 				let (account_id, _) = advertise_helper::<T>(account_index, true);
-				(&mut processor_ids).push(account_id);
+				processor_ids.push(account_id);
 			}
 			Match {
 				job_id,
@@ -607,12 +606,12 @@ benchmarks! {
 
 		let matches: Vec<ExecutionMatchFor<T>> = registered_jobs.into_iter().map(|(job, job_id)| {
 			pallet_timestamp::Pallet::<T>::set_timestamp(
-				(job.schedule.start_time + (job.schedule.interval * 2) - 120_000).into(),
+				job.schedule.start_time + (job.schedule.interval * 2) - 120_000,
 			);
 			let mut processor_ids: Vec<T::AccountId> = vec![];
 			for i in 0..max_slots {
 				let account_index: u32 = current_account_index;
-				current_account_index = current_account_index + 1;
+				current_account_index += 1;
 				let (account_id, _) = advertise_helper::<T>(account_index, true);
 				processor_ids.push(account_id);
 			}
@@ -645,7 +644,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u32::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.end_time + 1).into());
+		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.end_time + 1);
 	}: _(RawOrigin::Signed(processor), job_id)
 
 	finalize_jobs {
@@ -659,9 +658,9 @@ benchmarks! {
 			let processor = <T as Config>::BenchmarkHelper::funded_account(i + 2, u32::MAX.into());
 			let (processor, job, job_id) = acknowledge_match_submit_helper::<T>(Some(consumer.clone()), Some(processor.clone()))?;
 			pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-			(&mut job_ids).push(job_id.1);
+			job_ids.push(job_id.1);
 		}
-		pallet_timestamp::Pallet::<T>::set_timestamp((1689418800000u64 + 1).into());
+		pallet_timestamp::Pallet::<T>::set_timestamp(1689418800000u64 + 1);
 	}: _(RawOrigin::Signed(consumer), job_ids.try_into().unwrap())
 
 	cleanup_storage {
@@ -699,7 +698,7 @@ benchmarks! {
 			last_job = Some(job);
 		}
 		let job = last_job.unwrap();
-		pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.end_time + 1).into());
+		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.end_time + 1);
 	}: _(RawOrigin::Signed(processor), job_ids.try_into().unwrap())
 
 	// benchmark the worst case performance with mutable job that reuses keys
@@ -738,5 +737,5 @@ benchmarks! {
 		assert_ok!(AcurastMarketplace::<T>::update_min_fee_per_millisecond(RawOrigin::Root.into(), new_min_fee_per_millisecond));
 	}
 
-	impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
+	//impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

@@ -14,9 +14,10 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "asn1",
+ "base58",
  "base64 0.13.1",
  "chrono",
  "ecdsa_vendored",
@@ -27,6 +28,7 @@ dependencies = [
  "p256",
  "p384_vendored",
  "parity-scale-codec",
+ "rsa",
  "scale-info",
  "serde",
  "sha2 0.10.8",
@@ -44,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -73,21 +75,24 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
- "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -95,6 +100,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
  "pallet-vesting",
@@ -129,7 +135,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-mainnet-runtime"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -157,21 +163,24 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
- "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -179,6 +188,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
  "pallet-vesting",
@@ -213,13 +223,14 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-mainnet-runtime",
  "acurast-rococo-runtime",
  "acurast-runtime-common",
  "async-trait",
+ "bigdecimal",
  "clap 4.5.20",
  "clap-num",
  "color-print",
@@ -292,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -325,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -354,21 +365,24 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
- "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
+ "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
@@ -376,6 +390,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-utility",
  "pallet-vesting",
@@ -410,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -435,7 +450,6 @@ dependencies = [
  "pallet-acurast",
  "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",
- "pallet-acurast-fee-manager",
  "pallet-acurast-hyperdrive",
  "pallet-acurast-hyperdrive-ibc",
  "pallet-acurast-hyperdrive-token",
@@ -445,7 +459,9 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-collective",
  "pallet-conviction-voting",
+ "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
  "pallet-referenda",
@@ -455,6 +471,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-uniques",
  "pallet-xcm",
  "parachains-common",
@@ -1491,6 +1508,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "bigdecimal"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "560f42649de9fa436b73517378a147ec21f6c997a546581df4b4b31677828934"
+dependencies = [
+ "autocfg",
+ "libm",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
 ]
 
 [[package]]
@@ -6140,6 +6170,9 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+dependencies = [
+ "spin 0.9.8",
+]
 
 [[package]]
 name = "lazycell"
@@ -7430,6 +7463,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-bigint-dig"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc84195820f291c7697304f3cbdadd1cb7199c0efc917ff5eafd71225c136151"
+dependencies = [
+ "byteorder",
+ "lazy_static",
+ "libm",
+ "num-integer",
+ "num-iter",
+ "num-traits",
+ "rand 0.8.5",
+ "smallvec",
+ "zeroize",
+]
+
+[[package]]
 name = "num-complex"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7471,6 +7521,17 @@ version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "num-iter"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1429034a0490724d0075ebb2bc9e875d6503c3cf69e235a8941aa757d83ef5bf"
+dependencies = [
+ "autocfg",
+ "num-integer",
  "num-traits",
 ]
 
@@ -7647,7 +7708,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -7671,7 +7732,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-candidate-preselection"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -7694,7 +7755,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-compute"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7711,7 +7772,6 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api",
  "sp-blockchain",
  "sp-core",
  "sp-io",
@@ -7721,41 +7781,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-acurast-fee-manager"
-version = "0.19.2"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-acurast-fulfillment-receiver"
-version = "0.19.2"
-dependencies = [
- "acurast-common",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.4.1",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
@@ -7787,15 +7814,17 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-ibc"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "alloy-sol-types",
+ "cumulus-primitives-core",
  "derive_more 0.99.18",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal 0.3.4",
+ "hex-literal 0.4.1",
  "log",
  "once_cell",
  "pallet-acurast",
@@ -7817,10 +7846,10 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-token"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
- "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
+ "cumulus-primitives-core",
  "derive_more 0.99.18",
  "frame-benchmarking",
  "frame-support",
@@ -7849,7 +7878,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "acurast-reputation",
@@ -7888,7 +7917,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7901,6 +7930,7 @@ dependencies = [
  "pallet-uniques",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-std",
@@ -7908,7 +7938,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7922,6 +7952,30 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-acurast-token-conversion"
+version = "0.20.0"
+dependencies = [
+ "acurast-common",
+ "cfg-if",
+ "derive_more 0.99.18",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -8212,6 +8266,23 @@ dependencies = [
  "scale-info",
  "sp-runtime",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-collective"
+version = "40.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.18.5#f4dba53bfac614b054735aa725d2b0c44efda414"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -9377,6 +9448,17 @@ dependencies = [
  "atomic-waker",
  "fastrand 2.1.1",
  "futures-io",
+]
+
+[[package]]
+name = "pkcs1"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8ffb9f10fa047879315e6625af03c164b16962a5368d724ed16323b68ace47f"
+dependencies = [
+ "der 0.7.9",
+ "pkcs8 0.10.2",
+ "spki 0.7.3",
 ]
 
 [[package]]
@@ -10919,7 +11001,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -10952,7 +11034,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -11579,6 +11661,27 @@ dependencies = [
  "libc",
  "rtoolbox",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "rsa"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78928ac1ed176a5ca1d17e578a1825f3d81ca54cf41053a592584b020cfd691b"
+dependencies = [
+ "const-oid",
+ "digest 0.10.7",
+ "num-bigint-dig",
+ "num-integer",
+ "num-traits",
+ "pkcs1",
+ "pkcs8 0.10.2",
+ "rand_core 0.6.4",
+ "sha2 0.10.8",
+ "signature 2.2.0",
+ "spki 0.7.3",
+ "subtle 2.6.1",
+ "zeroize",
 ]
 
 [[package]]

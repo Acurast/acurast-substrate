@@ -15,6 +15,7 @@ mod constants;
 mod pallets;
 mod types;
 mod utils;
+mod weights;
 pub mod xcm_config;
 
 pub use acurast_runtime_common::types::Balance;
@@ -61,6 +62,8 @@ mod runtime {
 	pub type Utility = pallet_utility;
 	#[runtime::pallet_index(9)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
+	#[runtime::pallet_index(26)]
+	pub type Proxy = pallet_proxy;
 
 	// Monetary stuff.
 	#[runtime::pallet_index(10)]
@@ -77,6 +80,18 @@ mod runtime {
 	pub type Referenda = pallet_referenda;
 	#[runtime::pallet_index(17)]
 	pub type ConvictionVoting = pallet_conviction_voting;
+	#[runtime::pallet_index(18)]
+	pub type Treasury = pallet_treasury<Instance1>;
+	#[runtime::pallet_index(19)]
+	pub type Council = pallet_collective<Instance1>;
+	#[runtime::pallet_index(25)]
+	pub type CouncilMembership = pallet_membership<Instance1>;
+	#[runtime::pallet_index(27)]
+	pub type OperationFunds = pallet_treasury<Instance2>;
+	#[runtime::pallet_index(28)]
+	pub type LiquidityFunds = pallet_treasury<Instance3>;
+	#[runtime::pallet_index(29)]
+	pub type ExtraFunds = pallet_treasury<Instance4>;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]
@@ -105,12 +120,8 @@ mod runtime {
 	pub type Acurast = pallet_acurast;
 	#[runtime::pallet_index(41)]
 	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
-	#[runtime::pallet_index(42)]
-	pub type AcurastFeeManager = pallet_acurast_fee_manager<Instance1>;
 	#[runtime::pallet_index(43)]
 	pub type AcurastMarketplace = pallet_acurast_marketplace;
-	#[runtime::pallet_index(44)]
-	pub type AcurastMatcherFeeManager = pallet_acurast_fee_manager<Instance2>;
 	#[runtime::pallet_index(45)]
 	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]
@@ -123,6 +134,8 @@ mod runtime {
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 	#[runtime::pallet_index(53)]
 	pub type AcurastHyperdriveToken = pallet_acurast_hyperdrive_token<Instance1>;
+	#[runtime::pallet_index(54)]
+	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

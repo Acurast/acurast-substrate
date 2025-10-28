@@ -4,6 +4,7 @@ use frame_support::{
 		traits::{ConstU16, ConstU32, ConstU64, IdentityLookup},
 		BuildStorage,
 	},
+	PalletId,
 };
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -81,13 +82,13 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 5;
-	pub const Treasury: AccountId = AccountId::new([7u8; 32]);
+	pub const RTPalletId: PalletId = PalletId(*b"acrstfee");
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Epoch = Epoch;
-	type Treasury = Treasury;
+	type PalletId = RTPalletId;
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

@@ -15,6 +15,7 @@ mod constants;
 mod pallets;
 mod types;
 mod utils;
+mod weights;
 pub mod xcm_config;
 
 pub use acurast_runtime_common::types::Balance;
@@ -61,6 +62,8 @@ mod runtime {
 	pub type Utility = pallet_utility;
 	#[runtime::pallet_index(9)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
+	#[runtime::pallet_index(26)]
+	pub type Proxy = pallet_proxy;
 
 	// Monetary stuff.
 	#[runtime::pallet_index(10)]
@@ -77,6 +80,18 @@ mod runtime {
 	pub type Referenda = pallet_referenda;
 	#[runtime::pallet_index(17)]
 	pub type ConvictionVoting = pallet_conviction_voting;
+	#[runtime::pallet_index(18)]
+	pub type Treasury = pallet_treasury<Instance1>;
+	#[runtime::pallet_index(19)]
+	pub type Council = pallet_collective<Instance1>;
+	#[runtime::pallet_index(25)]
+	pub type CouncilMembership = pallet_membership<Instance1>;
+	#[runtime::pallet_index(27)]
+	pub type OperationFunds = pallet_treasury<Instance2>;
+	#[runtime::pallet_index(28)]
+	pub type LiquidityFunds = pallet_treasury<Instance3>;
+	#[runtime::pallet_index(29)]
+	pub type ExtraFunds = pallet_treasury<Instance4>;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]
@@ -105,12 +120,8 @@ mod runtime {
 	pub type Acurast = pallet_acurast;
 	#[runtime::pallet_index(41)]
 	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
-	#[runtime::pallet_index(42)]
-	pub type AcurastFeeManager = pallet_acurast_fee_manager<Instance1>;
 	#[runtime::pallet_index(43)]
 	pub type AcurastMarketplace = pallet_acurast_marketplace;
-	#[runtime::pallet_index(44)]
-	pub type AcurastMatcherFeeManager = pallet_acurast_fee_manager<Instance2>;
 	#[runtime::pallet_index(45)]
 	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]
@@ -123,43 +134,11 @@ mod runtime {
 	pub type AcurastHyperdriveIbc = pallet_acurast_hyperdrive_ibc<Instance1>;
 	#[runtime::pallet_index(53)]
 	pub type AcurastHyperdriveToken = pallet_acurast_hyperdrive_token<Instance1>;
+	#[runtime::pallet_index(54)]
+	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sp_core::ByteArray;
-	use sp_runtime::AccountId32;
-	use std::str::FromStr;
-
-	use acurast_runtime_common::types::AccountId;
-
-	#[test]
-	fn create() {
-		// Public key bytes corresponding to account `0x0458ad576b404c1aa5404f2f8da1932a22ee3c0cd42e7cf567706d24201fbd1c`
-		let multisig_member1: AccountId =
-			AccountId32::from_str("5CAQPebv8ZzDk8pYR5mzWsUzamcsYxMgWuv5rMAtzrWTcgh1").unwrap();
-		// Public key bytes corresponding to account `0x0c3638b65541bcb16d29a38a7ff5fc7983978b5fa315aa7da528f05210e96f61`
-		let multisig_member2: AccountId =
-			AccountId32::from_str("5CLiYDEbpsdH8o6bYW6tDMfHi4NdsMWTmQ2WnsdU4H9CzcaL").unwrap();
-		// Public key bytes corresponding to account `0x10de214612b271e2cfee25f121222d6423fa722487ff2fe1cb9a42ff28407578`
-		let multisig_member3: AccountId =
-			AccountId32::from_str("5CSpcKHjBhPLBEcwh9a2jBagT2PVoAqnjMZ3xBY9n44G5Voo").unwrap();
-		let multisig_account =
-			Multisig::multi_account_id(&[multisig_member1, multisig_member2, multisig_member3], 2);
-
-		println!("{:?}", multisig_account.to_string());
-		println!("{:?}", multisig_account.as_slice());
-
-		assert_eq!(ADMIN_ACCOUNT_ID.as_slice(), multisig_account.as_slice());
-		assert_eq!(
-			"5HADK95FVMQRjh4uVFtGumgMdMgVqvtNQ3AGYpB9BNFjHVaZ",
-			multisig_account.to_string()
-		);
-	}
 }

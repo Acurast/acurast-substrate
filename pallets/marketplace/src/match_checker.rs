@@ -117,9 +117,6 @@ impl<T: Config> Pallet<T> {
 					registration.network_requests,
 				)?;
 
-				// CHECK remaining storage capacity sufficient and lock if check succeeds
-				<Pallet<T> as StorageTracker<T>>::lock(&planned_execution.source, &registration)?;
-
 				// CHECK source is whitelisted
 				ensure!(
 					is_processor_allowed::<T>(
@@ -349,9 +346,6 @@ impl<T: Config> Pallet<T> {
 					&registration.schedule,
 					registration.network_requests,
 				)?;
-
-				// CHECK remaining storage capacity sufficient and lock if check succeeds
-				<Pallet<T> as StorageTracker<T>>::lock(&planned_execution.source, &registration)?;
 
 				// CHECK source is whitelisted
 				ensure!(
@@ -624,129 +618,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Filters the given `sources` by those recently seen and matching partially specified `registration`
-	/// and whitelisting `consumer` if specifying a whitelist.
-	///
-	/// Intended to be called for providing runtime API, might return corresponding error.
-	pub fn filter_matching_sources(
-		registration: PartialJobRegistration<T::Balance, T::AccountId, T::MaxAllowedSources>,
-		sources: Vec<T::AccountId>,
-		consumer: Option<MultiOrigin<T::AccountId>>,
-		latest_seen_after: Option<u128>,
-	) -> Result<Vec<T::AccountId>, RuntimeApiError> {
-		let mut candidates = Vec::new();
-		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
-		for p in sources {
-			let valid_match =
-				match Self::check(&registration, &p, consumer.as_ref(), min_fee_per_millisecond) {
-					Ok(()) => {
-						if let Some(latest_seen_after) = latest_seen_after {
-							T::ProcessorInfoProvider::last_seen(&p)
-								.map(|last_seen| last_seen >= latest_seen_after)
-								.unwrap_or(false)
-						} else {
-							true
-						}
-					},
-					Err(e) => {
-						if !e.is_matching_error() {
-							return Err(RuntimeApiError::FilterMatchingSources);
-						}
-
-						false
-					},
-				};
-
-			if valid_match {
-				candidates.push(p);
-			}
-		}
-		Ok(candidates)
-	}
-
-	fn check(
-		registration: &PartialJobRegistrationForMarketplace<T>,
-		source: &T::AccountId,
-		consumer: Option<&MultiOrigin<T::AccountId>>,
-		min_fee_per_millisecond: T::Balance,
-	) -> Result<(), Error<T>> {
-		// CHECK attestation
-		ensure!(
-			!registration.allow_only_verified_sources
-				|| ensure_source_verified::<T>(source).is_ok(),
-			Error::<T>::UnverifiedSourceInMatch
-		);
-
-		let ad = <StoredAdvertisementRestriction<T>>::get(source)
-			.ok_or(Error::<T>::AdvertisementNotFound)?;
-
-		for required_module in &registration.required_modules {
-			ensure!(
-				ad.available_modules.contains(required_module),
-				Error::<T>::ModuleNotAvailableInMatch
-			);
-		}
-
-		let pricing = <StoredAdvertisementPricing<T>>::get(source)
-			.ok_or(Error::<T>::AdvertisementPricingNotFound)?;
-
-		if let Some(schedule) = &registration.schedule {
-			let now = Self::now()?;
-			ensure!(now < schedule.start_time, Error::<T>::OverdueMatch);
-
-			// CHECK the scheduling_window allow to schedule this job
-			Self::check_scheduling_window(&pricing.scheduling_window, schedule, now, 0)?;
-
-			// CHECK schedule
-			Self::fits_schedule(source, ExecutionSpecifier::All, schedule, 0)?;
-
-			// CHECK network request quota sufficient
-			if let Some(network_requests) = registration.network_requests {
-				Self::check_network_request_quota_sufficient(&ad, schedule, network_requests)?;
-			}
-
-			// CHECK reward sufficient
-			if let Some(storage) = &registration.storage {
-				// calculate fee
-				let fee_per_execution =
-					Self::fee_per_execution(schedule, *storage, &pricing, min_fee_per_millisecond)?;
-
-				// CHECK price not exceeding reward
-				ensure!(
-					fee_per_execution <= registration.reward,
-					Error::<T>::InsufficientRewardInMatch
-				);
-			}
-		}
-
-		// CHECK memory sufficient
-		if let Some(memory) = &registration.memory {
-			ensure!(ad.max_memory >= *memory, Error::<T>::MaxMemoryExceededInMatch);
-		}
-
-		// CHECK remaining storage capacity sufficient
-		<Pallet<T> as StorageTracker<T>>::check(source, registration)?;
-
-		// CHECK source is whitelisted
-		ensure!(
-			is_processor_allowed::<T>(source, &registration.allowed_sources),
-			Error::<T>::SourceNotAllowedInMatch
-		);
-
-		// CHECK consumer is whitelisted
-		if let Some(consumer) = consumer {
-			ensure!(
-				is_consumer_allowed::<T>(consumer, &ad.allowed_consumers),
-				Error::<T>::ConsumerNotAllowedInMatch
-			);
-		}
-
-		// CHECK reputation sufficient
-		Self::check_min_reputation(registration.min_reputation, source)?;
-
-		Ok(())
-	}
-
 	/// Returns true if the source has currently at least one match (not necessarily assigned).
 	pub(crate) fn has_matches(source: &T::AccountId) -> bool {
 		// NOTE we use a trick to check if map contains *any* secondary key: we use `any` to short-circuit
@@ -761,10 +632,26 @@ impl<T: Config> Pallet<T> {
 		schedule: &Schedule,
 		start_delay: u64,
 	) -> Result<(), Error<T>> {
+		let now = Self::now()?;
 		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(source) {
 			// ignore job registrations not found (shouldn't happen if invariant is kept that assignments are cleared whenever a job is removed)
 			// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
 			if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
+				if !assignment.acknowledged {
+					let actual_start_time = match assignment.execution {
+						ExecutionSpecifier::All => {
+							other.schedule.start_time.saturating_add(assignment.start_delay)
+						},
+						ExecutionSpecifier::Index(i) => other
+							.schedule
+							.nth_start_time(assignment.start_delay, i)
+							.unwrap_or_default(),
+					};
+					if now > actual_start_time {
+						// assignment that have not been acknowledged after the start time is already in the past do not count
+						continue;
+					}
+				}
 				// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
 				if !schedule.overlaps(start_delay, other.schedule.range(assignment.start_delay)) {
 					// periods don't overlap so no detail (and expensive) checks are necessary
@@ -862,13 +749,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Calculates if the job ended considering the given assignment.
-	fn schedule_ended(schedule: &Schedule) -> Result<bool, DispatchError> {
-		let now = Self::now()?.saturating_add(T::ReportTolerance::get());
-		let (_actual_start, actual_end) = schedule.range(schedule.max_start_delay);
-		Ok(actual_end.lt(&now))
-	}
-
 	/// Calculates the total reward amount.
 	pub(crate) fn total_reward_amount(
 		registration: &JobRegistrationFor<T>,
@@ -908,115 +788,6 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::CalculationOverflow)
 	}
 
-	/// Finalizes jobs and get refunds unused rewards.
-	///
-	/// It assumes the caller was already authorized and is intended to be used from
-	/// * The [`Self::finalize_jobs`] extrinsic of this pallet
-	/// * An inter-chain communication protocol like Hyperdrive
-	///
-	/// Only valid if for all given jobs provided,
-	///
-	/// * the job was **not** acknowledged by any processor (job is in state [`JobStatus::Matched`]) OR
-	/// * the job was acknowledged by **at least one** processor (job is in state [`JobStatus::Assigned`]) AND
-	///   * all processors have finalized their corresponding slot OR
-	///   * the latest possible reporting time has passed
-	///
-	/// If the call proceeds, it cleans up the remaining storage entries related to the finalized jobs.
-	pub fn finalize_jobs_for(
-		job_ids: impl IntoIterator<Item = JobId<T::AccountId>>,
-	) -> DispatchResultWithPostInfo {
-		for job_id in job_ids {
-			let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-				.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
-			let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
-			let requirements: JobRequirementsFor<T> = e.into();
-
-			match requirements.assignment_strategy {
-				AssignmentStrategy::Single(_) => {
-					let job_status = <StoredJobStatus<T>>::get(&job_id.0, job_id.1)
-						.ok_or(Error::<T>::JobStatusNotFound)?;
-					match job_status {
-						JobStatus::Open => Err(Error::<T>::CannotFinalizeJob(job_status))?,
-						JobStatus::Matched => {
-							let match_overdue = Self::now()? >= registration.schedule.start_time;
-							if !match_overdue {
-								Err(Error::<T>::CannotFinalizeJob(job_status))?;
-							}
-						},
-						JobStatus::Assigned(_) => {
-							// in the "good case" when all processors finalized their slot we can accept the finalization independent of schedule's latest end
-							let some_assigned =
-								<AssignedProcessors<T>>::iter_prefix(&job_id).next().is_some();
-							if some_assigned && !Self::schedule_ended(&registration.schedule)? {
-								Err(Error::<T>::CannotFinalizeJob(job_status))?;
-							}
-						},
-					}
-				},
-				AssignmentStrategy::Competing => {
-					let last_execution_index =
-						registration.schedule.execution_count().saturating_sub(1);
-
-					let last_match_overdue = Self::now()?
-						>= registration
-							.schedule
-							.nth_start_time(
-								registration.schedule.max_start_delay,
-								last_execution_index,
-							)
-							.unwrap();
-
-					// check last execution's status
-					let job_status =
-						<StoredJobExecutionStatus<T>>::get(&job_id, last_execution_index);
-					match job_status {
-						JobStatus::Open | JobStatus::Matched => {
-							if !last_match_overdue {
-								Err(Error::<T>::CannotFinalizeJob(job_status))?;
-							}
-						},
-						JobStatus::Assigned(_) => {
-							// in the "good case" when all processors finalized their slot we can accept the finalization independent of schedule's latest end
-							let some_assigned =
-								<AssignedProcessors<T>>::iter_prefix(&job_id).next().is_some();
-							if some_assigned && !Self::schedule_ended(&registration.schedule)? {
-								Err(Error::<T>::CannotFinalizeJob(job_status))?;
-							}
-						},
-					};
-				},
-			}
-
-			// removed completed job from remaining storage points
-			for (p, _) in <AssignedProcessors<T>>::iter_prefix(&job_id) {
-				<StoredMatches<T>>::remove(&p, &job_id);
-
-				<Pallet<T> as StorageTracker<T>>::unlock(&p, &registration)?;
-			}
-			let _ = <AssignedProcessors<T>>::clear_prefix(
-				&job_id,
-				<T as pallet_acurast::Config>::MaxSlots::get(),
-				None,
-			);
-
-			T::MarketplaceHooks::finalize_job(&job_id, T::RewardManager::refund(&job_id)?)?;
-
-			pallet_acurast::Pallet::<T>::clear_environment_for(&job_id);
-			<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
-			let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-				&job_id,
-				registration.schedule.execution_count() as u32,
-				None,
-			);
-			<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
-			<RequiredMinMetrics<T>>::remove(&job_id);
-
-			Self::deposit_event(Event::JobFinalized(job_id.clone()));
-		}
-
-		Ok(().into())
-	}
-
 	/// Returns the stored matches for a source.
 	///
 	/// Intended to be called for providing runtime API, might return corresponding error.
@@ -1039,8 +810,15 @@ impl<T: Config> Pallet<T> {
 		execution: ExecutionSpecifier,
 		pub_keys: PubKeys,
 	) -> DispatchResultWithPostInfo {
-		let (changed, assignment) =
-			Self::update_assignment_to_acknowledged(&who, &job_id, execution, pub_keys)?;
+		let job =
+			<StoredJobRegistration<T>>::get(&job_id.0, job_id.1).ok_or(Error::<T>::JobNotFound)?;
+		let (changed, assignment) = Self::update_assignment_to_acknowledged(
+			&who,
+			&job_id,
+			execution,
+			pub_keys,
+			job.schedule,
+		)?;
 		if changed {
 			Self::update_job_status(&job_id, execution)?;
 			Self::update_next_report_index_on_acknowledge(&job_id, &who, &assignment, execution)?;
@@ -1058,6 +836,7 @@ impl<T: Config> Pallet<T> {
 		job_id: &JobId<T::AccountId>,
 		execution: ExecutionSpecifier,
 		pub_keys: PubKeys,
+		schedule: Schedule,
 	) -> Result<(bool, AssignmentFor<T>), DispatchError> {
 		Ok(<StoredMatches<T>>::try_mutate(
 			processor,
@@ -1065,6 +844,18 @@ impl<T: Config> Pallet<T> {
 			|m| -> Result<(bool, AssignmentFor<T>), Error<T>> {
 				// CHECK that job was matched previously to calling source
 				let assignment = m.as_mut().ok_or(Error::<T>::CannotAcknowledgeWhenNotMatched)?;
+				let now = Self::now()?;
+				let actual_start_time = match execution {
+					ExecutionSpecifier::All => {
+						schedule.start_time.saturating_add(assignment.start_delay)
+					},
+					ExecutionSpecifier::Index(i) => {
+						schedule.nth_start_time(assignment.start_delay, i).unwrap_or_default()
+					},
+				};
+				if now > actual_start_time {
+					return Err(Error::<T>::CannotAcknowledgeAfterStartTime)?;
+				}
 
 				// CHECK that acknowledge is for the current execution (for idempotency of this extrinsic)
 				ensure!(

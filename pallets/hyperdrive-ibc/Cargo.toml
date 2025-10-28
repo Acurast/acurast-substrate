@@ -46,6 +46,7 @@ scale-info = { version = "2.2.0", default-features = false, features = [
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
+cumulus-primitives-core = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true }
@@ -54,6 +55,7 @@ sp-core = { workspace = true }
 pallet-timestamp = { workspace = true }
 log = "0.4.20"
 pallet-balances = { workspace = true }
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]
@@ -74,10 +76,14 @@ std = [
 	"strum/std",
 	"tezos-core/std",
 	"tezos-michelson/std",
+	"sp-arithmetic/std",
+	"cumulus-primitives-core/std",
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]

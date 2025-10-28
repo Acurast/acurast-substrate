@@ -1,4 +1,7 @@
-use acurast_runtime_common::types::{AccountId, AuraId};
+use acurast_runtime_common::{
+	constants::UNIT,
+	types::{AccountId, AuraId, Balance},
+};
 use cumulus_primitives_core::ParaId;
 use sc_service::ChainType;
 use sc_telemetry::serde_json;
@@ -57,11 +60,7 @@ pub fn acurast_kusama_config() -> ChainSpec {
 				AuraId::from_string("5GxSMqLQbWNuGTV6roRJbLR4Ysft7isphR4h7Z75g11fMSeh").unwrap(),
 			),
 		],
-		vec![
-			(acurast_pallet_account(), NATIVE_MIN_BALANCE),
-			(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
-			(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
-		],
+		endowed_accounts(),
 		KUSAMA_PARACHAIN_ID.into(),
 		acurast_sudo_account(),
 	))
@@ -102,8 +101,29 @@ fn genesis_config(
 		},
 		"sudo": {
 			"key": Some(sudo_account)
+		},
+		"councilMembership": {
+			"members": council_members()
 		}
 	})
+}
+
+pub fn endowed_accounts() -> Vec<(AccountId, Balance)> {
+	let mut result = vec![
+		(acurast_pallet_account(), NATIVE_MIN_BALANCE),
+		(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+		(acurast_sudo_account(), NATIVE_MIN_BALANCE * 1_000),
+	];
+
+	result.extend_from_slice(
+		council_members()
+			.into_iter()
+			.map(|m| (m, 100 * UNIT))
+			.collect::<Vec<_>>()
+			.as_slice(),
+	);
+
+	result
 }
 
 /// Returns the pallet_acurast account id.
@@ -119,4 +139,16 @@ pub fn fee_manager_pallet_account() -> AccountId {
 /// returns the root account id.
 pub fn acurast_sudo_account() -> AccountId {
 	accountid_from_str("5CMcG3yoHxH6e4RqyZHx2QiTsZz4tTiHLXFQ5SmLiXKGcqgv")
+}
+
+fn council_members() -> Vec<AccountId> {
+	vec![
+		accountid_from_str("5CGV1Sm6Qzt3s5qabiDAEjni6xT15MZ8LumkVPob4SJqAN7C"),
+		accountid_from_str("5DFhdYCuTc4uubFu6XGpiF5uKu6e7erNZa6QKExZDRFMTuv8"),
+		accountid_from_str("5DXDTbjLtDDUXzFy24Fhkjs9fY3PQwQR2ohzjQPT1JvUAcEy"),
+		accountid_from_str("5EUnFHHEFd4mzTA6cjg8JfKHeteCDrcEhMdxUXSK3QzHSPe8"),
+		accountid_from_str("5Dt7iJBxvWztigqXiXqm8EU5xVBWcUrfXA5am1e8sF1RjUuW"),
+		accountid_from_str("5EEe4WLNneqz3Fp2n61ZcTiGU6GLEvUgVmnkKaaxARSdVpdg"),
+		accountid_from_str("5EbvNf3q5Xb918UvHBuB6rPfYuom38QAqw8osV5TQeaELWxP"),
+	]
 }

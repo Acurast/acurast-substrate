@@ -96,6 +96,7 @@ color-print = "0.3.4"
 
 [dev-dependencies]
 hex = { workspace = true }
+bigdecimal = "0.4"
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.6.0" }
@@ -112,7 +113,8 @@ acurast-mainnet = []
 runtime-benchmarks = [
 	"acurast-rococo-runtime/runtime-benchmarks",
 	"acurast-kusama-runtime/runtime-benchmarks",
+	"acurast-mainnet-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 ]
 
-try-runtime = ["acurast-rococo-runtime/try-runtime"]
+try-runtime = ["acurast-rococo-runtime/try-runtime", "acurast-kusama-runtime/try-runtime", "acurast-mainnet-runtime/try-runtime"]

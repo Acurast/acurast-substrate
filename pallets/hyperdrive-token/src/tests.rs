@@ -5,20 +5,20 @@ use sp_runtime::AccountId32;
 use sp_tracing::try_init_simple;
 
 use crate::{
-	mock::*, stub::*, Enabled, Error, EthereumContract, Event, NextTransferNonce,
-	OutgoingTransfers, SolanaContract,
+	mock::*, stub::*, Enabled, EthereumContract, Event, NextTransferNonce, OutgoingTransfers,
+	SolanaContract,
 };
 
 #[test]
 fn test_transfer_native_success() {
-	let _ = try_init_simple(); // ignore error if already initialized
+	try_init_simple(); // ignore error if already initialized
 
 	let initial_block = 10;
 	let mut test = new_test_ext();
 	let initial_balance = 1000 * UNIT;
-	let amount_to_transfer = 1 * UNIT;
-	let fee_amount = 2 * MILLIUNIT;
-	let retry_fee_amount = 3 * MILLIUNIT;
+	let amount_to_transfer = UNIT;
+	let fee_amount = UNIT / 10;
+	let retry_fee_amount = 2 * fee_amount;
 	let initial_nonce = 74;
 
 	test.execute_with(|| {
@@ -33,9 +33,9 @@ fn test_transfer_native_success() {
 			initial_balance,
 		);
 
-		assert_eq!(Balances::free_balance(&alice_account_id()), initial_balance);
-		assert_eq!(Balances::free_balance(&ethereum_vault()), initial_balance);
-		assert_eq!(Balances::free_balance(&ethereum_fee_vault()), initial_balance);
+		assert_eq!(Balances::free_balance(alice_account_id()), initial_balance);
+		assert_eq!(Balances::free_balance(ethereum_vault()), initial_balance);
+		assert_eq!(Balances::free_balance(ethereum_fee_vault()), initial_balance);
 
 		NextTransferNonce::<Test>::set(ProxyChain::Ethereum, initial_nonce);
 		EthereumContract::<Test>::set(Some(ethereum_token_contract()));
@@ -47,8 +47,8 @@ fn test_transfer_native_success() {
 		assert_ok!(AcurastHyperdriveToken::transfer_native(
 			RuntimeOrigin::signed(alice_account_id()),
 			ethereum_dest(),
-			amount_to_transfer.into(),
-			fee_amount.into(),
+			amount_to_transfer,
+			fee_amount,
 		));
 
 		// Assert: state changes
@@ -57,7 +57,7 @@ fn test_transfer_native_success() {
 			initial_nonce + 1
 		);
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
+			Balances::free_balance(alice_account_id()),
 			initial_balance - amount_to_transfer - fee_amount
 		);
 		assert_eq!(Balances::free_balance(ethereum_vault()), initial_balance + amount_to_transfer);
@@ -70,7 +70,7 @@ fn test_transfer_native_success() {
 				OutgoingTransfers::<Test>::get(ProxyChain::Ethereum, initial_nonce).unwrap();
 			assert_eq!(source, alice_account_id()); // source
 			assert_eq!(dest, ethereum_dest()); // dest
-			assert_eq!(amount, amount_to_transfer.into()); // amount
+			assert_eq!(amount, amount_to_transfer); // amount
 		}
 
 		// Assert: Event emitted
@@ -78,7 +78,7 @@ fn test_transfer_native_success() {
 			Event::TransferToProxy {
 				source: alice_account_id(),
 				dest: ethereum_dest(),
-				amount: amount_to_transfer.into(),
+				amount: amount_to_transfer,
 			}
 			.into(),
 		);
@@ -90,11 +90,9 @@ fn test_transfer_native_success() {
 				RuntimeOrigin::signed(alice_account_id()), // Must be called by the original sender
 				ProxyChain::Ethereum,
 				initial_nonce,
-				retry_fee_amount.into(),
+				retry_fee_amount,
 			),
-			Error::<Test>::PalletHyperdriveIBC(
-				pallet_acurast_hyperdrive_ibc::Error::<Test>::MessageWithSameNoncePending
-			)
+			pallet_acurast_hyperdrive_ibc::Error::<Test>::MessageWithSameNoncePending,
 		);
 
 		System::set_block_number(initial_block + 16);
@@ -103,7 +101,7 @@ fn test_transfer_native_success() {
 			RuntimeOrigin::signed(alice_account_id()), // Must be called by the original sender
 			ProxyChain::Ethereum,
 			initial_nonce,
-			retry_fee_amount.into(),
+			retry_fee_amount,
 		));
 
 		// Assert: State changes
@@ -114,13 +112,13 @@ fn test_transfer_native_success() {
 		);
 		// Source balance decreases ONLY by the retry fee
 		assert_eq!(
-			Balances::free_balance(&alice_account_id()),
-			initial_balance - amount_to_transfer - fee_amount - retry_fee_amount
+			Balances::free_balance(alice_account_id()),
+			initial_balance - amount_to_transfer - retry_fee_amount
 		);
 		// Vault balance for the *amount* should NOT change
 		assert_eq!(Balances::free_balance(ethereum_vault()), initial_balance + amount_to_transfer);
 		// Fee vault locked balance increases by the retry fee
-		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), fee_amount + retry_fee_amount);
+		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), retry_fee_amount);
 
 		// Outgoing transfer record remains unchanged
 		{
@@ -128,7 +126,7 @@ fn test_transfer_native_success() {
 				OutgoingTransfers::<Test>::get(ProxyChain::Ethereum, initial_nonce).unwrap();
 			assert_eq!(source, alice_account_id()); // source
 			assert_eq!(dest, ethereum_dest()); // dest
-			assert_eq!(amount, amount_to_transfer.into()); // amount
+			assert_eq!(amount, amount_to_transfer); // amount
 		}
 
 		// Assert: Event emitted for the retry attempt (the pallet emits TransferToProxy again)
@@ -157,11 +155,11 @@ fn test_update_ethereum_contract_success() {
 		// Act: Update contract as root
 		assert_ok!(AcurastHyperdriveToken::update_ethereum_contract(
 			RuntimeOrigin::root(),
-			new_contract.clone()
+			new_contract
 		));
 
 		// Assert: Storage updated
-		assert_eq!(AcurastHyperdriveToken::ethereum_contract(), Some(new_contract.clone()));
+		assert_eq!(AcurastHyperdriveToken::ethereum_contract(), Some(new_contract));
 
 		// Assert: Event emitted
 		System::assert_last_event(Event::EthereumContractUpdated { contract: new_contract }.into());
@@ -179,7 +177,7 @@ fn test_update_ethereum_contract_fail_bad_origin() {
 		assert_err!(
 			AcurastHyperdriveToken::update_ethereum_contract(
 				RuntimeOrigin::signed(non_root_caller),
-				new_contract.clone()
+				new_contract
 			),
 			BadOrigin // Expecting a BadOrigin error for non-root calls
 		);

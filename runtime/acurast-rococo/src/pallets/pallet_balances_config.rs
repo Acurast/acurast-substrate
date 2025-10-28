@@ -1,5 +1,6 @@
-use acurast_runtime_common::types::Balance;
 use sp_core::ConstU32;
+
+use acurast_runtime_common::types::Balance;
 
 use crate::{
 	ExistentialDeposit, MaxLocks, MaxReserves, Runtime, RuntimeEvent, RuntimeFreezeReason,
@@ -21,7 +22,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = Self::RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
 	type DoneSlashHandler = ();
 }

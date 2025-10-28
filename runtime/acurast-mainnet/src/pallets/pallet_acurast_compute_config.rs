@@ -1,26 +1,26 @@
 use acurast_runtime_common::{
 	constants::{DAYS, UNIT},
-	types::{Balance, BlockNumber},
+	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
-use frame_system::EnsureRoot;
 
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 use frame_support::{
 	parameter_types,
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		tokens::imbalance::ResolveTo,
 		ConstU32, LockIdentifier,
 	},
-	PalletId,
 };
 use sp_runtime::Perquintill;
 
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
-	constants::{CommitmentCollectionId, RootAccountId},
-	Acurast, AcurastProcessorManager, Balances, Runtime, RuntimeEvent, Uniques,
+	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
+	Acurast, AcurastProcessorManager, Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent,
+	Treasury, Uniques,
 };
 
 parameter_types! {
@@ -36,9 +36,10 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
-	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationPerEpoch: Balance = 0;//8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
+	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(10);
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
 impl pallet_acurast_compute::Config for Runtime {
@@ -69,9 +70,11 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedBackedRation = InflationStakedBackedRation;
-	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type InflationStakedComputeRation = InflationStakedComputeRation;
+	type InflationMetricsRation = InflationMetricsRation;
+	type InflationHandler = ResolveTo<TreasuryAccountId, Balances>;
+	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

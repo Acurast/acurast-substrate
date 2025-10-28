@@ -16,7 +16,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.19.2"
+version = "0.20.0"
 edition = "2021"
 
 [workspace.dependencies]
@@ -29,8 +29,8 @@ parity-scale-codec = { version = "3.6.9", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
-hex = "0.4"
-hex-literal = { version = "0.4" }
+hex = { version = "0.4", default-features = false }
+hex-literal = { version = "0.4", default-features = false }
 log = { version = "^0.4.21", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
@@ -42,6 +42,8 @@ serde_json = "1.0.111"
 jsonrpsee = { version = "0.24.3", features = ["server"] }
 async-trait = "0.1.88"
 futures = "0.3.21"
+cfg-if = "1"
+base58 = "0.2"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }
@@ -50,8 +52,6 @@ acurast-common = { path = "./pallets/acurast/common", default-features = false, 
 ] }
 # The Marketplace pallet contains the economic logic for assigning processors to jobs and pay the respective rewards.
 pallet-acurast-marketplace = { path = "./pallets/marketplace", default-features = false }
-# This pallet may be removed in favor of "pallet-acurast-rewards-treasury", currently it holds the fees from the Acurast Marketplace.
-pallet-acurast-fee-manager = { path = "./pallets/fee-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
 pallet-acurast-processor-manager = { path = "./pallets/processor-manager", default-features = false }
 # The Processor Manager pallet holds and manages information about each manager and its processors.
@@ -71,7 +71,9 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 # The Rewards Treasury pallet is responsible to hold and manage the protocol rewards.
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
 pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselection", default-features = false }
+pallet-acurast-token-conversion = { path = "./pallets/token-conversion", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
+acurast-hyperdrive-substrate-core = { path = "./hyperdrive/substrate-core", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }
@@ -112,6 +114,7 @@ pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/parityt
 # A pallet simple used to assigning unique identifiers.
 pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 pallet-vesting = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-treasury = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 # This pallet is used to support multisig accounts, allowing multiple signed origins (accounts)
 # to coordinate and dispatch calls from a well-known origin, derivable deterministically from a
 # set of account IDs that must approve it
@@ -137,6 +140,9 @@ pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk", default
 pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 pallet-message-queue = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 pallet-collator-selection = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-collective = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
+pallet-proxy = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.18.5", default-features = false }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.18.5", default-features = false }

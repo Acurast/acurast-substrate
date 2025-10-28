@@ -12,7 +12,6 @@ use acurast_runtime_common::{
 	types::{Balance, BlockNumber},
 	weight,
 };
-use frame_system::EnsureRoot;
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 use sp_core::ConstU32;
 use sp_runtime::Perquintill;
@@ -20,7 +19,8 @@ use sp_runtime::Perquintill;
 use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
-	AcurastProcessorManager, Balances, RootAccountId, Runtime, RuntimeEvent, Uniques,
+	AcurastProcessorManager, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent,
+	Uniques,
 };
 
 parameter_types! {
@@ -38,7 +38,8 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
-	pub const InflationStakedBackedRation: Perquintill = Perquintill::from_percent(1);
+	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(1);
+	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(99);
 }
 
 impl pallet_acurast_compute::Config for Runtime {
@@ -69,9 +70,11 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedBackedRation = InflationStakedBackedRation;
-	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type InflationStakedComputeRation = InflationStakedComputeRation;
+	type InflationMetricsRation = InflationMetricsRation;
+	type InflationHandler = ();
+	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

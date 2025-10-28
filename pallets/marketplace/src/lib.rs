@@ -26,9 +26,7 @@ pub mod types;
 mod utils;
 pub mod weights;
 
-pub(crate) use pallet::STORAGE_VERSION;
-
-use pallet_acurast::{JobId, MultiOrigin, ParameterBound};
+use pallet_acurast::JobId;
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -124,7 +122,7 @@ pub mod pallet {
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -281,6 +279,11 @@ pub mod pallet {
 	#[pallet::getter(fn min_fee_per_millisecond)]
 	pub type MinFeePerMillisecond<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn v7_migration_state)]
+	pub type V7MigrationState<T: Config> =
+		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -310,7 +313,6 @@ pub mod pallet {
 		JobBecameImmutable(JobId<T::AccountId>),
 		/// Min fee per millisecond updated
 		MinFeePerMillisecondUpdated(<T as Config>::Balance),
-
 		/// A registration was successfully matched. [JobId]
 		JobRegistrationMatchedV2(JobId<T::AccountId>),
 		/// A registration was successfully matched. [JobId, SourceId]
@@ -321,6 +323,10 @@ pub mod pallet {
 		AdvertisementStoredV2(T::AccountId),
 		/// A registration was successfully matched. [JobId]
 		JobExecutionMatchedV2(JobId<T::AccountId>),
+		/// Migration started.
+		V7MigrationStarted,
+		/// Migration completed.
+		V7MigrationCompleted,
 	}
 
 	#[pallet::error]
@@ -447,6 +453,10 @@ pub mod pallet {
 		OnlyEditorCanTransferEditor,
 		/// A mutable job can only be extended (new job registered reusing keys) by same owner.
 		OnlyOwnerCanExtendJob,
+		/// Execution already reported.
+		ExecutionAlreadyReported,
+		/// Cannot acknowledge a job after its start time
+		CannotAcknowledgeAfterStartTime,
 	}
 
 	#[pallet::hooks]
@@ -470,10 +480,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Advertise resources by providing a [AdvertisementFor].
-		///
-		/// If the source has another active advertisement, the advertisement is updated given the updates does not
-		/// violate any system invariants. For example, if the ad is currently assigned, changes to pricing are prohibited
-		/// and only capacity updates will be tolerated.
 		#[pallet::call_index(0)]
 		#[pallet::weight(< T as Config >::WeightInfo::advertise())]
 		pub fn advertise(
@@ -501,7 +507,6 @@ pub mod pallet {
 			ensure!(!Self::has_matches(&who), Error::<T>::CannotDeleteAdvertisementWhileMatched);
 
 			<StoredAdvertisementPricing<T>>::remove(&who);
-			<StoredStorageCapacity<T>>::remove(&who);
 			<StoredAdvertisementRestriction<T>>::remove(&who);
 
 			Self::deposit_event(Event::AdvertisementRemoved(who));
@@ -585,6 +590,8 @@ pub mod pallet {
 		}
 
 		/// Called by processors when the assigned job can be finalized.
+		///
+		/// DEPRECATED: this call is not needed anymore. The cleanup logic has been moved to the final `report` extrinsic call.
 		#[pallet::call_index(5)]
 		#[pallet::weight(< T as Config >::WeightInfo::finalize_job())]
 		pub fn finalize_job(
@@ -601,6 +608,8 @@ pub mod pallet {
 
 		/// Called by a consumer whenever he wishes to finalizes some of his jobs and get unused rewards refunded.
 		///
+		/// DEPRECATED: this call is a no-op. Use the `deregister` extrinsic on `pallet-acurast` instead.
+		///
 		/// For details see [`Pallet<T>::finalize_jobs_for`].
 		#[pallet::call_index(6)]
 		#[pallet::weight(< T as Config >::WeightInfo::finalize_jobs(job_ids.len() as u32))]
@@ -608,13 +617,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			job_ids: BoundedVec<JobIdSequence, T::MaxFinalizeJobs>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			let _who = ensure_signed(origin)?;
 
-			Self::finalize_jobs_for(
-				job_ids
-					.into_iter()
-					.map(|job_id_seq| (MultiOrigin::Acurast(who.clone()), job_id_seq)),
-			)
+			log::warn!("Calling deprecated extrinsics with params: {:?}", job_ids);
+
+			Ok(().into())
 		}
 
 		/// Proposes processors to match with a job's execution.
@@ -799,7 +806,7 @@ pub mod pallet {
 				<StoredJobRegistration<T>>::mutate(&job_id.0, job_id.1, |registration| {
 					if let Some(r) = registration.as_mut() {
 						let old_script = r.script.clone();
-						(*r).script = script.clone();
+						r.script = script.clone();
 						Some(old_script)
 					} else {
 						None
@@ -814,7 +821,7 @@ pub mod pallet {
 				T::DeploymentHashing::hash(&(job_id.0.clone(), script).encode());
 
 			let _key_id = Self::transfer_key_id(original_deployment_hash, updated_deployment_hash)?;
-			<DeploymentHashes<T>>::insert(&job_id.0, &job_id.1, &updated_deployment_hash);
+			<DeploymentHashes<T>>::insert(&job_id.0, job_id.1, updated_deployment_hash);
 			// DO NOT update JobKeyIds to keep using previous keys DESPITE the job script update
 
 			Self::deposit_event(Event::JobScriptEdited(job_id));
@@ -873,7 +880,7 @@ pub mod pallet {
 					Err(Error::<T>::CannotReuseKeysFrom)
 				}
 			})?;
-			<DeploymentKeyIds<T>>::insert(&updated_deployment_hash, key_id);
+			<DeploymentKeyIds<T>>::insert(updated_deployment_hash, key_id);
 			Ok(key_id)
 		}
 	}
@@ -906,52 +913,6 @@ pub mod pallet {
 
 		fn reserved(job_id: &JobId<T::AccountId>) -> T::Balance {
 			<JobBudgets<T>>::get(job_id)
-		}
-	}
-
-	impl<T: Config> StorageTracker<T> for Pallet<T> {
-		fn check(
-			source: &T::AccountId,
-			registration: &PartialJobRegistrationForMarketplace<T>,
-		) -> Result<(), Error<T>> {
-			if let Some(storage) = &registration.storage {
-				let capacity =
-					<StoredStorageCapacity<T>>::get(source).ok_or(Error::<T>::CapacityNotFound)?;
-				ensure!(
-					capacity >= *storage as i64,
-					Error::<T>::InsufficientStorageCapacityInMatch
-				);
-			}
-
-			Ok(())
-		}
-
-		fn lock(
-			source: &T::AccountId,
-			registration: &JobRegistrationFor<T>,
-		) -> Result<(), Error<T>> {
-			// the mutation includes the checks
-			<StoredStorageCapacity<T>>::try_mutate(source, |c| -> Result<(), Error<T>> {
-				*c = Some(
-					c.ok_or(Error::<T>::CapacityNotFound)?
-						.checked_sub(registration.storage.into())
-						.ok_or(Error::<T>::InsufficientStorageCapacityInMatch)?,
-				);
-				Ok(())
-			})?;
-
-			Ok(())
-		}
-
-		fn unlock(
-			source: &T::AccountId,
-			registration: &JobRegistrationFor<T>,
-		) -> Result<(), Error<T>> {
-			<StoredStorageCapacity<T>>::mutate(source, |c| {
-				*c = c.unwrap_or(0).checked_add(registration.storage.into())
-			});
-
-			Ok(())
 		}
 	}
 }

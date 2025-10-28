@@ -1,3 +1,5 @@
+#![allow(clippy::erasing_op)]
+
 pub mod test_actions;
 
 pub use test_actions::{compute_test_flow, events, roll_to_block, setup_balances, Action};
@@ -102,7 +104,7 @@ fn test_compute_flow_no_delegations_no_rewards() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[30, 50, 20], // three pools matching original test
+			&[30, 50, 20],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -139,7 +141,7 @@ fn test_compute_flow_no_delegations() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[30, 50, 20], // three pools matching original test
+			&[30, 50, 20],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -180,7 +182,7 @@ fn test_compute_no_rewards() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[30, 50, 20], // three pools matching original test
+			&[30, 50, 20],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -243,11 +245,125 @@ fn test_compute_no_rewards() {
 }
 
 #[test]
+fn test_compute_flow_delegate_to_self() {
+	ExtBuilder.build().execute_with(|| {
+		compute_test_flow(
+			2,
+			&[0, 100],
+			&[
+				("C", &["A", "B"]), // committer C with processors A, B
+			],
+			&[
+				&commit_actions_2_processors()[..],
+				&[
+					Action::Reward { amount: 7 * UNIT }, // noone receives this reward
+					Action::CommitCompute {
+						committer: "C".to_string(),
+						stake: 5 * UNIT,
+						cooldown: 36, // 1/3 of max
+						metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
+						commission: Perbill::from_percent(0),
+					}, // Maximal possible commitment value: 80% of average for pool 2
+					Action::Delegate {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+						amount: 5 * UNIT,
+						cooldown: 36,
+					},
+					Action::Reward { amount: 10 * UNIT },
+					Action::CooldownComputeCommitment { committer: "C".to_string() },
+					Action::CooldownDelegation {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+					},
+					Action::RollToBlock {
+						block_number: 400, // Advance past cooldown period (started at 302, +36 blocks + buffer)
+						expected_cycle: Cycle {
+							epoch: 3,
+							epoch_start: 302,
+							era: 1,
+							era_start: 302,
+						},
+					},
+					Action::EndComputeCommitment {
+						committer: "C".to_string(),
+						expected_reward: 5 * UNIT,
+					},
+					Action::EndDelegation {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+						expected_reward: 5 * UNIT,
+					},
+				][..],
+			]
+			.concat(),
+		);
+	});
+}
+
+#[test]
+fn test_compute_flow_delegate_to_self_after_reward() {
+	ExtBuilder.build().execute_with(|| {
+		compute_test_flow(
+			2,
+			&[0, 100],
+			&[
+				("C", &["A", "B"]), // committer C with processors A, B
+			],
+			&[
+				&commit_actions_2_processors()[..],
+				&[
+					Action::Reward { amount: 7 * UNIT }, // noone receives this reward
+					Action::CommitCompute {
+						committer: "C".to_string(),
+						stake: 5 * UNIT,
+						cooldown: 36, // 1/3 of max
+						metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
+						commission: Perbill::from_percent(0),
+					}, // Maximal possible commitment value: 80% of average for pool 2
+					Action::Reward { amount: 10 * UNIT },
+					Action::Delegate {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+						amount: 5 * UNIT,
+						cooldown: 36,
+					},
+					Action::CooldownComputeCommitment { committer: "C".to_string() },
+					Action::CooldownDelegation {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+					},
+					Action::RollToBlock {
+						block_number: 400, // Advance past cooldown period (started at 302, +36 blocks + buffer)
+						expected_cycle: Cycle {
+							epoch: 3,
+							epoch_start: 302,
+							era: 1,
+							era_start: 302,
+						},
+					},
+					Action::EndComputeCommitment {
+						committer: "C".to_string(),
+						expected_reward: 10 * UNIT,
+					},
+					Action::EndDelegation {
+						delegator: "C".to_string(),
+						committer: "C".to_string(),
+						expected_reward: 0 * UNIT,
+					},
+				][..],
+			]
+			.concat(),
+		);
+	});
+}
+
+#[test]
 fn test_compute_flow_1() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[30, 50, 20], // three pools matching original test
+			&[30, 50, 20],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -330,7 +446,7 @@ fn test_compute_flow_2_committers() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -384,7 +500,7 @@ fn test_compute_flow_2_committers_subsequential_distinct_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -448,7 +564,7 @@ fn test_compute_flow_2_committers_subsequential_overlapping_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -512,7 +628,7 @@ fn test_compute_flow_2_committers_one_withdraws() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -567,7 +683,7 @@ fn test_compute_flow_2_shifted_committers_competing_metric_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -623,7 +739,7 @@ fn test_compute_flow_2_shifted_committers_competing_metric_pools_with_delegation
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -703,7 +819,7 @@ fn test_compute_flow_2_committers_competing_metric_pools() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[25, 25, 50], // three pools matching original test
+			&[25, 25, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -757,7 +873,7 @@ fn test_compute_flow_4_processors_only_one_commits() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[50, 50], // three pools matching original test
+			&[50, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 				("D", &["E", "F"]), // committer D with processors E, F
@@ -799,7 +915,7 @@ fn test_compute_flow_rewarded_metrics_pool_without_committers() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[50, 50], // three pools matching original test
+			&[50, 50],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -840,7 +956,7 @@ fn test_compute_stake_more() {
 	ExtBuilder.build().execute_with(|| {
 		compute_test_flow(
 			2,
-			&[30, 50, 20], // three pools matching original test
+			&[30, 50, 20],
 			&[
 				("C", &["A", "B"]), // committer C with processors A, B
 			],
@@ -2391,4 +2507,100 @@ fn commit_compute(who: AccountId32) {
 		commission,
 		allow_auto_compound,
 	));
+}
+
+#[test]
+fn test_end_compute_commitment_without_cooldown() {
+	ExtBuilder.build().execute_with(|| {
+		setup_balances();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let charlie = charlie_account_id();
+
+		offer_accept_backing(charlie.clone());
+		commit_alice_bob();
+		commit_compute(charlie.clone());
+
+		// Get the commitment ID
+		let commitment_id = <Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie)
+			.expect("Charlie should have a commitment ID");
+
+		// Start cooldown
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(charlie.clone())));
+
+		// Roll forward a bit but not past the cooldown period (cooldown_period = 36 blocks)
+		roll_to_block(320); // Only 18 blocks forward, well before cooldown ends
+
+		// Verify that normal end_compute_commitment would fail due to cooldown not ended
+		assert_err!(
+			Compute::end_compute_commitment(RuntimeOrigin::signed(charlie.clone())),
+			Error::<Test, ()>::CooldownNotEnded
+		);
+
+		// Call end_commitment_for directly with check_cooldown: false
+		// This should succeed even though cooldown hasn't ended
+		let compound_amount = Compute::end_commitment_for(&charlie, commitment_id, false);
+		assert_ok!(compound_amount);
+
+		// Verify the commitment has been ended by checking storage
+		assert!(Compute::stakes(commitment_id).is_none());
+	});
+}
+
+#[test]
+fn test_end_delegation_without_cooldown() {
+	ExtBuilder.build().execute_with(|| {
+		setup_balances();
+		create_pools();
+
+		// Charlie will act as both manager and committer
+		let committer = charlie_account_id();
+		let delegator = ferdie_account_id();
+
+		offer_accept_backing(committer.clone());
+		commit_alice_bob();
+		roll_to_block(302);
+		commit_compute(committer.clone());
+
+		// Delegate to the committer
+		let stake_amount = 40 * UNIT;
+		let cooldown_period = 36u64; // 36 blocks cooldown period
+		let allow_auto_compound = true;
+
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			stake_amount,
+			cooldown_period,
+			allow_auto_compound,
+		));
+
+		// Get the commitment ID
+		let commitment_id = <Test as Config>::CommitmentIdProvider::commitment_id_for(&committer)
+			.expect("Committer should have a commitment ID");
+
+		// Start delegation cooldown
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone()
+		));
+
+		// Roll forward a bit but not past the cooldown period (cooldown_period = 36 blocks)
+		roll_to_block(320); // Only 18 blocks forward, well before cooldown ends
+
+		// Verify that normal end_delegation would fail due to cooldown not ended
+		assert_err!(
+			Compute::end_delegation(RuntimeOrigin::signed(delegator.clone()), committer.clone()),
+			Error::<Test, ()>::CooldownNotEnded
+		);
+
+		// Call end_delegation_for directly with check_cooldown: false
+		// This should succeed even though cooldown hasn't ended
+		let compound_amount = Compute::end_delegation_for(&delegator, commitment_id, false);
+		assert_ok!(compound_amount);
+
+		// Verify the delegation has been ended by checking storage
+		assert!(Compute::delegations(&delegator, commitment_id).is_none());
+	});
 }

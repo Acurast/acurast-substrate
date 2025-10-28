@@ -199,6 +199,8 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn setup_compute_settings() {}
+
+	fn on_initialize(block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

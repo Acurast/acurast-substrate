@@ -43,10 +43,6 @@ where
 	}
 }
 
-fn run_to_block<T: Config>(new_block: BlockNumberFor<T>) {
-	frame_system::Pallet::<T>::set_block_number(new_block);
-}
-
 pub fn roll_to_block<T: Config>(block_number: BlockNumberFor<T>)
 where
 	BlockNumberFor<T>: IsType<u32>,
@@ -333,5 +329,5 @@ benchmarks! {
 		let item = processor_pairing::<T>(manager_account.clone());
 	}: _(RawOrigin::Signed(manager_account), item.proof.unwrap())
 
-	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
+	//impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
 }

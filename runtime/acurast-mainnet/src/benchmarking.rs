@@ -12,7 +12,7 @@ use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, PoolId, StoredAttestation,
 	StoredJobRegistration,
 };
 use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSettingsFor};
@@ -35,12 +35,13 @@ define_benchmarks!(
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
 	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
-	[pallet_acurast_fee_manager, AcurastFeeManager]
 	[pallet_acurast_marketplace, AcurastMarketplace]
 	// [pallet_acurast_hyperdrive, AcurastHyperdrive]
 	[pallet_acurast_compute, AcurastCompute]
+	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
+	[pallet_acurast_token_conversion, AcurastTokenConversion]
 );
 
 fn create_funded_user(
@@ -75,6 +76,10 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			available_modules: JobModules::default(),
 		};
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
+		AcurastCompute::commit(
+			&processor,
+			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
+		);
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
 				slots: 1,
@@ -82,7 +87,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 				min_reputation: None,
 				assignment_strategy: AssignmentStrategy::Single(if instant_match {
 					Some(
-						vec![PlannedExecution { source: Self::funded_account(0), start_delay: 0 }]
+						vec![PlannedExecution { source: processor, start_delay: 0 }]
 							.try_into()
 							.unwrap(),
 					)

@@ -1203,6 +1203,7 @@ where
 	pub fn end_commitment_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
+		check_cooldown: bool,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 
@@ -1212,11 +1213,14 @@ where
 			commitment_id,
 			|s_| -> Result<StakeFor<T, I>, Error<T, I>> {
 				let s = s_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-				let cooldown_start = s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
-				ensure!(
-					cooldown_start.saturating_add(s.cooldown_period) <= current_block,
-					Error::<T, I>::CooldownNotEnded
-				);
+				if check_cooldown {
+					let cooldown_start =
+						s.cooldown_started.ok_or(Error::<T, I>::CooldownNotStarted)?;
+					ensure!(
+						cooldown_start.saturating_add(s.cooldown_period) <= current_block,
+						Error::<T, I>::CooldownNotEnded
+					);
+				}
 
 				Ok(s_.take().unwrap())
 			},

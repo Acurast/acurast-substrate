@@ -358,7 +358,7 @@ pub mod pallet {
 		/// Updates the certificate revocation list by adding or removing a revoked certificate serial number. Attestations signed
 		/// by a revoked certificate will not be considered valid anymore. The `RevocationListUpdateBarrier` configured in [Config] can be used to
 		/// customize who can execute this action.
-		#[pallet::weight(<T as Config>::WeightInfo::update_certificate_revocation_list())]
+		#[pallet::weight(<T as Config>::WeightInfo::update_certificate_revocation_list(updates.len() as u32))]
 		#[pallet::call_index(6)]
 		pub fn update_certificate_revocation_list(
 			origin: OriginFor<T>,

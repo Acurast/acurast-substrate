@@ -9,18 +9,21 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::ConstU32;
-use sp_runtime::{traits::Zero, BoundedVec};
+use sp_runtime::{traits::Zero, BoundedVec, Vec};
+use sp_std::vec;
+use acurast_common::PoolId;
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 6] = [
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 7] = [
 		(5, &migrate_to_v5::<T, I>),
 		(6, &migrate_to_v6::<T, I>),
 		(7, &migrate_to_v7::<T, I>),
 		(8, &migrate_to_v8::<T, I>),
 		(9, &migrate_to_v9::<T, I>),
 		(10, &migrate_to_v10::<T, I>),
+		(11, &migrate_to_v11::<T, I>),
 	];
 
 	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
@@ -183,6 +186,123 @@ pub fn migrate_to_v10<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	});
 
 	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
+
+	(weight, true)
+}
+
+/// Recreates metric pools with standardized v1 configuration
+pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	use sp_runtime::Perquintill;
+
+	let mut weight = Weight::zero();
+
+	// Helper function to create pool name as [u8; 24]
+	fn pool_name(s: &str) -> MetricPoolName {
+		let mut name = [b'_'; 24];
+		let bytes = s.as_bytes();
+		let len = core::cmp::min(bytes.len(), 24);
+		name[..len].copy_from_slice(&bytes[..len]);
+		name
+	}
+
+	// Helper function to create config name as [u8; 24]
+	fn config_name(s: &str) -> MetricPoolConfigName {
+		let mut name = [b'_'; 24];
+		let bytes = s.as_bytes();
+		let len = core::cmp::min(bytes.len(), 24);
+		name[..len].copy_from_slice(&bytes[..len]);
+		name
+	}
+
+	// Clear existing pools
+	let pools_count = MetricPools::<T, I>::iter().count();
+	let _ = MetricPools::<T, I>::clear(u32::MAX, None);
+	weight = weight.saturating_add(T::DbWeight::get().writes(pools_count as u64));
+
+	let lookup_count = MetricPoolLookup::<T, I>::iter().count();
+	let _ = MetricPoolLookup::<T, I>::clear(u32::MAX, None);
+	weight = weight.saturating_add(T::DbWeight::get().writes(lookup_count as u64));
+
+	// Pool configurations
+	let pools_data: [(PoolId, MetricPoolName, Perquintill, Vec<MetricPoolConfigValue>); 6] = [
+		(
+			1,
+			pool_name("v1_cpu_single_core"),
+			Perquintill::from_rational(2307u64, 10000u64),
+			vec![
+				(config_name("crypto_data_size"), 10_240, 0),
+				(config_name("sort_data_size"), 100_000, 0),
+				(config_name("duration"), 1_000, 0),
+				(config_name("math_data_size"), 200, 0),
+				(config_name("math_simd"), 0, 0),
+			],
+		),
+		(
+			2,
+			pool_name("v1_cpu_multi_core"),
+			Perquintill::from_rational(2307u64, 10000u64),
+			vec![
+				(config_name("duration"), 1_000, 0),
+				(config_name("crypto_data_size"), 10_240, 0),
+				(config_name("math_data_size"), 200, 0),
+				(config_name("sort_data_size"), 100_000, 0),
+			],
+		),
+		(
+			3,
+			pool_name("v1_ram_total"),
+			Perquintill::from_rational(4615u64, 10000u64),
+			vec![],
+		),
+		(
+			4,
+			pool_name("v1_ram_speed"),
+			Perquintill::zero(),
+			vec![
+				(config_name("iters"), 10, 0),
+				(config_name("alloc_data_size"), 67_108_864, 0),
+				(config_name("access_data_size"), 65_536, 0),
+			],
+		),
+		(
+			5,
+			pool_name("v1_storage_avail"),
+			Perquintill::from_rational(769u64, 10000u64),
+			vec![],
+		),
+		(
+			6,
+			pool_name("v1_storage_speed"),
+			Perquintill::zero(),
+			vec![
+				(config_name("access_seq_data_size_mb"), 50, 0),
+				(config_name("access_rand_data_size_mb"), 100, 0),
+				(config_name("iters"), 0, 0),
+			],
+		),
+	];
+
+	// Create new pools
+	for (pool_id, name, reward_ratio, config_vec) in pools_data {
+		let config: MetricPoolConfigValues = BoundedVec::try_from(config_vec)
+			.expect("Config vector should fit within bounds");
+
+		let pool = MetricPool {
+			config,
+			name,
+			reward: ProvisionalBuffer::new(reward_ratio),
+			total: SlidingBuffer::new(Zero::zero()),
+			total_with_bonus: SlidingBuffer::new(Zero::zero()),
+		};
+
+		MetricPools::<T, I>::insert(pool_id, pool);
+		MetricPoolLookup::<T, I>::insert(name, pool_id);
+		weight = weight.saturating_add(T::DbWeight::get().writes(2));
+	}
+
+	// Set LastMetricPoolId to 6
+	LastMetricPoolId::<T, I>::put(6u8);
+	weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 	(weight, true)
 }

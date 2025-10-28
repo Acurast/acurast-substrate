@@ -2075,6 +2075,15 @@ fn test_commit_compute() {
 			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
+        assert_ok!(Compute::stake_more(
+			RuntimeOrigin::signed(charlie.clone()),
+			2 * UNIT,
+			None,
+			None,
+			None,
+			None,
+		));
+
 		roll_to_block(410);
 		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(charlie.clone()),));
 
@@ -2089,7 +2098,7 @@ fn test_commit_compute() {
 
 		// Verify the reward was payed out
 		// At minimum we should see the commitment created event
-		// assert_eq!(events(), []);
+		assert_eq!(events(), []);
 		assert!(events().iter().any(|e| matches!(
 			e,
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer {

@@ -107,45 +107,21 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub managers: Vec<(T::AccountId, Vec<T::AccountId>)>,
+		pub api_version: u32,
+		pub onboarding_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { managers: Default::default() }
+			Self { api_version: 1, onboarding_settings: None }
 		}
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (manager, processors) in &self.managers {
-				let manager_id =
-					T::ManagerIdProvider::manager_id_for(manager).unwrap_or_else(|_| {
-						// Get the latest manager identifier in the sequence.
-						let id = <LastManagerId<T>>::get().unwrap_or(0.into()) + 1.into();
-
-						// Using .expect here should be fine it is only applied at the genesis block.
-						T::ManagerIdProvider::create_manager_id(id, manager)
-							.expect("Could not create manager id.");
-
-						// Update sequential manager identifier
-						<LastManagerId<T>>::set(Some(id));
-
-						id
-					});
-
-				processors.iter().for_each(|processor| {
-					// Set manager/processor indexes
-					<ManagedProcessors<T>>::insert(manager_id, processor, ());
-					<ProcessorToManagerIdIndex<T>>::insert(processor, manager_id);
-
-					// Update the processor counter for the manager
-					let counter =
-						<ManagerCounter<T>>::get(manager).unwrap_or(0u8.into()) + 1.into();
-					<ManagerCounter<T>>::insert(manager, counter);
-				});
-			}
+			<ApiVersion<T>>::put(self.api_version);
+			<ProcessorOnboardingSettings<T>>::set(self.onboarding_settings.clone());
 		}
 	}
 

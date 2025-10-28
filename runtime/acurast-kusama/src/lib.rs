@@ -81,11 +81,17 @@ mod runtime {
 	#[runtime::pallet_index(17)]
 	pub type ConvictionVoting = pallet_conviction_voting;
 	#[runtime::pallet_index(18)]
-	pub type Treasury = pallet_treasury;
+	pub type Treasury = pallet_treasury<Instance1>;
 	#[runtime::pallet_index(19)]
 	pub type Council = pallet_collective<Instance1>;
 	#[runtime::pallet_index(25)]
 	pub type CouncilMembership = pallet_membership<Instance1>;
+	#[runtime::pallet_index(27)]
+	pub type OperationFunds = pallet_treasury<Instance2>;
+	#[runtime::pallet_index(28)]
+	pub type LiquidityFunds = pallet_treasury<Instance3>;
+	#[runtime::pallet_index(29)]
+	pub type ExtraFunds = pallet_treasury<Instance4>;
 
 	// Consensus. The order of these are important and shall not change.
 	#[runtime::pallet_index(20)]

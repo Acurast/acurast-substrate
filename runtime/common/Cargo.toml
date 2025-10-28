@@ -58,6 +58,8 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-collective = { workspace = true }
+pallet-membership = { workspace = true }
+pallet-treasury = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -130,6 +132,8 @@ std = [
 	"pallet-uniques/std",
 	"pallet-multisig/std",
 	"pallet-collective/std",
+	"pallet-membership/std",
+	"pallet-treasury/std",
 	"pallet-acurast/std",
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
@@ -181,6 +185,8 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

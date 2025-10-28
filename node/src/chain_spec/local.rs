@@ -92,6 +92,11 @@ fn genesis_config(
 		"balances": {
 			"balances": endowed_accounts,
 		},
+		"vesting": {
+			"vesting": vec![
+				(crate::chain_spec::accountid_from_str("5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe"), 100u32, 100u32, acurast_runtime_common::constants::UNIT)
+			],
+		},
 		"parachainInfo": {
 			"parachainId": id,
 		},
@@ -139,6 +144,12 @@ pub fn endowed_accounts() -> Vec<(AccountId, Balance)> {
 		(get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), 1 << 60),
 		(acurast_pallet_account(), NATIVE_MIN_BALANCE),
 		(fee_manager_pallet_account(), NATIVE_MIN_BALANCE),
+		(
+			crate::chain_spec::accountid_from_str(
+				"5FYkyB3FXzZBrRyYiHytHFuuyqCLU19vjc9NtdcfYAKAjLfe",
+			),
+			1000 * acurast_runtime_common::constants::UNIT,
+		),
 	]
 }
 

@@ -4,7 +4,10 @@ use frame_support::{
 	sp_runtime::traits::{IdentifyAccount, MaybeDisplay, Verify},
 	traits::{Currency, IsType, UnixTime},
 };
-use sp_core::H256;
+use sp_core::{
+	serde::{Deserialize, Serialize},
+	H256,
+};
 
 use crate::Config;
 
@@ -191,7 +194,16 @@ pub const MAX_ENDPOINT_LENGTH: u32 = 200;
 pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
 
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Serialize,
+	Deserialize,
 )]
 pub struct OnboardingSettings<Balance, AccountId> {
 	pub funds: Balance,

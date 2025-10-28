@@ -36,7 +36,7 @@ parameter_types! {
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
+	pub const InflationPerEpoch: Balance = 0;//8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
 	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(10);
 	pub TreasuryAccountId: AccountId = Treasury::account_id();

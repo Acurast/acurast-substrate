@@ -164,7 +164,7 @@ where
 		commitment: &CommitmentFor<T, I>,
 		previous_epoch_metric_sums: &[(PoolId, (Metric, Metric))],
 	) -> Result<(), Error<T, I>> {
-		let weights = commitment.weights.get(last_epoch);
+		let weights = commitment.weights.get_latest(last_epoch);
 		let commitment_total_weight = weights.total_reward_weight();
 
 		for (pool_id, (metric_sum, metric_with_bonus_sum)) in previous_epoch_metric_sums {
@@ -174,90 +174,92 @@ where
 			let bonus_sum = metric_with_bonus_sum
 				.checked_sub(metric_sum)
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
-			let committed_metric_sum = ComputeCommitments::<T, I>::get(commitment_id, pool_id)
-				.ok_or(Error::<T, I>::CommitmentNotFound)?;
-
-			// calculate min(committed_metric_sum, measured_metric_sum)
-			// compare metrics WITHOUT BONI (there is no concept for metrics committed with bonis)
-			let (commitment_bounded_metric_sum, bounded_bonus) =
-				if *metric_sum < committed_metric_sum {
-					// fall down to actual since commitment violated, and also don't give ANY boni
-					(*metric_sum, Zero::zero())
-				} else {
-					// we give the bonus because commitment was hold
-
-					// a committer cannot get more bonus than for the equivalent of busy devices summing up to the committed compute
-					let max_bonus = FixedU128::from_inner(
-						T::BusyWeightBonus::get().mul_floor(committed_metric_sum.into_inner()),
-					);
-					if bonus_sum > max_bonus {
-						(committed_metric_sum, max_bonus)
+			if let Some(committed_metric_sum) =
+				ComputeCommitments::<T, I>::get(commitment_id, pool_id)
+			{
+				// calculate min(committed_metric_sum, measured_metric_sum)
+				// compare metrics WITHOUT BONI (there is no concept for metrics committed with bonis)
+				let (commitment_bounded_metric_sum, bounded_bonus) =
+					if *metric_sum < committed_metric_sum {
+						// fall down to actual since commitment violated, and also don't give ANY boni
+						(*metric_sum, Zero::zero())
 					} else {
-						(committed_metric_sum, bonus_sum)
+						// we give the bonus because commitment was hold
+
+						// a committer cannot get more bonus than for the equivalent of busy devices summing up to the committed compute
+						let max_bonus = FixedU128::from_inner(
+							T::BusyWeightBonus::get().mul_floor(committed_metric_sum.into_inner()),
+						);
+						if bonus_sum > max_bonus {
+							(committed_metric_sum, max_bonus)
+						} else {
+							(committed_metric_sum, bonus_sum)
+						}
+					};
+
+				let score = {
+					let score = U256::from(commitment_bounded_metric_sum.into_inner())
+						.checked_mul(commitment_total_weight)
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(FIXEDU128_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.integer_sqrt();
+					let score_limit = target_weight_per_compute
+						.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(FIXEDU128_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(PER_TOKEN_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					if score_limit < score {
+						score_limit
+					} else {
+						score
 					}
 				};
 
-			let score = {
-				let score = U256::from(commitment_bounded_metric_sum.into_inner())
-					.checked_mul(commitment_total_weight)
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(FIXEDU128_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.integer_sqrt();
-				let score_limit = target_weight_per_compute
-					.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(FIXEDU128_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
-				if score_limit < score {
-					score_limit
-				} else {
-					score
-				}
-			};
+				// bonus score dedicated to committer, not delegators
+				let bonus_score = {
+					// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
+					let score = U256::from(bounded_bonus.into_inner())
+						.checked_mul(weights.self_reward_weight)
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(FIXEDU128_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.integer_sqrt();
+					let score_limit = target_weight_per_compute
+						.checked_mul(U256::from(bounded_bonus.into_inner()))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(FIXEDU128_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?
+						.checked_div(U256::from(PER_TOKEN_DECIMALS))
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
+					if score_limit < score {
+						score_limit
+					} else {
+						score
+					}
+				};
 
-			// bonus score dedicated to committer, not delegators
-			let bonus_score = {
-				// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
-				let score = U256::from(bounded_bonus.into_inner())
-					.checked_mul(weights.self_reward_weight)
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(FIXEDU128_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.integer_sqrt();
-				let score_limit = target_weight_per_compute
-					.checked_mul(U256::from(bounded_bonus.into_inner()))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(FIXEDU128_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(U256::from(PER_TOKEN_DECIMALS))
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
-				if score_limit < score {
-					score_limit
-				} else {
-					score
-				}
-			};
+				let score_with_bonus =
+					score.checked_add(bonus_score).ok_or(Error::<T, I>::CalculationOverflow)?;
 
-			let score_with_bonus =
-				score.checked_add(bonus_score).ok_or(Error::<T, I>::CalculationOverflow)?;
+				Scores::<T, I>::mutate(commitment_id, pool_id, |s| {
+					s.set(epoch, (score, score_with_bonus));
+				});
 
-			Scores::<T, I>::mutate(commitment_id, pool_id, |s| {
-				s.set(epoch, (score, score_with_bonus));
-			});
-
-			StakeBasedRewards::<T, I>::try_mutate(pool_id, |r| -> Result<(), Error<T, I>> {
-				r.mutate(
-					epoch,
-					|budget| {
-						budget.total_score = budget.total_score.saturating_add(score_with_bonus);
-					},
-					false,
-				);
-				Ok(())
-			})?;
+				StakeBasedRewards::<T, I>::try_mutate(pool_id, |r| -> Result<(), Error<T, I>> {
+					r.mutate(
+						epoch,
+						|budget| {
+							budget.total_score =
+								budget.total_score.saturating_add(score_with_bonus);
+						},
+						false,
+					);
+					Ok(())
+				})?;
+			}
 		}
 
 		Ok(())
@@ -274,7 +276,7 @@ where
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let committer_stake = commitment.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
-		let weights = commitment.weights.get(epoch);
+		let weights = commitment.weights.get_latest(epoch);
 		let commitment_total_weight = weights.total_reward_weight();
 
 		let mut total_delegations_reward: BalanceFor<T, I> = Zero::zero();
@@ -1291,7 +1293,7 @@ where
 			epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		let commitment = Self::commitments(commitment_id).ok_or(Error::CommitmentNotFound)?;
-        let committer_stake = commitment.stake.as_ref().ok_or(Error::<T, I>::CommitmentNotFound)?;
+		let committer_stake = commitment.stake.as_ref().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 		// Check if already slashed in the last epoch to prevent double slashing
 		ensure!(commitment.last_slashing_epoch < last_epoch, Error::<T, I>::AlreadySlashed);
@@ -1303,8 +1305,10 @@ where
 		let mut total_slash_amount: BalanceFor<T, I> = Zero::zero();
 
 		// Calculate total commitment stake (committer + delegations)
-		let total_stake = committer_stake.amount
-			.checked_add(&commitment.delegations_total_amount).ok_or(Error::<T, I>::CalculationOverflow)?;
+		let total_stake = committer_stake
+			.amount
+			.checked_add(&commitment.delegations_total_amount)
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		// Check all pools for which there are commitments
 		for (pool_id, committed_metric) in <ComputeCommitments<T, I>>::iter_prefix(commitment_id) {
@@ -1335,8 +1339,9 @@ where
 					);
 
 					// Calculate pool's share of base slash amount as ratio of total stake
-					let pool_max_slash = pool_reward_ratio
-						.mul_floor(T::BaseSlashAmount::get().mul_floor(total_stake.saturated_into::<u128>()));
+					let pool_max_slash = pool_reward_ratio.mul_floor(
+						T::BaseSlashAmount::get().mul_floor(total_stake.saturated_into::<u128>()),
+					);
 
 					unfulfilled_ratio.mul_floor(pool_max_slash).saturating_mul(missed_epochs).into()
 				} else {
@@ -1351,8 +1356,8 @@ where
 
 		ensure!(!total_slash_amount.is_zero(), Error::<T, I>::NotSlashable);
 
-		// Get the slash weights for this epoch
-		let weights = commitment.weights.get(last_epoch);
+		// Get the slash weights for the last epoch
+		let weights = commitment.weights.get_latest(last_epoch);
 		let total_slash_weight = weights.total_slash_weight();
 
 		// If no slash weight, nothing to slash; technically never happens but avoids division-by-zero below

@@ -2065,6 +2065,16 @@ fn test_commit_compute() {
 		roll_to_block(402);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
 
+		// assert some scores are available for epoch 3
+		assert_eq!(
+			Compute::scores(0, 2),
+			SlidingBuffer::from_inner(
+				3,
+				(U256::from(0), U256::from(0)),
+				(U256::from(73029674), U256::from(73029674))
+			),
+		);
+
 		// Alice & Bob recommit
 		{
 			Compute::commit(
@@ -2075,7 +2085,7 @@ fn test_commit_compute() {
 			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
 		}
 
-        assert_ok!(Compute::stake_more(
+		assert_ok!(Compute::stake_more(
 			RuntimeOrigin::signed(charlie.clone()),
 			2 * UNIT,
 			None,
@@ -2098,13 +2108,13 @@ fn test_commit_compute() {
 
 		// Verify the reward was payed out
 		// At minimum we should see the commitment created event
-		assert_eq!(events(), []);
+		// assert_eq!(events(), []);
 		assert!(events().iter().any(|e| matches!(
 			e,
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: _,
 				to: _,
-				amount: 1926369863013699
+				amount: 2996575342465753
 			})
 		)));
 	});
@@ -2235,10 +2245,44 @@ fn test_delegate_undelegate() {
 			Perquintill::from_percent(75)
 		);
 
+		// Make inflation happen
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		// Make all rolling sums be complete (and inflation happens again)
+		roll_to_block(402);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
 		assert_ok!(Compute::withdraw_delegation(
 			RuntimeOrigin::signed(delegator_2.clone()),
 			committer.clone()
 		));
+
+		// assert_eq!(events(), []);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::Compute(Event::DelegatorWithdrew(_, _, 337114726027296))
+		)));
 
 		assert_ok!(Compute::cooldown_delegation(
 			RuntimeOrigin::signed(delegator_2.clone()),
@@ -2246,8 +2290,8 @@ fn test_delegate_undelegate() {
 		));
 
 		// roll to block where delegator_2's cooldown is over
-		roll_to_block(238);
-		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+		roll_to_block(438);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
 
 		assert_ok!(Compute::end_delegation(
 			RuntimeOrigin::signed(delegator_2.clone()),
@@ -2263,8 +2307,8 @@ fn test_delegate_undelegate() {
 		));
 
 		// roll to block where committer's delegator_1's cooldown is over
-		roll_to_block(274);
-		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+		roll_to_block(474);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
 
 		// committer exits first!
 		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
@@ -2273,6 +2317,17 @@ fn test_delegate_undelegate() {
 			RuntimeOrigin::signed(delegator_1.clone()),
 			committer.clone()
 		));
+
+		// Verify the reward was payed out
+		// assert_eq!(events(), []);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+				from: _,
+				to: _,
+				amount: 1685573630137087
+			})
+		)));
 	});
 }
 

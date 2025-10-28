@@ -1,5 +1,5 @@
 use acurast_runtime_common::{
-	constants::{HOURS, UNIT},
+	constants::{MINUTES, UNIT},
 	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
@@ -25,7 +25,7 @@ use crate::{
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 parameter_types! {
-	pub const Epoch: BlockNumber = prod_or_fast!((3 * HOURS) / 2, 5); // 1.5 hours
+	pub const Epoch: BlockNumber = prod_or_fast!(35 * MINUTES, 5);
 	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(20);
 	pub const MetricEpochValidity: BlockNumber = 16; // 24 hours
 	pub const WarmupPeriod: BlockNumber = prod_or_fast!(1800, 10); // 3 hours

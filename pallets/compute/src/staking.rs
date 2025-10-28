@@ -1291,6 +1291,7 @@ where
 			epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		let commitment = Self::commitments(commitment_id).ok_or(Error::CommitmentNotFound)?;
+        let committer_stake = commitment.stake.as_ref().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 		// Check if already slashed in the last epoch to prevent double slashing
 		ensure!(commitment.last_slashing_epoch < last_epoch, Error::<T, I>::AlreadySlashed);
@@ -1300,6 +1301,10 @@ where
 
 		// Calculate the total slash amount across all pools
 		let mut total_slash_amount: BalanceFor<T, I> = Zero::zero();
+
+		// Calculate total commitment stake (committer + delegations)
+		let total_stake = committer_stake.amount
+			.checked_add(&commitment.delegations_total_amount).ok_or(Error::<T, I>::CalculationOverflow)?;
 
 		// Check all pools for which there are commitments
 		for (pool_id, committed_metric) in <ComputeCommitments<T, I>>::iter_prefix(commitment_id) {
@@ -1329,9 +1334,9 @@ where
 						committed_metric.into_inner(),
 					);
 
-					// Calculate pool's share of base slash amount
+					// Calculate pool's share of base slash amount as ratio of total stake
 					let pool_max_slash = pool_reward_ratio
-						.mul_floor(T::BaseSlashAmount::get().saturated_into::<u128>());
+						.mul_floor(T::BaseSlashAmount::get().mul_floor(total_stake.saturated_into::<u128>()));
 
 					unfulfilled_ratio.mul_floor(pool_max_slash).saturating_mul(missed_epochs).into()
 				} else {

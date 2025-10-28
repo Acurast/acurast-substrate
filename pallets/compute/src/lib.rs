@@ -131,9 +131,9 @@ pub mod pallet {
 		/// The minimum stake by a committer.
 		#[pallet::constant]
 		type MinStake: Get<BalanceFor<Self, I>>;
-		/// The base slash amount applied when a commitment fails to deliver committed metrics.
+		/// The slash ratio applied to total commitment stake (committer + delegations) when a commitment fails to deliver committed metrics.
 		#[pallet::constant]
-		type BaseSlashAmount: Get<BalanceFor<Self, I>>;
+		type BaseSlashAmount: Get<Perquintill>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;

@@ -35,7 +35,7 @@ parameter_types! {
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
-	pub const BaseSlashAmount: Balance = 10 * UNIT;
+	pub const BaseSlashAmount: Perquintill = Perquintill::from_percent(1); // 1% of total stake per missed epoch
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 112; // can redelegate once per 7*16=112 epochs ~= 1 week

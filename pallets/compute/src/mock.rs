@@ -131,7 +131,7 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 3; // can redelegate once per 3 epochs
 	pub const MinStake: Balance = UNIT;
-	pub const BaseSlashAmount: Balance = UNIT;
+	pub const BaseSlashAmount: Perquintill = Perquintill::from_percent(1); // 1% of total stake
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);

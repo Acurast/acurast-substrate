@@ -385,19 +385,6 @@ pub struct Commitment<
 	pub delegations_total_amount: Balance,
 	pub delegations_total_rewardable_amount: Balance,
 
-	/// The commitments weights as a MemoryBuffer `[epoch -> weights]`.
-	///
-	///     e1        e2       e3          e4
-	/// |--------|----------|--D-----|
-	///                        |
-	///                        D first write rotates, but keeps old value as base
-	///                        clear out before e2
-	///                        #
-	///                 |
-	///
-	///           +$ +$ # $ (problematic in e2)
-	///                 |
-	///                 first heartbeat scores for score_committer_c out from delegations_reward_weight from e1
 	pub weights: MemoryBuffer<Epoch, CommitmentWeights>,
 
 	/// The pool rewards as a MemoryBuffer to remember it for maximum one past commitment.

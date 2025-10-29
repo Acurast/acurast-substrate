@@ -1250,7 +1250,7 @@ pub mod pallet {
 			metrics: &[MetricInput],
 			pool_ids: &[PoolId],
 			cycle: CycleFor<T>,
-		) -> BalanceFor<T, I>
+		) -> (BalanceFor<T, I>, bool, bool)
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
@@ -1285,6 +1285,8 @@ pub mod pallet {
 			};
 
 			let mut result: BalanceFor<T, I> = Zero::zero();
+			let mut metrics_reward_claimed = false;
+			let mut staked_compute_reward_claimed = false;
 
 			if let Some(previous_epoch_metric_sums) = maybe_previous_epoch_metric_sums {
 				let last_epoch = cycle.epoch.saturating_sub(One::one());
@@ -1292,8 +1294,9 @@ pub mod pallet {
 					Self::do_claim(last_epoch, previous_epoch_metric_sums.as_slice())
 						.unwrap_or_default();
 				result = result.saturating_add(metric_rewards);
+				metrics_reward_claimed = true;
 				let Some(commitment_id) = Self::backing_lookup(manager_id) else {
-					return result;
+					return (result, metrics_reward_claimed, staked_compute_reward_claimed);
 				};
 				let bonus = Commitments::<T, I>::mutate(commitment_id, |commitment| {
 					let Some(commitment) = commitment.as_mut() else {
@@ -1320,9 +1323,10 @@ pub mod pallet {
 					bonus
 				});
 				result = result.saturating_add(bonus);
+				staked_compute_reward_claimed = true;
 			}
 
-			result
+			(result, metrics_reward_claimed, staked_compute_reward_claimed)
 		}
 
 		fn update_metrics_epoch_sum(

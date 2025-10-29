@@ -39,7 +39,7 @@ pub trait ComputeHooks<AccountId, ManagerId, Balance> {
 		processor: &AccountId,
 		manager: &(AccountId, ManagerId),
 		metrics: &[MetricInput],
-	) -> Balance
+	) -> (Balance, bool, bool)
 	where
 		Balance: IsType<u128>;
 }
@@ -49,11 +49,11 @@ impl<AccountId, ManagerId, Balance> ComputeHooks<AccountId, ManagerId, Balance> 
 		_processor: &AccountId,
 		_manager: &(AccountId, ManagerId),
 		_metrics: &[MetricInput],
-	) -> Balance
+	) -> (Balance, bool, bool)
 	where
 		Balance: IsType<u128>,
 	{
-		0u128.into()
+		(0u128.into(), false, false)
 	}
 }
 

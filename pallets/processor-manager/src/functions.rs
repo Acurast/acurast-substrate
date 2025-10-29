@@ -6,7 +6,7 @@ use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
 	sp_runtime::{
 		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
-		DispatchError, SaturatedConversion,
+		DispatchError,
 	},
 	traits::{
 		fungible::{Inspect, InspectHold, MutateHold},
@@ -17,8 +17,7 @@ use frame_support::{
 
 use crate::{
 	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
-	OnboardingProvider, Pallet, ProcessorPairingFor, ProcessorRewardDistributionWindow,
-	ProcessorToManagerIdIndex, RewardDistributionWindow,
+	OnboardingProvider, Pallet, ProcessorPairingFor, ProcessorToManagerIdIndex,
 };
 
 impl<T: Config> Pallet<T> {
@@ -71,55 +70,55 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(
-		processor: &T::AccountId,
-		manager: &T::AccountId,
-	) -> Option<BalanceFor<T>> {
-		let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		};
-		if distribution_settings.reward_per_distribution.is_zero() {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		}
-		let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
-		let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
-		else {
-			<ProcessorRewardDistributionWindow<T>>::insert(
-				processor,
-				RewardDistributionWindow::new(current_block_number, &distribution_settings),
-			);
-			return None;
-		};
+	//pub(crate) fn do_reward_distribution(
+	//	processor: &T::AccountId,
+	//	manager: &T::AccountId,
+	//) -> Option<BalanceFor<T>> {
+	//	let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
+	//		<ProcessorRewardDistributionWindow<T>>::remove(processor);
+	//		return None;
+	//	};
+	//	if distribution_settings.reward_per_distribution.is_zero() {
+	//		<ProcessorRewardDistributionWindow<T>>::remove(processor);
+	//		return None;
+	//	}
+	//	let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
+	//	let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
+	//	else {
+	//		<ProcessorRewardDistributionWindow<T>>::insert(
+	//			processor,
+	//			RewardDistributionWindow::new(current_block_number, &distribution_settings),
+	//		);
+	//		return None;
+	//	};
 
-		let progress = current_block_number.saturating_sub(distribution_window.start);
-		if progress < distribution_window.window_length {
-			<ProcessorRewardDistributionWindow<T>>::insert(processor, distribution_window.next());
-			return None;
-		}
+	//	let progress = current_block_number.saturating_sub(distribution_window.start);
+	//	if progress < distribution_window.window_length {
+	//		<ProcessorRewardDistributionWindow<T>>::insert(processor, distribution_window.next());
+	//		return None;
+	//	}
 
-		let mut distributed_amount: Option<BalanceFor<T>> = None;
-		let buffer = progress.saturating_sub(distribution_window.window_length);
-		if buffer <= distribution_window.tollerance
-			&& (distribution_window.heartbeats + 1) >= distribution_window.min_heartbeats
-		{
-			let result = T::Currency::transfer(
-				&distribution_settings.distributor_account,
-				manager,
-				distribution_settings.reward_per_distribution,
-				ExistenceRequirement::KeepAlive,
-			);
-			if result.is_ok() {
-				distributed_amount = Some(distribution_settings.reward_per_distribution)
-			}
-		}
-		<ProcessorRewardDistributionWindow<T>>::insert(
-			processor,
-			RewardDistributionWindow::new(current_block_number, &distribution_settings),
-		);
-		distributed_amount
-	}
+	//	let mut distributed_amount: Option<BalanceFor<T>> = None;
+	//	let buffer = progress.saturating_sub(distribution_window.window_length);
+	//	if buffer <= distribution_window.tollerance
+	//		&& (distribution_window.heartbeats + 1) >= distribution_window.min_heartbeats
+	//	{
+	//		let result = T::Currency::transfer(
+	//			&distribution_settings.distributor_account,
+	//			manager,
+	//			distribution_settings.reward_per_distribution,
+	//			ExistenceRequirement::KeepAlive,
+	//		);
+	//		if result.is_ok() {
+	//			distributed_amount = Some(distribution_settings.reward_per_distribution)
+	//		}
+	//	}
+	//	<ProcessorRewardDistributionWindow<T>>::insert(
+	//		processor,
+	//		RewardDistributionWindow::new(current_block_number, &distribution_settings),
+	//	);
+	//	distributed_amount
+	//}
 
 	pub fn ensure_managed(
 		manager: &T::AccountId,

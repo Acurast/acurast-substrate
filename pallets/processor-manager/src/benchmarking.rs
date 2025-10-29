@@ -204,6 +204,67 @@ benchmarks! {
 		roll_to_block::<T>(3601u32.into());
 	}: _(RawOrigin::Signed(caller), version)
 
+	heartbeat_with_version_no_claim {
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		roll_to_block::<T>(100u32.into());
+		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+
+		let mut values = Vec::<MetricInput>::new();
+		T::BenchmarkHelper::setup_compute_settings();
+		for i in 0..6u32 {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
+			values.push((pool_id, 10u128, 1u128));
+		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		roll_to_block::<T>(1901u32.into());
+	}: heartbeat_with_version(RawOrigin::Signed(caller), version)
+
+	heartbeat_with_version_metrics_claim {
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		roll_to_block::<T>(100u32.into());
+		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+
+		let mut values = Vec::<MetricInput>::new();
+		T::BenchmarkHelper::setup_compute_settings();
+		for i in 0..6u32 {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
+			values.push((pool_id, 10u128, 1u128));
+		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		roll_to_block::<T>(1901u32.into());
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		roll_to_block::<T>(2701u32.into());
+	}: heartbeat_with_version(RawOrigin::Signed(caller), version)
+
 	heartbeat_with_metrics {
 		let x in 1 .. METRICS_MAX_LENGTH;
 
@@ -240,6 +301,67 @@ benchmarks! {
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(3601u32.into());
 	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
+
+	heartbeat_with_metrics_no_claim {
+		let x in 1 .. METRICS_MAX_LENGTH;
+
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		roll_to_block::<T>(100u32.into());
+		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+		let mut values = Vec::<MetricInput>::new();
+		for i in 0..x {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
+			values.push((pool_id, 10u128, 1u128));
+		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		roll_to_block::<T>(1901u32.into());
+	}: heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap())
+
+	heartbeat_with_metrics_claim {
+		let x in 1 .. METRICS_MAX_LENGTH;
+
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
+		whitelist_account!(caller);
+		T::BenchmarkHelper::attest_account(&caller);
+		roll_to_block::<T>(100u32.into());
+		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
+		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
+		let version = Version {
+			platform: 0,
+			build_number: 1,
+		};
+		let mut values = Vec::<MetricInput>::new();
+		for i in 0..x {
+			let pool_id = T::BenchmarkHelper::create_compute_pool();
+			values.push((pool_id, 10u128, 1u128));
+		}
+
+		// commit initially (starting warmup)
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		// make sure warmup of 1800 block passed
+		roll_to_block::<T>(1901u32.into());
+		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+
+		roll_to_block::<T>(2701u32.into());
+	}: heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
 	update_binary_hash {
 		set_timestamp::<T>(1000);

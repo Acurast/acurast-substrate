@@ -31,7 +31,7 @@ pub(crate) use pallet::STORAGE_VERSION;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo,
+		dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{
@@ -447,9 +447,19 @@ pub mod pallet {
 				return Ok(().into());
 			};
 
-			_ = T::ComputeHooks::commit(&who, &manager, &[]);
-
-			Ok(().into())
+			let result = T::ComputeHooks::commit(&who, &manager, &[]);
+			match result {
+				(_, true, true) => Ok(().into()),
+				(_, false, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_version_no_claim()),
+					pays_fee: Pays::Yes,
+				}),
+				(_, true, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_version_metrics_claim()),
+					pays_fee: Pays::Yes,
+				}),
+				_ => Ok(().into()),
+			}
 		}
 
 		#[pallet::call_index(6)]
@@ -565,9 +575,24 @@ pub mod pallet {
 				return Ok(().into());
 			};
 
-			_ = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
+			let result = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
 
-			Ok(().into())
+			match result {
+				(_, true, true) => Ok(().into()),
+				(_, false, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_no_claim(
+						metrics.len() as u32,
+					)),
+					pays_fee: Pays::Yes,
+				}),
+				(_, true, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_claim(
+						metrics.len() as u32
+					)),
+					pays_fee: Pays::Yes,
+				}),
+				_ => Ok(().into()),
+			}
 		}
 
 		#[pallet::call_index(13)]

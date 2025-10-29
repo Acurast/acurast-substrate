@@ -173,7 +173,7 @@ fn test_single_processor_commit() {
 			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
 				.unwrap();
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		// With roll_to_block calling on_initialize for each block 1-10, epoch_offset changes
@@ -191,7 +191,7 @@ fn test_single_processor_commit() {
 
 		roll_to_block(302 + 39);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -212,7 +212,7 @@ fn test_single_processor_commit() {
 		);
 
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -233,7 +233,7 @@ fn test_single_processor_commit() {
 
 		roll_to_block(302 + 130);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
 			642123287671233
 		);
 		assert_eq!(
@@ -255,7 +255,7 @@ fn test_single_processor_commit() {
 		// commit different value in same epoch (does not change existing values for same epoch since first value is kept)
 		roll_to_block(302 + 170);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 2000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 2000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -281,7 +281,7 @@ fn test_single_processor_commit() {
 		// claim for epoch 1 and commit for epoch 2
 		roll_to_block(302 + 230);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
 			642123287671233
 		);
 		assert_eq!(
@@ -361,7 +361,7 @@ fn commit_alice_bob() {
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &alice_manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&alice_account_id(), &alice_manager, &[(1u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -376,7 +376,7 @@ fn commit_alice_bob() {
 		roll_to_block(20);
 		assert_eq!(Compute::metrics(bob_account_id(), 1), None);
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]),
+			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -397,7 +397,8 @@ fn commit_alice_bob() {
 				&alice_account_id(),
 				&alice_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			)
+			.0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -424,7 +425,7 @@ fn commit_alice_bob() {
 	// Bob commits values for epoch 1 (where he is active) for only pool 2
 	{
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]),
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]).0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -486,7 +487,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&charlie_account_id(),
 				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
-			),
+			)
+			.0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -508,7 +510,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&charlie_account_id(),
 				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
-			),
+			)
+			.0,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -530,7 +533,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&alice_account_id(),
 				&alice_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			)
+			.0,
 			1926369863013699,
 		);
 		assert_eq!(
@@ -561,7 +565,8 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&bob_account_id(),
 				&bob_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
-			),
+			)
+			.0,
 			0, // already claimed by Alice above
 		);
 		assert_eq!(

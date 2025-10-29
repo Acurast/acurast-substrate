@@ -84,7 +84,16 @@ where
 			let (metric_sum, _) = MetricsEpochSum::<T, I>::get(manager_id, c.pool_id)
 				.get(epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::CannotCommit)?);
 			ensure!(c.metric <= metric_sum, Error::<T, I>::MaxMetricCommitmentExceeded);
-			let ratio = Perquintill::from_parts(((c.metric / metric_sum).into_inner()) as u64);
+			// TODO ignore the commitment if c.metric is 0
+			if c.metric.is_zero() {
+				continue;
+			}
+			let ratio = Perquintill::from_parts(
+				((c.metric
+					.checked_div(&metric_sum)
+					.ok_or(Error::<T, I>::MaxMetricCommitmentExceeded)?)
+				.into_inner()) as u64,
+			);
 			ensure!(
 				ratio <= T::MaxMetricCommitmentRatio::get(),
 				Error::<T, I>::MaxMetricCommitmentExceeded

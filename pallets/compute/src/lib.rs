@@ -364,7 +364,7 @@ pub mod pallet {
 
 	/// Migration state for V6 migration (clearing MetricsEraAverage)
 	#[pallet::storage]
-	pub type V7MigrationState<T: Config<I>, I: 'static = ()> =
+	pub type V11MigrationState<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
@@ -422,10 +422,10 @@ pub mod pallet {
 		CommitterPoolRewardDistributed(T::CommitmentId, PoolId, EpochOf<T>, BalanceFor<T, I>),
 		/// Stake-based rewards were distributed to a delegation pool. [commitment_id, epoch, reward_amount]
 		DelegationPoolRewardDistributed(T::CommitmentId, EpochOf<T>, BalanceFor<T, I>),
-		/// V7 migration started (clearing deprecated MetricsEraAverage storage)
-		V7MigrationStarted,
-		/// V7 migration completed (clearing deprecated MetricsEraAverage storage)
-		V7MigrationCompleted,
+		/// V11 migration started (clearing deprecated MetricsEraAverage storage)
+		V11MigrationStarted,
+		/// V11 migration completed (clearing deprecated MetricsEraAverage storage)
+		V11MigrationCompleted,
 	}
 
 	// Errors inform users that something went wrong.
@@ -486,12 +486,10 @@ pub mod pallet {
 	where
 		BalanceFor<T, I>: From<u128>,
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			crate::migration::migrate::<T, I>()
-		}
-
 		fn on_initialize(block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
+
+			weight += crate::migration::migrate::<T, I>();
 
 			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start will be 2.
 			let current_cycle = Self::current_cycle();

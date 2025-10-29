@@ -116,7 +116,6 @@ pub mod pallet {
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
-
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
@@ -471,7 +470,7 @@ pub mod pallet {
 			>,
 		>,
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_initialize(_block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			crate::migration::migrate::<T>()
 		}
 	}

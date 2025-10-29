@@ -139,20 +139,20 @@ pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
 
 	let mut migration_completed = false;
 	let mut weight = T::DbWeight::get().reads(1);
-	let cursor = V7MigrationState::<T, I>::get().map(|c| c.to_vec());
+	let cursor = V11MigrationState::<T, I>::get().map(|c| c.to_vec());
 	if cursor.is_none() {
-		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationStarted);
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V11MigrationStarted);
 	}
 	let res = <MetricsEraAverage<T, I>>::clear(CLEAR_LIMIT, cursor.as_deref());
 	weight = weight.saturating_add(T::DbWeight::get().writes(res.backend as u64));
 
 	if let Some(new_cursor) = res.maybe_cursor {
 		let bounded_cursor: Option<BoundedVec<u8, ConstU32<80>>> = new_cursor.try_into().ok();
-		V7MigrationState::<T, I>::set(bounded_cursor);
+		V11MigrationState::<T, I>::set(bounded_cursor);
 	} else {
 		migration_completed = true;
-		V7MigrationState::<T, I>::kill();
-		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationCompleted);
+		V11MigrationState::<T, I>::kill();
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V11MigrationCompleted);
 	}
 	weight = weight.saturating_add(T::DbWeight::get().writes(1));
 

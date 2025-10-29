@@ -25,7 +25,7 @@ use crate::{
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(20);
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(10);
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
@@ -35,14 +35,14 @@ parameter_types! {
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
-	pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake per missed epoch
+	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.00003424657534% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(1);
 	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(99);
 }

@@ -863,7 +863,7 @@ fn test_commit_compute_with_slash() {
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]),
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).0,
 			Zero::zero()
 		);
 
@@ -873,7 +873,7 @@ fn test_commit_compute_with_slash() {
 
 		// Charlie commits 4000 units for pool 2 as an active processor
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]),
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).0,
 			Zero::zero()
 		);
 
@@ -939,9 +939,7 @@ fn test_commit_compute_with_slash() {
 		);
 
 		// Verify Slashed event was emitted
-		assert!(events()
-			.iter()
-			.any(|e| matches!(e, RuntimeEvent::Compute(Event::Slashed(_)))));
+		assert!(events().iter().any(|e| matches!(e, RuntimeEvent::Compute(Event::Slashed(_)))));
 
 		// Calculate expected slash amount
 		// Charlie failed 50% of commitment in pool 2
@@ -959,7 +957,8 @@ fn test_commit_compute_with_slash() {
 
 		// The actual slash should match expected (allowing for small rounding differences)
 		assert!(
-			actual_slash >= expected_slash.saturating_sub(1) && actual_slash <= expected_slash.saturating_add(1),
+			actual_slash >= expected_slash.saturating_sub(1)
+				&& actual_slash <= expected_slash.saturating_add(1),
 			"Actual slash {} should be close to expected slash {}",
 			actual_slash,
 			expected_slash

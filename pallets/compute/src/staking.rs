@@ -569,8 +569,8 @@ where
 		Ok(())
 	}
 
-	/// Reduce a commitments' stake (because of slashing).
-	pub fn stake_less_for(
+	/// Decrease a committer's stake (because of slashing).
+	fn decrease_committer_stake(
 		committer: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		decrease_amount: BalanceFor<T, I>,
@@ -580,19 +580,18 @@ where
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 			let stake = c.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			if !decrease_amount.is_zero() {
-				stake.amount = stake.amount.saturating_sub(decrease_amount);
-				stake.rewardable_amount = if stake.cooldown_started.is_some() {
-					T::CooldownRewardRatio::get()
-						.mul_floor(stake.amount.saturated_into::<u128>())
-						.into()
-				} else {
-					stake.amount
-				};
 
-				// locking is on accounts (while all other storage points are relative to `commitment_id`)
-				Self::lock_funds(committer, stake.amount, LockReason::Staking)?;
-			}
+			stake.amount = stake.amount.saturating_sub(decrease_amount);
+			stake.rewardable_amount = if stake.cooldown_started.is_some() {
+				T::CooldownRewardRatio::get()
+					.mul_floor(stake.amount.saturated_into::<u128>())
+					.into()
+			} else {
+				stake.amount
+			};
+
+			// locking is on accounts (while all other storage points are relative to `commitment_id`)
+			Self::lock_funds(committer, stake.amount, LockReason::Staking)?;
 
 			let self_reward_weight = U256::from(stake.rewardable_amount.saturated_into::<u128>())
 				.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
@@ -786,6 +785,222 @@ where
 		Ok(())
 	}
 
+	/// Decrease a delegator's stake (because of slashing).
+	///
+	/// Make sure to accrue_delegator before calling this function.
+    /// 
+    /// This function already locks the new amount after slashing.
+	///
+	/// Returns `(slashed, remaining_unslashed)`, the amount that could be decreased and the remaining not decreased.
+	fn decrease_delegator_stake(
+		who: &T::AccountId,
+		commitment_id: T::CommitmentId,
+		target_decrease_amount: BalanceFor<T, I>,
+	) -> Result<(BalanceFor<T, I>, BalanceFor<T, I>), Error<T, I>> {
+		let epoch = Self::current_cycle().epoch;
+		<Commitments<T, I>>::try_mutate(
+			commitment_id,
+			|c_| -> Result<(BalanceFor<T, I>, BalanceFor<T, I>), Error<T, I>> {
+				let commitment = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+				let committer_stake =
+					commitment.clone().stake.ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+				Delegations::<T, I>::try_mutate(
+					who,
+					commitment_id,
+					|d_| -> Result<(BalanceFor<T, I>, BalanceFor<T, I>), Error<T, I>> {
+						let d = d_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
+
+						let decrease_amount = if target_decrease_amount > d.stake.amount {
+							d.stake.amount
+						} else {
+							target_decrease_amount
+						};
+
+						let decreased_amount = d.stake.amount.saturating_sub(decrease_amount);
+						let decreased_rewardable_amount = if d.stake.cooldown_started.is_some() {
+							T::CooldownRewardRatio::get()
+								.mul_floor(d.stake.amount.saturated_into::<u128>())
+								.into()
+						} else {
+							d.stake.amount
+						};
+
+						let amount_diff = d.stake.amount.saturating_sub(decreased_amount);
+						let rewardable_amount_diff =
+							d.stake.rewardable_amount.saturating_sub(decreased_rewardable_amount);
+
+						d.stake.amount = decreased_amount;
+						d.stake.rewardable_amount = decreased_rewardable_amount;
+
+						Self::lock_funds(
+							who,
+							d.stake.amount,
+							LockReason::Delegation(commitment_id),
+						)?;
+
+						// only update weights etc if not a stale delegation
+						let (reward_weight_diff, slash_weight_diff) = if d.stake.created
+							>= committer_stake.created
+						{
+							let reward_weight =
+								U256::from(d.stake.rewardable_amount.saturated_into::<u128>())
+									.checked_mul(U256::from(
+										d.stake.cooldown_period.saturated_into::<u128>(),
+									))
+									.ok_or(Error::<T, I>::CalculationOverflow)?
+									.checked_div(U256::from(
+										T::MaxCooldownPeriod::get().saturated_into::<u128>(),
+									))
+									.ok_or(Error::<T, I>::CalculationOverflow)?;
+							let slash_weight = U256::from(d.stake.amount.saturated_into::<u128>())
+								.checked_mul(U256::from(
+									d.stake.cooldown_period.saturated_into::<u128>(),
+								))
+								.ok_or(Error::<T, I>::CalculationOverflow)?
+								.checked_div(U256::from(
+									T::MaxCooldownPeriod::get().saturated_into::<u128>(),
+								))
+								.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+							let reward_weight_diff = d
+								.reward_weight
+								.checked_sub(reward_weight)
+								.ok_or(Error::<T, I>::CalculationOverflow)?;
+							let slash_weight_diff = d
+								.slash_weight
+								.checked_sub(slash_weight)
+								.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+							d.reward_weight = reward_weight;
+							d.slash_weight = slash_weight;
+
+							d.reward_debt = d
+								.reward_weight
+								.checked_mul(
+									commitment
+										.pool_rewards
+										.get_latest(d.stake.created)
+										.reward_per_weight,
+								)
+								.ok_or(Error::<T, I>::CalculationOverflow)?
+								.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
+								.ok_or(Error::<T, I>::CalculationOverflow)?
+								.as_u128()
+								.into();
+							d.slash_debt = d
+								.slash_weight
+								.checked_mul(
+									commitment
+										.pool_rewards
+										.get_latest(d.stake.created)
+										.slash_per_weight,
+								)
+								.ok_or(Error::<T, I>::CalculationOverflow)?
+								.checked_div(U256::from(PER_TOKEN_DECIMALS))
+								.ok_or(Error::<T, I>::CalculationOverflow)?
+								.as_u128()
+								.into();
+
+							(reward_weight_diff, slash_weight_diff)
+						} else {
+							(Zero::zero(), Zero::zero())
+						};
+
+						commitment.delegations_total_amount =
+							commitment.delegations_total_amount.saturating_sub(amount_diff);
+						commitment.delegations_total_rewardable_amount = commitment
+							.delegations_total_rewardable_amount
+							.saturating_sub(rewardable_amount_diff);
+						commitment
+							.weights
+							.mutate(
+								epoch,
+								|w| {
+									w.delegations_reward_weight = w
+										.delegations_reward_weight
+										.saturating_sub(reward_weight_diff);
+									w.delegations_slash_weight = w
+										.delegations_slash_weight
+										.saturating_sub(slash_weight_diff);
+								},
+								true,
+							)
+							.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
+
+						Self::update_total_stake(StakeChange::Sub(decrease_amount))?;
+						// delegator_total -= amount
+						<DelegatorTotal<T, I>>::try_mutate(who, |s| -> Result<(), Error<T, I>> {
+							*s = s
+								.checked_sub(&decrease_amount)
+								.ok_or(Error::<T, I>::CalculationOverflow)?;
+							Ok(())
+						})?;
+
+						// return remaining that could not be decreased
+						Ok((
+							decrease_amount,
+							target_decrease_amount.saturating_sub(decrease_amount),
+						))
+					},
+				)
+			},
+		)
+	}
+
+	/// Applies accrued slash to a delegator by decreasing their stake and burning the slashed amount.
+	///
+	/// This function:
+	/// 1. Accrues any pending slash based on the delegation pool's slash_per_weight
+	/// 2. Decreases the delegator's stake by the accrued_slash amount
+	/// 3. Burns only the amount that was actually decreased from the stake
+	/// 4. Resets accrued_slash to zero (or to any remaining if stake was insufficient)
+	fn apply_delegator_slash(
+		who: &T::AccountId,
+		commitment_id: T::CommitmentId,
+	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		// First accrue to ensure slash is up-to-date
+		Self::accrue_delegator(who, commitment_id)?;
+
+		// Get the accrued slash amount
+		let accrued_slash = Delegations::<T, I>::get(who, commitment_id)
+			.ok_or(Error::<T, I>::NotDelegating)?
+			.stake
+			.accrued_slash;
+
+		if accrued_slash.is_zero() {
+			return Ok(Zero::zero());
+		}
+
+		// Decrease the delegator's stake by the accrued slash amount
+		// Returns the amount that could NOT be decreased (if stake was less than slash)
+		let (slashed, remaining_unslashed) =
+			Self::decrease_delegator_stake(who, commitment_id, accrued_slash)?;
+
+		// Burn only what was actually decreased
+		if !slashed.is_zero() {
+            // no check `slashed < balance` needed since we now at least `slashed` is free on account after calling `decrease_delegator_stake`
+			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
+				who,
+				slashed,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Force,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+			// The credit is automatically burned when dropped
+		}
+
+		// Update accrued_slash to any remaining amount
+		Delegations::<T, I>::try_mutate(who, commitment_id, |d_| -> Result<(), Error<T, I>> {
+			let d = d_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
+			d.stake.accrued_slash = remaining_unslashed;
+			Ok(())
+		})?;
+
+		Ok(slashed)
+	}
+
 	pub fn compound_delegator(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
@@ -888,7 +1103,7 @@ where
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
-		Self::accrue_delegator(who, commitment_id)?;
+		Self::apply_delegator_slash(who, commitment_id)?;
 
 		Delegations::<T, I>::try_mutate(who, commitment_id, |d_| {
 			let d = d_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
@@ -999,7 +1214,7 @@ where
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<(), Error<T, I>> {
-		Self::accrue_delegator(who, commitment_id)?;
+		Self::apply_delegator_slash(who, commitment_id)?;
 
 		let epoch = Self::current_cycle().epoch;
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
@@ -1404,7 +1619,7 @@ where
 
 					// Calculate pool's share of base slash amount as ratio of total stake
 					let pool_max_slash = pool_reward_ratio.mul_floor(
-						T::BaseSlashAmount::get().mul_floor(total_stake.saturated_into::<u128>()),
+						T::BaseSlashRation::get().mul_floor(total_stake.saturated_into::<u128>()),
 					);
 
 					unfulfilled_ratio.mul_floor(pool_max_slash).saturating_mul(missed_epochs).into()
@@ -1465,7 +1680,7 @@ where
 
 		// Immediately reduce the committer's stake by the slash amount
 		if !self_slash_amount.is_zero() {
-			Self::stake_less_for(&committer, commitment_id, self_slash_amount)?;
+			Self::decrease_committer_stake(&committer, commitment_id, self_slash_amount)?;
 		}
 
 		// Pay slasher reward immediately
@@ -1533,10 +1748,23 @@ where
 		Self::unlock_funds(who, stake.amount);
 		// Burn the slashed amount
 		if !stake.accrued_slash.is_zero() {
+			let balance = <T::Currency as Currency<T::AccountId>>::free_balance(who);
+
+            let maximum_slashable = if stake.accrued_slash > stake.amount {
+                // do not slash more than the stake!
+                stake.amount
+            } else {
+                if stake.accrued_slash > balance {
+                    balance
+                } else {
+                    stake.accrued_slash
+                }
+            };
+
 			// Withdraw and burn the slashed amount
 			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
 				who,
-				stake.accrued_slash,
+				maximum_slashable,
 				Precision::Exact,
 				Preservation::Expendable,
 				Fortitude::Force,

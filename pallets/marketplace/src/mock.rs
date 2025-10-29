@@ -216,7 +216,7 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 2; // can redelegate once per 2 epochs
 	pub const MinStake: Balance = 1 * UNIT;
-	   pub const BaseSlashAmount: Perquintill = Perquintill::from_percent(1); // 1% of total stake
+	   pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
@@ -248,7 +248,7 @@ impl pallet_acurast_compute::Config for Test {
 	type CooldownRewardRatio = CooldownRewardRatio;
 	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
-	type BaseSlashAmount = BaseSlashAmount;
+	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

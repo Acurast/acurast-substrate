@@ -35,7 +35,7 @@ parameter_types! {
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
-	pub const BaseSlashAmount: Perquintill = Perquintill::from_percent(1); // 1% of total stake per missed epoch
+	pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
@@ -67,7 +67,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CooldownRewardRatio = CooldownRewardRatio;
 	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
-	type BaseSlashAmount = BaseSlashAmount;
+	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;

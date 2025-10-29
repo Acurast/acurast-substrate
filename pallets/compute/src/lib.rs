@@ -133,7 +133,7 @@ pub mod pallet {
 		type MinStake: Get<BalanceFor<Self, I>>;
 		/// The slash ratio applied to total commitment stake (committer + delegations) when a commitment fails to deliver committed metrics.
 		#[pallet::constant]
-		type BaseSlashAmount: Get<Perquintill>;
+		type BaseSlashRation: Get<Perquintill>;
 		/// The ratio of slashed amount that is rewarded to the caller who triggers the slash extrinsic.
 		#[pallet::constant]
 		type SlashRewardRatio: Get<Perquintill>;

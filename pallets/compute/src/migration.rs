@@ -1,3 +1,4 @@
+use acurast_common::PoolId;
 use frame_support::{
 	traits::{
 		// Currency,
@@ -11,7 +12,6 @@ use frame_support::{
 use sp_core::ConstU32;
 use sp_runtime::{traits::Zero, BoundedVec, Vec};
 use sp_std::vec;
-use acurast_common::PoolId;
 
 use super::*;
 
@@ -248,12 +248,7 @@ pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
 				(config_name("sort_data_size"), 100_000, 0),
 			],
 		),
-		(
-			3,
-			pool_name("v1_ram_total"),
-			Perquintill::from_rational(4615u64, 10000u64),
-			vec![],
-		),
+		(3, pool_name("v1_ram_total"), Perquintill::from_rational(4615u64, 10000u64), vec![]),
 		(
 			4,
 			pool_name("v1_ram_speed"),
@@ -264,12 +259,7 @@ pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
 				(config_name("access_data_size"), 65_536, 0),
 			],
 		),
-		(
-			5,
-			pool_name("v1_storage_avail"),
-			Perquintill::from_rational(769u64, 10000u64),
-			vec![],
-		),
+		(5, pool_name("v1_storage_avail"), Perquintill::from_rational(769u64, 10000u64), vec![]),
 		(
 			6,
 			pool_name("v1_storage_speed"),
@@ -284,8 +274,8 @@ pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
 
 	// Create new pools
 	for (pool_id, name, reward_ratio, config_vec) in pools_data {
-		let config: MetricPoolConfigValues = BoundedVec::try_from(config_vec)
-			.expect("Config vector should fit within bounds");
+		let config: MetricPoolConfigValues =
+			BoundedVec::try_from(config_vec).expect("Config vector should fit within bounds");
 
 		let pool = MetricPool {
 			config,

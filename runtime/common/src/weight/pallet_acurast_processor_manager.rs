@@ -58,11 +58,11 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `267`
 		//  Estimated: `3655 + x * (2507 ±0)`
-		// Minimum execution time: 71_989_000 picoseconds.
-		Weight::from_parts(65_447_358, 0)
+		// Minimum execution time: 72_190_000 picoseconds.
+		Weight::from_parts(65_100_428, 0)
 			.saturating_add(Weight::from_parts(0, 3655))
-			// Standard Error: 17_061
-			.saturating_add(Weight::from_parts(11_189_668, 0).saturating_mul(x.into()))
+			// Standard Error: 16_132
+			.saturating_add(Weight::from_parts(11_137_377, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -93,8 +93,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `267`
 		//  Estimated: `3655`
-		// Minimum execution time: 71_150_000 picoseconds.
-		Weight::from_parts(73_310_000, 0)
+		// Minimum execution time: 71_860_000 picoseconds.
+		Weight::from_parts(75_640_000, 0)
 			.saturating_add(Weight::from_parts(0, 3655))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(8))
@@ -121,8 +121,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `267`
 		//  Estimated: `3655`
-		// Minimum execution time: 67_590_000 picoseconds.
-		Weight::from_parts(69_370_000, 0)
+		// Minimum execution time: 67_530_000 picoseconds.
+		Weight::from_parts(69_180_000, 0)
 			.saturating_add(Weight::from_parts(0, 3655))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
@@ -135,8 +135,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `583`
 		//  Estimated: `3611`
-		// Minimum execution time: 26_080_000 picoseconds.
-		Weight::from_parts(26_780_000, 0)
+		// Minimum execution time: 26_700_000 picoseconds.
+		Weight::from_parts(27_270_000, 0)
 			.saturating_add(Weight::from_parts(0, 3611))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
@@ -150,8 +150,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `254`
 		//  Estimated: `3497`
-		// Minimum execution time: 20_400_000 picoseconds.
-		Weight::from_parts(20_891_000, 0)
+		// Minimum execution time: 21_020_000 picoseconds.
+		Weight::from_parts(21_450_000, 0)
 			.saturating_add(Weight::from_parts(0, 3497))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -170,8 +170,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `620`
 		//  Estimated: `3611`
-		// Minimum execution time: 32_270_000 picoseconds.
-		Weight::from_parts(32_870_000, 0)
+		// Minimum execution time: 32_500_000 picoseconds.
+		Weight::from_parts(33_470_000, 0)
 			.saturating_add(Weight::from_parts(0, 3611))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -222,11 +222,91 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `5748`
 		//  Estimated: `23274`
-		// Minimum execution time: 365_470_000 picoseconds.
-		Weight::from_parts(372_520_000, 0)
+		// Minimum execution time: 363_910_000 picoseconds.
+		Weight::from_parts(373_770_000, 0)
 			.saturating_add(Weight::from_parts(0, 23274))
 			.saturating_add(T::DbWeight::get().reads(51))
 			.saturating_add(T::DbWeight::get().writes(37))
+	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:0)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:0)
+	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Processors` (r:1 w:1)
+	/// Proof: `AcurastCompute::Processors` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Metrics` (r:7 w:6)
+	/// Proof: `AcurastCompute::Metrics` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricPools` (r:6 w:6)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1239), added: 3714, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricsEpochSum` (r:6 w:6)
+	/// Proof: `AcurastCompute::MetricsEpochSum` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	fn heartbeat_with_version_no_claim() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2077`
+		//  Estimated: `23274`
+		// Minimum execution time: 155_769_000 picoseconds.
+		Weight::from_parts(159_450_000, 0)
+			.saturating_add(Weight::from_parts(0, 23274))
+			.saturating_add(T::DbWeight::get().reads(27))
+			.saturating_add(T::DbWeight::get().writes(21))
+	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:0)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:0)
+	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Processors` (r:1 w:1)
+	/// Proof: `AcurastCompute::Processors` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Metrics` (r:7 w:6)
+	/// Proof: `AcurastCompute::Metrics` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricPools` (r:6 w:6)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1239), added: 3714, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricsEpochSum` (r:6 w:6)
+	/// Proof: `AcurastCompute::MetricsEpochSum` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::ComputeBasedRewards` (r:1 w:0)
+	/// Proof: `AcurastCompute::ComputeBasedRewards` (`max_values`: Some(1), `max_size`: Some(36), added: 531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::BackingLookup` (r:1 w:0)
+	/// Proof: `AcurastCompute::BackingLookup` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::ManagerMetricRewards` (r:1 w:1)
+	/// Proof: `AcurastCompute::ManagerMetricRewards` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	fn heartbeat_with_version_metrics_claim() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2863`
+		//  Estimated: `23274`
+		// Minimum execution time: 231_460_000 picoseconds.
+		Weight::from_parts(236_670_000, 0)
+			.saturating_add(Weight::from_parts(0, 23274))
+			.saturating_add(T::DbWeight::get().reads(32))
+			.saturating_add(T::DbWeight::get().writes(24))
 	}
 	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
 	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
@@ -275,15 +355,107 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `2274 + x * (572 ±0)`
 		//  Estimated: `15088 + x * (3714 ±0)`
-		// Minimum execution time: 186_410_000 picoseconds.
-		Weight::from_parts(159_658_612, 0)
+		// Minimum execution time: 187_750_000 picoseconds.
+		Weight::from_parts(161_907_278, 0)
 			.saturating_add(Weight::from_parts(0, 15088))
-			// Standard Error: 48_563
-			.saturating_add(Weight::from_parts(33_328_465, 0).saturating_mul(x.into()))
+			// Standard Error: 47_579
+			.saturating_add(Weight::from_parts(33_454_663, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(7))
 			.saturating_add(T::DbWeight::get().writes((5_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 3714).saturating_mul(x.into()))
+	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:0)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:0)
+	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Processors` (r:1 w:1)
+	/// Proof: `AcurastCompute::Processors` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Metrics` (r:20 w:20)
+	/// Proof: `AcurastCompute::Metrics` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricPools` (r:20 w:20)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1239), added: 3714, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricsEpochSum` (r:20 w:20)
+	/// Proof: `AcurastCompute::MetricsEpochSum` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[1, 20]`.
+	fn heartbeat_with_metrics_no_claim(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1216 + x * (136 ±0)`
+		//  Estimated: `15088 + x * (3714 ±0)`
+		// Minimum execution time: 84_090_000 picoseconds.
+		Weight::from_parts(72_455_549, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			// Standard Error: 17_512
+			.saturating_add(Weight::from_parts(13_085_890, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 3714).saturating_mul(x.into()))
+	}
+	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredAttestation` (r:1 w:0)
+	/// Proof: `Acurast::StoredAttestation` (`max_values`: None, `max_size`: Some(11623), added: 14098, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorMinVersionForReward` (r:1 w:0)
+	/// Proof: `AcurastProcessorManager::ProcessorMinVersionForReward` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Uniques::Asset` (r:1 w:0)
+	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::LastMetricPoolId` (r:1 w:0)
+	/// Proof: `AcurastCompute::LastMetricPoolId` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)
+	/// Proof: `AcurastCompute::CurrentCycle` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Processors` (r:1 w:1)
+	/// Proof: `AcurastCompute::Processors` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::Metrics` (r:20 w:20)
+	/// Proof: `AcurastCompute::Metrics` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricPools` (r:20 w:20)
+	/// Proof: `AcurastCompute::MetricPools` (`max_values`: None, `max_size`: Some(1239), added: 3714, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::MetricsEpochSum` (r:20 w:20)
+	/// Proof: `AcurastCompute::MetricsEpochSum` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::ComputeBasedRewards` (r:1 w:0)
+	/// Proof: `AcurastCompute::ComputeBasedRewards` (`max_values`: Some(1), `max_size`: Some(36), added: 531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::BackingLookup` (r:1 w:0)
+	/// Proof: `AcurastCompute::BackingLookup` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastCompute::ManagerMetricRewards` (r:1 w:1)
+	/// Proof: `AcurastCompute::ManagerMetricRewards` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorVersion` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorVersion` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)
+	/// Proof: `AcurastProcessorManager::ProcessorHeartbeat` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[1, 20]`.
+	fn heartbeat_with_metrics_claim(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1552 + x * (211 ±0)`
+		//  Estimated: `15088 + x * (3714 ±0)`
+		// Minimum execution time: 144_560_000 picoseconds.
+		Weight::from_parts(135_199_575, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			// Standard Error: 21_489
+			.saturating_add(Weight::from_parts(15_373_397, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(13))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(6))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 3714).saturating_mul(x.into()))
 	}
 	/// Storage: `AcurastProcessorManager::KnownBinaryHash` (r:0 w:1)
@@ -292,8 +464,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 11_220_000 picoseconds.
-		Weight::from_parts(11_780_000, 0)
+		// Minimum execution time: 11_430_000 picoseconds.
+		Weight::from_parts(12_250_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -303,8 +475,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_870_000 picoseconds.
-		Weight::from_parts(8_440_000, 0)
+		// Minimum execution time: 8_360_000 picoseconds.
+		Weight::from_parts(8_620_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -321,11 +493,11 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `595 + x * (36 ±0)`
 		//  Estimated: `3611 + x * (2507 ±0)`
-		// Minimum execution time: 29_991_000 picoseconds.
-		Weight::from_parts(21_059_907, 0)
+		// Minimum execution time: 30_250_000 picoseconds.
+		Weight::from_parts(23_079_599, 0)
 			.saturating_add(Weight::from_parts(0, 3611))
-			// Standard Error: 6_550
-			.saturating_add(Weight::from_parts(8_903_822, 0).saturating_mul(x.into()))
+			// Standard Error: 6_938
+			.saturating_add(Weight::from_parts(8_866_219, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
@@ -337,8 +509,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_230_000 picoseconds.
-		Weight::from_parts(4_720_000, 0)
+		// Minimum execution time: 4_460_000 picoseconds.
+		Weight::from_parts(4_900_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -348,8 +520,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 10_250_000 picoseconds.
-		Weight::from_parts(10_610_000, 0)
+		// Minimum execution time: 10_290_000 picoseconds.
+		Weight::from_parts(10_980_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -371,8 +543,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `173`
 		//  Estimated: `3655`
-		// Minimum execution time: 51_560_000 picoseconds.
-		Weight::from_parts(53_060_000, 0)
+		// Minimum execution time: 52_610_000 picoseconds.
+		Weight::from_parts(53_980_000, 0)
 			.saturating_add(Weight::from_parts(0, 3655))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -405,8 +577,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `309`
 		//  Estimated: `11038`
-		// Minimum execution time: 18_015_073_000 picoseconds.
-		Weight::from_parts(18_067_982_000, 0)
+		// Minimum execution time: 17_862_572_000 picoseconds.
+		Weight::from_parts(17_969_063_000, 0)
 			.saturating_add(Weight::from_parts(0, 11038))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(9))
@@ -417,8 +589,8 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_240_000 picoseconds.
-		Weight::from_parts(8_560_000, 0)
+		// Minimum execution time: 8_600_000 picoseconds.
+		Weight::from_parts(8_971_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -428,41 +600,9 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 10_680_000 picoseconds.
-		Weight::from_parts(11_250_000, 0)
+		// Minimum execution time: 10_800_000 picoseconds.
+		Weight::from_parts(11_580_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-
-	fn heartbeat_with_version_no_claim() -> Weight {
-		Weight::from_parts(49_914_873, 0)
-			.saturating_add(Weight::from_parts(0, 15088))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(4))
-    }
-
-    fn heartbeat_with_version_metrics_claim() -> Weight {
-    	Weight::from_parts(49_914_873, 0)
-			.saturating_add(Weight::from_parts(0, 15088))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(4))
-    }
-
-    fn heartbeat_with_metrics_no_claim(x: u32) -> Weight {
-    	Weight::from_parts(49_914_873, 0)
-			.saturating_add(Weight::from_parts(0, 15088))
-			// Standard Error: 11_459
-			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(4))
-    }
-
-    fn heartbeat_with_metrics_claim(x: u32) -> Weight {
-    	Weight::from_parts(49_914_873, 0)
-			.saturating_add(Weight::from_parts(0, 15088))
-			// Standard Error: 11_459
-			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(4))
-    }
 }

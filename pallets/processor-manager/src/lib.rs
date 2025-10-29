@@ -447,7 +447,6 @@ pub mod pallet {
 				return Ok(().into());
 			};
 
-			_ = Self::do_reward_distribution(&who, &manager.0);
 			_ = T::ComputeHooks::commit(&who, &manager, &[]);
 
 			Ok(().into())
@@ -566,7 +565,6 @@ pub mod pallet {
 				return Ok(().into());
 			};
 
-			_ = Self::do_reward_distribution(&who, &manager.0);
 			_ = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
 
 			Ok(().into())

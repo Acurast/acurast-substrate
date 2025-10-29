@@ -4,10 +4,10 @@ use frame_support::{
 	traits::{tokens::currency::Currency, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_acurast_compute::ComputeCommitment;
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::Perquintill;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
+use sp_runtime::{FixedU128, Perbill, Perquintill};
+use sp_std::{vec, vec::Vec};
 
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
@@ -237,6 +237,31 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 	}
 
 	fn setup_compute_settings() {}
+
+	fn commit(manager: &<Runtime as frame_system::Config>::AccountId) {
+		let amount = Balances::free_balance(manager) / 2;
+		let pool_ids = (1..=AcurastCompute::last_metric_pool_id()).collect::<Vec<_>>();
+		let commitments = pool_ids
+			.into_iter()
+			.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
+			.collect::<Vec<_>>();
+		AcurastCompute::offer_backing(RuntimeOrigin::signed(manager.clone()), manager.clone())
+			.expect("offer backing success");
+		AcurastCompute::accept_backing_offer(
+			RuntimeOrigin::signed(manager.clone()),
+			manager.clone(),
+		)
+		.expect("accpet backing offer success");
+		AcurastCompute::commit_compute(
+			RuntimeOrigin::signed(manager.clone()),
+			amount,
+			<Runtime as pallet_acurast_compute::Config>::MinCooldownPeriod::get(),
+			commitments.try_into().expect("conversion to BoundedVec works"),
+			Perbill::from_percent(1),
+			false,
+		)
+		.expect("commit compute success");
+	}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);

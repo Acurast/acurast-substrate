@@ -1,4 +1,3 @@
-use acurast_common::PoolId;
 use frame_support::{
 	traits::{
 		// Currency,

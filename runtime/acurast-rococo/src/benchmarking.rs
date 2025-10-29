@@ -233,6 +233,8 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 
 	fn setup_compute_settings() {}
 
+	fn commit(manager: &<Runtime as frame_system::Config>::AccountId) {}
+
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
 	}

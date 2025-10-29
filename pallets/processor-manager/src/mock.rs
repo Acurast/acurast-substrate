@@ -194,7 +194,7 @@ impl crate::BenchmarkHelper<Test> for () {
 	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
 		let caller: <Test as frame_system::Config>::AccountId =
 			frame_benchmarking::account("token_account", index, SEED);
-		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+		<Balances as Mutate<_>>::set_balance(&caller.clone(), u32::MAX.into());
 
 		caller
 	}
@@ -206,8 +206,9 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn setup_compute_settings() {}
+	fn commit(_manager: &<Test as frame_system::Config>::AccountId) {}
 
-	fn on_initialize(block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
+	fn on_initialize(_block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -224,7 +225,7 @@ where
 	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
 		let caller: <Test as frame_system::Config>::AccountId =
 			frame_benchmarking::account("token_account", index, SEED);
-		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+		<Balances as Mutate<_>>::set_balance(&caller.clone(), u32::MAX.into());
 
 		caller
 	}

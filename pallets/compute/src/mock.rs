@@ -184,6 +184,7 @@ thread_local! {
 		let mut map = HashMap::new();
 		map.insert(alice_account_id(), (charlie_account_id(), 1));
 		map.insert(bob_account_id(), (charlie_account_id(), 1));
+		map.insert(charlie_account_id(), (charlie_account_id(), 1));
 		map
 	});
 

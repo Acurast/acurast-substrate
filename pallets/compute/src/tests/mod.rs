@@ -841,6 +841,128 @@ fn test_commit_compute() {
 }
 
 #[test]
+fn test_commit_compute_with_slash() {
+	ExtBuilder.build().execute_with(|| {
+		setup_balances();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let charlie = charlie_account_id();
+
+		offer_accept_backing(charlie.clone());
+
+		let charlie_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&charlie).unwrap();
+
+		// Charlie commits first time in warmup period (epoch 0)
+		roll_to_block(10);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
+		assert_eq!(
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]),
+			Zero::zero()
+		);
+
+		// Move to epoch 1 after warmup, Charlie commits again (now active)
+		roll_to_block(150);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 1, epoch_start: 102 });
+
+		// Charlie commits 4000 units for pool 2 as an active processor
+		assert_eq!(
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]),
+			Zero::zero()
+		);
+
+		// Now move to epoch 2 where Charlie can commit compute based on epoch 1 metrics
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		// Charlie can commit up to 80% of the previous epoch's metrics (4000 * 0.8 = 3200)
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(3200u128, 1u128), // Commit 3200 units (80% of 4000)
+			},];
+
+		let stake_amount = 10 * UNIT; // 10 tokens
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10);
+		let allow_auto_compound = true;
+
+		// Charlie commits compute
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(charlie.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
+
+		// Get Charlie's commitment ID
+		let charlie_commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie).unwrap();
+
+		// Verify initial stake
+		let initial_commitment = Compute::commitments(charlie_commitment_id).unwrap();
+		let initial_stake = initial_commitment.stake.as_ref().unwrap();
+		assert_eq!(initial_stake.amount, stake_amount);
+
+		// Move to next epoch
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
+
+		// Charlie delivers only 50% of committed metrics (1600 instead of 3200)
+		Compute::commit(&charlie, &charlie_manager, &[(2u8, 1600u128, 1u128)]);
+
+		// Move to next epoch to allow slashing
+		roll_to_block(402);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
+
+		// Someone (alice) calls slash on Charlie for the missed metrics in epoch 3
+		assert_ok!(Compute::slash(RuntimeOrigin::signed(alice_account_id()), charlie.clone()));
+
+		// Verify Charlie's stake was decreased
+		let slashed_commitment = Compute::commitments(charlie_commitment_id).unwrap();
+		let slashed_stake = slashed_commitment.stake.as_ref().unwrap();
+
+		// The stake should be less than the initial stake
+		assert!(
+			slashed_stake.amount < initial_stake.amount,
+			"Stake should be decreased after slashing. Initial: {}, After slash: {}",
+			initial_stake.amount,
+			slashed_stake.amount
+		);
+
+		// Verify Slashed event was emitted
+		assert!(events()
+			.iter()
+			.any(|e| matches!(e, RuntimeEvent::Compute(Event::Slashed(_)))));
+
+		// Calculate expected slash amount
+		// Charlie failed 50% of commitment in pool 2
+		// Pool 2 has a reward ratio, and slash is based on BaseSlashAmount (1% of total stake)
+		// with 50% unfulfilled ratio
+		let pool = Compute::metric_pools(2).unwrap();
+		let pool_reward_ratio = pool.reward.get(3); // epoch 3
+		let total_stake = initial_stake.amount; // No delegations in this test
+		let base_slash = Perquintill::from_percent(1).mul_floor(total_stake);
+		let pool_slash = pool_reward_ratio.mul_floor(base_slash);
+		let unfulfilled_ratio = Perquintill::from_percent(50); // 50% missed
+		let expected_slash = unfulfilled_ratio.mul_floor(pool_slash);
+
+		let actual_slash = initial_stake.amount - slashed_stake.amount;
+
+		// The actual slash should match expected (allowing for small rounding differences)
+		assert!(
+			actual_slash >= expected_slash.saturating_sub(1) && actual_slash <= expected_slash.saturating_add(1),
+			"Actual slash {} should be close to expected slash {}",
+			actual_slash,
+			expected_slash
+		);
+	});
+}
+
+#[test]
 fn test_delegate_undelegate() {
 	ExtBuilder.build().execute_with(|| {
 		setup_balances();

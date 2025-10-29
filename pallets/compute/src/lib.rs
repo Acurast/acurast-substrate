@@ -233,15 +233,6 @@ pub mod pallet {
 	pub(super) type MetricPoolLookup<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, MetricPoolName, PoolId>;
 
-	/// RewardDistributionSettings
-	///
-	/// **DEPRECATED:** This storage item is no longer used and will be removed in a future version.
-	#[pallet::storage]
-	#[pallet::getter(fn reward_distribution_settings)]
-	#[deprecated]
-	pub type RewardDistributionSettings<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, RewardDistributionSettingsFor<T, I>, OptionQuery>;
-
 	/// The commitments of compute as a map `commitment_id` -> `pool_id` -> `metric`.
 	///
 	/// Metrics committable are limited by what was measured in last completed epoch (see [`MetricsEpochSum`]).

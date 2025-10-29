@@ -78,6 +78,7 @@ std = [
 	"tezos-michelson/std",
 	"sp-arithmetic/std",
 	"cumulus-primitives-core/std",
+	"pallet-balances/std",
 ]
 
 runtime-benchmarks = [

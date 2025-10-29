@@ -10,23 +10,20 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::ConstU32;
-use sp_runtime::{traits::Zero, BoundedVec, Vec};
-use sp_std::vec;
+use sp_runtime::{traits::Zero, BoundedVec};
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 7] = [
-		(5, &migrate_to_v5::<T, I>),
+	#[allow(clippy::type_complexity)]
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 4] = [
 		(6, &migrate_to_v6::<T, I>),
-		(7, &migrate_to_v7::<T, I>),
 		(8, &migrate_to_v8::<T, I>),
 		(9, &migrate_to_v9::<T, I>),
-		(10, &migrate_to_v10::<T, I>),
 		(11, &migrate_to_v11::<T, I>),
 	];
 
-	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+	let mut onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
 	for (i, f) in migrations.into_iter() {
 		let migrating_version = StorageVersion::new(i);
@@ -35,18 +32,15 @@ pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
 			weight += f_weight;
 			if completed {
 				migrating_version.put::<Pallet<T, I>>();
+				onchain_version = migrating_version;
 				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			} else {
+				break;
 			}
 		}
 	}
 
 	weight
-}
-
-pub fn migrate_to_v5<T: Config<I>, I: 'static>() -> (Weight, bool) {
-	<RewardDistributionSettings<T, I>>::kill();
-
-	(T::DbWeight::get().writes(1), true)
 }
 
 /// Migrates `Cycle` from `Cycle<Epoch, Era, BlockNumber>` to `Cycle<Epoch, BlockNumber>` by removing era fields
@@ -85,31 +79,6 @@ pub fn migrate_to_v6<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	);
 
 	(weight, true)
-}
-
-pub fn migrate_to_v7<T: Config<I>, I: 'static>() -> (Weight, bool) {
-	const CLEAR_LIMIT: u32 = 100;
-
-	let mut migration_completed = false;
-	let mut weight = T::DbWeight::get().reads(1);
-	let cursor = V7MigrationState::<T, I>::get().map(|c| c.to_vec());
-	if cursor.is_none() {
-		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationStarted);
-	}
-	let res = <MetricsEraAverage<T, I>>::clear(CLEAR_LIMIT, cursor.as_deref());
-	weight = weight.saturating_add(T::DbWeight::get().writes(res.backend as u64));
-
-	if let Some(new_cursor) = res.maybe_cursor {
-		let bounded_cursor: Option<BoundedVec<u8, ConstU32<80>>> = new_cursor.try_into().ok();
-		V7MigrationState::<T, I>::set(bounded_cursor);
-	} else {
-		migration_completed = true;
-		V7MigrationState::<T, I>::kill();
-		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationCompleted);
-	}
-	weight = weight.saturating_add(T::DbWeight::get().writes(1));
-
-	(weight, migration_completed)
 }
 
 /// Migrates `Scores` from `SlidingBuffer<BlockNumberFor<T>, U256>` to `SlidingBuffer<BlockNumberFor<T>, (U256, U256)>`
@@ -165,136 +134,29 @@ pub fn migrate_to_v9<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	(weight, true)
 }
 
-/// Migrates `MetricPool` by adding the `total_with_bonus` field
-pub fn migrate_to_v10<T: Config<I>, I: 'static>() -> (Weight, bool) {
-	let mut weight = Weight::zero();
-
-	// Count and translate all MetricPool entries
-	let count = MetricPools::<T, I>::iter().count();
-	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
-
-	MetricPools::<T, I>::translate::<v9::MetricPoolFor<T>, _>(|_pool_id, old_pool| {
-		// Add the new total_with_bonus field, initialized with the same value as total
-		// since we don't have historical bonus data
-		Some(MetricPoolFor::<T> {
-			config: old_pool.config,
-			name: old_pool.name,
-			reward: old_pool.reward,
-			total: old_pool.total.clone(),
-			total_with_bonus: old_pool.total,
-		})
-	});
-
-	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
-
-	(weight, true)
-}
-
-/// Recreates metric pools with standardized v1 configuration
 pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
-	use sp_runtime::Perquintill;
+	const CLEAR_LIMIT: u32 = 50;
 
-	let mut weight = Weight::zero();
-
-	// Helper function to create pool name as [u8; 24]
-	fn pool_name(s: &str) -> MetricPoolName {
-		let mut name = [b'_'; 24];
-		let bytes = s.as_bytes();
-		let len = core::cmp::min(bytes.len(), 24);
-		name[..len].copy_from_slice(&bytes[..len]);
-		name
+	let mut migration_completed = false;
+	let mut weight = T::DbWeight::get().reads(1);
+	let cursor = V7MigrationState::<T, I>::get().map(|c| c.to_vec());
+	if cursor.is_none() {
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationStarted);
 	}
+	let res = <MetricsEraAverage<T, I>>::clear(CLEAR_LIMIT, cursor.as_deref());
+	weight = weight.saturating_add(T::DbWeight::get().writes(res.backend as u64));
 
-	// Helper function to create config name as [u8; 24]
-	fn config_name(s: &str) -> MetricPoolConfigName {
-		let mut name = [b'_'; 24];
-		let bytes = s.as_bytes();
-		let len = core::cmp::min(bytes.len(), 24);
-		name[..len].copy_from_slice(&bytes[..len]);
-		name
+	if let Some(new_cursor) = res.maybe_cursor {
+		let bounded_cursor: Option<BoundedVec<u8, ConstU32<80>>> = new_cursor.try_into().ok();
+		V7MigrationState::<T, I>::set(bounded_cursor);
+	} else {
+		migration_completed = true;
+		V7MigrationState::<T, I>::kill();
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V7MigrationCompleted);
 	}
-
-	// Clear existing pools
-	let pools_count = MetricPools::<T, I>::iter().count();
-	let _ = MetricPools::<T, I>::clear(u32::MAX, None);
-	weight = weight.saturating_add(T::DbWeight::get().writes(pools_count as u64));
-
-	let lookup_count = MetricPoolLookup::<T, I>::iter().count();
-	let _ = MetricPoolLookup::<T, I>::clear(u32::MAX, None);
-	weight = weight.saturating_add(T::DbWeight::get().writes(lookup_count as u64));
-
-	// Pool configurations
-	let pools_data: [(PoolId, MetricPoolName, Perquintill, Vec<MetricPoolConfigValue>); 6] = [
-		(
-			1,
-			pool_name("v1_cpu_single_core"),
-			Perquintill::from_rational(2307u64, 10000u64),
-			vec![
-				(config_name("crypto_data_size"), 10_240, 0),
-				(config_name("sort_data_size"), 100_000, 0),
-				(config_name("duration"), 1_000, 0),
-				(config_name("math_data_size"), 200, 0),
-				(config_name("math_simd"), 0, 0),
-			],
-		),
-		(
-			2,
-			pool_name("v1_cpu_multi_core"),
-			Perquintill::from_rational(2307u64, 10000u64),
-			vec![
-				(config_name("duration"), 1_000, 0),
-				(config_name("crypto_data_size"), 10_240, 0),
-				(config_name("math_data_size"), 200, 0),
-				(config_name("sort_data_size"), 100_000, 0),
-			],
-		),
-		(3, pool_name("v1_ram_total"), Perquintill::from_rational(4615u64, 10000u64), vec![]),
-		(
-			4,
-			pool_name("v1_ram_speed"),
-			Perquintill::zero(),
-			vec![
-				(config_name("iters"), 10, 0),
-				(config_name("alloc_data_size"), 67_108_864, 0),
-				(config_name("access_data_size"), 65_536, 0),
-			],
-		),
-		(5, pool_name("v1_storage_avail"), Perquintill::from_rational(769u64, 10000u64), vec![]),
-		(
-			6,
-			pool_name("v1_storage_speed"),
-			Perquintill::zero(),
-			vec![
-				(config_name("access_seq_data_size_mb"), 50, 0),
-				(config_name("access_rand_data_size_mb"), 100, 0),
-				(config_name("iters"), 0, 0),
-			],
-		),
-	];
-
-	// Create new pools
-	for (pool_id, name, reward_ratio, config_vec) in pools_data {
-		let config: MetricPoolConfigValues =
-			BoundedVec::try_from(config_vec).expect("Config vector should fit within bounds");
-
-		let pool = MetricPool {
-			config,
-			name,
-			reward: ProvisionalBuffer::new(reward_ratio),
-			total: SlidingBuffer::new(Zero::zero()),
-			total_with_bonus: SlidingBuffer::new(Zero::zero()),
-		};
-
-		MetricPools::<T, I>::insert(pool_id, pool);
-		MetricPoolLookup::<T, I>::insert(name, pool_id);
-		weight = weight.saturating_add(T::DbWeight::get().writes(2));
-	}
-
-	// Set LastMetricPoolId to 6
-	LastMetricPoolId::<T, I>::put(6u8);
 	weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-	(weight, true)
+	(weight, migration_completed)
 }
 
 pub mod v9 {
@@ -305,7 +167,7 @@ pub mod v9 {
 	use parity_scale_codec::{Decode, Encode};
 	use sp_runtime::{
 		traits::{Debug, One},
-		FixedU128, Perquintill,
+		FixedU128,
 	};
 
 	/// Old MetricPool struct without total_with_bonus field
@@ -321,8 +183,6 @@ pub mod v9 {
 		pub reward: ProvisionalBuffer<Epoch, Value>,
 		pub total: SlidingBuffer<Epoch, FixedU128>,
 	}
-
-	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 }
 
 pub mod v8 {

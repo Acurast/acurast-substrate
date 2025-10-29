@@ -425,6 +425,12 @@ pub mod pallet {
 		DelegatorCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 		/// A committer compounded his accrued rewards and slashes. [committer, commitment_id, compound_amount]
 		CommitterCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
+		/// Stake-based rewards were distributed to a committer. [commitment_id, epoch, reward_amount]
+		CommitterRewardDistributed(T::CommitmentId, EpochOf<T>, BalanceFor<T, I>),
+		/// Stake-based rewards were distributed to a committer from a specific pool. [commitment_id, pool_id, epoch, reward_amount]
+		CommitterPoolRewardDistributed(T::CommitmentId, PoolId, EpochOf<T>, BalanceFor<T, I>),
+		/// Stake-based rewards were distributed to a delegation pool. [commitment_id, epoch, reward_amount]
+		DelegationPoolRewardDistributed(T::CommitmentId, EpochOf<T>, BalanceFor<T, I>),
 		/// V7 migration started (clearing deprecated MetricsEraAverage storage)
 		V7MigrationStarted,
 		/// V7 migration completed (clearing deprecated MetricsEraAverage storage)

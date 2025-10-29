@@ -2,6 +2,8 @@ use acurast_common::{CommitmentIdProvider, PoolId};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
+		fungible::Balanced,
+		tokens::{Fortitude, Precision, Preservation},
 		Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockableCurrency,
 		WithdrawReasons,
 	},
@@ -1296,7 +1298,10 @@ where
 		Ok(reward)
 	}
 
-	pub fn do_slash(commitment_id: T::CommitmentId) -> Result<(), Error<T, I>> {
+	pub fn do_slash(
+		commitment_id: T::CommitmentId,
+		slasher: &T::AccountId,
+	) -> Result<(), Error<T, I>> {
 		let epoch = Self::current_cycle().epoch;
 		let last_epoch =
 			epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -1434,22 +1439,42 @@ where
 			Ok(())
 		})?;
 
+		let committer = T::CommitmentIdProvider::owner_for(commitment_id)
+			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
+
+		// Pay slasher reward immediately
+		let slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
+			.mul_floor(total_slash_amount.saturated_into::<u128>())
+			.into();
+
+		if !slasher_reward.is_zero() {
+			// Withdraw from committer and transfer to slasher
+			T::Currency::transfer(
+				&committer,
+				slasher,
+				slasher_reward,
+				ExistenceRequirement::KeepAlive,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+
 		Ok(())
 	}
 
 	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {
 		Self::unlock_funds(who, stake.amount);
-		// Transfer the already unlocked stake with accrued slash, be sure to fail hard on errors!a
+		// Burn the slashed amount
 		if !stake.accrued_slash.is_zero() {
-			let distribution_account = Self::account_id();
-			// Transfer the slashed amount from user to distribution account
-			T::Currency::transfer(
+			// Withdraw and burn the slashed amount
+			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
 				who,
-				&distribution_account,
 				stake.accrued_slash,
-				ExistenceRequirement::AllowDeath,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Force,
 			)
 			.map_err(|_| Error::<T, I>::InternalError)?;
+			// The credit is automatically burned when dropped
 		}
 
 		Ok(())

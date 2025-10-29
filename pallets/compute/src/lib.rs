@@ -134,6 +134,9 @@ pub mod pallet {
 		/// The slash ratio applied to total commitment stake (committer + delegations) when a commitment fails to deliver committed metrics.
 		#[pallet::constant]
 		type BaseSlashAmount: Get<Perquintill>;
+		/// The ratio of slashed amount that is rewarded to the caller who triggers the slash extrinsic.
+		#[pallet::constant]
+		type SlashRewardRatio: Get<Perquintill>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
@@ -988,10 +991,10 @@ pub mod pallet {
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::slash())]
 		pub fn slash(origin: OriginFor<T>, committer: T::AccountId) -> DispatchResultWithPostInfo {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::do_slash(commitment_id)?;
+			Self::do_slash(commitment_id, &who)?;
 
 			Self::deposit_event(Event::<T, I>::Slashed(commitment_id));
 

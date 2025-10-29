@@ -569,6 +569,56 @@ where
 		Ok(())
 	}
 
+	/// Reduce a commitments' stake (because of slashing).
+	pub fn stake_less_for(
+		committer: &T::AccountId,
+		commitment_id: T::CommitmentId,
+		decrease_amount: BalanceFor<T, I>,
+	) -> Result<(), Error<T, I>> {
+		let epoch = Self::current_cycle().epoch;
+
+		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
+			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+			let stake = c.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+			if !decrease_amount.is_zero() {
+				stake.amount = stake.amount.saturating_sub(decrease_amount);
+				stake.rewardable_amount = if stake.cooldown_started.is_some() {
+					T::CooldownRewardRatio::get()
+						.mul_floor(stake.amount.saturated_into::<u128>())
+						.into()
+				} else {
+					stake.amount
+				};
+
+				// locking is on accounts (while all other storage points are relative to `commitment_id`)
+				Self::lock_funds(committer, stake.amount, LockReason::Staking)?;
+			}
+
+			let self_reward_weight = U256::from(stake.rewardable_amount.saturated_into::<u128>())
+				.checked_mul(U256::from(stake.cooldown_period.saturated_into::<u128>()))
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+			c.weights
+				.mutate(
+					epoch,
+					|w| {
+						w.self_reward_weight = self_reward_weight;
+						w.self_slash_weight = self_reward_weight;
+					},
+					true,
+				)
+				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
+
+			Self::update_total_stake(StakeChange::Sub(decrease_amount))?;
+
+			Ok(())
+		})?;
+
+		Ok(())
+	}
+
 	pub fn delegate_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
@@ -1410,15 +1460,52 @@ where
 				None
 			};
 
+		let committer = T::CommitmentIdProvider::owner_for(commitment_id)
+			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
+
+		// Immediately reduce the committer's stake by the slash amount
+		if !self_slash_amount.is_zero() {
+			Self::stake_less_for(&committer, commitment_id, self_slash_amount)?;
+		}
+
+		// Pay slasher reward immediately
+		let mut slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
+			.mul_floor(total_slash_amount.saturated_into::<u128>())
+			.into();
+
+		// we cannot transfer from delegators, so the slasher_reward is capped at what the committer gets slashed
+		if slasher_reward > self_slash_amount {
+			slasher_reward = self_slash_amount;
+		}
+
+		if !slasher_reward.is_zero() {
+			// Transfer slasher reward from committer to slasher
+			T::Currency::transfer(
+				&committer,
+				slasher,
+				slasher_reward,
+				ExistenceRequirement::AllowDeath,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+		}
+
+		let to_burn = self_slash_amount.saturating_sub(slasher_reward);
+		// Burn the slashed amount from committer
+		if !to_burn.is_zero() {
+			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
+				&committer,
+				to_burn,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Force,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+			// The credit is automatically burned when dropped
+		}
+
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-			let stake = c.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
-
-			// Apply slash to committer
-			stake.accrued_slash = stake
-				.accrued_slash
-				.checked_add(&self_slash_amount)
-				.ok_or(Error::<T, I>::CalculationOverflow)?;
+			let stake = c.stake.as_ref().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
 			// Apply slash to delegation pool if applicable
 			if let Some(increase) = slash_per_weight_increase {
@@ -1438,25 +1525,6 @@ where
 
 			Ok(())
 		})?;
-
-		let committer = T::CommitmentIdProvider::owner_for(commitment_id)
-			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
-
-		// Pay slasher reward immediately
-		let slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
-			.mul_floor(total_slash_amount.saturated_into::<u128>())
-			.into();
-
-		if !slasher_reward.is_zero() {
-			// Withdraw from committer and transfer to slasher
-			T::Currency::transfer(
-				&committer,
-				slasher,
-				slasher_reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-		}
 
 		Ok(())
 	}

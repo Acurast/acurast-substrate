@@ -1135,14 +1135,27 @@ fn test_delegate_undelegate() {
 			committer.clone()
 		));
 
+		assert_err!(
+			Compute::kick_out(
+				RuntimeOrigin::signed(ferdie_account_id()),
+				delegator_2.clone(),
+				committer.clone()
+			),
+			Error::<Test, ()>::CooldownNotEnded
+		);
+
 		// roll to block where delegator_2's cooldown is over
 		roll_to_block(438);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
 
-		assert_ok!(Compute::end_delegation(
-			RuntimeOrigin::signed(delegator_2.clone()),
-			committer.clone()
-		));
+		assert_err!(
+			Compute::kick_out(
+				RuntimeOrigin::signed(ferdie_account_id()),
+				delegator_2.clone(),
+				committer.clone()
+			),
+			Error::<Test, ()>::CannotKickout
+		);
 
 		// COMMITTER COOLDOWN
 		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
@@ -1161,6 +1174,12 @@ fn test_delegate_undelegate() {
 
 		assert_ok!(Compute::end_delegation(
 			RuntimeOrigin::signed(delegator_1.clone()),
+			committer.clone()
+		));
+
+		assert_ok!(Compute::kick_out(
+			RuntimeOrigin::signed(ferdie_account_id()),
+			delegator_2.clone(),
 			committer.clone()
 		));
 

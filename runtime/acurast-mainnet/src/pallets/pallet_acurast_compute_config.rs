@@ -25,16 +25,21 @@ use crate::{
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const Era: BlockNumber = 16; // 24 hours
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(10);
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
+	pub const TargetCooldownPeriod: BlockNumber = 28 * DAYS; // same as MinCooldownPeriod
+	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
+	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.003424657534% of total stake per missed epoch
+	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const RedelegationBlockingPeriod: BlockNumber = 112; // can redelegate once per 7*16=112 epochs ~= 1 week
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const InflationPerEpoch: Balance = 0;//8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
@@ -50,21 +55,27 @@ impl pallet_acurast_compute::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
-	type Era = Era;
+	type BusyWeightBonus = BusyWeightBonus;
 	type MaxPools = ConstU32<30>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
 	type CooldownRewardRatio = CooldownRewardRatio;
+	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashRation = BaseSlashRation;
+	type SlashRewardRatio = SlashRewardRatio;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
+		Self::ManagerId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,

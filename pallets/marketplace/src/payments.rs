@@ -1,12 +1,15 @@
 use core::marker::PhantomData;
 
 use frame_support::{
-	pallet_prelude::Member,
 	sp_runtime::{
 		traits::{AccountIdConversion, Get},
 		DispatchError, Percent, SaturatedConversion,
 	},
-	traits::tokens::{fungible, Preservation},
+	traits::{
+		fungible::{Balanced, Credit},
+		tokens::{fungible, Fortitude, Precision, Preservation},
+		OnUnbalanced,
+	},
 	PalletId,
 };
 use sp_std::prelude::*;
@@ -21,10 +24,9 @@ pub trait RewardManager<T: frame_system::Config + Config> {
 		job_id: &JobId<T::AccountId>,
 		reward: <T as Config>::Balance,
 	) -> Result<(), DispatchError>;
-	fn pay_reward(
+	fn handle_reward(
 		job_id: &JobId<T::AccountId>,
 		reward: <T as Config>::Balance,
-		target: &T::AccountId,
 	) -> Result<(), DispatchError>;
 	fn pay_matcher_reward(
 		remaining_rewards: Vec<(JobId<T::AccountId>, <T as Config>::Balance)>,
@@ -41,10 +43,9 @@ impl<T: frame_system::Config + Config> RewardManager<T> for () {
 		Ok(())
 	}
 
-	fn pay_reward(
+	fn handle_reward(
 		_job_id: &JobId<T::AccountId>,
 		_reward: <T as Config>::Balance,
-		_target: &T::AccountId,
 	) -> Result<(), DispatchError> {
 		Ok(())
 	}
@@ -68,18 +69,19 @@ pub trait FeeManager {
 	fn pallet_id() -> PalletId;
 }
 
-pub struct AssetRewardManager<AssetSplit, Currency, JobBudget>(
-	PhantomData<(AssetSplit, Currency, JobBudget)>,
+pub struct AssetRewardManager<AssetSplit, Currency, JobBudget, OU>(
+	PhantomData<(AssetSplit, Currency, JobBudget, OU)>,
 );
 
-impl<T, AssetSplit, Currency, Budget> RewardManager<T>
-	for AssetRewardManager<AssetSplit, Currency, Budget>
+impl<T, AssetSplit, Currency, Budget, OU> RewardManager<T>
+	for AssetRewardManager<AssetSplit, Currency, Budget, OU>
 where
 	T: Config + frame_system::Config,
 	AssetSplit: FeeManager,
-	Currency: fungible::Mutate<T::AccountId>,
-	<Currency as fungible::Inspect<T::AccountId>>::Balance: Member + From<T::Balance>,
+	Currency: fungible::Mutate<T::AccountId, Balance = T::Balance>
+		+ Balanced<T::AccountId, Balance = T::Balance>,
 	Budget: JobBudget<T>,
+	OU: OnUnbalanced<Credit<T::AccountId, Currency>>,
 {
 	fn lock_reward(job_id: &JobId<T::AccountId>, reward: T::Balance) -> Result<(), DispatchError> {
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
@@ -119,39 +121,24 @@ where
 		Ok(())
 	}
 
-	fn pay_reward(
+	fn handle_reward(
 		job_id: &JobId<T::AccountId>,
 		reward: T::Balance,
-		target: &T::AccountId,
 	) -> Result<(), DispatchError> {
 		Budget::unreserve(job_id, reward)
 			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
 
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
-		// Extract fee from the processor reward
-		let fee_percentage = AssetSplit::get_fee_percentage();
-		let fee = fee_percentage.mul_floor(reward);
-
-		// Subtract the fee from the reward
-		let reward_after_fee = reward - fee;
-
-		// Transfer fees to Acurast fees manager account
-		let fee_pallet_account: T::AccountId = AssetSplit::pallet_id().into_account_truncating();
-
-		Currency::transfer(
+		let imbalance = Currency::withdraw(
 			&pallet_account,
-			&fee_pallet_account,
-			fee.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
+			reward,
+			Precision::Exact,
 			Preservation::Preserve,
+			Fortitude::Polite,
 		)?;
-		Currency::transfer(
-			&pallet_account,
-			target,
-			reward_after_fee
-				.saturated_into::<<Currency as fungible::Inspect<T::AccountId>>::Balance>(),
-			Preservation::Preserve,
-		)?;
+
+		OU::on_unbalanced(imbalance);
 
 		Ok(())
 	}

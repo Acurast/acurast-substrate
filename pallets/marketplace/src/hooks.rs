@@ -2,9 +2,7 @@ use core::iter::once;
 
 use crate::*;
 use frame_support::{ensure, pallet_prelude::*};
-use pallet_acurast::{
-	AccountLookup, AllowedSourcesUpdate, JobHooks, JobRegistrationFor, StoredJobRegistration,
-};
+use pallet_acurast::{AllowedSourcesUpdate, JobHooks, JobRegistrationFor, StoredJobRegistration};
 
 impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].
@@ -135,16 +133,8 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 							}
 						}
 
-						// Compensate processor for acknowledging the job
 						if assignment.acknowledged {
-							// the manager might have unpaired the processor in which case reward payment is skipped
-							if let Some(manager) = T::ManagerProvider::lookup(&processor) {
-								T::RewardManager::pay_reward(
-									job_id,
-									assignment.fee_per_execution,
-									&manager,
-								)?;
-							};
+							T::RewardManager::handle_reward(job_id, assignment.fee_per_execution)?;
 						}
 					}
 				}

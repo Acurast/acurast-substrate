@@ -8,122 +8,255 @@ use frame_support::{
 	},
 	weights::Weight,
 };
-use sp_runtime::traits::{Saturating, Zero};
+use sp_core::ConstU32;
+use sp_runtime::{traits::Zero, BoundedVec};
 
 use super::*;
 
 pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let migrations: [(u16, &dyn Fn() -> Weight); 4] = [
-		(2, &migrate_to_v2::<T, I>),
-		(3, &migrate_to_v3::<T, I>),
-		(4, &migrate_to_v4::<T, I>),
-		(5, &migrate_to_v5::<T, I>),
+	#[allow(clippy::type_complexity)]
+	let migrations: [(u16, &dyn Fn() -> (Weight, bool)); 4] = [
+		(6, &migrate_to_v6::<T, I>),
+		(8, &migrate_to_v8::<T, I>),
+		(9, &migrate_to_v9::<T, I>),
+		(11, &migrate_to_v11::<T, I>),
 	];
 
-	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+	let mut onchain_version = Pallet::<T, I>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
 	for (i, f) in migrations.into_iter() {
-		if onchain_version < StorageVersion::new(i) {
-			weight += f();
+		let migrating_version = StorageVersion::new(i);
+		if onchain_version < migrating_version {
+			let (f_weight, completed) = f();
+			weight += f_weight;
+			if completed {
+				migrating_version.put::<Pallet<T, I>>();
+				onchain_version = migrating_version;
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			} else {
+				break;
+			}
 		}
 	}
 
-	STORAGE_VERSION.put::<Pallet<T, I>>();
-	weight + T::DbWeight::get().writes(1)
+	weight
 }
 
-/// Adds `max_stake_metric_ratio` to [`MetricPool`];
-pub fn migrate_to_v2<T: Config<I>, I: 'static>() -> Weight {
+/// Migrates `Cycle` from `Cycle<Epoch, Era, BlockNumber>` to `Cycle<Epoch, BlockNumber>` by removing era fields
+/// and removes `max_stake_metric_ratio` from `MetricPool`
+pub fn migrate_to_v6<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	let mut weight = Weight::zero();
+
+	// Translate CurrentCycle storage
+	let reads = if <CurrentCycle<T, I>>::exists() { 1 } else { 0 };
+	weight = weight.saturating_add(T::DbWeight::get().reads(reads));
+
+	let _ = <CurrentCycle<T, I>>::translate::<v5::CycleFor<T>, _>(|old_cycle_opt| {
+		old_cycle_opt.map(|old_cycle| {
+			// Keep only epoch and epoch_start, discard era and era_start
+			CycleFor::<T> { epoch: old_cycle.epoch, epoch_start: old_cycle.epoch_start }
+		})
+	});
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(if reads > 0 { 1 } else { 0 }));
+
+	// Translate MetricPools storage - remove max_stake_metric_ratio field
 	weight = weight.saturating_add(
 		T::DbWeight::get().reads(<MetricPools<T, I>>::iter_values().count() as u64),
 	);
-	<MetricPools<T, I>>::translate_values::<v1::MetricPoolFor<T>, _>(|old| {
+	<MetricPools<T, I>>::translate_values::<v5::MetricPoolFor<T>, _>(|old| {
 		Some(MetricPoolFor::<T> {
 			config: old.config,
 			name: old.name,
 			reward: old.reward,
 			total: old.total,
-			max_stake_metric_ratio: Zero::zero(),
+			total_with_bonus: old.total,
 		})
 	});
-	weight
+	weight = weight.saturating_add(
+		T::DbWeight::get().writes(<MetricPools<T, I>>::iter_values().count() as u64),
+	);
+
+	(weight, true)
 }
 
-/// Adds `total_inflation_per_distribution` and `stake_backed_ratio` to [`RewardSettings`];
-pub fn migrate_to_v3<T: Config<I>, I: 'static>() -> Weight {
+/// Migrates `Scores` from `SlidingBuffer<BlockNumberFor<T>, U256>` to `SlidingBuffer<BlockNumberFor<T>, (U256, U256)>`
+/// by converting each U256 score to (score, U256::zero()) tuple
+pub fn migrate_to_v8<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	let mut weight = Weight::zero();
 
-	// Migrate RewardDistributionSettings to new format
-	let reads = if <RewardDistributionSettings<T, I>>::exists() { 1 } else { 0 };
-	weight = weight.saturating_add(T::DbWeight::get().reads(reads));
+	// Count and translate all Scores entries
+	let count = Scores::<T, I>::iter().count();
+	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
 
-	let _ = <RewardDistributionSettings<T, I>>::translate::<v2::RewardSettingsFor<T, I>, _>(
-		|old_settings_opt| {
-			old_settings_opt.map(|old_settings| {
-				// Migrate to new structure with default values for new fields
-				RewardDistributionSettingsFor::<T, I> {
-					total_reward_per_distribution: old_settings.total_reward_per_distribution,
-					total_inflation_per_distribution: sp_runtime::Perquintill::zero(), // Default to no inflation
-					stake_backed_ratio: sp_runtime::Perquintill::from_percent(70), // Default to 70% for stake-backed
-					distribution_account: old_settings.distribution_account,
-				}
+	Scores::<T, I>::translate::<SlidingBuffer<BlockNumberFor<T>, sp_core::U256>, _>(
+		|_commitment_id, _pool_id, old_buffer| {
+			// Convert old SlidingBuffer<BlockNumberFor<T>, U256> to new SlidingBuffer<BlockNumberFor<T>, (U256, U256)>
+			// The old buffer stored just the score, the new one stores (score, bonus_score)
+			// For migration, we set bonus_score to zero for all old entries
+			Some(SlidingBuffer::new_with(old_buffer.epoch, (old_buffer.cur, sp_core::U256::zero())))
+		},
+	);
+
+	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
+
+	(weight, true)
+}
+
+/// Migrates `Commitment` by adding the `last_slashing_epoch` field
+pub fn migrate_to_v9<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	let mut weight = Weight::zero();
+
+	// Count and translate all Commitment entries
+	let count = Commitments::<T, I>::iter().count();
+	weight = weight.saturating_add(T::DbWeight::get().reads(count as u64));
+
+	Commitments::<T, I>::translate::<v8::CommitmentFor<T, I>, _>(
+		|_commitment_id, old_commitment| {
+			// Add the new last_slashing_epoch field, initialized to zero
+			Some(CommitmentFor::<T, I> {
+				stake: old_commitment.stake,
+				commission: old_commitment.commission,
+				delegations_total_amount: old_commitment.delegations_total_amount,
+				delegations_total_rewardable_amount: old_commitment
+					.delegations_total_rewardable_amount,
+				weights: old_commitment.weights,
+				pool_rewards: old_commitment.pool_rewards,
+				last_scoring_epoch: old_commitment.last_scoring_epoch,
+				last_slashing_epoch: Zero::zero(),
 			})
 		},
 	);
 
-	weight = weight.saturating_add(T::DbWeight::get().writes(if reads > 0 { 1 } else { 0 }));
+	weight = weight.saturating_add(T::DbWeight::get().writes(count as u64));
 
-	weight
+	(weight, true)
 }
 
-/// Migrates `CommitmentStake` from single `BalanceFor<T, I>` to tuple `(BalanceFor<T, I>, BalanceFor<T, I>)`
-/// The first element (amount) is calculated from the sum of self-delegation and other delegations
-/// The second element (rewardable_amount) is the old CommitmentStake value
-pub fn migrate_to_v4<T: Config<I>, I: 'static>() -> Weight {
-	let mut weight = Weight::zero();
+pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
+	const CLEAR_LIMIT: u32 = 50;
 
-	// Use translate to convert old single values to new tuple format
-	weight = weight
-		.saturating_add(T::DbWeight::get().reads(<CommitmentStake<T, I>>::iter().count() as u64));
+	let mut migration_completed = false;
+	let mut weight = T::DbWeight::get().reads(1);
+	let cursor = V11MigrationState::<T, I>::get().map(|c| c.to_vec());
+	if cursor.is_none() {
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V11MigrationStarted);
+	}
+	let res = <MetricsEraAverage<T, I>>::clear(CLEAR_LIMIT, cursor.as_deref());
+	weight = weight.saturating_add(T::DbWeight::get().writes(res.backend as u64));
 
-	<CommitmentStake<T, I>>::translate::<BalanceFor<T, I>, _>(
-		|commitment_id, old_rewardable_amount| {
-			// Calculate total amount from self-delegation + other delegations
-			let mut total_amount: BalanceFor<T, I> = Zero::zero();
+	if let Some(new_cursor) = res.maybe_cursor {
+		let bounded_cursor: Option<BoundedVec<u8, ConstU32<80>>> = new_cursor.try_into().ok();
+		V11MigrationState::<T, I>::set(bounded_cursor);
+	} else {
+		migration_completed = true;
+		V11MigrationState::<T, I>::kill();
+		crate::Pallet::<T, I>::deposit_event(Event::<T, I>::V11MigrationCompleted);
+	}
+	weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-			// Add committer's own stake (self-delegation)
-			if let Some(self_stake) = Stakes::<T, I>::get(commitment_id) {
-				total_amount = total_amount.saturating_add(self_stake.amount);
-			}
-
-			// Add all delegator stakes
-			// We need to iterate through all delegators and check if they delegate to this commitment
-			for (_delegator, check_commitment_id, delegation) in Delegations::<T, I>::iter() {
-				if check_commitment_id == commitment_id {
-					total_amount = total_amount.saturating_add(delegation.amount);
-				}
-			}
-
-			// Return the new tuple format: (total_amount, rewardable_amount)
-			Some((total_amount, old_rewardable_amount))
-		},
-	);
-
-	weight = weight
-		.saturating_add(T::DbWeight::get().writes(<CommitmentStake<T, I>>::iter().count() as u64));
-
-	weight
+	(weight, migration_completed)
 }
 
-pub fn migrate_to_v5<T: Config<I>, I: 'static>() -> Weight {
-	<RewardDistributionSettings<T, I>>::kill();
+pub mod v9 {
+	use core::ops::Add;
 
-	T::DbWeight::get().writes(1)
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode};
+	use sp_runtime::{
+		traits::{Debug, One},
+		FixedU128,
+	};
+
+	/// Old MetricPool struct without total_with_bonus field
+	#[derive(
+		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+	)]
+	pub struct MetricPool<
+		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
+		Value: Copy + Default + Debug,
+	> {
+		pub config: MetricPoolConfigValues,
+		pub name: MetricPoolName,
+		pub reward: ProvisionalBuffer<Epoch, Value>,
+		pub total: SlidingBuffer<Epoch, FixedU128>,
+	}
+}
+
+pub mod v8 {
+	use core::ops::Add;
+
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode};
+	use sp_runtime::{
+		traits::{Debug, One},
+		Perbill,
+	};
+
+	/// Old Commitment struct without last_slashing_epoch field
+	#[derive(
+		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+	)]
+	pub struct Commitment<
+		Balance: Debug,
+		BlockNumber: Debug + Ord + Copy,
+		Epoch: Debug + Ord + Copy + One + Add<Output = Epoch>,
+	> {
+		pub stake: Option<Stake<Balance, BlockNumber>>,
+		pub commission: Perbill,
+		pub delegations_total_amount: Balance,
+		pub delegations_total_rewardable_amount: Balance,
+		pub weights: MemoryBuffer<Epoch, CommitmentWeights>,
+		pub pool_rewards: MemoryBuffer<BlockNumber, PoolReward>,
+		pub last_scoring_epoch: Epoch,
+	}
+
+	pub type CommitmentFor<T, I> = Commitment<BalanceFor<T, I>, BlockNumberFor<T>, EpochOf<T>>;
+}
+
+pub mod v5 {
+	use core::ops::Add;
+
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use parity_scale_codec::{Decode, Encode};
+	use sp_runtime::{
+		traits::{Debug, One},
+		FixedU128, Perquintill,
+	};
+
+	#[derive(
+		RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Copy, Clone, PartialEq, Eq, Default,
+	)]
+	pub struct Cycle<Epoch, Era, BlockNumber> {
+		pub epoch: Epoch,
+		pub epoch_start: BlockNumber,
+		pub era: Era,
+		pub era_start: BlockNumber,
+	}
+
+	pub type CycleFor<T> = Cycle<EpochOf<T>, EraOf<T>, BlockNumberFor<T>>;
+
+	#[derive(
+		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+	)]
+	pub struct MetricPool<
+		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
+		Value: Copy + Default + Debug,
+	> {
+		pub config: MetricPoolConfigValues,
+		pub name: MetricPoolName,
+		pub reward: ProvisionalBuffer<Epoch, Value>,
+		pub total: SlidingBuffer<Epoch, FixedU128>,
+		pub max_stake_metric_ratio: FixedU128,
+	}
+
+	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 }
 
 pub mod v2 {
-	use super::*;
 	use frame_support::pallet_prelude::*;
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 
@@ -132,9 +265,6 @@ pub mod v2 {
 		pub total_reward_per_distribution: Balance,
 		pub distribution_account: AccountId,
 	}
-
-	pub type RewardSettingsFor<T, I> =
-		RewardSettings<BalanceFor<T, I>, <T as frame_system::Config>::AccountId>;
 }
 
 pub mod v1 {
@@ -145,7 +275,7 @@ pub mod v1 {
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 	use sp_runtime::{
 		traits::{Debug, One},
-		FixedU128, Perquintill,
+		FixedU128,
 	};
 
 	#[derive(
@@ -160,6 +290,4 @@ pub mod v1 {
 		pub reward: ProvisionalBuffer<Epoch, Value>,
 		pub total: SlidingBuffer<Epoch, FixedU128>,
 	}
-
-	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
 }

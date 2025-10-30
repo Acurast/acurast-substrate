@@ -277,6 +277,38 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 4990))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn heartbeat_with_version_no_claim() -> Weight {
+		Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
+    }
+
+    fn heartbeat_with_version_metrics_claim() -> Weight {
+    	Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
+    }
+
+    fn heartbeat_with_metrics_no_claim(x: u32) -> Weight {
+    	Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			// Standard Error: 11_459
+			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
+    }
+
+    fn heartbeat_with_metrics_claim(x: u32) -> Weight {
+    	Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			// Standard Error: 11_459
+			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
+    }
 }
 
 pub struct ExtensionWeightInfo<T>(PhantomData<T>);

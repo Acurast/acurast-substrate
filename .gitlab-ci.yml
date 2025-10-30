@@ -28,7 +28,7 @@ stages:
   - publish
 
 .prepare_rust:
-  image: rust:1.81
+  image: rust:1.84.1
   before_script:
     - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
 

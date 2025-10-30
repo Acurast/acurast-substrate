@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::{stub::*, *};
-use acurast_common::{AccountLookup, AttestationChain, ManagerIdProvider, CU32};
+use acurast_common::{AttestationChain, ManagerIdProvider, ManagerLookup, CU32};
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -170,9 +170,16 @@ impl Config for Test {
 }
 
 pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);
-impl<AccountId: Clone> AccountLookup<AccountId> for MockManagerProvider<AccountId> {
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
-		Some(processor.clone())
+impl<AccountId: Clone> ManagerLookup for MockManagerProvider<AccountId> {
+	type AccountId = AccountId;
+	type ManagerId = AssetId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
+		Some((processor.clone(), 0))
+	}
+
+	fn lookup_manager_id(_processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Some(0)
 	}
 }
 
@@ -187,7 +194,7 @@ impl crate::BenchmarkHelper<Test> for () {
 	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
 		let caller: <Test as frame_system::Config>::AccountId =
 			frame_benchmarking::account("token_account", index, SEED);
-		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+		<Balances as Mutate<_>>::set_balance(&caller.clone(), u32::MAX.into());
 
 		caller
 	}
@@ -199,8 +206,15 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn setup_compute_settings() {}
+	fn commit(_manager: &<Test as frame_system::Config>::AccountId) {}
 
-	fn on_initialize(block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
+	fn on_initialize(_block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
+
+	fn pair_manager_and_processor(
+		_manager: &<Test as frame_system::Config>::AccountId,
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) {
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -217,7 +231,7 @@ where
 	fn funded_account(index: u32) -> <Test as frame_system::Config>::AccountId {
 		let caller: <Test as frame_system::Config>::AccountId =
 			frame_benchmarking::account("token_account", index, SEED);
-		<Balances as Mutate<_>>::set_balance(&caller.clone().into(), u32::MAX.into());
+		<Balances as Mutate<_>>::set_balance(&caller.clone(), u32::MAX.into());
 
 		caller
 	}

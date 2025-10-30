@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use acurast_common::{AccountLookup, CommitmentIdProvider, ManagerIdProvider};
+use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerLookup};
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
@@ -118,17 +118,21 @@ impl pallet_uniques::Config for Test {
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 100;
-	pub const Era: BlockNumber = 3;
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(20);
 	pub const MetricEpochValidity: BlockNumber = 100;
 	pub const WarmupPeriod: BlockNumber = 30;
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 36;
 	pub const MaxCooldownPeriod: BlockNumber = 108;
+	pub const TargetCooldownPeriod: BlockNumber = 72; // Target cooldown period for economic calculations
+	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
 	pub const MinDelegation: Balance = 1;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const RedelegationBlockingPeriod: BlockNumber = 3; // can redelegate once per 3 epochs
 	pub const MinStake: Balance = UNIT;
-
+	pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake
+	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
@@ -144,15 +148,20 @@ impl Config for Test {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
-	type Era = Era;
+	type BusyWeightBonus = BusyWeightBonus;
 	type MaxPools = ConstU32<30>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
 	type CooldownRewardRatio = CooldownRewardRatio;
+	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashRation = BaseSlashRation;
+	type SlashRewardRatio = SlashRewardRatio;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
@@ -171,10 +180,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 thread_local! {
-	static MANAGER_MAPPINGS: RefCell<HashMap<AccountId32, AccountId32>> = RefCell::new({
+	static MANAGER_MAPPINGS: RefCell<HashMap<AccountId32, (AccountId32, <Test as Config>::ManagerId)>> = RefCell::new({
 		let mut map = HashMap::new();
-		map.insert(alice_account_id(), charlie_account_id());
-		map.insert(bob_account_id(), charlie_account_id());
+		map.insert(alice_account_id(), (charlie_account_id(), 1));
+		map.insert(bob_account_id(), (charlie_account_id(), 1));
+		map.insert(charlie_account_id(), (charlie_account_id(), 1));
 		map
 	});
 
@@ -213,7 +223,19 @@ impl MockManagerProvider<AccountId32> {
 	/// Set a custom processor -> manager mapping for tests
 	pub fn set_mapping(processor: AccountId32, manager: AccountId32) {
 		MANAGER_MAPPINGS.with(|mappings| {
-			mappings.borrow_mut().insert(processor, manager);
+			let manager_id = mappings
+				.borrow()
+				.values()
+				.find_map(|(account, id)| {
+					if account == &manager {
+						return Some(*id);
+					}
+					None
+				})
+				.unwrap_or(MANAGER_MAPPINGS.with_borrow(|mappings| {
+					mappings.values().map(|(_, id)| *id).max().unwrap_or_default().saturating_add(1)
+				}));
+			mappings.borrow_mut().insert(processor, (manager, manager_id));
 		});
 	}
 
@@ -225,16 +247,21 @@ impl MockManagerProvider<AccountId32> {
 	}
 }
 
-impl<AccountId: Clone + IsType<AccountId32>> AccountLookup<AccountId>
-	for MockManagerProvider<AccountId>
-{
-	fn lookup(processor: &AccountId) -> Option<AccountId> {
+impl<AccountId: Clone + IsType<AccountId32>> ManagerLookup for MockManagerProvider<AccountId> {
+	type AccountId = AccountId;
+	type ManagerId = <Test as Config>::ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
 		let processor_id: AccountId32 = processor.clone().into();
 
 		// Check custom mappings first
 		MANAGER_MAPPINGS
 			.with(|mappings| mappings.borrow().get(&processor_id).cloned())
-			.map(|a| a.into())
+			.map(|(account_id, id)| (account_id.into(), id))
+	}
+
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Self::lookup(processor).map(|(_, id)| id)
 	}
 }
 

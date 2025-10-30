@@ -8,7 +8,7 @@ use frame_support::{
 };
 
 use acurast_runtime_common::{
-	constants::{DAYS, UNIT},
+	constants::{HOURS, UNIT},
 	types::{Balance, BlockNumber},
 	weight,
 };
@@ -25,19 +25,24 @@ use crate::{
 
 parameter_types! {
 	pub const Epoch: BlockNumber = 900; // 1.5 hours
-	pub const Era: BlockNumber = 16; // 24 hours
+	pub const BusyWeightBonus: Perquintill = Perquintill::from_percent(10);
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
-	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
-	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
+	pub const MinCooldownPeriod: BlockNumber = HOURS;
+	pub const MaxCooldownPeriod: BlockNumber = 48 * HOURS;
+	pub const TargetCooldownPeriod: BlockNumber = HOURS; // same as MinCooldownPeriod
+	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
+	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.003424657534% of total stake per missed epoch
+	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
+	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 12_500_000_000_000_000; // ~ 7.3% a year for a total supply of 1B
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B
 	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(1);
 	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(99);
 }
@@ -50,21 +55,27 @@ impl pallet_acurast_compute::Config for Runtime {
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
-	type Era = Era;
+	type BusyWeightBonus = BusyWeightBonus;
 	type MaxPools = ConstU32<30>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
+	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
 	type CooldownRewardRatio = CooldownRewardRatio;
+	type RedelegationBlockingPeriod = RedelegationBlockingPeriod;
 	type MinStake = MinStake;
+	type BaseSlashRation = BaseSlashRation;
+	type SlashRewardRatio = SlashRewardRatio;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
 		Self::AccountId,
+		Self::ManagerId,
 		Acurast,
 		AcurastProcessorManager,
 		AcurastProcessorManager,

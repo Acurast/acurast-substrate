@@ -50,8 +50,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use pallet_acurast::{
-		AccountLookup, JobId, JobIdSequence, JobRegistrationFor, Metrics, MultiOrigin,
-		ParameterBound, Script, ScriptMutability, StoredJobRegistration,
+		JobId, JobIdSequence, JobRegistrationFor, Metrics, MultiOrigin, ParameterBound, Script,
+		ScriptMutability, StoredJobRegistration,
 	};
 
 	use crate::{traits::*, types::*, JobBudget, RewardManager};
@@ -99,7 +99,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
-		type ManagerProvider: AccountLookup<Self::AccountId>;
 		type ProcessorInfoProvider: ProcessorInfoProvider<Self>;
 		/// Logic for locking and paying tokens for job execution
 		type RewardManager: RewardManager<Self>;
@@ -117,7 +116,6 @@ pub mod pallet {
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
-
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
@@ -472,7 +470,7 @@ pub mod pallet {
 			>,
 		>,
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_initialize(_block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			crate::migration::migrate::<T>()
 		}
 	}

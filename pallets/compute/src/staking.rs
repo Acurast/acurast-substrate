@@ -291,7 +291,6 @@ where
 		let commitment_total_weight = weights.total_reward_weight();
 
 		let mut total_delegations_reward: BalanceFor<T, I> = Zero::zero();
-		let mut total_committer_reward: BalanceFor<T, I> = Zero::zero();
 		let mut total_committer_bonus: BalanceFor<T, I> = Zero::zero();
 		for pool_id in pool_ids {
 			StakeBasedRewards::<T, I>::try_mutate(pool_id, |r| -> Result<(), Error<T, I>> {
@@ -358,21 +357,6 @@ where
 					.checked_add(&self_amount)
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-				// track total committer reward for event
-				total_committer_reward = total_committer_reward
-					.checked_add(&self_amount)
-					.ok_or(Error::<T, I>::CalculationOverflow)?;
-
-				// Emit event for this pool's reward distribution to committer
-				if !self_amount.is_zero() {
-					Self::deposit_event(Event::CommitterPoolRewardDistributed(
-						commitment_id,
-						*pool_id,
-						epoch,
-						self_amount,
-					));
-				}
-
 				// add to delegator pool rewards
 				total_delegations_reward = total_delegations_reward
 					.checked_add(&delegations_amount)
@@ -393,15 +377,6 @@ where
 			})?;
 		}
 
-		// Emit event for committer rewards distributed
-		if !total_committer_reward.is_zero() {
-			Self::deposit_event(Event::CommitterRewardDistributed(
-				commitment_id,
-				epoch,
-				total_committer_reward,
-			));
-		}
-
 		// reward_delegation_pool
 		if !weights.delegations_reward_weight.is_zero() && !total_delegations_reward.is_zero() {
 			let extra = U256::from(total_delegations_reward.saturated_into::<u128>())
@@ -420,13 +395,6 @@ where
 					true,
 				)
 				.map_err(|_| Error::<T, I>::InternalError)?;
-
-			// Emit event for delegation pool rewards distributed
-			Self::deposit_event(Event::DelegationPoolRewardDistributed(
-				commitment_id,
-				epoch,
-				total_delegations_reward,
-			));
 		}
 
 		Ok(total_committer_bonus)

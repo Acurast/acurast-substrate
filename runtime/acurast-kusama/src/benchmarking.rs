@@ -5,6 +5,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_acurast_compute::ComputeCommitment;
+use pallet_acurast_processor_manager::{ProcessorPairingFor, ProcessorPairingUpdateFor};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{FixedU128, Perbill, Perquintill};
 use sp_std::{vec, vec::Vec};
@@ -13,15 +14,16 @@ use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, PoolId, StoredAttestation,
-	StoredJobRegistration,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, ListUpdateOperation, PoolId,
+	StoredAttestation, StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 
 use crate::{
-	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
+	AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balance, Balances, BundleId,
+	Runtime, RuntimeOrigin,
 };
 
 define_benchmarks!(
@@ -261,6 +263,28 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			false,
 		)
 		.expect("commit compute success");
+	}
+
+	fn pair_manager_and_processor(
+		manager: &<Runtime as frame_system::Config>::AccountId,
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) {
+		let timestamp = 1657363915002u128;
+		// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
+		let signature = Self::dummy_proof();
+		let update = ProcessorPairingUpdateFor::<Runtime> {
+			operation: ListUpdateOperation::Add,
+			item: ProcessorPairingFor::<Runtime>::new_with_proof(
+				processor.clone(),
+				timestamp,
+				signature,
+			),
+		};
+		AcurastProcessorManager::update_processor_pairings(
+			RuntimeOrigin::signed(manager.clone()),
+			vec![update].try_into().expect("conversion to BoundedVec works"),
+		)
+		.expect("pairing success");
 	}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {

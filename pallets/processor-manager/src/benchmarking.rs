@@ -27,6 +27,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn create_compute_pool() -> PoolId;
 	fn setup_compute_settings();
 	fn commit(manager: &T::AccountId);
+	fn pair_manager_and_processor(manager: &T::AccountId, processor: &T::AccountId);
 	fn on_initialize(block_number: BlockNumberFor<T>);
 }
 

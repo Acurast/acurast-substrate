@@ -447,7 +447,7 @@ pub mod pallet {
 		MaxDelegationRatioExceeded,
 		MaxMetricCommitmentExceeded,
 		ZeroMetricsForValidPools,
-		MinStakeSubceeded,
+		MinStakeUnmet,
 		InsufficientBalance,
 		CooldownNotStarted,
 		CooldownNotEnded,

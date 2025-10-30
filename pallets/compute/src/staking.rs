@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use acurast_common::{CommitmentIdProvider, PoolId};
 use frame_support::{
 	pallet_prelude::*,
@@ -410,7 +412,7 @@ where
 	) -> Result<(), Error<T, I>> {
 		ensure!(
 			!amount.is_zero() && amount >= <T as Config<I>>::MinStake::get(),
-			Error::<T, I>::MinStakeSubceeded
+			Error::<T, I>::MinStakeUnmet
 		);
 		ensure!(
 			cooldown_period >= T::MinCooldownPeriod::get(),

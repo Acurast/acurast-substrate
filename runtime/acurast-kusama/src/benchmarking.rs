@@ -4,25 +4,26 @@ use frame_support::{
 	traits::{tokens::currency::Currency, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_acurast_compute::ComputeCommitment;
+use pallet_acurast_processor_manager::{ProcessorPairingFor, ProcessorPairingUpdateFor};
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::Perquintill;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
+use sp_runtime::{FixedU128, Perbill, Perquintill};
+use sp_std::{vec, vec::Vec};
 
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, PoolId, StoredAttestation,
-	StoredJobRegistration,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, ListUpdateOperation, PoolId,
+	StoredAttestation, StoredJobRegistration,
 };
-use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSettingsFor};
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
 
 use crate::{
-	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
+	AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balance, Balances, BundleId,
+	Runtime, RuntimeOrigin,
 };
 
 define_benchmarks!(
@@ -78,6 +79,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
 		AcurastCompute::commit(
 			&processor,
+			&(processor.clone(), 1),
 			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
 		);
 		ExtraFor::<Runtime> {
@@ -110,42 +112,36 @@ fn setup_pools() {
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 }
@@ -236,23 +232,59 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			RuntimeOrigin::root(),
 			name,
 			Perquintill::from_percent(25),
-			None,
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");
 		AcurastCompute::last_metric_pool_id()
 	}
 
-	fn setup_compute_settings() {
-		RewardDistributionSettings::<Runtime, ()>::put(RewardDistributionSettingsFor::<
-			Runtime,
-			(),
-		> {
-			total_reward_per_distribution: 12_500,
-			total_inflation_per_distribution: Perquintill::from_percent(5),
-			stake_backed_ratio: Perquintill::from_percent(70),
-			distribution_account: Self::funded_account(1),
-		});
+	fn setup_compute_settings() {}
+
+	fn commit(manager: &<Runtime as frame_system::Config>::AccountId) {
+		let amount = Balances::free_balance(manager) / 2;
+		let pool_ids = (1..=AcurastCompute::last_metric_pool_id()).collect::<Vec<_>>();
+		let commitments = pool_ids
+			.into_iter()
+			.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
+			.collect::<Vec<_>>();
+		AcurastCompute::offer_backing(RuntimeOrigin::signed(manager.clone()), manager.clone())
+			.expect("offer backing success");
+		AcurastCompute::accept_backing_offer(
+			RuntimeOrigin::signed(manager.clone()),
+			manager.clone(),
+		)
+		.expect("accpet backing offer success");
+		AcurastCompute::commit_compute(
+			RuntimeOrigin::signed(manager.clone()),
+			amount,
+			<Runtime as pallet_acurast_compute::Config>::MinCooldownPeriod::get(),
+			commitments.try_into().expect("conversion to BoundedVec works"),
+			Perbill::from_percent(1),
+			false,
+		)
+		.expect("commit compute success");
+	}
+
+	fn pair_manager_and_processor(
+		manager: &<Runtime as frame_system::Config>::AccountId,
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) {
+		let timestamp = 1657363915002u128;
+		// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
+		let signature = Self::dummy_proof();
+		let update = ProcessorPairingUpdateFor::<Runtime> {
+			operation: ListUpdateOperation::Add,
+			item: ProcessorPairingFor::<Runtime>::new_with_proof(
+				processor.clone(),
+				timestamp,
+				signature,
+			),
+		};
+		AcurastProcessorManager::update_processor_pairings(
+			RuntimeOrigin::signed(manager.clone()),
+			vec![update].try_into().expect("conversion to BoundedVec works"),
+		)
+		.expect("pairing success");
 	}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {

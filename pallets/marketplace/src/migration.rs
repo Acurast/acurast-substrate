@@ -25,7 +25,7 @@ where
 {
 	let migrations: [(u16, &MigrationFn); 1] = [(7, &migrate_to_v7::<T>)];
 
-	let onchain_version = Pallet::<T>::on_chain_storage_version();
+	let mut onchain_version = Pallet::<T>::on_chain_storage_version();
 	let mut weight: Weight = Default::default();
 	for (i, f) in migrations.into_iter() {
 		let migrating_version = StorageVersion::new(i);
@@ -34,7 +34,10 @@ where
 			weight += f_weight;
 			if completed {
 				migrating_version.put::<Pallet<T>>();
+				onchain_version = migrating_version;
 				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			} else {
+				break;
 			}
 		}
 	}
@@ -43,7 +46,7 @@ where
 }
 
 pub fn migrate_to_v7<T: Config>() -> (Weight, bool) {
-	const CLEAR_LIMIT: u32 = 100;
+	const CLEAR_LIMIT: u32 = 50;
 
 	let mut migration_completed = false;
 	let mut weight = T::DbWeight::get().reads(1);

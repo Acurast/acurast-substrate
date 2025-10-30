@@ -31,7 +31,7 @@ pub(crate) use pallet::STORAGE_VERSION;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		dispatch::DispatchResultWithPostInfo,
+		dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{
@@ -48,8 +48,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use acurast_common::{
-		AccountLookup, AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
-		ManagerIdProvider, Metrics, Version,
+		AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
+		ManagerIdProvider, ManagerLookup, Metrics, Version,
 	};
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -76,7 +76,7 @@ pub mod pallet {
 		type Proof: Parameter + Member + Verify + MaxEncodedLen;
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
-		type ComputeHooks: ComputeHooks<Self::AccountId, BalanceFor<Self>>;
+		type ComputeHooks: ComputeHooks<Self::AccountId, Self::ManagerId, BalanceFor<Self>>;
 		type ProcessorAssetRecovery: ProcessorAssetRecovery<Self>;
 		type MaxPairingUpdates: Get<u32>;
 		type MaxProcessorsInSetUpdateInfo: Get<u32>;
@@ -85,7 +85,10 @@ pub mod pallet {
 		type Advertisement: Parameter + Member;
 		type AdvertisementHandler: AdvertisementHandler<Self>;
 		type UnixTime: UnixTime;
-		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
+		type ManagerProviderForEligibleProcessor: ManagerLookup<
+			AccountId = Self::AccountId,
+			ManagerId = Self::ManagerId,
+		>;
 		type Currency: Currency<Self::AccountId>
 			+ MutateHold<
 				Self::AccountId,
@@ -440,10 +443,23 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			_ = Self::do_reward_distribution(&who);
-			_ = T::ComputeHooks::commit(&who, &[]);
+			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
+				return Ok(().into());
+			};
 
-			Ok(().into())
+			let result = T::ComputeHooks::commit(&who, &manager, &[]);
+			match result {
+				(_, true, true) => Ok(().into()),
+				(_, false, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_version_no_claim()),
+					pays_fee: Pays::Yes,
+				}),
+				(_, true, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_version_metrics_claim()),
+					pays_fee: Pays::Yes,
+				}),
+				_ => Ok(().into()),
+			}
 		}
 
 		#[pallet::call_index(6)]
@@ -555,10 +571,28 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
 
-			_ = Self::do_reward_distribution(&who);
-			_ = T::ComputeHooks::commit(&who, metrics.as_ref());
+			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
+				return Ok(().into());
+			};
 
-			Ok(().into())
+			let result = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
+
+			match result {
+				(_, true, true) => Ok(().into()),
+				(_, false, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_no_claim(
+						metrics.len() as u32,
+					)),
+					pays_fee: Pays::Yes,
+				}),
+				(_, true, false) => Ok(PostDispatchInfo {
+					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_claim(
+						metrics.len() as u32
+					)),
+					pays_fee: Pays::Yes,
+				}),
+				_ => Ok(().into()),
+			}
 		}
 
 		#[pallet::call_index(13)]

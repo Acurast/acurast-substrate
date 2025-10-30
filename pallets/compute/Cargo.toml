@@ -17,6 +17,7 @@ parity-scale-codec = { workspace = true }
 sp-core = { workspace = true }
 
 acurast-common = { workspace = true }
+integer-sqrt = { version = "0.1.5" }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }

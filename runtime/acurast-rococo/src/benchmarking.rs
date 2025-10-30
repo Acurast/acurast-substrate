@@ -15,7 +15,6 @@ use pallet_acurast::{
 	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
 	StoredJobRegistration,
 };
-use pallet_acurast_compute::{RewardDistributionSettings, RewardDistributionSettingsFor};
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
@@ -106,42 +105,36 @@ fn setup_pools() {
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 }
@@ -232,26 +225,23 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			RuntimeOrigin::root(),
 			name,
 			Perquintill::from_percent(25),
-			None,
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");
 		AcurastCompute::last_metric_pool_id()
 	}
 
-	fn setup_compute_settings() {
-		RewardDistributionSettings::<Runtime, ()>::put(RewardDistributionSettingsFor::<
-			Runtime,
-			(),
-		> {
-			total_reward_per_distribution: 12_500,
-			total_inflation_per_distribution: Perquintill::from_percent(5),
-			stake_backed_ratio: Perquintill::from_percent(70),
-			distribution_account: Self::funded_account(1),
-		});
-	}
+	fn setup_compute_settings() {}
+
+	fn commit(manager: &<Runtime as frame_system::Config>::AccountId) {}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
+	}
+
+	fn pair_manager_and_processor(
+		manager: &<Runtime as frame_system::Config>::AccountId,
+		processor: &<Runtime as frame_system::Config>::AccountId,
+	) {
 	}
 }

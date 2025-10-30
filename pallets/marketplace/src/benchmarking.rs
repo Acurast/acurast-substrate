@@ -160,6 +160,7 @@ where
 		assert_ok!(register_call);
 		let _ = AcurastCompute::<T>::commit(
 			&caller,
+			&(caller.clone(), 1.into()),
 			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
 		);
 	}
@@ -190,42 +191,36 @@ where
 		RawOrigin::Root.into(),
 		*b"v1_cpu_single_core______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 	assert_ok!(AcurastCompute::<T>::create_pool(
 		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
 		Perquintill::from_percent(15),
-		None,
 		vec![].try_into().unwrap(),
 	));
 }

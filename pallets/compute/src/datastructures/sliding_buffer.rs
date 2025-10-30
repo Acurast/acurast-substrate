@@ -37,9 +37,9 @@ where
 	/// The time the `cur` value was written.
 	///
 	/// **This is not necessarily an epoch** (as of the `Epoch` configured in Config), but can be any sequential time unit.
-	epoch: Epoch,
-	prev: Value,
-	cur: Value,
+	pub epoch: Epoch,
+	pub prev: Value,
+	pub cur: Value,
 }
 
 impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Default + Debug>
@@ -49,6 +49,10 @@ impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Defaul
 		Self { epoch, prev: Default::default(), cur: Default::default() }
 	}
 
+	pub fn new_with(epoch: Epoch, value: Value) -> Self {
+		Self { epoch, prev: Default::default(), cur: value }
+	}
+
 	#[cfg(test)]
 	pub fn from_inner(epoch: Epoch, prev: Value, cur: Value) -> Self {
 		Self { epoch, prev, cur }
@@ -56,9 +60,33 @@ impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Defaul
 
 	/// Sets the value for a specific epoch.
 	///
+	/// It either overwrites one of the two buffered values if `epoch` denotes one of them or
+	/// it "shifts" the buffer if `epoch` is subsequent to [`Self::epoch`] by copying the current into the prev value and setting the current value.
+	/// In all other cases it clears the two buffered values and stores the new `value`.
+	pub fn set(&mut self, epoch: Epoch, value: Value) {
+		if epoch + One::one() == self.epoch {
+			self.prev = value;
+		} else if epoch == self.epoch {
+			self.cur = value;
+		} else if self.epoch + One::one() == epoch {
+			// shift since we are updating the subsequent value
+			self.prev = self.cur;
+			self.cur = value;
+			self.epoch = epoch;
+		} else {
+			self.prev = Default::default();
+			self.cur = value;
+			self.epoch = epoch;
+		}
+	}
+
+	/// Sets the value for a specific epoch.
+	///
 	/// It either updates one of the two buffered values if `epoch` denotes one of them or
-	/// it "rotates" the buffer if `epoch` is subsequent to [`Self::epoch`]. In all other cases it clears the two buffered values and stores the new `value`.
-	pub fn mutate<F>(&mut self, epoch: Epoch, f: F)
+	/// it "shifts" the buffer if `epoch` is subsequent to [`Self::epoch`] by copying the current into the prev value,
+	/// passing the untouched current value into `f`.
+	/// In all other cases it clears the two buffered values and stores the new `value`.
+	pub fn mutate<F>(&mut self, epoch: Epoch, f: F, retain: bool)
 	where
 		F: FnOnce(&mut Value),
 	{
@@ -69,7 +97,9 @@ impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Defaul
 		} else if self.epoch + One::one() == epoch {
 			// shift since we are updating the subsequent value
 			self.prev = self.cur;
-			self.cur = Default::default();
+			if !retain {
+				self.cur = Default::default();
+			}
 			self.epoch = epoch;
 			f(&mut self.cur);
 		} else {
@@ -90,6 +120,17 @@ impl<Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug, Value: Copy + Defaul
 			Default::default()
 		}
 	}
+
+	/// Returns some value if it has been memorized, for previous slot or current slot that might have been written in the past, otherwise the default value.
+	pub fn get_latest(&self, epoch: Epoch) -> Value {
+		if epoch + One::one() == self.epoch {
+			self.prev
+		} else if epoch >= self.epoch {
+			self.cur
+		} else {
+			Default::default()
+		}
+	}
 }
 
 #[cfg(test)]
@@ -102,22 +143,34 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		});
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		});
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
-		b.mutate(3, |v| {
-			*v = Some(3);
-		});
+		b.mutate(
+			3,
+			|v| {
+				*v = Some(3);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), None);
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), Some(3));
@@ -130,15 +183,23 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		});
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(4, |v| {
-			*v = Some(4);
-		});
+		b.mutate(
+			4,
+			|v| {
+				*v = Some(4);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), None);
 		assert_eq!(b.get(2), None);
 		assert_eq!(b.get(4), Some(4));
@@ -151,23 +212,35 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		});
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		});
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
 		// here we update previous value, adjacent to current
-		b.mutate(1, |v| {
-			*v = Some(11);
-		});
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(11);
+			},
+			false,
+		);
 		// ...and we expect nothing lost but previous updated
 		assert_eq!(b.get(1), Some(11));
 		assert_eq!(b.get(2), Some(2));
@@ -180,23 +253,35 @@ mod tests {
 		let mut b: SlidingBuffer<i32, Option<i32>> = SlidingBuffer::new(0);
 		assert_eq!(b.get(0), None);
 
-		b.mutate(1, |v| {
-			*v = Some(1);
-		});
+		b.mutate(
+			1,
+			|v| {
+				*v = Some(1);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), None);
 
-		b.mutate(2, |v| {
-			*v = Some(2);
-		});
+		b.mutate(
+			2,
+			|v| {
+				*v = Some(2);
+			},
+			false,
+		);
 		assert_eq!(b.get(1), Some(1));
 		assert_eq!(b.get(2), Some(2));
 		assert_eq!(b.get(3), None);
 
 		// here we update previous value, but more than one in the past
-		b.mutate(0, |v| {
-			*v = Some(10);
-		});
+		b.mutate(
+			0,
+			|v| {
+				*v = Some(10);
+			},
+			false,
+		);
 		// ...and we expect nothing lost but previous updated
 		assert_eq!(b.get(0), Some(10));
 		assert_eq!(b.get(1), None);

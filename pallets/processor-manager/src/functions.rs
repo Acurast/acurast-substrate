@@ -1,12 +1,12 @@
 use acurast_common::{
-	AccountLookup, AttestationValidator, IsFundableCall, ManagerIdProvider,
+	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup,
 	ProcessorVersionProvider, Version,
 };
 use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
 	sp_runtime::{
 		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
-		DispatchError, SaturatedConversion,
+		DispatchError,
 	},
 	traits::{
 		fungible::{Inspect, InspectHold, MutateHold},
@@ -17,8 +17,7 @@ use frame_support::{
 
 use crate::{
 	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
-	OnboardingProvider, Pallet, ProcessorPairingFor, ProcessorRewardDistributionWindow,
-	ProcessorToManagerIdIndex, RewardDistributionWindow,
+	OnboardingProvider, Pallet, ProcessorPairingFor, ProcessorToManagerIdIndex,
 };
 
 impl<T: Config> Pallet<T> {
@@ -71,56 +70,55 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_reward_distribution(processor: &T::AccountId) -> Option<BalanceFor<T>> {
-		let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		};
-		if distribution_settings.reward_per_distribution.is_zero() {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		}
-		let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
-			<ProcessorRewardDistributionWindow<T>>::remove(processor);
-			return None;
-		};
-		let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
-		let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
-		else {
-			<ProcessorRewardDistributionWindow<T>>::insert(
-				processor,
-				RewardDistributionWindow::new(current_block_number, &distribution_settings),
-			);
-			return None;
-		};
+	//pub(crate) fn do_reward_distribution(
+	//	processor: &T::AccountId,
+	//	manager: &T::AccountId,
+	//) -> Option<BalanceFor<T>> {
+	//	let Some(distribution_settings) = Self::processor_reward_distribution_settings() else {
+	//		<ProcessorRewardDistributionWindow<T>>::remove(processor);
+	//		return None;
+	//	};
+	//	if distribution_settings.reward_per_distribution.is_zero() {
+	//		<ProcessorRewardDistributionWindow<T>>::remove(processor);
+	//		return None;
+	//	}
+	//	let current_block_number: u32 = <frame_system::Pallet<T>>::block_number().saturated_into();
+	//	let Some(distribution_window) = Self::processor_reward_distribution_window(processor)
+	//	else {
+	//		<ProcessorRewardDistributionWindow<T>>::insert(
+	//			processor,
+	//			RewardDistributionWindow::new(current_block_number, &distribution_settings),
+	//		);
+	//		return None;
+	//	};
 
-		let progress = current_block_number.saturating_sub(distribution_window.start);
-		if progress < distribution_window.window_length {
-			<ProcessorRewardDistributionWindow<T>>::insert(processor, distribution_window.next());
-			return None;
-		}
+	//	let progress = current_block_number.saturating_sub(distribution_window.start);
+	//	if progress < distribution_window.window_length {
+	//		<ProcessorRewardDistributionWindow<T>>::insert(processor, distribution_window.next());
+	//		return None;
+	//	}
 
-		let mut distributed_amount: Option<BalanceFor<T>> = None;
-		let buffer = progress.saturating_sub(distribution_window.window_length);
-		if buffer <= distribution_window.tollerance
-			&& (distribution_window.heartbeats + 1) >= distribution_window.min_heartbeats
-		{
-			let result = T::Currency::transfer(
-				&distribution_settings.distributor_account,
-				&manager,
-				distribution_settings.reward_per_distribution,
-				ExistenceRequirement::KeepAlive,
-			);
-			if result.is_ok() {
-				distributed_amount = Some(distribution_settings.reward_per_distribution)
-			}
-		}
-		<ProcessorRewardDistributionWindow<T>>::insert(
-			processor,
-			RewardDistributionWindow::new(current_block_number, &distribution_settings),
-		);
-		distributed_amount
-	}
+	//	let mut distributed_amount: Option<BalanceFor<T>> = None;
+	//	let buffer = progress.saturating_sub(distribution_window.window_length);
+	//	if buffer <= distribution_window.tollerance
+	//		&& (distribution_window.heartbeats + 1) >= distribution_window.min_heartbeats
+	//	{
+	//		let result = T::Currency::transfer(
+	//			&distribution_settings.distributor_account,
+	//			manager,
+	//			distribution_settings.reward_per_distribution,
+	//			ExistenceRequirement::KeepAlive,
+	//		);
+	//		if result.is_ok() {
+	//			distributed_amount = Some(distribution_settings.reward_per_distribution)
+	//		}
+	//	}
+	//	<ProcessorRewardDistributionWindow<T>>::insert(
+	//		processor,
+	//		RewardDistributionWindow::new(current_block_number, &distribution_settings),
+	//	);
+	//	distributed_amount
+	//}
 
 	pub fn ensure_managed(
 		manager: &T::AccountId,
@@ -186,10 +184,19 @@ impl<T: Config> ProcessorVersionProvider<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> AccountLookup<T::AccountId> for Pallet<T> {
-	fn lookup(processor: &T::AccountId) -> Option<T::AccountId> {
-		let manager_id = Self::manager_id_for_processor(processor)?;
-		T::ManagerIdProvider::owner_for(manager_id).ok()
+impl<T: Config> ManagerLookup for Pallet<T> {
+	type AccountId = T::AccountId;
+	type ManagerId = T::ManagerId;
+
+	fn lookup(processor: &Self::AccountId) -> Option<(Self::AccountId, Self::ManagerId)> {
+		let manager_id = Self::lookup_manager_id(processor)?;
+		T::ManagerIdProvider::owner_for(manager_id)
+			.ok()
+			.map(|account_id| (account_id, manager_id))
+	}
+
+	fn lookup_manager_id(processor: &Self::AccountId) -> Option<Self::ManagerId> {
+		Self::manager_id_for_processor(processor)
 	}
 }
 
@@ -292,7 +299,7 @@ where
 	}
 
 	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId {
-		let mut manager = Self::lookup(account);
+		let mut manager = Self::lookup(account).map(|(account_id, _)| account_id);
 
 		if manager.is_none() {
 			if let Some((pairing, _, _)) = Self::pairing_for_call(call) {

@@ -1,12 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(deprecated)]
 
 pub use datastructures::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
-
-pub(crate) use pallet::STORAGE_VERSION;
 
 mod datastructures;
 mod hooks;
@@ -32,20 +31,22 @@ const LOG_TARGET: &str = "runtime::acurast_compute";
 #[frame_support::pallet]
 pub mod pallet {
 	use acurast_common::{
-		AccountLookup, CommitmentIdProvider, ManagerIdProvider, MetricInput, PoolId,
+		CommitmentIdProvider, ManagerIdProvider, ManagerLookup, MetricInput, PoolId,
 	};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		traits::{
 			fungible::{Balanced, Credit},
-			Currency, EnsureOrigin, ExistenceRequirement, Get, Imbalance, InspectLockableCurrency,
-			LockIdentifier, OnUnbalanced,
+			tokens::{Fortitude, Precision, Preservation},
+			Currency, EnsureOrigin, Get, Imbalance, InspectLockableCurrency, LockIdentifier,
+			OnUnbalanced,
 		},
 		PalletId, Parameter,
 	};
 	use frame_system::pallet_prelude::*;
 	use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
+	use sp_core::U256;
 	use sp_runtime::{
 		traits::{AccountIdConversion, One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Perbill, Perquintill,
@@ -81,7 +82,7 @@ pub mod pallet {
 		type CommitmentIdProvider: CommitmentIdProvider<Self::AccountId, Self::CommitmentId>;
 		/// Defines the duration of an epoch.
 		///
-		/// This is currently the important cycle on which the compute reward system operates, apart from the longer period for average of metrics, see [`T::Era`].
+		/// This is currently the important cycle on which the compute reward system operates.
 		///
 		/// An epoch is used for the duration of all of the aligned
 		///
@@ -93,11 +94,9 @@ pub mod pallet {
 		/// Does technically not need to be a multiple of the heartbeat interval but it's more reasonable to choose so for simplicity.
 		#[pallet::constant]
 		type Epoch: Get<EpochOf<Self>>;
-		/// Defines the duration of an era the number of epochs per era. Era duration = `T::Era * T::Epoch` blocks.
-		///
-		/// It is currently only used as the duration of the period storing the moving average of metrics that is retained.
+		/// The bonus busy devices get in weight. A bonus of `20%` means the weight will be `120%` of the idle weight.
 		#[pallet::constant]
-		type Era: Get<EraOf<Self>>;
+		type BusyWeightBonus: Get<Perquintill>;
 		/// How many epochs a metric is valid for.
 		#[pallet::constant]
 		type MetricValidity: Get<EpochOf<Self>>;
@@ -112,6 +111,12 @@ pub mod pallet {
 		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`Stake`]`::cooldown_period / MaxCooldownPeriod`.
 		#[pallet::constant]
 		type MaxCooldownPeriod: Get<BlockNumberFor<Self>>;
+		/// The target cooldown period for delegators in number of blocks, used as reference for economic calculations.
+		#[pallet::constant]
+		type TargetCooldownPeriod: Get<BlockNumberFor<Self>>;
+		/// The target ratio of total token supply that should be staked, used for adjusting incentives.
+		#[pallet::constant]
+		type TargetStakedTokenSupply: Get<Perquintill>;
 		/// The minimum possible delegated amount towards a commitment. There is no maximum for the amount which a delegator can offer, but it's still limited by the [`Self::MaxDelegationRatio`].
 		#[pallet::constant]
 		type MinDelegation: Get<BalanceFor<Self, I>>;
@@ -120,9 +125,18 @@ pub mod pallet {
 		type MaxDelegationRatio: Get<Perquintill>;
 		#[pallet::constant]
 		type CooldownRewardRatio: Get<Perquintill>;
+		/// The period a delegator is blocked after redelegation. Applies only if the current committer is not in cooldown.
+		#[pallet::constant]
+		type RedelegationBlockingPeriod: Get<EpochOf<Self>>;
 		/// The minimum stake by a committer.
 		#[pallet::constant]
 		type MinStake: Get<BalanceFor<Self, I>>;
+		/// The slash ratio applied to total commitment stake (committer + delegations) when a commitment fails to deliver committed metrics.
+		#[pallet::constant]
+		type BaseSlashRation: Get<Perquintill>;
+		/// The ratio of slashed amount that is rewarded to the caller who triggers the slash extrinsic.
+		#[pallet::constant]
+		type SlashRewardRatio: Get<Perquintill>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
@@ -134,7 +148,10 @@ pub mod pallet {
 		/// Eventhough a staker can also delegate at the same time, the same funds contributing to total balance of an account is either delegated or staked, not both.
 		#[pallet::constant]
 		type LockIdentifier: Get<LockIdentifier>;
-		type ManagerProviderForEligibleProcessor: AccountLookup<Self::AccountId>;
+		type ManagerProviderForEligibleProcessor: ManagerLookup<
+			AccountId = Self::AccountId,
+			ManagerId = Self::ManagerId,
+		>;
 		#[pallet::constant]
 		type InflationPerEpoch: Get<BalanceFor<Self, I>>;
 		#[pallet::constant]
@@ -153,7 +170,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-		pub pools: Vec<(MetricPoolName, Perquintill, FixedU128, MetricPoolConfigValues)>,
+		pub pools: Vec<(MetricPoolName, Perquintill, MetricPoolConfigValues)>,
 		phantom: PhantomData<(T, I)>,
 	}
 
@@ -164,15 +181,13 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I>
+	where
+		BalanceFor<T, I>: From<u128>,
+	{
 		fn build(&self) {
-			for (name, reward_ratio, max_stake_metric_ratio, config) in self.pools.clone() {
-				if let Err(e) = Pallet::<T, I>::do_create_pool(
-					name,
-					reward_ratio,
-					max_stake_metric_ratio,
-					config,
-				) {
+			for (name, reward_ratio, config) in self.pools.clone() {
+				if let Err(e) = Pallet::<T, I>::do_create_pool(name, reward_ratio, config) {
 					log::error!(
 						target: LOG_TARGET,
 						"AcurastCompute Genesis error: {:?}",
@@ -194,6 +209,12 @@ pub mod pallet {
 	pub type Processors<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, ProcessorStateFor<T, I>>;
 
+	/// Individual processors' epoch start and active status.
+	#[pallet::storage]
+	#[pallet::getter(fn manager_metrics_rewards)]
+	pub type ManagerMetricRewards<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::ManagerId, MetricsRewardStateFor<T, I>>;
+
 	/// Storage for pools' config and current total value over all active processors.
 	#[pallet::storage]
 	#[pallet::getter(fn metric_pools)]
@@ -212,37 +233,57 @@ pub mod pallet {
 	pub(super) type MetricPoolLookup<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, MetricPoolName, PoolId>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn reward_distribution_settings)]
-	pub type RewardDistributionSettings<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, RewardDistributionSettingsFor<T, I>, OptionQuery>;
-
-	/// The commitments of compute as a map `commitment_id` -> `pool_id` -> [`Stake`].
+	/// The commitments of compute as a map `commitment_id` -> `pool_id` -> `metric`.
 	///
-	/// Metrics committable are limited by a ratio of what was measured as average in last completed era (see [`MetricsEraAverage`]).
+	/// Metrics committable are limited by what was measured in last completed epoch (see [`MetricsEpochSum`]).
 	#[pallet::storage]
 	#[pallet::getter(fn compute_commitments)]
 	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, Metric>;
 
-	/// The relative commission taken by committers from delegator's reward as a map `commitment_id` -> [`Perbill`].
+	/// The actual (adjusted) scores of compute as a map `commitment_id` -> `pool_id` -> `SlidingBuffer[epoch -> (score, bonus_score)]`.
+	///
+	/// The adjustement of scores involves checks if a commitment is in cooldown, if the stake-metric ratio was superseded and stored in second tuple element, if the committer gets a bonus for being busy.
 	#[pallet::storage]
-	#[pallet::getter(fn commission)]
-	pub(super) type Commission<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, Perbill>;
+	#[pallet::getter(fn scores)]
+	pub(super) type Scores<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Identity,
+		T::CommitmentId,
+		Identity,
+		PoolId,
+		SlidingBuffer<BlockNumberFor<T>, (U256, U256)>,
+		ValueQuery,
+	>;
 
 	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[block % (T::Era * T::Epoch) -> (metric, avg_count)]`.
 	///
 	/// The time unit in [`SlidingBuffer::epoch`] confusingly corresponds to an era for this storage structure!
+	///
+	/// **DEPRECATED:** This storage item is no longer used and will be removed in a future version.
 	#[pallet::storage]
 	#[pallet::getter(fn metrics_era_average)]
+	#[deprecated]
 	pub(super) type MetricsEraAverage<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Identity,
 		T::ManagerId,
 		Identity,
 		PoolId,
-		SlidingBuffer<EraOf<T>, (Metric, u32)>,
+		SlidingBuffer<BlockNumberFor<T>, (Metric, u32)>,
+	>;
+
+	/// The measured metrics sum over an epoch by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[epoch -> (metric_sum, metric_with_bonus_sum)]`.
+	#[pallet::storage]
+	#[pallet::getter(fn metrics_epoch_sum)]
+	pub(super) type MetricsEpochSum<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Identity,
+		T::ManagerId,
+		Identity,
+		PoolId,
+		SlidingBuffer<EpochOf<T>, (Metric, Metric)>,
+		ValueQuery,
 	>;
 
 	/// Pending offers to back manager's compute with a commitment. These are pending offers made by committers waiting for acceptance by manager as a map `committer_id` -> `manager_id` -> `()`.
@@ -269,32 +310,11 @@ pub mod pallet {
 	pub(super) type NextCommitmentId<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::CommitmentId, ValueQuery>;
 
-	/// Stakes by commitment as a map `commitment_id` -> [`Stake`].
+	/// Commitments as a map `commitment_id` -> [`Commitment`].
 	#[pallet::storage]
-	#[pallet::getter(fn stakes)]
-	pub(super) type Stakes<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, StakeFor<T, I>>;
-
-	/// Pool member state for commitments in their own delegation pool as a map `commitment_id` -> [`DelegationPoolMember`].
-	#[pallet::storage]
-	#[pallet::getter(fn self_delegation)]
-	pub(super) type SelfDelegation<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, DelegationPoolMemberFor<T, I>>;
-
-	/// Pool member state as a map `commitment_id` -> `pool_id` -> [`StakingPoolMember`].
-	#[pallet::storage]
-	#[pallet::getter(fn staking_pool_members)]
-	pub(super) type StakingPoolMembers<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, StakingPoolMember>;
-
-	/// Tracks a commitment's backing stake, inclusive committer stake and delegated stakes received as (total_amount, rewardable_amount).
-	///
-	/// - `total_amount`: Total staked including cooldown (used for slashing)
-	/// - `rewardable_amount`: Amount eligible for rewards (used for reward calculations)
-	#[pallet::storage]
-	#[pallet::getter(fn commitment_stake)]
-	pub(super) type CommitmentStake<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, (BalanceFor<T, I>, BalanceFor<T, I>), ValueQuery>;
+	#[pallet::getter(fn commitments)]
+	pub(super) type Commitments<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, CommitmentFor<T, I>>;
 
 	/// Tracks the total stake of all commitments.
 	#[pallet::storage]
@@ -302,62 +322,52 @@ pub mod pallet {
 	pub type TotalStake<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceFor<T, I>, ValueQuery>;
 
-	/// Delegations (delegated stakes) as a map `delegator` -> `commitment_id` -> [`Stake`].
+	/// Delegations as a map `delegator` -> `commitment_id` -> [`Delegation`].
 	#[pallet::storage]
 	#[pallet::getter(fn delegations)]
-	pub(super) type Delegations<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Twox64Concat, T::AccountId, Identity, T::CommitmentId, StakeFor<T, I>>;
-
-	/// Pool member state by delegator as a map `delegator` -> `commitment_id` -> [`PoolMember`].
-	#[pallet::storage]
-	#[pallet::getter(fn delegation_pool_members)]
-	pub(super) type DelegationPoolMembers<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub(super) type Delegations<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
 		Identity,
 		T::CommitmentId,
-		DelegationPoolMemberFor<T, I>,
+		DelegationFor<T, I>,
 	>;
 
-	/// Tracks a delegator's total delegated stake. It excludes self-delegations by committers.
+	/// Tracks a delegator's total delegated stake. It excludes stakes by committers.
 	#[pallet::storage]
 	#[pallet::getter(fn delegator_total)]
 	pub(super) type DelegatorTotal<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, BalanceFor<T, I>, ValueQuery>;
-
-	/// Tracks the total delegated stake by all delegators. It excludes self-delegations by committers.
-	#[pallet::storage]
-	#[pallet::getter(fn total_delegated)]
-	pub type TotalDelegated<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BalanceFor<T, I>, ValueQuery>;
-
-	/// Storage for metric pools' staking metadata for constant-time reward distribution.
-	#[pallet::storage]
-	#[pallet::getter(fn staking_pools)]
-	pub type StakingPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, PoolId, StakingPool, ValueQuery>;
-
-	/// Storage for staking metadata for each provider's own pool for constant-time reward distribution among delegators to each provider and metric the provider committed to.
-	///
-	/// Delegatios are automatically transferred to a new holder of commitment_id when transferring commitment_id NFT.
-	#[pallet::storage]
-	#[pallet::getter(fn delegation_pools)]
-	pub(super) type DelegationPools<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::CommitmentId, DelegationPool, ValueQuery>;
 
 	/// The current epoch with sequential epoch number that increases every [`T::Epoch`] and the start of current epoch.
 	#[pallet::storage]
 	#[pallet::getter(fn current_cycle)]
 	pub type CurrentCycle<T: Config<I>, I: 'static = ()> = StorageValue<_, CycleFor<T>, ValueQuery>;
 
-	/// Storage for compute-based rewards that are not stake-backed, as a map `epoch` -> `reward`.
+	/// Storage for compute-based rewards that are distributed for all compute, also **non**-stake-backed compute, as a sliding buffer `epoch` -> `reward`.
 	#[pallet::storage]
 	#[pallet::getter(fn compute_based_rewards)]
 	pub type ComputeBasedRewards<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, SlidingBuffer<EpochOf<T>, BalanceFor<T, I>>, ValueQuery>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	/// Storage for stake-based rewards that are distributed for stake-backed compute, as a sliding buffer `epoch` -> [`RewardBudget`].
+	#[pallet::storage]
+	#[pallet::getter(fn stake_based_rewards)]
+	pub type StakeBasedRewards<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Identity,
+		PoolId,
+		SlidingBuffer<EpochOf<T>, RewardBudgetFor<T, I>>,
+		ValueQuery,
+	>;
+
+	/// Migration state for V6 migration (clearing MetricsEraAverage)
+	#[pallet::storage]
+	pub type V11MigrationState<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
+
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -392,10 +402,10 @@ pub mod pallet {
 		ComputeCommitmentCooldownStarted(T::CommitmentId),
 		/// The cooldown for a commitment has ended. [commitment_id, reward_amount]
 		ComputeCommitmentEnded(T::CommitmentId, BalanceFor<T, I>),
-		/// A reward got distrubuted. [amount]
-		Rewarded(BalanceFor<T, I>),
-		/// A commitment got slahsed. [commitment_id, amount]
-		Slashed(T::CommitmentId, BalanceFor<T, I>),
+		/// A delegator got kicked out. [delegator, commitment_id, reward_amount]
+		KickedOut(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
+		/// A commitment got slahsed. [commitment_id]
+		Slashed(T::CommitmentId),
 		/// A delegation was moved from one commitment to another. [delegator, old_commitment_id, new_commitment_id]
 		Redelegated(T::AccountId, T::CommitmentId, T::CommitmentId),
 		/// A delegator withdrew his accrued rewards and slashes. [delegator, commitment_id, reward_amount]
@@ -406,6 +416,10 @@ pub mod pallet {
 		DelegatorCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
 		/// A committer compounded his accrued rewards and slashes. [committer, commitment_id, compound_amount]
 		CommitterCompounded(T::AccountId, T::CommitmentId, BalanceFor<T, I>),
+		/// V11 migration started (clearing deprecated MetricsEraAverage storage)
+		V11MigrationStarted,
+		/// V11 migration completed (clearing deprecated MetricsEraAverage storage)
+		V11MigrationCompleted,
 	}
 
 	// Errors inform users that something went wrong.
@@ -425,33 +439,40 @@ pub mod pallet {
 		CooldownAlreadyStarted,
 		BelowMinCooldownPeriod,
 		AboveMaxCooldownPeriod,
+		CooldownPeriodCannotDecrease,
+		CommissionCannotIncrease,
+		CommittedMetricCannotDecrease,
 		BelowMinDelegation,
 		DelegationCooldownMustBeShorterThanCommitment,
 		MaxDelegationRatioExceeded,
 		MaxMetricCommitmentExceeded,
 		ZeroMetricsForValidPools,
-		MinStakeSubceeded,
+		MinStakeUnmet,
 		InsufficientBalance,
 		CooldownNotStarted,
 		CooldownNotEnded,
 		NotDelegating,
 		CommitmentNotFound,
+		CommitmentScoreNotFound,
 		NewCommitmentNotFound,
 		AlreadyCommitted,
-		NoMetricsAverage,
 		NoManagerBackingCommitment,
 		NoOwnerOfCommitmentId,
 		InternalError,
+		InternalErrorReadingOutdated,
 		MaxStakeMetricRatioExceeded,
-		CommitmentNotInCooldown,
 		CommitmentInCooldown,
-		DelegatorInCooldown,
+		RedelegateBlocked,
+		AlreadyDelegatingToRedelegationCommitter,
 		RedelegationCommitterCooldownCannotBeShorter,
 		RedelegationCommitmentMetricsCannotBeLess,
 		AutoCompoundNotAllowed,
 		CannotCommit,
 		StaleDelegationMustBeEnded,
 		EndStaleDelegationsFirst,
+		CannotKickout,
+		AlreadySlashed,
+		NotSlashable,
 	}
 
 	#[pallet::hooks]
@@ -459,61 +480,51 @@ pub mod pallet {
 	where
 		BalanceFor<T, I>: From<u128>,
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			crate::migration::migrate::<T, I>()
-		}
-
 		fn on_initialize(block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
-			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start and era_start will be 2.
+			weight += crate::migration::migrate::<T, I>();
+
+			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start will be 2.
 			let current_cycle = Self::current_cycle();
 			let epoch_start = current_cycle.epoch_start;
-			let era_start = current_cycle.era_start;
 
 			let diff = block_number.saturating_sub(epoch_start);
-			let era_diff = block_number.saturating_sub(era_start);
 			if epoch_start == Zero::zero() {
 				// First time initialization - set to calculated epoch
 				let initial_epoch = diff / T::Epoch::get();
-				let initial_era = era_diff / (T::Era::get().saturating_mul(T::Epoch::get()));
 				CurrentCycle::<T, I>::put(Cycle {
 					epoch: initial_epoch,
 					epoch_start: block_number,
-					era: initial_era,
-					era_start: block_number,
 				});
 				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 			} else {
 				// Check if we're at an epoch boundary
 				if diff % T::Epoch::get() == Zero::zero() {
-					CurrentCycle::<T, I>::mutate(|cycle| {
+					let (last_epoch, current_epoch) = CurrentCycle::<T, I>::mutate(|cycle| {
 						// Increment the sequential epoch
+						let last_epoch = cycle.epoch;
 						cycle.epoch = cycle.epoch.saturating_add(One::one());
 						cycle.epoch_start = block_number;
-
-						// Check if we're at an era boundary, which we only can be when also at an epoch boundary
-						if era_diff % (T::Era::get().saturating_mul(T::Epoch::get()))
-							== Zero::zero()
-						{
-							// Increment the sequential epoch
-							cycle.era = cycle.era.saturating_add(One::one());
-							cycle.era_start = block_number;
-						}
+						(last_epoch, cycle.epoch)
 					});
 					weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+					// Calculate target token supply before inflating
+					let target_token_supply = T::TargetStakedTokenSupply::get()
+						.mul_floor(T::Currency::total_issuance().saturated_into::<u128>());
 
 					// Handle inflation-based reward distribution on new epoch
 					{
 						weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
-						let current_epoch = Self::current_cycle().epoch;
 
-						if !inflation_amount.is_zero() {
+						let (stake_backed_amount, mut imbalance) = if !inflation_amount.is_zero() {
 							// Mint new tokens into distribution account
 							let mut imbalance =
 								<T::Currency as Balanced<T::AccountId>>::issue(inflation_amount);
-							// Calculate stake-backed amount
+
+							// Calculate split of stake-based and compute-based amount
 							let stake_backed_amount: BalanceFor<T, I> =
 								T::InflationStakedComputeRation::get()
 									.mul_floor(inflation_amount.saturated_into::<u128>())
@@ -523,42 +534,91 @@ pub mod pallet {
 								.saturated_into();
 							let compute_imbalance = imbalance
 								.extract(stake_backed_amount.saturating_add(compute_based_amount));
-							let resolve_result = T::Currency::resolve(
-								&T::PalletId::get().into_account_truncating(),
-								compute_imbalance,
-							);
+							let resolve_result =
+								T::Currency::resolve(&Self::account_id(), compute_imbalance);
 							if let Err(credit) = resolve_result {
 								imbalance = imbalance.merge(credit);
-							}
-							T::InflationHandler::on_unbalanced(imbalance);
-							weight = weight.saturating_add(T::DbWeight::get().writes(2));
-
-							// Distribute stake-backed rewards
-							if !stake_backed_amount.is_zero() {
-								if let Err(e) = Self::distribute(current_epoch, stake_backed_amount)
-								{
-									log::error!(
-										target: LOG_TARGET,
-										"Failed to distribute stake-backed rewards: {:?}",
-										e
-									);
-								} else {
-									weight = weight
-										.saturating_add(T::DbWeight::get().reads_writes(10, 5));
-								}
 							}
 
 							// Store compute-based rewards
 							if !compute_based_amount.is_zero() {
 								ComputeBasedRewards::<T, I>::mutate(|r| {
-									r.mutate(current_epoch, |v| {
-										*v = compute_based_amount;
-									});
+									r.mutate(
+										current_epoch,
+										|v| {
+											*v = compute_based_amount;
+										},
+										false,
+									);
 								});
 
 								weight = weight.saturating_add(T::DbWeight::get().writes(1));
 							}
+
+							(stake_backed_amount, imbalance)
+						} else {
+							(Zero::zero(), Default::default())
+						};
+
+						// Store stake-based rewards split by pool (to avoid redoing this in every stake-based-reward-claiming heartbeat)
+						let mut unused_amount: BalanceFor<T, I> = Zero::zero();
+
+						for (pool_id, pool) in MetricPools::<T, I>::iter() {
+							// we have to use the pool's total compute from the last_epoch since only this one is a completed rolling sum
+							let target_weight_per_compute =
+								U256::from(target_token_supply.saturated_into::<u128>())
+									.saturating_mul(U256::from(PER_TOKEN_DECIMALS))
+									.saturating_mul(U256::from(
+										T::TargetCooldownPeriod::get().saturated_into::<u128>(),
+									))
+									.checked_div(U256::from(
+										T::MaxCooldownPeriod::get().saturated_into::<u128>(),
+									))
+									.unwrap_or(Zero::zero())
+									.saturating_mul(U256::from(FIXEDU128_DECIMALS))
+									.checked_div(U256::from(
+										pool.total.get(last_epoch).into_inner(),
+									))
+									.unwrap_or(Zero::zero());
+							StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
+								// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
+								let stale_budget = r.get(last_epoch.saturating_sub(One::one()));
+								unused_amount = unused_amount.saturating_add(
+									stale_budget.total.saturating_sub(stale_budget.distributed),
+								);
+								r.mutate(
+									current_epoch,
+									|v| {
+										*v = RewardBudget::new(
+											pool.reward
+												.get(last_epoch)
+												.mul_floor(
+													stake_backed_amount.saturated_into::<u128>(),
+												)
+												.into(),
+											target_weight_per_compute,
+										);
+									},
+									false,
+								);
+							});
+							weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
 						}
+
+						if !unused_amount.is_zero() {
+							if let Ok(unused) = <T::Currency as Balanced<T::AccountId>>::withdraw(
+								&Self::account_id(),
+								unused_amount,
+								Precision::Exact,
+								Preservation::Preserve,
+								Fortitude::Polite,
+							) {
+								imbalance = imbalance.merge(unused);
+							}
+						}
+
+						T::InflationHandler::on_unbalanced(imbalance);
+						weight = weight.saturating_add(T::DbWeight::get().writes(2));
 					}
 				}
 			}
@@ -579,17 +639,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			name: MetricPoolName,
 			reward: Perquintill,
-			max_stake_metric_ratio: Option<FixedU128>,
 			config: MetricPoolConfigValues,
 		) -> DispatchResultWithPostInfo {
 			T::CreateModifyPoolOrigin::ensure_origin(origin)?;
 
-			let (pool_id, pool_state) = Self::do_create_pool(
-				name,
-				reward,
-				max_stake_metric_ratio.unwrap_or(Zero::zero()),
-				config,
-			)?;
+			let (pool_id, pool_state) = Self::do_create_pool(name, reward, config)?;
 
 			Self::deposit_event(Event::<T, I>::PoolCreated(pool_id, pool_state));
 
@@ -604,7 +658,6 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_name: Option<MetricPoolName>,
 			new_reward_from_epoch: Option<(EpochOf<T>, Perquintill)>,
-			new_max_stake_metric_ratio: Option<FixedU128>,
 			new_config: Option<ModifyMetricPoolConfig>,
 		) -> DispatchResultWithPostInfo {
 			T::CreateModifyPoolOrigin::ensure_origin(origin)?;
@@ -631,9 +684,6 @@ pub mod pallet {
 					p.reward
 						.set(previous_epoch, epoch, reward)
 						.map_err(|_| Error::<T, I>::RewardUpdateInvalid)?;
-				}
-				if let Some(r) = new_max_stake_metric_ratio {
-					p.max_stake_metric_ratio = r;
 				}
 
 				match new_config {
@@ -753,41 +803,11 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
-			let manager_id = <Backings<T, I>>::get(commitment_id)
-				.ok_or(Error::<T, I>::NoManagerBackingCommitment)?;
-			let era = Self::current_cycle().era;
-			let mut count = 0;
-			for c in commitment {
-				if <MetricPools<T, I>>::get(c.pool_id).is_none() {
-					continue; // Pool not found, skip; this is not an internal error since maybe pool got deleted but older version of processor still supplies metric
-				};
-				let avg = <MetricsEraAverage<T, I>>::get(manager_id, c.pool_id)
-					.ok_or(Error::<T, I>::NoMetricsAverage)?;
-				let (avg_value, avg_count) =
-					avg.get(era.checked_sub(&One::one()).ok_or(Error::<T, I>::CannotCommit)?);
-				ensure!(c.metric < avg_value, Error::<T, I>::MaxMetricCommitmentExceeded);
-				let ratio = Perquintill::from_parts(((c.metric / avg_value).into_inner()) as u64);
-				ensure!(
-					ratio <= T::MaxMetricCommitmentRatio::get(),
-					Error::<T, I>::MaxMetricCommitmentExceeded
-				);
 
-				ComputeCommitments::<T, I>::insert(
-					commitment_id,
-					c.pool_id,
-					c.metric
-						.checked_mul(&FixedU128::from_u32(avg_count))
-						.ok_or(Error::<T, I>::CalculationOverflow)?,
-				);
-				count += 1;
-			}
-			ensure!(count > 0, Error::<T, I>::ZeroMetricsForValidPools);
-
-			// commission can only be inserted once on commit, since stake_for below errors if already committe
-			Commission::<T, I>::insert(commitment_id, commission);
+			Self::validate_max_metric_store_commitments(commitment_id, commitment)?;
 
 			// only call this AFTER storing commitment since it's a requirement for stake_for
-			Self::stake_for(&who, amount, cooldown_period, allow_auto_compound)?;
+			Self::stake_for(&who, amount, cooldown_period, commission, allow_auto_compound)?;
 
 			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
 			Self::validate_max_stake_metric_ratio(commitment_id)?;
@@ -802,12 +822,26 @@ pub mod pallet {
 		pub fn stake_more(
 			origin: OriginFor<T>,
 			extra_amount: BalanceFor<T, I>,
+			cooldown_period: Option<BlockNumberFor<T>>,
+			commitment: Option<BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>>,
+			commission: Option<Perbill>,
+			allow_auto_compound: Option<bool>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 
-			Self::stake_more_for(&who, extra_amount)?;
+			if let Some(commitment) = commitment {
+				Self::validate_max_metric_store_commitments(commitment_id, commitment)?;
+			}
+
+			Self::stake_more_for(
+				&who,
+				extra_amount,
+				cooldown_period,
+				commission,
+				allow_auto_compound,
+			)?;
 
 			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
 			Self::validate_max_stake_metric_ratio(commitment_id)?;
@@ -835,7 +869,6 @@ pub mod pallet {
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
 			let compound_amount = Self::end_commitment_for(&who, commitment_id, true)?;
 
-			Commission::<T, I>::remove(commitment_id);
 			Self::deposit_event(Event::<T, I>::ComputeCommitmentEnded(
 				commitment_id,
 				compound_amount,
@@ -880,10 +913,16 @@ pub mod pallet {
 
 		/// Redelegates from one commitment to another if allowed.
 		///
-		/// This are the rules to allow a redelegation:
-		/// - The delegator must currently be delegating to a commitment that is in cooldown,
-		/// - the delegator itself must not be in cooldown,
-		/// - the new commitment must have higher own stake than the previous one.
+		/// This are the rules that make a redelegation valid:
+		/// - The new commitment must have higher own stake than the current one.
+		/// - The new commitment must have higher cooldown than the current one.
+		/// - The new commitment must have the required free capacity to accommodate the redelegated stake.
+		/// - The new commitment is not in cooldown (since delegators cannot initially delegate to a commitment in cooldown too).
+		///
+		/// After each redelegation, the same blocking period as for initial delegation restarts, not allowing another immediate redelegation for [`T::RedelegationBlockingPeriod`] epochs.
+		/// - The blocking period is waved if the delegator redelegates from a commitment that is in cooldown, in this case an immediate switch is always possible.
+		///
+		/// Note that it is not mandatory but possible that the delegator is in cooldown when redelegating.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::redelegate())]
 		pub fn redelegate(
@@ -915,44 +954,54 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			let compound_amount = Self::end_delegation_for(&who, commitment_id, true)?;
+			let reward_amount = Self::end_delegation_for(&who, commitment_id, true, false)?;
 
-			Self::deposit_event(Event::<T, I>::DelegationEnded(
-				who,
-				commitment_id,
-				compound_amount,
-			));
+			Self::deposit_event(Event::<T, I>::DelegationEnded(who, commitment_id, reward_amount));
 			Ok(().into())
 		}
 
 		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::reward())]
-		pub fn reward(
+		#[pallet::weight(T::WeightInfo::kick_out())]
+		pub fn kick_out(
 			origin: OriginFor<T>,
-			amount: BalanceFor<T, I>,
+			delegator: T::AccountId,
+			committer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			T::OperatorOrigin::ensure_origin(origin)?;
+			let _who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::distribute(Self::current_cycle().epoch, amount)?;
+			let reward_amount = Self::end_delegation_for(&delegator, commitment_id, true, true)?;
 
-			Self::deposit_event(Event::<T, I>::Rewarded(amount));
+			Self::deposit_event(Event::<T, I>::KickedOut(delegator, commitment_id, reward_amount));
 
 			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::slash())]
-		pub fn slash(
+		pub fn slash(origin: OriginFor<T>, committer: T::AccountId) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
+
+			Self::do_slash(commitment_id, &who)?;
+
+			Self::deposit_event(Event::<T, I>::Slashed(commitment_id));
+
+			Ok(().into())
+		}
+
+		/// Force-unstakes a commitment, removing all delegations and the commitment's own stake.
+		///
+		/// This is a operator-only operation that bypasses normal cooldown and validation checks.
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::force_end_commitment())]
+		pub fn force_end_commitment(
 			origin: OriginFor<T>,
-			committer: T::AccountId,
-			amount: BalanceFor<T, I>,
+			commitment_id: T::CommitmentId,
 		) -> DispatchResultWithPostInfo {
 			T::OperatorOrigin::ensure_origin(origin)?;
 
-			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
-			Self::slash_delegation_pool(commitment_id, amount)?;
-
-			Self::deposit_event(Event::<T, I>::Slashed(commitment_id, amount));
+			Self::force_end_commitment_for(commitment_id);
 
 			Ok(Pays::No.into())
 		}
@@ -1009,11 +1058,22 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			committer: T::AccountId,
 			extra_amount: BalanceFor<T, I>,
+			cooldown_period: Option<BlockNumberFor<T>>,
+			allow_auto_compound: Option<bool>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::delegate_more_for(&who, commitment_id, extra_amount)?;
+			Self::delegate_more_for(
+				&who,
+				commitment_id,
+				extra_amount,
+				cooldown_period,
+				allow_auto_compound,
+			)?;
+
+			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
+			Self::validate_max_stake_metric_ratio(commitment_id)?;
 
 			Self::deposit_event(Event::<T, I>::DelegatedMore(who, commitment_id));
 
@@ -1040,7 +1100,7 @@ pub mod pallet {
 				Self::delegations(&delegator, commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
 			// even without auto-compound, the delegator himself can always compound
 			ensure!(
-				who == delegator || delegation.allow_auto_compound,
+				who == delegator || delegation.stake.allow_auto_compound,
 				Error::<T, I>::AutoCompoundNotAllowed
 			);
 
@@ -1073,7 +1133,10 @@ pub mod pallet {
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)
 				.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;
 
-			let stake = Self::stakes(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
+			let stake = Self::commitments(commitment_id)
+				.ok_or(Error::<T, I>::CommitmentNotFound)?
+				.stake
+				.ok_or(Error::<T, I>::CommitmentNotFound)?;
 			// even without auto-compound, the committer himself can always compound
 			ensure!(
 				who == committer || stake.allow_auto_compound,
@@ -1093,10 +1156,18 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I>
+	where
+		BalanceFor<T, I>: From<u128>,
+	{
 		fn do_create_pool(
 			name: MetricPoolName,
 			reward_ratio: Perquintill,
-			max_stake_metric_ratio: FixedU128,
 			config: MetricPoolConfigValues,
 		) -> Result<(PoolId, MetricPoolFor<T>), DispatchError> {
 			if Self::metric_pool_lookup(name).is_some() {
@@ -1112,7 +1183,7 @@ pub mod pallet {
 				name,
 				reward: ProvisionalBuffer::new(reward_ratio),
 				total: SlidingBuffer::new(Zero::zero()),
-				max_stake_metric_ratio,
+				total_with_bonus: SlidingBuffer::new(Zero::zero()),
 			};
 			MetricPools::<T, I>::insert(pool_id, &pool);
 			<MetricPoolLookup<T, I>>::insert(name, pool_id);
@@ -1120,79 +1191,26 @@ pub mod pallet {
 			Ok((pool_id, pool))
 		}
 
-		/// Validates that the max_stake_metric_ratio is not violated for all pools where the commitment has committed non-zero metrics.
-		fn validate_max_stake_metric_ratio(
-			commitment_id: T::CommitmentId,
-		) -> Result<(), Error<T, I>> {
-			let (_, rewardable_stake) = Self::commitment_stake(commitment_id);
-			// Check existing commitments from storage
-			for (pool_id, metric_value) in <ComputeCommitments<T, I>>::iter_prefix(commitment_id) {
-				// Get the pool to check if it has max_stake_metric_ratio configured
-				let Some(pool) = <MetricPools<T, I>>::get(pool_id) else {
-					continue; // Pool not found, skip; this is not an internal error since maybe pool got deleted but older version of processor still supplies metric
-				};
-
-				// Skip if metric or configured max ratio is zero
-				if metric_value.is_zero() || pool.max_stake_metric_ratio.is_zero() {
-					continue;
-				}
-
-				// Calculate actual ratio: total_stake / metric
-				let actual_ratio = FixedU128::checked_from_rational(
-					rewardable_stake.saturated_into::<u128>(),
-					metric_value.into_inner(),
-				)
-				.ok_or(Error::<T, I>::MaxStakeMetricRatioExceeded)?;
-
-				// Check if actual ratio exceeds max allowed ratio
-				ensure!(
-					actual_ratio <= pool.max_stake_metric_ratio,
-					Error::<T, I>::MaxStakeMetricRatioExceeded
-				);
-			}
-
-			Ok(())
-		}
-
 		pub(crate) fn do_claim(
-			processor: &T::AccountId,
-			pool_ids: Vec<PoolId>,
-		) -> Result<Option<BalanceFor<T, I>>, Error<T, I>>
+			claim_epoch: EpochOf<T>,
+			claim_epoch_metric_sums: &[(PoolId, (Metric, Metric))],
+		) -> Result<BalanceFor<T, I>, Error<T, I>>
 		where
 			BalanceFor<T, I>: IsType<u128>,
 		{
-			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(processor) else {
-				return Ok(None);
-			};
-
-			let Some(claim_epoch) = Self::can_claim(processor) else { return Ok(None) };
-
 			let total_reward = Self::compute_based_rewards().get(claim_epoch);
 			if total_reward.is_zero() {
-				return Ok(None);
+				return Ok(Zero::zero());
 			}
 
-			let mut p: ProcessorStateFor<T, I> =
-				Processors::<T, I>::get(processor).ok_or(Error::<T, I>::ProcessorNeverCommitted)?;
-
 			let mut total_reward_ratio: Perquintill = Zero::zero();
-			for pool_id in pool_ids {
-				// we allow partial metrics committed (for backwards compatibility)
-				let Some(commit) = Metrics::<T, I>::get(processor, pool_id) else {
-					continue;
-				};
-
-				// NOTE: we ensured previously in can_claim that p.committed is current processor's epoch - 1, so this validates recentness of individual metric commits
-				if commit.epoch != p.committed {
-					continue;
-				}
-
+			for (pool_id, (_, metric_with_bonus_sum)) in claim_epoch_metric_sums {
 				let pool = <MetricPools<T, I>>::get(pool_id).ok_or(Error::<T, I>::PoolNotFound)?;
 				let reward_ratio = pool.reward.get(claim_epoch);
 
 				// Weight reward according to processor compute relative to total compute for pool identified by `pool_id`.
 				// The total compute is taken from the latest completed global epoch, which is simple `claim_epoch = epoch - 1`.
-				let pool_total: FixedU128 = pool.total.get(claim_epoch);
+				let pool_total: FixedU128 = pool.total_with_bonus.get(claim_epoch);
 
 				// check if we would divide by zero building rational
 				let compute_weighted_reward_ratio = if pool_total.is_zero() {
@@ -1200,7 +1218,7 @@ pub mod pallet {
 					Zero::zero()
 				} else {
 					reward_ratio.saturating_mul(Perquintill::from_rational(
-						commit.metric.into_inner(),
+						metric_with_bonus_sum.into_inner(),
 						pool_total.into_inner(),
 					))
 				};
@@ -1209,51 +1227,10 @@ pub mod pallet {
 					total_reward_ratio.saturating_add(compute_weighted_reward_ratio);
 			}
 
-			let reward: BalanceFor<T, I> = total_reward_ratio
-				.mul_floor::<u128>(total_reward.into())
-				.saturating_add(p.accrued.into())
-				.into();
+			let reward: BalanceFor<T, I> =
+				total_reward_ratio.mul_floor::<u128>(total_reward.into()).into();
 
-			#[allow(clippy::bind_instead_of_map)]
-			let _ = T::Currency::transfer(
-				&T::PalletId::get().into_account_truncating(),
-				&manager,
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.and_then(|_| {
-				p.paid = p.paid.saturating_add(reward);
-				p.accrued = Zero::zero();
-				Ok(())
-			})
-			.or_else(|e| {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to distribute reward; accrueing instead for later pay out. {:?}",
-					e
-				);
-				// amount remains in accrued
-				p.accrued = p.accrued.saturating_add(reward);
-				Ok::<_, DispatchError>(())
-			});
-
-			p.claimed = claim_epoch;
-
-			Processors::<T, I>::insert(processor, p);
-
-			Ok(Some(reward))
-		}
-
-		fn can_claim(processor: &T::AccountId) -> Option<EpochOf<T>> {
-			let p = Processors::<T, I>::get(processor)?;
-			let current_block = <frame_system::Pallet<T>>::block_number();
-			(p.committed.saturating_add(One::one()) == Self::current_cycle().epoch
-				&& p.claimed < p.committed
-				&& match p.status {
-					ProcessorStatus::WarmupUntil(b) => b <= current_block,
-					ProcessorStatus::Active => true,
-				})
-			.then_some(p.committed)
+			Ok(reward)
 		}
 
 		/// Helper to only commit compute for current processor epoch by providing benchmarked results for a (sub)set of metrics.
@@ -1261,10 +1238,17 @@ pub mod pallet {
 		/// Metrics are specified with the `pool_id` and **unknown `pool_id`'s are silently skipped.**
 		///
 		/// See [`Self::commit`] for how this is used to commit metrics and claim for past commits.
-		pub(crate) fn do_commit(processor: &T::AccountId, metrics: &[MetricInput]) {
+		pub(crate) fn do_commit(
+			processor: &T::AccountId,
+			manager: &(T::AccountId, T::ManagerId),
+			metrics: &[MetricInput],
+			pool_ids: &[PoolId],
+			cycle: CycleFor<T>,
+		) -> (BalanceFor<T, I>, bool, bool)
+		where
+			BalanceFor<T, I>: IsType<u128>,
+		{
 			let current_block = <frame_system::Pallet<T>>::block_number();
-			// The global epoch number
-			let cycle = Self::current_cycle();
 
 			let active = Processors::<T, I>::mutate(processor, |p_| {
 				let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(|| {
@@ -1287,47 +1271,108 @@ pub mod pallet {
 				matches!(p.status, ProcessorStatus::Active)
 			});
 
-			let manager_id = T::ManagerProviderForEligibleProcessor::lookup(processor)
-				.map(|manager| T::ManagerIdProvider::manager_id_for(&manager).ok())
-				.unwrap_or(None);
-			if !metrics.is_empty() {
-				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle);
+			let manager_id = manager.1;
+			let maybe_previous_epoch_metric_sums = if !metrics.is_empty() {
+				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle)
 			} else {
-				Self::reuse_metrics(processor, manager_id, active, cycle);
+				Self::reuse_metrics(processor, manager_id, active, cycle)
+			};
+
+			let mut result: BalanceFor<T, I> = Zero::zero();
+			let mut metrics_reward_claimed = false;
+			let mut staked_compute_reward_claimed = false;
+
+			if let Some(previous_epoch_metric_sums) = maybe_previous_epoch_metric_sums {
+				let last_epoch = cycle.epoch.saturating_sub(One::one());
+				let metric_rewards =
+					Self::do_claim(last_epoch, previous_epoch_metric_sums.as_slice())
+						.unwrap_or_default();
+				result = result.saturating_add(metric_rewards);
+				metrics_reward_claimed = true;
+				let Some(commitment_id) = Self::backing_lookup(manager_id) else {
+					return (result, metrics_reward_claimed, staked_compute_reward_claimed);
+				};
+				let bonus = Commitments::<T, I>::mutate(commitment_id, |commitment| {
+					let Some(commitment) = commitment.as_mut() else {
+						return Zero::zero();
+					};
+					if commitment.last_scoring_epoch >= cycle.epoch {
+						return Zero::zero();
+					}
+
+					commitment.last_scoring_epoch = cycle.epoch;
+
+					// distribute for LAST epoch
+					// use heartbeat for distribution even if not active (whatever processor heartbeats should distribute)
+					let bonus = Self::distribute(last_epoch, commitment_id, commitment, pool_ids)
+						.unwrap_or_default();
+					_ = Self::score(
+						last_epoch,
+						cycle.epoch,
+						commitment_id,
+						commitment,
+						previous_epoch_metric_sums.as_slice(),
+					);
+
+					bonus
+				});
+				result = result.saturating_add(bonus);
+				staked_compute_reward_claimed = true;
 			}
+
+			(result, metrics_reward_claimed, staked_compute_reward_claimed)
 		}
 
-		fn update_era_average(
+		fn update_metrics_epoch_sum(
 			manager_id: T::ManagerId,
-			pool_id: &PoolId,
+			pool_id: PoolId,
 			metric: Metric,
-			cycle: CycleFor<T>,
-		) {
-			<MetricsEraAverage<T, I>>::mutate(manager_id, pool_id, |avg_| {
-				if avg_.is_none() {
-					// creates the buffer with defaults, so 0 average and 0 avg_count
-					*avg_ = Some(SlidingBuffer::new(Zero::zero()));
+			epoch: EpochOf<T>,
+			bonus: bool,
+		) -> Option<(PoolId, (Metric, Metric))> {
+			let metric_with_bonus = if bonus {
+				let bonus =
+					FixedU128::from_inner(T::BusyWeightBonus::get().mul_floor(metric.into_inner()));
+				metric.saturating_add(bonus)
+			} else {
+				metric
+			};
+			// sum totals
+			<MetricPools<T, I>>::mutate(pool_id, |pool| {
+				if let Some(pool) = pool.as_mut() {
+					pool.add(epoch, metric);
+					pool.add_bonus(epoch, metric_with_bonus);
 				}
-
-				let avg = avg_.as_mut().unwrap();
-				avg.mutate(cycle.era, |(v, c)| {
-					*v = v.saturating_mul(FixedU128::from_u32(*c));
-					*v = v.saturating_add(metric);
-					*c += 1u32;
-					*v = *v / FixedU128::from_u32(*c);
-				});
 			});
+			<MetricsEpochSum<T, I>>::mutate(manager_id, pool_id, |sum| {
+				let prev_epoch = sum.epoch;
+				sum.mutate(
+					epoch,
+					|(metric_sum, metric_with_bonus_sum)| {
+						*metric_sum = metric_sum.saturating_add(metric);
+						*metric_with_bonus_sum =
+							metric_with_bonus_sum.saturating_add(metric_with_bonus);
+					},
+					false,
+				);
+				if prev_epoch < epoch && epoch - prev_epoch == One::one() {
+					Some((pool_id, sum.get(prev_epoch)))
+				} else {
+					None
+				}
+			})
 		}
 
 		fn commit_new_metrics(
 			processor: &T::AccountId,
-			manager_id: Option<T::ManagerId>,
+			manager_id: T::ManagerId,
 			metrics: &[MetricInput],
 			active: bool,
 			cycle: CycleFor<T>,
-		) {
+		) -> Option<Vec<(PoolId, (Metric, Metric))>> {
 			let epoch = cycle.epoch;
 
+			let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 			for (pool_id, numerator, denominator) in metrics {
 				let Some(metric) = FixedU128::checked_from_rational(
 					*numerator,
@@ -1336,69 +1381,49 @@ pub mod pallet {
 					continue;
 				};
 				let before = Metrics::<T, I>::get(processor, pool_id);
-				let (first_in_epoch, first_in_era) = before
+				let first_in_epoch = before
 					.map(|m| {
-						(
-							// first value committed for `epoch` wins
-							m.epoch < epoch,
-							// if this is NOT the first ever written average, then
-							// we have to be careful to not count a metric twice into average by same processor in one era
-							// this is somehow possible by checking if last epoch committed in `Metrics` was in current or previous era (! not epoch)
-							// However, this is imprecise under changing T::Epoch and T::Era, but it's good enough since we just would reuse or skip some metric values in average
-							// `first_block_of_prev_commit_epoch = epoch_start - (current_epoch - prev_metric_commit_epoch) * EPOCH`
-							cycle.epoch_start.saturating_sub(
-								(cycle.epoch.saturating_sub(m.epoch))
-									.saturating_mul(T::Epoch::get()),
-							) < cycle.era_start,
-						)
+						// first value committed for `epoch` wins
+						m.epoch < epoch
 					})
-					.unwrap_or((true, true));
+					.unwrap_or(true);
 				if first_in_epoch {
 					// insert even if not active for tracability before warmup ended
 					Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
-
 					if active {
-						// sum totals
-						<MetricPools<T, I>>::mutate(pool_id, |pool| {
-							if let Some(pool) = pool.as_mut() {
-								pool.add(epoch, metric);
-							}
-						});
-
-						if first_in_era {
-							if let Some(manager_id) = manager_id {
-								Self::update_era_average(manager_id, pool_id, metric, cycle);
-							}
+						if let Some(prev_sum) = Self::update_metrics_epoch_sum(
+							manager_id, *pool_id, metric, epoch, false,
+						) {
+							prev_metrics_sum.push(prev_sum);
 						}
 					}
 				}
+			}
+			if prev_metrics_sum.len() == metrics.len() {
+				Some(prev_metrics_sum)
+			} else {
+				None
 			}
 		}
 
 		fn reuse_metrics(
 			processor: &T::AccountId,
-			manager_id: Option<T::ManagerId>,
+			manager_id: T::ManagerId,
 			active: bool,
 			cycle: CycleFor<T>,
-		) {
+		) -> Option<Vec<(PoolId, (Metric, Metric))>> {
 			let epoch = cycle.epoch;
 
-			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = Vec::new();
+			let mut to_update: Vec<(PoolId, MetricCommit<_>)> = vec![];
 			for (pool_id, metric) in Metrics::<T, I>::iter_prefix(processor) {
 				if epoch > metric.epoch && epoch - metric.epoch < T::MetricValidity::get() {
 					to_update.push((pool_id, metric));
 				}
 			}
+			let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
+			let to_update_length = to_update.len();
 			for (pool_id, commit) in to_update {
-				// if this is NOT the first ever written average, then
-				// we have to be careful to not count a metric twice into average by same processor in one era
-				// this is somehow possible by checking if last epoch committed in `Metrics` was in current or previous era (! not epoch)
-				// However, this is imprecise under changing T::Epoch and T::Era, but it's good enough since we just would reuse or skip some metric values in average
-				// `first_block_of_prev_commit_epoch = epoch_start - (current_epoch - prev_metric_commit_epoch) * EPOCH`
-				let first_in_era = cycle.epoch_start.saturating_sub(
-					(cycle.epoch.saturating_sub(commit.epoch)).saturating_mul(T::Epoch::get()),
-				) < cycle.era_start;
-
+				// if we are here we now that this reused metric is "first_in_epoch" since we reuse maximally once per epoch
 				Metrics::<T, I>::insert(
 					processor,
 					pool_id,
@@ -1406,19 +1431,21 @@ pub mod pallet {
 				);
 
 				if active {
-					// sum totals
-					<MetricPools<T, I>>::mutate(pool_id, |pool| {
-						if let Some(pool) = pool.as_mut() {
-							pool.add(epoch, commit.metric);
-						}
-					});
-
-					if first_in_era {
-						if let Some(manager_id) = manager_id {
-							Self::update_era_average(manager_id, &pool_id, commit.metric, cycle);
-						}
+					if let Some(prev_sum) = Self::update_metrics_epoch_sum(
+						manager_id,
+						pool_id,
+						commit.metric,
+						epoch,
+						true,
+					) {
+						prev_metrics_sum.push(prev_sum);
 					}
 				}
+			}
+			if prev_metrics_sum.len() == to_update_length {
+				Some(prev_metrics_sum)
+			} else {
+				None
 			}
 		}
 

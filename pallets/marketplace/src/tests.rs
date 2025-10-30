@@ -1,6 +1,5 @@
 use frame_support::{
 	assert_err, assert_ok,
-	pallet_prelude::Zero,
 	sp_runtime::{
 		bounded_vec,
 		traits::{Hash, Scale},
@@ -12,7 +11,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_acurast::{
 	utils::validate_and_extract_attestation, Attestation, ComputeHooks, JobModules,
-	JobRegistrationFor, MultiOrigin, Schedule,
+	JobRegistrationFor, ManagerLookup, MultiOrigin, Schedule,
 };
 use pallet_acurast_compute::{MetricPool, ProvisionalBuffer, SlidingBuffer};
 use parity_scale_codec::Encode;
@@ -370,17 +369,6 @@ fn test_deregister_on_assigned_job() {
 		);
 		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
-		let fee_percentage = FeeManagerImpl::get_fee_percentage();
-		let fee = fee_percentage.mul_floor(assignment.fee_per_execution);
-
-		// Subtract the fee from the reward
-		let reward_after_fee = assignment.fee_per_execution - fee;
-
-		assert_eq!(
-			Balances::free_balance(processor_account_id()),
-			processor_initial_balance + reward_after_fee
-		);
-
 		// Job got removed after the deregister call
 		assert_eq!(None, AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1));
 		// Job KeyID got removed
@@ -417,15 +405,9 @@ fn test_deregister_on_assigned_job() {
 					job_id1.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: fee
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: reward_after_fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: assignment.fee_per_execution
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
@@ -571,12 +553,6 @@ fn test_deregister_on_assigned_job_for_competing() {
 		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
 
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
-		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
-		let fee2 = fee_percentage.mul_floor(assignment2.fee_per_execution);
-
-		// Subtract the fee from the reward
-		let reward1_after_fee = assignment1.fee_per_execution - fee1;
-		let reward2_after_fee = assignment1.fee_per_execution - fee2;
 
 		let matcher_percentage = FeeManagerImpl::get_matcher_percentage();
 		let matcher_payout = matcher_percentage.mul_floor(
@@ -592,14 +568,6 @@ fn test_deregister_on_assigned_job_for_competing() {
 			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance
 				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
-		);
-		assert_eq!(
-			Balances::free_balance(processor_2_account_id()),
-			processor_initial_balance + reward2_after_fee
-		);
-		assert_eq!(
-			Balances::free_balance(processor_account_id()),
-			processor_initial_balance + reward1_after_fee
 		);
 
 		// Job got removed after the deregister call
@@ -652,25 +620,13 @@ fn test_deregister_on_assigned_job_for_competing() {
 					job_id1.clone(),
 					processor_2_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: fee1
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: assignment1.fee_per_execution
 				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: reward1_after_fee
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: fee2
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_2_account_id(),
-					amount: reward2_after_fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: assignment2.fee_per_execution
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
@@ -853,10 +809,7 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - total_reward
 		);
-		assert_eq!(
-			Balances::free_balance(processor_account_id()),
-			processor_initial_balance + reward1_after_fee
-		);
+
 		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
 
 		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
@@ -868,14 +821,6 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance
 				- (assignment1.fee_per_execution + assignment2.fee_per_execution + matcher_payout)
-		);
-		assert_eq!(
-			Balances::free_balance(processor_2_account_id()),
-			processor_initial_balance + reward2_after_fee
-		);
-		assert_eq!(
-			Balances::free_balance(processor_account_id()),
-			processor_initial_balance + reward1_after_fee
 		);
 
 		// Job got removed after the deregister call
@@ -924,15 +869,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 					job_id1.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: fee1
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: reward1_after_fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: assignment1.fee_per_execution
 				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
@@ -959,15 +898,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 					job_id1.clone(),
 					processor_2_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: fee2
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_2_account_id(),
-					amount: reward2_after_fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: assignment2.fee_per_execution
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
@@ -1080,11 +1013,15 @@ fn test_match() {
 			RuntimeOrigin::root(),
 			*b"cpu-ops-per-second______",
 			Perquintill::from_percent(25),
-			None,
 			bounded_vec![],
 		));
 		let pool_id = AcurastCompute::last_metric_pool_id();
-		let _ = AcurastCompute::commit(&processor_account_id(), &[(pool_id, 1, 2)]);
+		let manager =
+			<Test as pallet_acurast_compute::Config>::ManagerProviderForEligibleProcessor::lookup(
+				&processor_account_id(),
+			)
+			.unwrap();
+		let _ = AcurastCompute::commit(&processor_account_id(), &manager, &[(pool_id, 1, 2)]);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
 		let job_id2 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 2);
@@ -1253,7 +1190,7 @@ fn test_match() {
 						name: *b"cpu-ops-per-second______",
 						reward: ProvisionalBuffer::new(Perquintill::from_percent(25)),
 						total: SlidingBuffer::new(0),
-						max_stake_metric_ratio: Zero::zero()
+						total_with_bonus: SlidingBuffer::new(0),
 					}
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -1292,15 +1229,9 @@ fn test_match() {
 					job_id1.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: 1_506_000
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: 3_514_000
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: 5_020_000
 				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
@@ -1310,15 +1241,9 @@ fn test_match() {
 					job_id1.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: 1_506_000
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: 3_514_000
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: 5_020_000
 				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
@@ -1962,15 +1887,9 @@ fn test_report_afer_last_report() {
 					job_id.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: 1_506_000
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: 3_514_000
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: 5_020_000
 				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id.clone(),
@@ -1980,15 +1899,9 @@ fn test_report_afer_last_report() {
 					job_id.clone(),
 					processor_account_id(),
 				)),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: pallet_fees_account(),
-					amount: 1_506_000
-				}),
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: pallet_acurast_acount(),
-					to: processor_account_id(),
-					amount: 3_514_000
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
+					who: pallet_acurast_acount(),
+					amount: 5_020_000
 				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id.clone(),

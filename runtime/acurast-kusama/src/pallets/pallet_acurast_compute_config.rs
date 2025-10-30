@@ -8,7 +8,7 @@ use frame_support::{
 };
 
 use acurast_runtime_common::{
-	constants::{DAYS, UNIT},
+	constants::{HOURS, UNIT},
 	types::{Balance, BlockNumber},
 	weight,
 };
@@ -29,9 +29,9 @@ parameter_types! {
 	pub const MetricEpochValidity: BlockNumber = 16 * 2;
 	pub const WarmupPeriod: BlockNumber = 1800; // 3 hours, only for testing, we should use something like 2 weeks = 219027
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
-	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
-	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
-	pub const TargetCooldownPeriod: BlockNumber = 28 * DAYS; // same as MinCooldownPeriod
+	pub const MinCooldownPeriod: BlockNumber = HOURS;
+	pub const MaxCooldownPeriod: BlockNumber = 48 * HOURS;
+	pub const TargetCooldownPeriod: BlockNumber = HOURS; // same as MinCooldownPeriod
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;

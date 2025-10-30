@@ -820,8 +820,8 @@ where
 	/// Decrease a delegator's stake (because of slashing).
 	///
 	/// Make sure to accrue_delegator before calling this function.
-    /// 
-    /// This function already locks the new amount after slashing.
+	///
+	/// This function already locks the new amount after slashing.
 	///
 	/// Returns `(slashed, remaining_unslashed)`, the amount that could be decreased and the remaining not decreased.
 	fn decrease_delegator_stake(
@@ -1011,7 +1011,7 @@ where
 
 		// Burn only what was actually decreased
 		if !slashed.is_zero() {
-            // no check `slashed < balance` needed since we now at least `slashed` is free on account after calling `decrease_delegator_stake`
+			// no check `slashed < balance` needed since we now at least `slashed` is free on account after calling `decrease_delegator_stake`
 			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
 				who,
 				slashed,
@@ -1782,16 +1782,16 @@ where
 		if !stake.accrued_slash.is_zero() {
 			let balance = <T::Currency as Currency<T::AccountId>>::free_balance(who);
 
-            let maximum_slashable = if stake.accrued_slash > stake.amount {
-                // do not slash more than the stake!
-                stake.amount
-            } else {
-                if stake.accrued_slash > balance {
-                    balance
-                } else {
-                    stake.accrued_slash
-                }
-            };
+			let maximum_slashable = if stake.accrued_slash > stake.amount {
+				// do not slash more than the stake!
+				stake.amount
+			} else {
+				if stake.accrued_slash > balance {
+					balance
+				} else {
+					stake.accrued_slash
+				}
+			};
 
 			// Withdraw and burn the slashed amount
 			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(

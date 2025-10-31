@@ -152,6 +152,8 @@ where
 
 			// actual_weight_per_compute = target_weight_per_compute * metric
 			let actual_weight_per_compute = reward_weight
+				.checked_mul(U256::from(PER_TOKEN_DECIMALS))
+				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_mul(U256::from(FIXEDU128_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(metric.into_inner()))

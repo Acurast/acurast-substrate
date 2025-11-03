@@ -93,11 +93,8 @@ fn test_unlock_2() {
 		enable();
 		setup_conversion(UNIT);
 
-		let pre_pot_balance = <Test as Config>::Currency::total_balance(
-			&<Test as Config>::PalletId::get().into_account_truncating(),
-		);
-		let pre_reducible_balance =
-			Balances::reducible_balance(&account_id(), Preservation::Expendable, Fortitude::Polite);
+		let current_block = <Test as Config>::MinLockDuration::get().saturating_add(1);
+		System::set_block_number(current_block.into());
 
 		assert_ok!(AcurastTokenConversion::unlock(RuntimeOrigin::signed(account_id())));
 
@@ -114,11 +111,8 @@ fn test_unlock_2() {
 			}))
 		);
 
-		assert_eq!(pre_reducible_balance, post_reducible_balance);
-		assert_eq!(
-			pre_pot_balance.saturating_add(UNIT.saturating_sub(<Test as Config>::Liquidity::get())),
-			post_pot_balance
-		);
+		assert_eq!(post_reducible_balance, 71875);
+		assert_eq!(post_pot_balance, 999928125);
 
 		assert!(Balances::balance_frozen(&FreezeReason::Conversion.into(), &account_id()).is_zero());
 	});
@@ -169,6 +163,22 @@ fn test_unlock_3() {
 		);
 
 		assert!(Balances::balance_frozen(&FreezeReason::Conversion.into(), &account_id()).is_zero());
+	});
+}
+
+#[test]
+fn test_unlock_4() {
+	ExtBuilder.build().execute_with(|| {
+		enable();
+		setup_conversion(UNIT);
+
+		let current_block = <Test as Config>::MinLockDuration::get().saturating_sub(1);
+		System::set_block_number(current_block.into());
+
+		assert_err!(
+			AcurastTokenConversion::unlock(RuntimeOrigin::signed(account_id())),
+			Error::<Test>::CannotUnlockYet
+		);
 	});
 }
 

@@ -21,6 +21,7 @@ parameter_types! {
 	pub ReceiveFrom: Option<SubjectFor<Runtime>> = Some(Subject::AcurastCanary(Layer::Extrinsic(CanaryTokenConversionPalletId::get().into_account_truncating())));
 	pub const SendTo: Option<SubjectFor<Runtime>> = None;
 	pub const Liquidity: Balance = UNIT;
+	pub const MinLockDuration: BlockNumber = 3 * 28 * DAYS;
 	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
 	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
@@ -34,6 +35,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Liquidity = Liquidity;
+	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;

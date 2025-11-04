@@ -135,8 +135,9 @@ parameter_types! {
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
-	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(30);
+	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(30);
+	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(0);
 	pub const TreasuryAccountId: AccountId = alice_account_id();
 }
 
@@ -168,12 +169,21 @@ impl Config for Test {
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedComputeRation = InflationStakedComputeRation;
-	type InflationMetricsRation = InflationMetricsRation;
+	type InflationStakedComputeRatio = InflationStakedComputeRatio;
+	type InflationMetricsRatio = InflationMetricsRatio;
+	type InflationCollatorsRatio = InflationCollatorsRatio;
 	type InflationHandler = ();
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type AuthorProvider = MockAuthorProvider;
 	type WeightInfo = ();
+}
+
+pub struct MockAuthorProvider;
+impl BlockAuthorProvider<AccountId> for MockAuthorProvider {
+	fn author() -> Option<AccountId> {
+		Some(alice_account_id())
+	}
 }
 
 use std::cell::RefCell;

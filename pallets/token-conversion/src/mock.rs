@@ -64,6 +64,7 @@ parameter_types! {
 	pub SendTo: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub ReceiveFrom: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub const Liquidity: Balance = UNIT / 100;
+	pub const MinLockDuration: BlockNumber = 3 * 28 * DAYS;
 	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
 	pub OutgoingTransferTTL: BlockNumber = 15;
 }
@@ -121,6 +122,7 @@ impl crate::Config for Test {
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Liquidity = Liquidity;
+	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
 	type MessageSender = ();
 	type MessageIdHasher = BlakeTwo256;

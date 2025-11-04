@@ -65,6 +65,7 @@ pub mod pallet {
 			+ Balanced<Self::AccountId>;
 		type RuntimeFreezeReason: From<FreezeReason>;
 		type Liquidity: Get<BalanceFor<Self>>;
+		type MinLockDuration: Get<BlockNumberFor<Self>>;
 		type MaxLockDuration: Get<BlockNumberFor<Self>>;
 		type MessageSender: MessageSender<
 			Self::AccountId,
@@ -117,6 +118,7 @@ pub mod pallet {
 		InitiatedConversionNotFound,
 		NotEnabled,
 		LockedBalance,
+		CannotUnlockYet,
 	}
 
 	#[pallet::storage]
@@ -231,6 +233,11 @@ pub mod pallet {
 					let lock_progress = current_block_number
 						.saturating_sub(locked_conversion.lock_start)
 						.min(T::MaxLockDuration::get());
+
+					if lock_progress < T::MinLockDuration::get() {
+						return Err(Error::<T>::CannotUnlockYet)?;
+					}
+
 					let amount_factor = Perquintill::from_rational(
 						lock_progress.saturated_into::<u128>(),
 						T::MaxLockDuration::get().saturated_into::<u128>(),

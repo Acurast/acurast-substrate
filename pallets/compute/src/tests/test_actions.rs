@@ -657,7 +657,7 @@ pub fn setup_balances() {
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		<Test as Config>::PalletId::get().into_account_truncating(),
-		100_000_000_000_000_000_000 * UNIT
+		1_000_000_000 * UNIT
 	));
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),

@@ -20,6 +20,7 @@ parameter_types! {
 	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(MainnetTokenConversionPalletId::get().into_account_truncating())));
 	pub const ReceiveFrom: Option<SubjectFor<Runtime>> = None;
 	pub const Liquidity: Balance = UNIT;
+	pub const MinLockDuration: BlockNumber = 3 * 28 * DAYS;
 	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
 }
 
@@ -32,6 +33,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Liquidity = Liquidity;
+	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;

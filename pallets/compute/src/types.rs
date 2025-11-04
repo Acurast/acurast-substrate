@@ -1,7 +1,10 @@
 use core::ops::Add;
 
 use acurast_common::PoolId;
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{fungible::Credit, Currency},
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::{
@@ -469,3 +472,15 @@ pub enum LockReason<ManagerId> {
 	Staking,
 	Delegation(ManagerId),
 }
+
+pub struct InflationInfo<Balance, Credit> {
+	pub metrics_reward: Balance,
+	pub staked_compute_reward: Balance,
+	pub collators_reward: Balance,
+	pub credit: Credit,
+}
+
+pub type InflationInfoFor<T, I> = InflationInfo<
+	BalanceFor<T, I>,
+	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>,
+>;

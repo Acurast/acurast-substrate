@@ -234,7 +234,7 @@ fn test_single_processor_commit() {
 		roll_to_block(302 + 130);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
-			642123287671233
+			642123287671232
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -282,7 +282,7 @@ fn test_single_processor_commit() {
 		roll_to_block(302 + 230);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
-			642123287671233
+			642123287671232
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -535,7 +535,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
 			)
 			.0,
-			1926369863013699,
+			1926369863013698,
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -842,6 +842,112 @@ fn test_commit_compute() {
 				amount: 2996575342465753
 			})
 		)));
+	});
+}
+
+#[test]
+fn test_commit_compute_overstaked() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			alice_account_id(),
+			1 * UNIT
+		));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), 1 * UNIT));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			charlie_account_id(),
+			1_000_000_000 * UNIT // give a lot to committer so he can attempt to overstake
+		));
+
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let charlie = charlie_account_id();
+
+		offer_accept_backing(charlie.clone());
+
+		commit_alice_bob();
+
+		const MANAGER_ID: u128 = 1;
+
+		// pool 1 has only commits in warmup, not counting towards average
+		assert_eq!(
+			Compute::metrics_epoch_sum(MANAGER_ID, 1), // pool 1
+			SlidingBuffer::from_inner(
+				1,
+				(Zero::zero(), Zero::zero()), // prev
+				(
+					FixedU128::from_rational(1000u128, 1u128),
+					FixedU128::from_rational(1000u128, 1u128)
+				)  // cur
+			)
+		);
+		assert_eq!(
+			Compute::metrics_epoch_sum(MANAGER_ID, 2), // pool 2
+			SlidingBuffer::from_inner(
+				1,
+				(Zero::zero(), Zero::zero()), // prev
+				(
+					FixedU128::from_rational(8000u128, 1u128),
+					FixedU128::from_rational(8000u128, 1u128)
+				)  // cur
+			)
+		);
+
+		// Step 4: Charlie commits compute (acting as committer backing his own manager account)
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128), // Maximal possible commitment value
+			},];
+
+		let overstake_amount = 1_000_000_000 * UNIT;
+		let stake_amount = 400_000_000 * UNIT;
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10); // 10% commission
+		let allow_auto_compound = true;
+
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		// Step 5: Charlie commits compute (as the committer)
+		assert_err!(
+			Compute::commit_compute(
+				RuntimeOrigin::signed(charlie.clone()),
+				overstake_amount,
+				cooldown_period,
+				commitment.clone(),
+				commission,
+				allow_auto_compound,
+			),
+			Error::<Test, ()>::MaxStakeMetricRatioExceeded
+		);
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(charlie.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
 	});
 }
 

@@ -28,6 +28,7 @@ parameter_types! {
 	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub ReceiveFrom: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub const Liquidity: Balance = UNIT;
+	pub const MinLockDuration: BlockNumber = MINUTES;
 	pub const MaxLockDuration: BlockNumber = 5 * MINUTES;
 }
 
@@ -40,6 +41,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Liquidity = Liquidity;
+	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
 	type MessageSender = LocalMessageSender;
 	type MessageIdHasher = BlakeTwo256;

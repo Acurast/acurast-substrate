@@ -1,5 +1,9 @@
 use frame_support::pallet_prelude::Weight;
 
+pub trait BlockAuthorProvider<AccountId> {
+	fn author() -> Option<AccountId>;
+}
+
 pub trait WeightInfo {
 	fn create_pool(x: u32) -> Weight;
 	fn modify_pool_same_config() -> Weight;

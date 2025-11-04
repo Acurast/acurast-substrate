@@ -14,6 +14,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
+use pallet_acurast_compute::BlockAuthorProvider;
 use sp_core::*;
 use sp_io;
 use sp_std::prelude::*;
@@ -222,8 +223,9 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
-	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
-	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(30);
+	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(30);
+	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(0);
 	pub const TreasuryAccountId: AccountId = AccountId::new([0u8; 32]);
 }
 
@@ -255,12 +257,21 @@ impl pallet_acurast_compute::Config for Test {
 	type LockIdentifier = ComputeStakingLockId;
 	type ManagerProviderForEligibleProcessor = MockLockup;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedComputeRation = InflationStakedComputeRation;
-	type InflationMetricsRation = InflationMetricsRation;
+	type InflationStakedComputeRatio = InflationStakedComputeRatio;
+	type InflationMetricsRatio = InflationMetricsRatio;
+	type InflationCollatorsRatio = InflationCollatorsRatio;
 	type InflationHandler = ();
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type AuthorProvider = MockAuthorProvider;
 	type WeightInfo = ();
+}
+
+pub struct MockAuthorProvider;
+impl BlockAuthorProvider<AccountId> for MockAuthorProvider {
+	fn author() -> Option<AccountId> {
+		Some(alice_account_id())
+	}
 }
 
 pub const MANAGER_COLLECTION_ID: u128 = 0;

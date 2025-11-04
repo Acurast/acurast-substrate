@@ -4,7 +4,7 @@ use frame_support::{
 	traits::tokens::{PayFromAccount, UnityAssetBalanceConversion},
 	PalletId,
 };
-use frame_system::EnsureWithSuccess;
+use frame_system::{EnsureRoot, EnsureWithSuccess};
 
 use acurast_runtime_common::{
 	constants::DAYS,
@@ -40,7 +40,7 @@ impl pallet_treasury::Config<TreasuryInstance> for Runtime {
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
-	type SpendOrigin = EnsureWithSuccess<EnsureCouncilOrRoot, Self::AccountId, SpendLimit>;
+	type SpendOrigin = EnsureWithSuccess<EnsureRoot<Self::AccountId>, Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = Self::Lookup;

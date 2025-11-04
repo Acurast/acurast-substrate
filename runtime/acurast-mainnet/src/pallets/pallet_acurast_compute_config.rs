@@ -3,6 +3,7 @@ use acurast_runtime_common::{
 	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
+use pallet_acurast_compute::BlockAuthorProvider;
 
 use super::pallet_acurast_processor_manager_config::AcurastManagerIdProvider;
 use frame_support::{
@@ -19,8 +20,8 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
 	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
-	Acurast, AcurastProcessorManager, Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent,
-	Treasury, Uniques,
+	Acurast, AcurastProcessorManager, Authorship, Balances, EnsureCouncilOrRoot, Runtime,
+	RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -42,8 +43,9 @@ parameter_types! {
 	pub const RedelegationBlockingPeriod: BlockNumber = 112; // can redelegate once per 7*16=112 epochs ~= 1 week
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const InflationPerEpoch: Balance = 0;//8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
-	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(70);
-	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(10);
+	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(10);
+	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(5);
 	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
@@ -81,12 +83,21 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedComputeRation = InflationStakedComputeRation;
-	type InflationMetricsRation = InflationMetricsRation;
+	type InflationStakedComputeRatio = InflationStakedComputeRatio;
+	type InflationMetricsRatio = InflationMetricsRatio;
+	type InflationCollatorsRatio = InflationCollatorsRatio;
 	type InflationHandler = ResolveTo<TreasuryAccountId, Balances>;
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
+	type AuthorProvider = AuthorProvider;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
+}
+
+pub struct AuthorProvider;
+impl BlockAuthorProvider<<Runtime as frame_system::Config>::AccountId> for AuthorProvider {
+	fn author() -> Option<<Runtime as frame_system::Config>::AccountId> {
+		Authorship::author()
+	}
 }
 
 pub struct AcurastCommitmentIdProvider;

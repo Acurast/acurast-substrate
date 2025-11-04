@@ -234,7 +234,7 @@ fn test_single_processor_commit() {
 		roll_to_block(302 + 130);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
-			642123287671233
+			642123287671232
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -282,7 +282,7 @@ fn test_single_processor_commit() {
 		roll_to_block(302 + 230);
 		assert_eq!(
 			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
-			642123287671233
+			642123287671232
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),
@@ -535,7 +535,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
 			)
 			.0,
-			1926369863013699,
+			1926369863013698,
 		);
 		assert_eq!(
 			Compute::metrics(alice_account_id(), 1).unwrap(),

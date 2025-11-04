@@ -35,10 +35,10 @@ pub mod pallet {
 	};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
-		pallet_prelude::*,
+		pallet_prelude::{ValueQuery, *},
 		traits::{
 			fungible::{Balanced, Credit},
-			tokens::{Fortitude, Precision, Preservation},
+			tokens::{ExistenceRequirement, Fortitude, Precision, Preservation},
 			Currency, EnsureOrigin, Get, Imbalance, InspectLockableCurrency, LockIdentifier,
 			OnUnbalanced,
 		},
@@ -155,15 +155,18 @@ pub mod pallet {
 		#[pallet::constant]
 		type InflationPerEpoch: Get<BalanceFor<Self, I>>;
 		#[pallet::constant]
-		type InflationStakedComputeRation: Get<Perquintill>;
+		type InflationStakedComputeRatio: Get<Perquintill>;
 		#[pallet::constant]
-		type InflationMetricsRation: Get<Perquintill>;
+		type InflationMetricsRatio: Get<Perquintill>;
+		#[pallet::constant]
+		type InflationCollatorsRatio: Get<Perquintill>;
 		/// Handler of remaining inflation.
 		type InflationHandler: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 		/// Origin that can create and modify pools
 		type CreateModifyPoolOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Origin that can execute operational extrinsics
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type AuthorProvider: BlockAuthorProvider<Self::AccountId>;
 		/// Weight Info for extrinsics.
 		type WeightInfo: WeightInfo;
 	}
@@ -367,6 +370,10 @@ pub mod pallet {
 	pub type V11MigrationState<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
+	#[pallet::storage]
+	pub type CollatorRewards<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, BalanceFor<T, I>, ValueQuery>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
@@ -489,6 +496,8 @@ pub mod pallet {
 			let current_cycle = Self::current_cycle();
 			let epoch_start = current_cycle.epoch_start;
 
+			let mut collators_reward: Option<BalanceFor<T, I>> = None;
+
 			let diff = block_number.saturating_sub(epoch_start);
 			if epoch_start == Zero::zero() {
 				// First time initialization - set to calculated epoch
@@ -501,13 +510,7 @@ pub mod pallet {
 			} else {
 				// Check if we're at an epoch boundary
 				if diff % T::Epoch::get() == Zero::zero() {
-					let (last_epoch, current_epoch) = CurrentCycle::<T, I>::mutate(|cycle| {
-						// Increment the sequential epoch
-						let last_epoch = cycle.epoch;
-						cycle.epoch = cycle.epoch.saturating_add(One::one());
-						cycle.epoch_start = block_number;
-						(last_epoch, cycle.epoch)
-					});
+					let (last_epoch, current_epoch) = Self::advance_epoch(block_number);
 					weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 					// Calculate target token supply before inflating
@@ -516,109 +519,62 @@ pub mod pallet {
 
 					// Handle inflation-based reward distribution on new epoch
 					{
-						weight = weight.saturating_add(T::DbWeight::get().reads(1));
-						let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
-
-						let (stake_backed_amount, mut imbalance) = if !inflation_amount.is_zero() {
-							// Mint new tokens into distribution account
-							let mut imbalance =
-								<T::Currency as Balanced<T::AccountId>>::issue(inflation_amount);
-
-							// Calculate split of stake-based and compute-based amount
-							let stake_backed_amount: BalanceFor<T, I> =
-								T::InflationStakedComputeRation::get()
-									.mul_floor(inflation_amount.saturated_into::<u128>())
-									.saturated_into();
-							let compute_based_amount = T::InflationMetricsRation::get()
-								.mul_ceil(inflation_amount.saturated_into::<u128>())
-								.saturated_into();
-							let compute_imbalance = imbalance
-								.extract(stake_backed_amount.saturating_add(compute_based_amount));
-							let resolve_result =
-								T::Currency::resolve(&Self::account_id(), compute_imbalance);
-							if let Err(credit) = resolve_result {
-								imbalance = imbalance.merge(credit);
+						if let Some(mut inflation_info) = Self::inflate() {
+							let used_weight = Self::store_metrics_reward(
+								inflation_info.metrics_reward,
+								current_epoch,
+							);
+							weight = weight.saturating_add(used_weight);
+							let (used_weight, unused_amount) = Self::store_staked_compute_reward(
+								inflation_info.staked_compute_reward,
+								current_epoch,
+								last_epoch,
+								target_token_supply,
+							);
+							weight = weight.saturating_add(used_weight);
+							let used_weight =
+								Self::store_collators_reward(inflation_info.collators_reward);
+							collators_reward = Some(inflation_info.collators_reward);
+							weight = weight.saturating_add(used_weight);
+							if !unused_amount.is_zero() {
+								if let Ok(unused) =
+									<T::Currency as Balanced<T::AccountId>>::withdraw(
+										&Self::account_id(),
+										unused_amount,
+										Precision::Exact,
+										Preservation::Preserve,
+										Fortitude::Polite,
+									) {
+									inflation_info.credit = inflation_info.credit.merge(unused);
+								}
 							}
-
-							// Store compute-based rewards
-							if !compute_based_amount.is_zero() {
-								ComputeBasedRewards::<T, I>::mutate(|r| {
-									r.mutate(
-										current_epoch,
-										|v| {
-											*v = compute_based_amount;
-										},
-										false,
-									);
-								});
-
-								weight = weight.saturating_add(T::DbWeight::get().writes(1));
-							}
-
-							(stake_backed_amount, imbalance)
-						} else {
-							(Zero::zero(), Default::default())
-						};
-
-						// Store stake-based rewards split by pool (to avoid redoing this in every stake-based-reward-claiming heartbeat)
-						let mut unused_amount: BalanceFor<T, I> = Zero::zero();
-
-						for (pool_id, pool) in MetricPools::<T, I>::iter() {
-							// we have to use the pool's total compute from the last_epoch since only this one is a completed rolling sum
-							let target_weight_per_compute =
-								U256::from(target_token_supply.saturated_into::<u128>())
-									.saturating_mul(U256::from(PER_TOKEN_DECIMALS))
-									.saturating_mul(U256::from(
-										T::TargetCooldownPeriod::get().saturated_into::<u128>(),
-									))
-									.checked_div(U256::from(
-										T::MaxCooldownPeriod::get().saturated_into::<u128>(),
-									))
-									.unwrap_or(Zero::zero())
-									.saturating_mul(U256::from(FIXEDU128_DECIMALS))
-									.checked_div(U256::from(
-										pool.total.get(last_epoch).into_inner(),
-									))
-									.unwrap_or(Zero::zero());
-							StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
-								// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
-								let stale_budget = r.get(last_epoch.saturating_sub(One::one()));
-								unused_amount = unused_amount.saturating_add(
-									stale_budget.total.saturating_sub(stale_budget.distributed),
-								);
-								r.mutate(
-									current_epoch,
-									|v| {
-										*v = RewardBudget::new(
-											pool.reward
-												.get(last_epoch)
-												.mul_floor(
-													stake_backed_amount.saturated_into::<u128>(),
-												)
-												.into(),
-											target_weight_per_compute,
-										);
-									},
-									false,
-								);
-							});
-							weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+							T::InflationHandler::on_unbalanced(inflation_info.credit);
+							weight = weight.saturating_add(T::DbWeight::get().writes(2));
 						}
+					}
+				}
+			}
 
-						if !unused_amount.is_zero() {
-							if let Ok(unused) = <T::Currency as Balanced<T::AccountId>>::withdraw(
-								&Self::account_id(),
-								unused_amount,
-								Precision::Exact,
-								Preservation::Preserve,
-								Fortitude::Polite,
-							) {
-								imbalance = imbalance.merge(unused);
-							}
-						}
+			if collators_reward.is_none() {
+				collators_reward = Some(<CollatorRewards<T, I>>::get());
+				weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			}
 
-						T::InflationHandler::on_unbalanced(imbalance);
-						weight = weight.saturating_add(T::DbWeight::get().writes(2));
+			if let Some(collators_reward) = collators_reward {
+				if !collators_reward.is_zero() {
+					let epoch_length: BlockNumberFor<T> = T::Epoch::get();
+					let collators_reward: u128 = collators_reward.saturated_into();
+					let collators_reward_per_block: BalanceFor<T, I> =
+						collators_reward.saturating_div(epoch_length.saturated_into()).into();
+					weight = weight.saturating_add(T::DbWeight::get().reads(1));
+					if let Some(author) = T::AuthorProvider::author() {
+						_ = T::Currency::transfer(
+							&Self::account_id(),
+							&author,
+							collators_reward_per_block,
+							ExistenceRequirement::KeepAlive,
+						);
+						weight = weight.saturating_add(T::DbWeight::get().writes(1));
 					}
 				}
 			}
@@ -1159,12 +1115,135 @@ pub mod pallet {
 		pub fn account_id() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
+
+		fn advance_epoch(block_number: BlockNumberFor<T>) -> (EpochOf<T>, EpochOf<T>) {
+			CurrentCycle::<T, I>::mutate(|cycle| {
+				// Increment the sequential epoch
+				let last_epoch = cycle.epoch;
+				cycle.epoch = cycle.epoch.saturating_add(One::one());
+				cycle.epoch_start = block_number;
+				(last_epoch, cycle.epoch)
+			})
+		}
+
+		fn inflate() -> Option<InflationInfoFor<T, I>> {
+			let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
+
+			if inflation_amount.is_zero() {
+				return None;
+			}
+
+			// Mint new tokens into distribution account
+			let mut imbalance = <T::Currency as Balanced<T::AccountId>>::issue(inflation_amount);
+
+			// Calculate split of stake-based and compute-based amount
+			let inflation_amount = inflation_amount.saturated_into::<u128>();
+			let stake_backed_amount: BalanceFor<T, I> = T::InflationStakedComputeRatio::get()
+				.mul_floor(inflation_amount)
+				.saturated_into();
+			let compute_based_amount =
+				T::InflationMetricsRatio::get().mul_floor(inflation_amount).saturated_into();
+			let collators_amount =
+				T::InflationCollatorsRatio::get().mul_floor(inflation_amount).saturated_into();
+			let compute_imbalance = imbalance.extract(
+				stake_backed_amount
+					.saturating_add(compute_based_amount)
+					.saturating_add(collators_amount),
+			);
+			let resolve_result = T::Currency::resolve(&Self::account_id(), compute_imbalance);
+			if let Err(credit) = resolve_result {
+				imbalance = imbalance.merge(credit);
+			}
+
+			Some(InflationInfo {
+				metrics_reward: compute_based_amount,
+				staked_compute_reward: stake_backed_amount,
+				collators_reward: collators_amount,
+				credit: imbalance,
+			})
+		}
+
+		fn store_metrics_reward(amount: BalanceFor<T, I>, current_epoch: EpochOf<T>) -> Weight {
+			let mut weight = Weight::default();
+			if !amount.is_zero() {
+				ComputeBasedRewards::<T, I>::mutate(|r| {
+					r.mutate(
+						current_epoch,
+						|v| {
+							*v = amount;
+						},
+						false,
+					);
+				});
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+			}
+			weight
+		}
+
+		fn store_collators_reward(amount: BalanceFor<T, I>) -> Weight {
+			let mut weight = Weight::default();
+
+			if !amount.is_zero() {
+				<CollatorRewards<T, I>>::set(amount);
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			}
+
+			weight
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		BalanceFor<T, I>: From<u128>,
 	{
+		fn store_staked_compute_reward(
+			amount: BalanceFor<T, I>,
+			current_epoch: EpochOf<T>,
+			last_epoch: EpochOf<T>,
+			target_token_supply: u128,
+		) -> (Weight, BalanceFor<T, I>) {
+			// Store stake-based rewards split by pool (to avoid redoing this in every stake-based-reward-claiming heartbeat)
+			let mut unused_amount: BalanceFor<T, I> = Zero::zero();
+			let mut weight = Weight::default();
+
+			for (pool_id, pool) in MetricPools::<T, I>::iter() {
+				// we have to use the pool's total compute from the last_epoch since only this one is a completed rolling sum
+				let target_weight_per_compute = U256::from(target_token_supply)
+					.saturating_mul(U256::from(PER_TOKEN_DECIMALS))
+					.saturating_mul(U256::from(
+						T::TargetCooldownPeriod::get().saturated_into::<u128>(),
+					))
+					.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
+					.unwrap_or(Zero::zero())
+					.saturating_mul(U256::from(FIXEDU128_DECIMALS))
+					.checked_div(U256::from(pool.total.get(last_epoch).into_inner()))
+					.unwrap_or(Zero::zero());
+				StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
+					// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
+					let stale_budget = r.get(last_epoch.saturating_sub(One::one()));
+					unused_amount = unused_amount.saturating_add(
+						stale_budget.total.saturating_sub(stale_budget.distributed),
+					);
+					r.mutate(
+						current_epoch,
+						|v| {
+							*v = RewardBudget::new(
+								pool.reward
+									.get(last_epoch)
+									.mul_floor(amount.saturated_into::<u128>())
+									.into(),
+								target_weight_per_compute,
+							);
+						},
+						false,
+					);
+				});
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+			}
+
+			(weight, unused_amount)
+		}
+
 		fn do_create_pool(
 			name: MetricPoolName,
 			reward_ratio: Perquintill,

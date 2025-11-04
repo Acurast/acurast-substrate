@@ -2,6 +2,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
+		tokens::imbalance::ResolveTo,
 		LockIdentifier,
 	},
 	PalletId,
@@ -9,18 +10,19 @@ use frame_support::{
 
 use acurast_runtime_common::{
 	constants::{HOURS, UNIT},
-	types::{Balance, BlockNumber},
+	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
 use pallet_acurast::ManagerProviderForEligibleProcessor;
+use pallet_acurast_compute::BlockAuthorProvider;
 use sp_core::ConstU32;
 use sp_runtime::Perquintill;
 
 use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
-	AcurastProcessorManager, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent,
-	Uniques,
+	AcurastProcessorManager, Authorship, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime,
+	RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -43,8 +45,10 @@ parameter_types! {
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B
-	pub const InflationStakedComputeRation: Perquintill = Perquintill::from_percent(1);
-	pub const InflationMetricsRation: Perquintill = Perquintill::from_percent(99);
+	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
+	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(10);
+	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(5);
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
 impl pallet_acurast_compute::Config for Runtime {
@@ -81,12 +85,21 @@ impl pallet_acurast_compute::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type InflationPerEpoch = InflationPerEpoch;
-	type InflationStakedComputeRation = InflationStakedComputeRation;
-	type InflationMetricsRation = InflationMetricsRation;
-	type InflationHandler = ();
+	type InflationStakedComputeRatio = InflationStakedComputeRatio;
+	type InflationMetricsRatio = InflationMetricsRatio;
+	type InflationCollatorsRatio = InflationCollatorsRatio;
+	type InflationHandler = ResolveTo<TreasuryAccountId, Balances>;
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
+	type AuthorProvider = AuthorProvider;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
+}
+
+pub struct AuthorProvider;
+impl BlockAuthorProvider<<Runtime as frame_system::Config>::AccountId> for AuthorProvider {
+	fn author() -> Option<<Runtime as frame_system::Config>::AccountId> {
+		Authorship::author()
+	}
 }
 
 pub struct AcurastCommitmentIdProvider;

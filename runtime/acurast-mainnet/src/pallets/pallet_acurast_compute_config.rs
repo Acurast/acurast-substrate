@@ -32,7 +32,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
-	pub const TargetCooldownPeriod: BlockNumber = 28 * DAYS; // same as MinCooldownPeriod
+	pub const TargetCooldownPeriod: BlockNumber = 48 * 28 * DAYS; // same as MaxCooldownPeriod
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;

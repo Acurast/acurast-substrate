@@ -236,23 +236,17 @@ where
 				// bonus score dedicated to committer, not delegators
 				let bonus_score = {
 					// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
-					let score = U256::from(bounded_bonus.into_inner())
+					let bonus_score = U256::from(bounded_bonus.into_inner())
 						.checked_mul(weights.self_reward_weight)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_div(U256::from(FIXEDU128_DECIMALS))
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.integer_sqrt();
-					let score_limit = target_weight_per_compute
-						.checked_mul(U256::from(bounded_bonus.into_inner()))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(FIXEDU128_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(PER_TOKEN_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?;
-					if score_limit < score {
-						score_limit
+					let bonus_score_limit = T::BusyWeightBonus::get().mul_floor(score);
+					if bonus_score_limit < bonus_score {
+						bonus_score_limit
 					} else {
-						score
+						bonus_score
 					}
 				};
 
@@ -304,7 +298,7 @@ where
 					return Ok(());
 				}
 
-				let (score, bonus_score) = Self::scores(commitment_id, pool_id).get(epoch);
+				let (score, score_with_bonus) = Self::scores(commitment_id, pool_id).get(epoch);
 
 				// reward = score * budget.total / total_weighted_score
 				let reward = score
@@ -316,7 +310,8 @@ where
 				{
 					// bonus_reward = score * budget.total / total_weighted_score
 					// we have to repeat division budget.total/budget.total_score for precision reasons
-					let bonus_reward = bonus_score
+					let bonus_reward = score_with_bonus
+						.saturating_sub(score)
 						.checked_mul(U256::from(budget.total.saturated_into::<u128>()))
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_div(budget.total_score)

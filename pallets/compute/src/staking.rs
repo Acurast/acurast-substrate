@@ -322,12 +322,17 @@ where
 						.ok_or(Error::<T, I>::CalculationOverflow)?;
 				}
 
-				// split epoch_reward between self and delegators
+				// split epoch_reward between self and delegators using square root method:
+				// self_share = (sqrt(self_reward_weight) / sqrt(commitment_total_weight)) * reward
+				//
+				// spliting by direct weight ratio leads to a disadvantage for committers with delegations.
+				// With the sqrt, the committer is neutral about delegations, apart from the commission that tilts it towards having an interest in delegations.
 				let self_share = weights
 					.self_reward_weight
+					.integer_sqrt()
 					.checked_mul(reward)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(commitment_total_weight)
+					.checked_div(commitment_total_weight.integer_sqrt())
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let delegations_share =
 					reward.checked_sub(self_share).ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -736,6 +741,11 @@ where
 		let old_delegation =
 			Self::delegations(who, commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
 
+		ensure!(
+			old_delegation.stake.cooldown_started.is_none(),
+			Error::<T, I>::DelegationInCooldown
+		);
+
 		let commitment =
 			Self::commitments(commitment_id).ok_or(Error::<T, I>::CommitmentNotFound)?;
 
@@ -1005,6 +1015,7 @@ where
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let compound_amount = Self::withdraw_delegation_for(who, commitment_id)?;
+		// delegate_more_for will fail the compounding if delegator is in cooldown
 		Self::delegate_more_for(who, commitment_id, compound_amount, None, None)?;
 
 		Ok(compound_amount)

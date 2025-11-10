@@ -480,6 +480,7 @@ pub mod pallet {
 		CannotKickout,
 		AlreadySlashed,
 		NotSlashable,
+		DelegationInCooldown,
 	}
 
 	#[pallet::hooks]

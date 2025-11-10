@@ -13,6 +13,7 @@ pub type AssetId = u128;
 pub const UNIT: Balance = 1_000_000_000_000;
 pub const MILLIUNIT: Balance = UNIT / 1_000;
 pub const MICROUNIT: Balance = UNIT / 1_000_000;
+pub const NANOUNIT: Balance = UNIT / 1_000_000_000;
 
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
 

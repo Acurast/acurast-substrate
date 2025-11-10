@@ -10,13 +10,12 @@ members = [
 	"pallets/acurast/common",
 	"pallets/marketplace/reputation",
 	"p256-crypto",
-	"frame/support/procedural",
 ]
 
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.22.1"
+version = "0.23.0"
 edition = "2021"
 
 [workspace.dependencies]
@@ -84,7 +83,6 @@ acurast-mainnet-runtime = { path = "runtime/acurast-mainnet", default-features =
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
-frame-support-procedural = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-v1.18.5" }
@@ -221,7 +219,3 @@ cumulus-relay-chain-minimal-node = { git = "https://github.com/paritytech/polkad
 inherits = "release"
 lto = true
 codegen-units = 1
-
-# TODO: remove once tokenomics are ready
-[patch."https://github.com/paritytech/polkadot-sdk"]
-frame-support-procedural = { path = "./frame/support/procedural" }

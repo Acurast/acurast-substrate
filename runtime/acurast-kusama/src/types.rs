@@ -107,18 +107,6 @@ impl_opaque_keys! {
 	}
 }
 
-/// Extrinsic Call Filter
-pub struct CallFilter;
-impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
-	fn contains(c: &RuntimeCall) -> bool {
-		match c {
-			// We dont allow (non ROOT) calls to the pallet_balances while the tokenomics are not ready
-			RuntimeCall::Balances(..) => false,
-			_ => true,
-		}
-	}
-}
-
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 

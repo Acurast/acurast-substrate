@@ -7,8 +7,8 @@ use acurast_runtime_common::{
 };
 
 use crate::{
-	Block, CallFilter, PalletInfo, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, RuntimeTask, SS58Prefix, Version,
+	Block, PalletInfo, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, RuntimeTask, SS58Prefix, Version,
 };
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
@@ -23,7 +23,6 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type BaseCallFilter = CallFilter;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;

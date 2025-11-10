@@ -49,9 +49,6 @@ pub enum Action {
 		committer: String,
 		extra_amount: Balance,
 	},
-	Reward {
-		amount: Balance,
-	},
 	Delegate {
 		delegator: String,
 		committer: String,
@@ -105,9 +102,6 @@ impl Display for Action {
 			},
 			Action::StakeMore { committer, extra_amount } => {
 				write!(f, "StakeMore(committer={}, extra_amount={})", committer, extra_amount)
-			},
-			Action::Reward { amount } => {
-				write!(f, "Reward(amount={})", amount)
 			},
 			Action::WithdrawDelegation { delegator, committer, expected_reward: _ } => {
 				write!(f, "WithdrawDelegation(delegator={}, committer={})", delegator, committer)
@@ -273,7 +267,7 @@ impl ComputeTestFlow {
 
 	pub fn setup(&mut self) {
 		// Set inflation per epoch to 0 for tests
-		InflationPerEpoch::set(0);
+		InflationPerEpoch::set(142857142857 * NANOUNIT); // 142.857142857 makes 70% be 100 * UNITS
 
 		// Setup
 		setup_balances();
@@ -343,10 +337,6 @@ impl ComputeTestFlow {
 				Action::StakeMore { committer, extra_amount } => {
 					let account = Self::name_to_account(committer);
 					Self::execute_stake_more(&account, *extra_amount);
-				},
-				Action::Reward { amount: _ } => {
-					// TODO: Update after refactoring - reward() function no longer exists
-					// assert_ok!(Compute::reward(RuntimeOrigin::root(), *amount));
 				},
 				Action::WithdrawDelegation { delegator, committer, expected_reward } => {
 					let delegator_account = Self::name_to_account(delegator);
@@ -582,9 +572,7 @@ impl ComputeTestFlow {
 	fn execute_end_compute_commitment(who: &AccountId32, expected_reward: u128) {
 		// Clear events before the operation
 		events();
-
 		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(who.clone())));
-
 		assert_transferred_amount(who, expected_reward);
 	}
 

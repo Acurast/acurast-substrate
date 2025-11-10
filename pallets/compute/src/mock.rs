@@ -124,7 +124,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 36;
 	pub const MaxCooldownPeriod: BlockNumber = 108;
-	pub const TargetCooldownPeriod: BlockNumber = 72; // Target cooldown period for economic calculations
+	pub const TargetCooldownPeriod: BlockNumber = 108; // Target cooldown period for economic calculations
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
 	pub const MinDelegation: Balance = 1;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);

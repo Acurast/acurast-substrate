@@ -194,5 +194,3 @@ runtime-benchmarks = [
 ]
 
 try-runtime = ["frame-executive/try-runtime", "frame-try-runtime"]
-
-emulation = []

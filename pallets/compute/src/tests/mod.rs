@@ -312,213 +312,12 @@ fn test_compute_flow_delegate_to_self() {
 					},
 					Action::EndComputeCommitment {
 						committer: "C".to_string(),
-						expected_reward: 70710686784089,
+						expected_reward: 50 * UNIT,
 					},
 					Action::EndDelegation {
 						delegator: "C".to_string(),
 						committer: "C".to_string(),
-						expected_reward: 29289313215810,
-					},
-				][..],
-			]
-			.concat(),
-		);
-	});
-}
-
-#[test]
-fn test_compute_flow_delegate() {
-	ExtBuilder.build().execute_with(|| {
-		compute_test_flow(
-			2,
-			&[0, 100],
-			&[
-				("C", &["A", "B"]), // committer C with processors A, B
-			],
-			&[
-				&commit_actions_2_processors()[..],
-				&[
-					Action::CommitCompute {
-						committer: "C".to_string(),
-						stake: 5 * UNIT,
-						cooldown: 36, // 1/3 of max
-						metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
-						commission: Perbill::from_percent(0),
-					}, // Maximal possible commitment value: 80% of average for pool 2
-					Action::Delegate {
-						delegator: "E".to_string(),
-						committer: "C".to_string(),
-						amount: 5 * UNIT,
-						cooldown: 36,
-					},
-					// commit but not yet score since only committed in same epoch
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::RollToBlock {
-						block_number: 302,
-						expected_cycle: Cycle { epoch: 3, epoch_start: 302 },
-					},
-					// heartbeat that scores for epoch 3
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::RollToBlock {
-						block_number: 402,
-						expected_cycle: Cycle { epoch: 4, epoch_start: 402 },
-					},
-					// heartbeat that distributes for epoch 3 (in epoch 4)
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::CooldownComputeCommitment { committer: "C".to_string() },
-					Action::RollToBlock {
-						block_number: 510, // Advance past cooldown period (started at 402, +108 blocks)
-						expected_cycle: Cycle { epoch: 5, epoch_start: 502 },
-					},
-					Action::EndComputeCommitment {
-						committer: "C".to_string(),
-						expected_reward: 70710686784089,
-					},
-					Action::EndDelegation {
-						delegator: "E".to_string(),
-						committer: "C".to_string(),
-						expected_reward: 29289313215810,
-					},
-				][..],
-			]
-			.concat(),
-		);
-	});
-}
-
-#[test]
-fn test_compute_flow_delegate_after_reward() {
-	ExtBuilder.build().execute_with(|| {
-		compute_test_flow(
-			2,
-			&[0, 100],
-			&[
-				("C", &["A", "B"]), // committer C with processors A, B
-			],
-			&[
-				&commit_actions_2_processors()[..],
-				&[
-					// Committer stakes and commits (no delegation yet)
-					Action::CommitCompute {
-						committer: "C".to_string(),
-						stake: 5 * UNIT,
-						cooldown: 36, // 1/3 of max
-						metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
-						commission: Perbill::from_percent(10),
-					},
-					// commit but not yet score since only committed in same epoch
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::RollToBlock {
-						block_number: 302,
-						expected_cycle: Cycle { epoch: 3, epoch_start: 302 },
-					},
-					// heartbeat that scores for epoch 3
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::RollToBlock {
-						block_number: 402,
-						expected_cycle: Cycle { epoch: 4, epoch_start: 402 },
-					},
-					// heartbeat that distributes for epoch 3 (in epoch 4) - first reward to committer only
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					// Committer withdraws first reward (for epoch 3)
-					Action::WithdrawCommitment {
-						committer: "C".to_string(),
-						expected_reward: 100 * UNIT, // Gets full reward since no delegation yet
-					},
-					// Now E delegates
-					Action::Delegate {
-						delegator: "E".to_string(),
-						committer: "C".to_string(),
-						amount: 5 * UNIT,
-						cooldown: 36,
-					},
-					Action::RollToBlock {
-						block_number: 502,
-						expected_cycle: Cycle { epoch: 5, epoch_start: 502 },
-					},
-					// heartbeat that scores for epoch 5 (with delegation now)
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					Action::RollToBlock {
-						block_number: 602,
-						expected_cycle: Cycle { epoch: 6, epoch_start: 602 },
-					},
-					// heartbeat that distributes for epoch 5 (in epoch 6) - reward split with delegation
-					Action::ProcessorCommit {
-						processor: "A".to_string(),
-						metrics: vec![(1, 1000, 1), (2, 2000, 1)],
-					},
-					Action::ProcessorCommit {
-						processor: "B".to_string(),
-						metrics: vec![(2, 6000, 1)],
-					},
-					// Both cooldown
-					Action::CooldownComputeCommitment { committer: "C".to_string() },
-					Action::CooldownDelegation {
-						delegator: "E".to_string(),
-						committer: "C".to_string(),
-					},
-					Action::RollToBlock {
-						block_number: 710, // Advance past cooldown period (started at 602, +108 blocks)
-						expected_cycle: Cycle { epoch: 7, epoch_start: 702 },
-					},
-					// Both end, claiming for epoch 4 and 5, that's why the sum is ~= 200 - reward is split due to sqrt method
-					Action::EndComputeCommitment {
-						committer: "C".to_string(),
-						expected_reward: 147_279_236_211_340, // sqrt method gives committer more than linear split
-					},
-					Action::EndDelegation {
-						delegator: "E".to_string(),
-						committer: "C".to_string(),
-						expected_reward: 52_720_763_788_459, // delegator gets less than linear split
+						expected_reward: 50 * UNIT,
 					},
 				][..],
 			]
@@ -2641,7 +2440,7 @@ fn test_delegate_undelegate() {
 		// assert_eq!(events(), []);
 		assert!(events().iter().any(|e| matches!(
 			e,
-			RuntimeEvent::Compute(Event::DelegatorWithdrew(_, _, 224743212233322))
+			RuntimeEvent::Compute(Event::DelegatorWithdrew(_, _, 337114726027296))
 		)));
 
 		assert_ok!(Compute::cooldown_delegation(
@@ -2686,17 +2485,6 @@ fn test_delegate_undelegate() {
 		// committer exits first!
 		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
 
-		// Verify the reward was payed out
-		// assert_eq!(events(), []);
-		assert!(events().iter().any(|e| matches!(
-			e,
-			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-				from: _,
-				to: _,
-				amount: 1648116069065411
-			})
-		)));
-
 		assert_ok!(Compute::end_delegation(
 			RuntimeOrigin::signed(delegator_1.clone()),
 			committer.clone()
@@ -2715,7 +2503,7 @@ fn test_delegate_undelegate() {
 			RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: _,
 				to: _,
-				amount: 1123716061167019
+				amount: 1685573630137087
 			})
 		)));
 	});

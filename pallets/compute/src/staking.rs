@@ -322,17 +322,12 @@ where
 						.ok_or(Error::<T, I>::CalculationOverflow)?;
 				}
 
-				// split epoch_reward between self and delegators using square root method:
-				// self_share = (sqrt(self_reward_weight) / sqrt(commitment_total_weight)) * reward
-				//
-				// spliting by direct weight ratio leads to a disadvantage for committers with delegations.
-				// With the sqrt, the committer is neutral about delegations, apart from the commission that tilts it towards having an interest in delegations.
+				// split epoch_reward between self and delegators
 				let self_share = weights
 					.self_reward_weight
-					.integer_sqrt()
 					.checked_mul(reward)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
-					.checked_div(commitment_total_weight.integer_sqrt())
+					.checked_div(commitment_total_weight)
 					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let delegations_share =
 					reward.checked_sub(self_share).ok_or(Error::<T, I>::CalculationOverflow)?;

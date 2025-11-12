@@ -9,14 +9,14 @@ use frame_support::{
 };
 
 use acurast_runtime_common::{
-	constants::{HOURS, UNIT},
+	constants::{DAYS, HOURS, UNIT},
 	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 use pallet_acurast_compute::BlockAuthorProvider;
 use sp_core::ConstU32;
-use sp_runtime::Perquintill;
+use sp_runtime::{Perbill, Perquintill};
 
 use crate::{
 	constants::CommitmentCollectionId,
@@ -33,12 +33,14 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = HOURS;
 	pub const MaxCooldownPeriod: BlockNumber = 48 * HOURS;
-	pub const TargetCooldownPeriod: BlockNumber = 48 * HOURS; // same as MaxCooldownPeriod
+	pub const TargetCooldownPeriod: BlockNumber = 24 * HOURS; // half of MaxCooldownPeriod
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.003424657534% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
+	pub const MaxCommissionIncreasePerDay: Perbill =Perbill::from_parts(2500000); // 0.25% per day
+	pub const BlocksPerDay: BlockNumber = DAYS;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
@@ -73,6 +75,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MinStake = MinStake;
 	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
+	type MaxCommissionIncreasePerDay = MaxCommissionIncreasePerDay;
+	type BlocksPerDay = BlocksPerDay;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

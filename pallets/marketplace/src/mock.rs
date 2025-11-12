@@ -5,7 +5,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, Percent, Perquintill,
+		BuildStorage, Perbill, Percent, Perquintill,
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
@@ -219,7 +219,8 @@ parameter_types! {
 	pub const MinStake: Balance = UNIT;
 	pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
-
+	pub const MaxCommissionIncreasePerDay: Perbill =Perbill::from_parts(2500000); // 0.25% per day
+	pub const BlocksPerDay: BlockNumber = 14400u64;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438;
@@ -252,6 +253,8 @@ impl pallet_acurast_compute::Config for Test {
 	type MinStake = MinStake;
 	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
+	type MaxCommissionIncreasePerDay = MaxCommissionIncreasePerDay;
+	type BlocksPerDay = BlocksPerDay;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;
 	type LockIdentifier = ComputeStakingLockId;

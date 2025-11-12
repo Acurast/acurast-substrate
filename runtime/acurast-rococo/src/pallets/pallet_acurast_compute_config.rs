@@ -1,5 +1,5 @@
 use acurast_runtime_common::{
-	constants::{MINUTES, UNIT},
+	constants::{DAYS, MINUTES, UNIT},
 	types::{AccountId, Balance, BlockNumber},
 	weight,
 };
@@ -17,7 +17,7 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_runtime::Perquintill;
+use sp_runtime::{Perbill, Perquintill};
 
 use crate::{
 	Acurast, AcurastProcessorManager, Authorship, Balances, CommitmentCollectionId,
@@ -33,7 +33,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 10; // 10 blocks (for testing purposes)
 	pub const MaxCooldownPeriod: BlockNumber = 3600; // ~1 hour
-	pub const TargetCooldownPeriod: BlockNumber = 10; // same as MinCooldownPeriod
+	pub const TargetCooldownPeriod: BlockNumber = 3600 / 2; // half of MaxCooldownPeriod
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -42,6 +42,8 @@ parameter_types! {
 	pub const MinStake: Balance = UNIT;
 	pub const BaseSlashRation: Perquintill = Perquintill::from_percent(1); // 1% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
+	pub const MaxCommissionIncreasePerDay: Perbill =Perbill::from_parts(2500000); // 0.25% per day
+	pub const BlocksPerDay: BlockNumber = DAYS;
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 	pub const InflationPerEpoch: Balance = 8_561_643_835_616_438; // ~ 5% a year for a total supply of 1B
@@ -73,6 +75,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MinStake = MinStake;
 	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
+	type MaxCommissionIncreasePerDay = MaxCommissionIncreasePerDay;
+	type BlocksPerDay = BlocksPerDay;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

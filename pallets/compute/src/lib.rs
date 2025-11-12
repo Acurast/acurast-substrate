@@ -137,6 +137,12 @@ pub mod pallet {
 		/// The ratio of slashed amount that is rewarded to the caller who triggers the slash extrinsic.
 		#[pallet::constant]
 		type SlashRewardRatio: Get<Perquintill>;
+		/// Maximum commission increase per day. When a committer is overstaked, they can increase commission up to this rate.
+		#[pallet::constant]
+		type MaxCommissionIncreasePerDay: Get<Perbill>;
+		/// Blocks per day.
+		#[pallet::constant]
+		type BlocksPerDay: Get<BlockNumberFor<Self>>;
 		/// How long a processor needs to warm up before his metrics are respected for compute score and reward calculation.
 		#[pallet::constant]
 		type WarmupPeriod: Get<BlockNumberFor<Self>>;
@@ -243,6 +249,14 @@ pub mod pallet {
 	#[pallet::getter(fn compute_commitments)]
 	pub(super) type ComputeCommitments<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Identity, T::CommitmentId, Identity, PoolId, Metric>;
+
+	/// The last commission increase as a map `commitment_id` -> Option<(block, Perbill)>`.
+	///
+	/// NOTE: do not delete this item on a commissino decrease (that is always allowed) to avoid an attack where you delete the commission increase by slightly reducing the commission and repeat.
+	#[pallet::storage]
+	#[pallet::getter(fn last_commission_increase)]
+	pub(super) type LastCommissionIncrease<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::CommitmentId, (BlockNumberFor<T>, Perbill)>;
 
 	/// The actual (adjusted) scores of compute as a map `commitment_id` -> `pool_id` -> `SlidingBuffer[epoch -> (score, bonus_score)]`.
 	///
@@ -481,6 +495,8 @@ pub mod pallet {
 		AlreadySlashed,
 		NotSlashable,
 		DelegationInCooldown,
+		CommissionIncreaseTooLarge,
+		CommissionIncreaseTooSoon,
 	}
 
 	#[pallet::hooks]

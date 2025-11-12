@@ -14,7 +14,7 @@ use frame_support::{
 		ConstU32, LockIdentifier,
 	},
 };
-use sp_runtime::Perquintill;
+use sp_runtime::{Perbill, Perquintill};
 
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
@@ -32,12 +32,14 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxCooldownPeriod: BlockNumber = 48 * 28 * DAYS;
-	pub const TargetCooldownPeriod: BlockNumber = 48 * 28 * DAYS; // same as MaxCooldownPeriod
+	pub const TargetCooldownPeriod: BlockNumber = 24 * 28 * DAYS; // half of MaxCooldownPeriod
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.003424657534% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
+	pub const MaxCommissionIncreasePerDay: Perbill =Perbill::from_parts(2500000); // 0.25% per day
+	pub const BlocksPerDay: BlockNumber = DAYS;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 112; // can redelegate once per 7*16=112 epochs ~= 1 week
@@ -71,6 +73,8 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MinStake = MinStake;
 	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
+	type MaxCommissionIncreasePerDay = MaxCommissionIncreasePerDay;
+	type BlocksPerDay = BlocksPerDay;
 	type MetricValidity = MetricEpochValidity;
 	type WarmupPeriod = WarmupPeriod;
 	type Currency = Balances;

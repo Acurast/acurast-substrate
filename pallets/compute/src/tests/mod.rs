@@ -6,10 +6,7 @@ pub use test_actions::{compute_test_flow, events, roll_to_block, setup_balances,
 
 use frame_support::{assert_err, assert_ok};
 use sp_core::{bounded_vec, U256};
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	AccountId32, FixedU128, Perbill, Perquintill,
-};
+use sp_runtime::{traits::Zero, AccountId32, FixedU128, Perbill, Perquintill};
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
@@ -2026,7 +2023,7 @@ fn test_commit_compute() {
 			SlidingBuffer::from_inner(
 				3,
 				(U256::from(0), U256::from(0)),
-				(U256::from(73029674), U256::from(73029674))
+				(U256::from(1666666666666u128), U256::from(1666666666666u128))
 			),
 		);
 
@@ -2085,10 +2082,11 @@ fn test_commit_compute_overstaked() {
 			1 * UNIT
 		));
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), 1 * UNIT));
+		let charlie_initial_balance: Balance = 999_999_998 * UNIT; // give a lot to committer so he can attempt to overstake
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			charlie_account_id(),
-			999_999_998 * UNIT // give a lot to committer so he can attempt to overstake
+			charlie_initial_balance
 		));
 
 		assert_eq!(Balances::total_issuance(), 1_000_000_000 * UNIT);
@@ -2107,7 +2105,7 @@ fn test_commit_compute_overstaked() {
 				pool_id: 2,
 				metric: FixedU128::from_rational(1000u128, 1u128), // Maximal possible commitment value
 			},];
-		// target_weight_per_compute_pool_2 = 1_000_000_000 * UNIT / 8000 / 2 (2 is TargetStakedTokenSupply) = 62500.0 (tests showed actual value is 62500.53510273973)
+		// target_weight_per_compute_pool_2 = 1_000_000_000 * UNIT / 8000 / 2  (2 is TargetStakedTokenSupply) = 62500.0 (tests showed actual value is 62500.53510273973)
 		let stake_amount_limit = 62500_535_102_739_730 * 1000;
 		let overstake_amount = stake_amount_limit + 1 * MILLIUNIT;
 		let stake_amount = stake_amount_limit - 1 * MILLIUNIT;
@@ -2155,6 +2153,82 @@ fn test_commit_compute_overstaked() {
 			commission,
 			allow_auto_compound,
 		));
+
+		// Make inflation happen
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		// Make inflation happen
+		roll_to_block(402);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
+
+		// Get Charlie's commitment ID
+		let charlie_commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie).unwrap();
+
+		// Test commission increase before burning - should fail because not overstaked
+		assert_err!(
+			Compute::stake_more(
+				RuntimeOrigin::signed(charlie.clone()),
+				charlie_commitment_id,
+				None,
+				None,                            // no commitment change
+				Some(Perbill::from_percent(15)), // Try to increase commission from 10% to 15%
+				None,
+			),
+			Error::<Test, ()>::CommissionCannotIncrease
+		);
+
+		// Burn minimum 1000 tokens from total supply
+		let total_issuance_before_burn = Balances::total_issuance();
+		let burn_amount = 1000 * UNIT;
+
+		// Burn from Charlie's account (he has most of the tokens)
+		let charlie_balance = Balances::free_balance(&charlie);
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			charlie.clone(),
+			stake_amount + 5 * UNIT
+		));
+
+		// Verify burn succeeded
+		assert!(Balances::total_issuance() < total_issuance_before_burn);
+
+		// Alice & Bob recommit (we need this to update target_weight_per_compute)
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		// Make inflation happen
+		roll_to_block(502);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 5, epoch_start: 502 });
+
+		assert_err!(
+			Compute::stake_more(
+				RuntimeOrigin::signed(charlie.clone()),
+				5 * UNIT,
+				None,
+				None,
+				None,
+				None,
+			),
+			Error::<Test, ()>::MaxStakeMetricRatioExceeded
+		);
 	});
 }
 

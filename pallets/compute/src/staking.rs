@@ -169,6 +169,63 @@ where
 		Ok(())
 	}
 
+	/// Checks if a commitment is currently overstaked (i.e., would hit score limit in next distribution).
+	///
+	/// Returns `true` if the commitment has more stake than it can effectively use given its metrics,
+	/// which happens when `score_limit < score` in the scoring function.
+	pub fn is_commitment_overstaked(
+		commitment_id: T::CommitmentId,
+		commitment: &CommitmentFor<T, I>,
+	) -> Result<bool, Error<T, I>> {
+		let epoch = Self::current_cycle().epoch;
+		let last_epoch = epoch.checked_sub(&One::one()).ok_or(Error::<T, I>::InternalError)?;
+
+		// Get manager_id for this commitment
+		let manager_id = <Backings<T, I>>::get(commitment_id)
+			.ok_or(Error::<T, I>::NoManagerBackingCommitment)?;
+
+		// Get commitment's total reward weight
+		let weights = commitment.weights.get_latest(epoch); // take current epoch to already respect changes to the stake down in this call flow (like delegate_more, stake_more)
+		let commitment_total_weight = weights.total_reward_weight();
+
+		// Check each pool to see if any would hit the score limit
+		for (pool_id, committed_metric_sum) in
+			<ComputeCommitments<T, I>>::iter_prefix(commitment_id)
+		{
+			// Get target weight per compute for this pool
+			let target_weight_per_compute =
+				StakeBasedRewards::<T, I>::get(pool_id).get(epoch).target_weight_per_compute;
+
+			if target_weight_per_compute.is_zero() {
+				continue;
+			}
+
+			// Get measured metrics from last epoch
+			let metric_epoch_sum = MetricsEpochSum::<T, I>::get(manager_id, pool_id);
+			let (metric_sum, _) = metric_epoch_sum.get(last_epoch);
+
+			// Calculate bounded metric sum (min of committed and measured)
+			let commitment_bounded_metric_sum =
+				if metric_sum < committed_metric_sum { metric_sum } else { committed_metric_sum };
+
+			// Calculate score limit
+			let score_limit = target_weight_per_compute
+				.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_div(U256::from(FIXEDU128_DECIMALS))
+				.ok_or(Error::<T, I>::CalculationOverflow)?
+				.checked_div(U256::from(PER_TOKEN_DECIMALS))
+				.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+			// Check if overstaked in this pool
+			if score_limit < commitment_total_weight {
+				return Ok(true);
+			}
+		}
+
+		Ok(false)
+	}
+
 	/// Update score for a specific commitment for the given epoch which should be the current epoch (it's passed for efficiency reasons).
 	///
 	/// Call only once per committer per epoch! This is not validated inside this function!
@@ -194,7 +251,7 @@ where
 			{
 				// calculate min(committed_metric_sum, measured_metric_sum)
 				// compare metrics WITHOUT BONI (there is no concept for metrics committed with bonis)
-				let (commitment_bounded_metric_sum, bounded_bonus) =
+				let (commitment_bounded_metric_sum, bounded_bonus_metric_sum) =
 					if *metric_sum < committed_metric_sum {
 						// fall down to actual since commitment violated, and also don't give ANY boni
 						(*metric_sum, Zero::zero())
@@ -213,12 +270,8 @@ where
 					};
 
 				let score = {
-					let score = U256::from(commitment_bounded_metric_sum.into_inner())
-						.checked_mul(commitment_total_weight)
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(FIXEDU128_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.integer_sqrt();
+					// calculate from the total commitment's reward_weight (reduced during cooldown), with delegators
+					let score = commitment_total_weight;
 					let score_limit = target_weight_per_compute
 						.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
 						.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -229,19 +282,19 @@ where
 					if score_limit < score {
 						score_limit
 					} else {
-						score
+						commitment_total_weight
 					}
 				};
 
 				// bonus score dedicated to committer, not delegators
 				let bonus_score = {
 					// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
-					let bonus_score = U256::from(bounded_bonus.into_inner())
-						.checked_mul(weights.self_reward_weight)
+					// bonus_score = bounded_bonus_metric_sum / commitment_bounded_metric_sum * score
+					let bonus_score = U256::from(bounded_bonus_metric_sum.into_inner())
+						.checked_mul(score)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(FIXEDU128_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.integer_sqrt();
+						.checked_div(U256::from(commitment_bounded_metric_sum.into_inner()))
+						.ok_or(Error::<T, I>::CalculationOverflow)?;
 					let bonus_score_limit = T::BusyWeightBonus::get().mul_floor(score);
 					if bonus_score_limit < bonus_score {
 						bonus_score_limit
@@ -513,6 +566,55 @@ where
 
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+			// Check commission increase requirements before taking mutable borrows
+			if let Some(commission) = commission {
+				let current_commission = c.commission;
+
+				// Allow commission decrease anytime, but increases only when overstaked
+				if commission > current_commission {
+					// Check if the commitment is currently overstaked
+					ensure!(
+						Self::is_commitment_overstaked(commitment_id, c)?,
+						Error::<T, I>::CommissionCannotIncrease
+					);
+
+					let current_block = <frame_system::Pallet<T>>::block_number();
+
+					// Get stake creation block for fallback (before any mutable borrows)
+					let stake_created_block =
+						c.stake.as_ref().map(|s| s.created).unwrap_or_else(|| current_block);
+
+					// Calculate maximum allowed increase based on time passed
+					let last_increase_block = <LastCommissionIncrease<T, I>>::get(commitment_id)
+						.map(|l| l.0)
+						.unwrap_or_else(|| {
+							// If no previous increase recorded, use stake creation block
+							stake_created_block
+						});
+
+					let blocks_passed = current_block.saturating_sub(last_increase_block);
+					ensure!(
+						blocks_passed >= T::BlocksPerDay::get(),
+						Error::<T, I>::CommissionIncreaseTooSoon
+					);
+
+					let commission_increase = commission.saturating_sub(current_commission);
+					ensure!(
+						commission_increase <= T::MaxCommissionIncreasePerDay::get(),
+						Error::<T, I>::CommissionIncreaseTooLarge
+					);
+
+					// Record this commission increase
+					<LastCommissionIncrease<T, I>>::insert(
+						commitment_id,
+						(current_block, current_commission),
+					);
+				}
+
+				c.commission = commission;
+			}
+
 			let stake = c.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 			ensure!(stake.cooldown_started.is_none(), Error::<T, I>::CommitmentInCooldown);
 			if !extra_amount.is_zero() {
@@ -532,11 +634,6 @@ where
 					Error::<T, I>::CooldownPeriodCannotDecrease
 				);
 				stake.cooldown_period = cooldown_period;
-			}
-
-			if let Some(commission) = commission {
-				ensure!(commission <= c.commission, Error::<T, I>::CommissionCannotIncrease);
-				c.commission = commission;
 			}
 
 			if let Some(allow_auto_compound) = allow_auto_compound {
@@ -561,6 +658,11 @@ where
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 			Self::update_total_stake(StakeChange::Add(extra_amount))?;
+
+			ensure!(
+				!Self::is_commitment_overstaked(commitment_id, c)?,
+				Error::<T, I>::MaxStakeMetricRatioExceeded
+			);
 
 			Ok(())
 		})?;
@@ -720,6 +822,11 @@ where
 			ensure!(
 				Self::delegation_weight_ratio(epoch, commitment)? <= T::MaxDelegationRatio::get(),
 				Error::<T, I>::MaxDelegationRatioExceeded
+			);
+
+			ensure!(
+				!Self::is_commitment_overstaked(commitment_id, commitment)?,
+				Error::<T, I>::MaxStakeMetricRatioExceeded
 			);
 
 			Ok(())

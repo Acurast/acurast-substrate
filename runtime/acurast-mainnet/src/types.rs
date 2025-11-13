@@ -111,12 +111,7 @@ impl_opaque_keys! {
 pub struct CallFilter;
 impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(c: &RuntimeCall) -> bool {
-		match c {
-			RuntimeCall::Balances(_) => false,
-			RuntimeCall::Uniques(_) => false,
-			RuntimeCall::AcurastCompute(_) => false,
-			_ => true,
-		}
+		!matches!(c, RuntimeCall::Uniques(_))
 	}
 }
 

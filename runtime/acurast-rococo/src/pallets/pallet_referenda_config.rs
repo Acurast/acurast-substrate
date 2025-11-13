@@ -19,7 +19,7 @@ const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 }
 
 const APP_ROOT: Curve = Curve::make_reciprocal(4, 10, percent(80), percent(50), percent(100));
-const SUP_ROOT: Curve = Curve::make_linear(10, 10, percent(0), percent(30));
+const SUP_ROOT: Curve = Curve::make_linear(20, 20, percent(0), percent(25));
 
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
@@ -32,7 +32,7 @@ parameter_types! {
 			max_deciding: 1,
 			decision_deposit: 100 * UNIT,
 			prepare_period: 2 * MINUTES,
-			decision_period: 10 * MINUTES,
+			decision_period: 20 * MINUTES,
 			confirm_period: 2 * MINUTES,
 			min_enactment_period: 2 * MINUTES,
 			min_approval: APP_ROOT,

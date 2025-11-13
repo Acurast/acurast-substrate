@@ -2,7 +2,6 @@ use core::marker::PhantomData;
 use frame_support::{
 	instances::Instance1, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 };
-use frame_system::EnsureRoot;
 use polkadot_core_primitives::BlakeTwo256;
 use sp_runtime::traits::AccountIdConversion;
 
@@ -78,7 +77,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OutgoingTransferTTL = OutgoingTransferTTL;
 	type UpdateOrigin = EnsureCouncilOrRoot;
-	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type OperatorOrigin = EnsureCouncilOrRoot;
 	type MinTransferAmount = MinTransferAmount;
 
 	type WeightInfo = weight::pallet_acurast_hyperdrive_token::WeightInfo<Runtime>;

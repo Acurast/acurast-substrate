@@ -20,7 +20,10 @@ use acurast_runtime_common::{
 	weight::ExtrinsicBaseWeight,
 };
 
-use crate::{AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
+use crate::{
+	vesting_migration::VestingMigration, AcurastProcessorManager, AllPalletsWithSystem, Aura,
+	Balances, Runtime, RuntimeCall,
+};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -72,6 +75,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	VestingMigration,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the

@@ -15,6 +15,7 @@ mod constants;
 mod pallets;
 mod types;
 mod utils;
+mod vesting_migration;
 mod weights;
 pub mod xcm_config;
 

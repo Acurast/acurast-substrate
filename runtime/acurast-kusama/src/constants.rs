@@ -143,8 +143,8 @@ parameter_types! {
 	pub MinTTL: BlockNumber = 15;
 	pub IncomingTTL: BlockNumber = 50;
 	pub OutgoingTransferTTL: BlockNumber = 50;
-	pub MinDeliveryConfirmationSignatures: u32 = 1;
-	pub MinReceiptConfirmationSignatures: u32 = 1;
+	pub MinDeliveryConfirmationSignatures: u32 = 3;
+	pub MinReceiptConfirmationSignatures: u32 = 3;
 
 	pub const Epoch: BlockNumber = 131072;
 

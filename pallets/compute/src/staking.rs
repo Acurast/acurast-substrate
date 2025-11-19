@@ -659,10 +659,15 @@ where
 
 			Self::update_total_stake(StakeChange::Add(extra_amount))?;
 
-			ensure!(
-				!Self::is_commitment_overstaked(commitment_id, c)?,
-				Error::<T, I>::MaxStakeMetricRatioExceeded
-			);
+			// skip check for commitment overstaked if only metric increased, but not weight in terms of stake and/or cooldown
+			if !extra_amount.is_zero()
+				|| cooldown_period.map(|c| c > stake.cooldown_period).unwrap_or(false)
+			{
+				ensure!(
+					!Self::is_commitment_overstaked(commitment_id, c)?,
+					Error::<T, I>::MaxStakeMetricRatioExceeded
+				);
+			}
 
 			Ok(())
 		})?;

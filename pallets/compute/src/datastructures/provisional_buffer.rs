@@ -79,6 +79,29 @@ impl<Epoch: Ord + Debug, Value: Copy + Default + Debug> ProvisionalBuffer<Epoch,
 
 		self.current
 	}
+
+	pub fn next(&self, epoch: Epoch) -> Option<Value> {
+		if let Some((e, v)) = &self.next {
+			if e > &epoch {
+				return Some(*v);
+			}
+		}
+
+		None
+	}
+
+	pub fn next_epoch(&self, epoch: Epoch) -> Option<Epoch>
+	where
+		Epoch: Copy,
+	{
+		if let Some((e, _)) = &self.next {
+			if e > &epoch {
+				return Some(*e);
+			}
+		}
+
+		None
+	}
 }
 
 #[cfg(test)]

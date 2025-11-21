@@ -1,5 +1,3 @@
-#![cfg(feature = "runtime-benchmarks")]
-
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 

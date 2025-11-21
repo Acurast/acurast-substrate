@@ -1690,6 +1690,13 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	if modify_reward {
 		assert_ok!(Compute::modify_pool(
 			RuntimeOrigin::root(),
+			2,
+			None,
+			Some((2, Perquintill::from_percent(40))),
+			None
+		));
+		assert_ok!(Compute::modify_pool(
+			RuntimeOrigin::root(),
 			1,
 			None,
 			Some((2, Perquintill::from_percent(35))),

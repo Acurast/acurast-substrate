@@ -74,7 +74,7 @@ pub trait MessageSender<AccountId, Contract, Balance, BlockNumber> {
 	type OutgoingMessage: MessageFeeProvider<Balance>;
 
 	fn send_message(
-		sender: Subject<AccountId, Contract>,
+		sender_extrinsic: &AccountId,
 		payer: &AccountId,
 		nonce: Self::MessageNonce,
 		recipient: Subject<AccountId, Contract>,
@@ -107,7 +107,7 @@ where
 	type OutgoingMessage = ();
 
 	fn send_message(
-		_sender: Subject<AccountId, Contract>,
+		_sender: &AccountId,
 		_payer: &AccountId,
 		_nonce: Self::MessageNonce,
 		_recipient: Subject<AccountId, Contract>,

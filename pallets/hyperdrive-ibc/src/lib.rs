@@ -39,7 +39,9 @@ pub mod pallet {
 	use sp_runtime::traits::{Hash, Verify};
 	use sp_std::{prelude::*, vec};
 
-	use pallet_acurast::{Layer, MessageProcessor, MessageSender, MultiOrigin, Subject};
+	use pallet_acurast::{
+		Layer, MessageProcessor, MessageSender, MultiOrigin, ProxyAcurastChain, ProxyChain, Subject,
+	};
 
 	use super::*;
 
@@ -76,6 +78,9 @@ pub mod pallet {
 		type MessageProcessor: MessageProcessor<Self::AccountId, Self::AccountId>;
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type ParachainId: Get<ParaId>;
+		/// The proxy chain identifier for this runtime (e.g., Acurast, AcurastCanary).
+		#[pallet::constant]
+		type SelfChain: Get<ProxyAcurastChain>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -164,6 +169,7 @@ pub mod pallet {
 		IncorrectRecipient,
 		PayloadLengthExceeded,
 		FeeTooLow,
+		SelfMessagingNotAllowed,
 	}
 
 	/// A reason for the pallet placing a hold on funds.
@@ -227,7 +233,7 @@ pub mod pallet {
 			<MessageCounter<T, I>>::set(count + 1);
 
 			let _message = Self::do_send_message(
-				Subject::Acurast(Layer::Extrinsic(who.clone())),
+				&who,
 				&who,
 				T::MessageIdHashing::hash_of(&count),
 				recipient,
@@ -330,8 +336,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
+			// Validate recipient matches the configured chain
 			ensure!(
-				matches!(recipient, SubjectFor::<T>::Acurast(_)),
+				ProxyChain::from(&recipient) == (&T::SelfChain::get()).into(),
 				Error::<T, I>::IncorrectRecipient
 			);
 
@@ -497,7 +504,7 @@ pub mod pallet {
 		/// Be careful to not allow for unintended impersonation.
 		/// * _Exactly-once delivery_ is **not** guaranteed even the `nonce` serves as deduplication during ttl; While, after ttl passed and message fee cannot be claimed by relayer, a _different_ message with same nonce can be sent off, it cannot be guaranteed a relayer received the oracle signatures before and still submits first message to proxy.
 		fn do_send_message(
-			sender: SubjectFor<T>,
+			sender: &T::AccountId,
 			payer: &T::AccountId,
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,
@@ -507,6 +514,18 @@ pub mod pallet {
 		) -> Result<NewAndMaybeOldMessage<T, I>, Error<T, I>> {
 			ensure!(fee >= T::MinFee::get(), Error::<T, I>::FeeTooLow);
 			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let layer = Layer::Extrinsic(sender.clone());
+			let sender = match T::SelfChain::get() {
+				ProxyAcurastChain::Acurast => Subject::Acurast(layer),
+				ProxyAcurastChain::AcurastCanary => Subject::AcurastCanary(layer),
+			};
+
+			// Prevent self-messaging: sender and recipient must be from different chains
+			ensure!(
+				ProxyChain::from(&sender) != ProxyChain::from(&recipient),
+				Error::<T, I>::SelfMessagingNotAllowed
+			);
 
 			// look for duplicates
 			let id = Self::message_id(&sender, nonce);
@@ -573,7 +592,7 @@ pub mod pallet {
 		type OutgoingMessage = OutgoingMessageWithMetaFor<T, I>;
 
 		fn send_message(
-			sender: SubjectFor<T>,
+			sender: &T::AccountId,
 			payer: &T::AccountId,
 			nonce: MessageNonce,
 			recipient: SubjectFor<T>,

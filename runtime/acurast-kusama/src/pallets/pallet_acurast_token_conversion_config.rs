@@ -6,7 +6,7 @@ use acurast_runtime_common::{
 	constants::{CanaryTokenConversionPalletId, MainnetTokenConversionPalletId, DAYS, UNIT},
 	types::{Balance, BlockNumber},
 };
-use pallet_acurast::{Layer, ProxyChain, Subject};
+use pallet_acurast::{Layer, Subject};
 use pallet_acurast_token_conversion::SubjectFor;
 
 use crate::{
@@ -16,7 +16,6 @@ use crate::{
 
 parameter_types! {
 	pub const TokenConversionPalletId: PalletId = CanaryTokenConversionPalletId::get();
-	pub const Chain: ProxyChain = ProxyChain::AcurastCanary;
 	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(MainnetTokenConversionPalletId::get().into_account_truncating())));
 	pub const ReceiveFrom: Option<SubjectFor<Runtime>> = None;
 	pub const Liquidity: Balance = UNIT;
@@ -27,7 +26,6 @@ parameter_types! {
 impl pallet_acurast_token_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = TokenConversionPalletId;
-	type Chain = Chain;
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;

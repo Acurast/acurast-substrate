@@ -12,11 +12,14 @@ use acurast_runtime_common::{
 	constants::{MINUTES, UNIT},
 	types::{AccountId, Balance, BlockNumber},
 };
-use pallet_acurast::{Layer, MessageProcessor, MessageSender, ProxyChain, Subject};
+use pallet_acurast::{
+	Layer, MessageProcessor, MessageSender, ProxyAcurastChain, ProxyChain, Subject,
+};
 use pallet_acurast_hyperdrive_ibc::{MessageBody, MessageFor, OutgoingMessageWithMeta};
 use pallet_acurast_token_conversion::SubjectFor;
 
 use crate::{
+	pallets::pallet_acurast_hyperdrive_config::SelfChain, AcurastHyperdriveIbc,
 	AcurastTokenConversion, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent,
 	RuntimeFreezeReason,
 };
@@ -35,7 +38,6 @@ parameter_types! {
 impl pallet_acurast_token_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = TokenConversionPalletId;
-	type Chain = Chain;
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;
@@ -43,7 +45,8 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type Liquidity = Liquidity;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
-	type MessageSender = LocalMessageSender;
+	// TODO maybe change back to LocalMessageSender once tested with mockmainnet
+	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;
 	type OnSlash = ResolveTo<TokenConversionPalletAccountId, Balances>;
 	type ConvertTTL = OutgoingTransferTTL;
@@ -57,7 +60,7 @@ impl MessageSender<AccountId, AccountId, Balance, BlockNumber> for LocalMessageS
 	type OutgoingMessage = OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, AccountId>;
 
 	fn send_message(
-		sender: SubjectFor<Runtime>,
+		sender: &<Runtime as frame_system::Config>::AccountId,
 		payer: &<Runtime as frame_system::Config>::AccountId,
 		nonce: pallet_acurast_hyperdrive_ibc::MessageNonce,
 		recipient: SubjectFor<Runtime>,
@@ -69,9 +72,17 @@ impl MessageSender<AccountId, AccountId, Balance, BlockNumber> for LocalMessageS
 			sender.clone(),
 			nonce,
 		));
+
+		// mimic the behaviour of ibc pallet
+		let layer = Layer::Extrinsic(sender.clone());
+		let sender = match SelfChain::get() {
+			ProxyAcurastChain::Acurast => Subject::Acurast(layer),
+			ProxyAcurastChain::AcurastCanary => Subject::AcurastCanary(layer),
+		};
+
 		let message = MessageFor::<Runtime> {
 			id,
-			sender,
+			sender: sender.clone(),
 			nonce,
 			recipient,
 			payload: payload.try_into().map_err(|_| DispatchError::Other("Payload too long"))?,

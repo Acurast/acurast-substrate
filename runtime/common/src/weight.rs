@@ -9,6 +9,7 @@ pub mod pallet_acurast_hyperdrive_token;
 pub mod pallet_acurast_marketplace;
 pub mod pallet_acurast_processor_manager;
 pub mod pallet_acurast_processor_manager_onboarding_extension;
+pub mod pallet_acurast_token_claim;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
 pub mod pallet_session;

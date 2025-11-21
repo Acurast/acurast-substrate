@@ -44,6 +44,7 @@ define_benchmarks!(
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
 	[pallet_acurast_token_conversion, AcurastTokenConversion]
+	[pallet_acurast_token_claim, AcurastTokenClaim]
 );
 
 fn create_funded_user(
@@ -290,5 +291,11 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
+	}
+}
+
+impl pallet_acurast_token_claim::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
+	fn dummy_signature() -> <Runtime as pallet_acurast_token_claim::Config>::Signature {
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
 	}
 }

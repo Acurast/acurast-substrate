@@ -1,0 +1,66 @@
+[package]
+name = "pallet-acurast-token-claim"
+description = "The Token Claim pallet enables the user to claim tokens if eligible."
+authors = { workspace = true }
+version = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
+homepage = "https://docs.acurast.com/"
+edition = "2021"
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+log = { workspace = true }
+parity-scale-codec = { workspace = true }
+sp-core = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+cfg-if = { workspace = true }
+
+# SDKs
+derive_more = { workspace = true }
+
+# Benchmarks
+frame-benchmarking = { workspace = true, optional = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+
+[dev-dependencies]
+log = { workspace = true }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-timestamp = { workspace = true, features = ["std"] }
+pallet-vesting = { workspace = true, features = ["std"] }
+
+[features]
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+	"hex/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+try-runtime = ["frame-support/try-runtime"]

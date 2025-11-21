@@ -167,6 +167,7 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-claim",
  "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",
@@ -452,6 +453,7 @@ dependencies = [
  "pallet-acurast-hyperdrive-token",
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
+ "pallet-acurast-token-claim",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -7934,6 +7936,30 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-acurast-token-claim"
+version = "0.23.4"
+dependencies = [
+ "cfg-if",
+ "derive_more 0.99.18",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-balances",
+ "pallet-timestamp",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use frame_support::{
 	assert_ok,
 	traits::{tokens::fungible::Mutate, OnFinalize, OnInitialize},
@@ -12,7 +10,7 @@ use crate::{mock::*, stub::*};
 
 #[test]
 fn test_single_vest_no_rewards() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account: AccountId = RTPalletId::get().into_account_truncating();
 		assert_eq!(System::block_number(), 1);
 
@@ -23,7 +21,7 @@ fn test_single_vest_no_rewards() {
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),
 			account.clone(),
-			1 * UNIT
+			UNIT
 		));
 		assert_ok!(Balances::transfer_allow_death(
 			RuntimeOrigin::signed(alice_account_id()),

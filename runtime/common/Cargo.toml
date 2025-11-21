@@ -36,6 +36,7 @@ pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-hyperdrive-token = { workspace = true }
 pallet-acurast-candidate-preselection = { workspace = true }
+pallet-acurast-token-claim = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -142,6 +143,7 @@ std = [
 	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-hyperdrive-token/std",
 	"pallet-acurast-candidate-preselection/std",
+	"pallet-acurast-token-claim/std",
 	"polkadot-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -181,6 +183,7 @@ runtime-benchmarks = [
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
 	"pallet-acurast-candidate-preselection/runtime-benchmarks",
+	"pallet-acurast-token-claim/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

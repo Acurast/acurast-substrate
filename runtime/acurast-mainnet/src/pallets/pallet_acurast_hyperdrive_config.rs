@@ -10,7 +10,7 @@ use acurast_runtime_common::{
 	types::{AccountId, Balance},
 	weight,
 };
-use pallet_acurast::{MessageBody, MessageProcessor};
+use pallet_acurast::{MessageBody, MessageProcessor, ProxyAcurastChain};
 use pallet_acurast_hyperdrive::ParsedAction;
 use pallet_acurast_hyperdrive_ibc::{LayerFor, SubjectFor};
 
@@ -27,6 +27,7 @@ use crate::{
 parameter_types! {
 	pub const MinFee: Balance = UNIT / 10;
 	pub const MinTransferAmount: Balance = UNIT;
+	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::Acurast;
 }
 
 impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
@@ -57,6 +58,7 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type MessageProcessor = HyperdriveMessageProcessor;
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type ParachainId = ParachainInfo;
+	type SelfChain = SelfChain;
 	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc::WeightInfo<Self>;
 }
 

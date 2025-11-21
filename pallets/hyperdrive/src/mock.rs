@@ -13,10 +13,11 @@ use frame_support::{
 	traits::{ConstU16, ConstU64},
 	Deserialize, PalletId, Serialize,
 };
-use frame_system as system;
+use frame_system::{self as system, EnsureRoot};
 use hex_literal::hex;
-use pallet_acurast::CU32;
+use pallet_acurast::{MessageBody, MessageProcessor, ProxyChain, ProxyAcurastChain, CU32};
 use pallet_acurast_marketplace::RegistrationExtra;
+use cumulus_primitives_core::ParaId;
 use sp_core::*;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -44,6 +45,9 @@ parameter_types! {
     pub IncomingTTL: BlockNumber = 50;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
+	pub const MinFee: Balance = 1;
+	pub const ParachainId: ParaId = ParaId::new(2000);
+	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::Acurast;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -123,10 +127,14 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Test {
     type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
+	type MinFee = MinFee;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MessageIdHashing = BlakeTwo256;
 	type MessageProcessor = HyperdriveMessageProcessor;
+	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type ParachainId = ParachainId;
+	type SelfChain = SelfChain;
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 

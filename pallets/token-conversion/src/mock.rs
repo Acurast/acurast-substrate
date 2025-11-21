@@ -59,7 +59,6 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 	pub const ConversionPallelId: PalletId = PalletId(*b"cnvrspid");
 	pub ConversionPalletAccountId: AccountId = ConversionPallelId::get().into_account_truncating();
-	pub const Chain: ProxyChain = ProxyChain::Acurast;
 	pub const TokenConversionPalletId: PalletId = PalletId(*b"cvrsnpid");
 	pub SendTo: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub ReceiveFrom: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
@@ -116,7 +115,6 @@ impl pallet_balances::Config for Test {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ConversionPallelId;
-	type Chain = Chain;
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;

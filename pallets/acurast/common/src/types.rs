@@ -19,7 +19,7 @@ use frame_support::{
 use sp_core::crypto::AccountId32;
 use sp_std::prelude::*;
 
-use crate::{EnsureAttested, ManagerLookup, ParameterBound, ProcessorVersionProvider};
+use crate::{EnsureAttested, ManagerLookup, ParameterBound, ProcessorVersionProvider, Subject};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const SCRIPT_PREFIX: &[u8] = b"ipfs://";
@@ -114,6 +114,32 @@ pub enum ProxyChain {
 	AcurastCanary,
 }
 
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	MaxEncodedLen,
+)]
+pub enum ProxyAcurastChain {
+	Acurast,
+	AcurastCanary,
+}
+
+impl From<&ProxyAcurastChain> for ProxyChain {
+	fn from(origin: &ProxyAcurastChain) -> Self {
+		match origin {
+			ProxyAcurastChain::Acurast => ProxyChain::Acurast,
+			ProxyAcurastChain::AcurastCanary => ProxyChain::AcurastCanary,
+		}
+	}
+}
+
 impl<AcurastAccountId> From<&MultiOrigin<AcurastAccountId>> for ProxyChain {
 	fn from(origin: &MultiOrigin<AcurastAccountId>) -> Self {
 		match origin {
@@ -124,6 +150,19 @@ impl<AcurastAccountId> From<&MultiOrigin<AcurastAccountId>> for ProxyChain {
 			MultiOrigin::Ethereum(_) | MultiOrigin::Ethereum20(_) => ProxyChain::Ethereum,
 			MultiOrigin::Solana(_) => ProxyChain::Solana,
 			MultiOrigin::AcurastCanary(_) => ProxyChain::AcurastCanary,
+		}
+	}
+}
+
+impl<AcurastAccountId, Contract> From<&Subject<AcurastAccountId, Contract>> for ProxyChain {
+	fn from(origin: &Subject<AcurastAccountId, Contract>) -> Self {
+		match origin {
+			Subject::Acurast(_) => ProxyChain::Acurast,
+			Subject::AlephZero(_) => ProxyChain::AlephZero,
+			Subject::Vara(_) => ProxyChain::Vara,
+			Subject::Ethereum(_) => ProxyChain::Ethereum,
+			Subject::Solana(_) => ProxyChain::Solana,
+			Subject::AcurastCanary(_) => ProxyChain::AcurastCanary,
 		}
 	}
 }

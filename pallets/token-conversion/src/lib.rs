@@ -428,7 +428,7 @@ pub mod pallet {
 			let message = ConversionMessageFor::<T> { account: account.clone(), amount };
 			let payload = message.encode();
 			let (_, maybe_replaced_message) = T::MessageSender::send_message(
-				&Self::account_id(),
+				&pallet_account,
 				&pallet_account,
 				T::MessageIdHasher::hash(nonce.as_slice()),
 				destination,

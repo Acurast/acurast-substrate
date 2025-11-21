@@ -9,7 +9,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use acurast_runtime_common::{
-	constants::{MINUTES, UNIT},
+	constants::{CanaryTokenConversionPalletId, MainnetTokenConversionPalletId, MINUTES, UNIT},
 	types::{AccountId, Balance, BlockNumber},
 };
 use pallet_acurast::{
@@ -25,11 +25,11 @@ use crate::{
 };
 
 parameter_types! {
-	pub const TokenConversionPalletId: PalletId = PalletId(*b"tcdevpid");
+	pub const TokenConversionPalletId: PalletId = CanaryTokenConversionPalletId::get();//PalletId(*b"tcdevpid");
 	pub TokenConversionPalletAccountId: AccountId = TokenConversionPalletId::get().into_account_truncating();
 	pub const Chain: ProxyChain = ProxyChain::Acurast;
-	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
-	pub ReceiveFrom: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
+	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(MainnetTokenConversionPalletId::get().into_account_truncating())));//Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
+	pub ReceiveFrom: Option<SubjectFor<Runtime>> = None;//Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub const Liquidity: Balance = UNIT;
 	pub const MinLockDuration: BlockNumber = MINUTES;
 	pub const MaxLockDuration: BlockNumber = 5 * MINUTES;

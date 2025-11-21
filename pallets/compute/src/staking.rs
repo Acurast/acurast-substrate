@@ -13,7 +13,7 @@ use frame_support::{
 use sp_core::{U256, U512};
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, Saturating, Zero},
-	FixedU128, Perbill, Perquintill, SaturatedConversion, Vec,
+	FixedU128, Perbill, Perquintill, SaturatedConversion,
 };
 
 use crate::types::{FIXEDU128_DECIMALS, PER_TOKEN_DECIMALS};
@@ -1437,8 +1437,9 @@ where
 
 		// Only check RedelegationBlockingPeriod is respected if current committer is not in cooldown, otherwise allow immediate redelegation always
 		if old_commitment_stake.cooldown_started.is_none() {
+			let current_block = <frame_system::Pallet<T>>::block_number();
 			// check if enough epochs have passed since last update (which lead to `created` field being reset)
-			let blocks_since_created = old_delegation.stake.created;
+			let blocks_since_created = current_block.saturating_sub(old_delegation.stake.created);
 			ensure!(
 				blocks_since_created
 					>= T::RedelegationBlockingPeriod::get().saturating_mul(T::Epoch::get()),
@@ -1720,7 +1721,7 @@ where
 
 			let missed_epochs: u128 =
 				if actual_metric_sum.is_zero() && metric_epoch_sum.epoch < last_epoch {
-					// we still now an "old" value since it got not overwritten and we can slash for all the epoch's missed
+					// we still know an "old" value since it got not overwritten and we can slash for all the epoch's missed
 					last_epoch.saturating_sub(metric_epoch_sum.epoch).saturated_into::<u128>()
 				} else {
 					One::one()
@@ -1870,12 +1871,10 @@ where
 			let maximum_slashable = if stake.accrued_slash > stake.amount {
 				// do not slash more than the stake!
 				stake.amount
+			} else if stake.accrued_slash > balance {
+				balance
 			} else {
-				if stake.accrued_slash > balance {
-					balance
-				} else {
-					stake.accrued_slash
-				}
+				stake.accrued_slash
 			};
 
 			// Withdraw and burn the slashed amount
@@ -1891,60 +1890,6 @@ where
 		}
 
 		Ok(())
-	}
-
-	/// Force-unstakes a commitment by removing all delegations and the commitment's own stake.
-	/// This bypasses normal cooldown and validation checks.
-	pub fn force_end_commitment_for(commitment_id: T::CommitmentId) {
-		// Calculate total amounts to be removed for updating global totals
-		let mut total_delegation_amount: BalanceFor<T, I> = Zero::zero();
-		let mut total_stake_amount: BalanceFor<T, I> = Zero::zero();
-
-		// Find all delegations to this commitment and remove them
-		let all_delegations: Vec<(T::AccountId, T::CommitmentId, _)> =
-			<Delegations<T, I>>::iter().collect();
-		for (delegator, delegation_commitment_id, stake) in all_delegations {
-			if delegation_commitment_id == commitment_id {
-				// Update delegator totals
-				<DelegatorTotal<T, I>>::mutate(&delegator, |s| {
-					*s = s.saturating_sub(stake.stake.amount);
-				});
-
-				// Unlock funds for delegator
-				Self::unlock_funds(&delegator, stake.stake.amount);
-
-				// Add to total delegation amount
-				total_delegation_amount =
-					total_delegation_amount.saturating_add(stake.stake.amount);
-
-				// Remove this specific delegation
-				<Delegations<T, I>>::remove(&delegator, commitment_id);
-			}
-		}
-
-		// Remove commitment's own stake
-		if let Some(c) = <Commitments<T, I>>::take(commitment_id) {
-			if let Some(stake) = c.stake {
-				total_stake_amount = stake.amount;
-				if let Ok(committer) = T::CommitmentIdProvider::owner_for(commitment_id) {
-					Self::unlock_funds(&committer, stake.amount);
-				}
-			}
-		}
-
-		// Calculate total amount to remove from global stake
-		let total_amount_to_remove = total_delegation_amount.saturating_add(total_stake_amount);
-
-		// Update global totals
-		if !total_amount_to_remove.is_zero() {
-			<TotalStake<T, I>>::mutate(|s| {
-				*s = s.saturating_sub(total_amount_to_remove);
-			});
-		}
-		let _ = Self::update_total_stake(StakeChange::Sub(total_amount_to_remove));
-
-		// Remove compute commitments
-		let _ = <ComputeCommitments<T, I>>::clear_prefix(commitment_id, u32::MAX, None);
 	}
 
 	pub fn delegation_weight_ratio(
@@ -2025,7 +1970,7 @@ where
 		};
 
 		// also reserved balance can be locked, therefore compare to total_balance
-		if <T::Currency as Currency<T::AccountId>>::total_balance(who)
+		if <T::Currency as Currency<T::AccountId>>::free_balance(who)
 			< new_lock_total.saturated_into()
 		{
 			Err(Error::<T, I>::InsufficientBalance)?;

@@ -77,12 +77,6 @@ impl ExtBuilder {
 	}
 }
 
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
-	}
-}
-
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
@@ -482,7 +476,7 @@ impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
 		caller
 	}
 
-	fn remove_job_registration(job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
+	fn remove_job_registration(_job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

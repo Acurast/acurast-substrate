@@ -202,7 +202,7 @@ thread_local! {
 		map
 	});
 
-	static INFLATION_PER_EPOCH: RefCell<Balance> = RefCell::new(8_561_643_835_616_438);
+	static INFLATION_PER_EPOCH: RefCell<Balance> = const { RefCell::new(8_561_643_835_616_438) };
 }
 
 /// Dynamic parameter type for InflationPerEpoch that can be modified in tests
@@ -225,7 +225,7 @@ impl InflationPerEpoch {
 	/// Reset to default value
 	pub fn reset() {
 		INFLATION_PER_EPOCH.with(|v| {
-			*v.borrow_mut() = 1 * UNIT;
+			*v.borrow_mut() = UNIT;
 		});
 	}
 }

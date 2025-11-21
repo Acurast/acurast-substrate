@@ -10,7 +10,7 @@ use sp_runtime::{
 	AccountId32, BuildStorage,
 };
 
-use acurast_common::{Layer, ProxyChain, Subject};
+use acurast_common::{Layer, Subject};
 
 use crate::SubjectFor;
 

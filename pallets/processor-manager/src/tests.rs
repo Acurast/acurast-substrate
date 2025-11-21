@@ -1,11 +1,10 @@
 use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
-	ProcessorPairingFor, ProcessorPairingUpdateFor, Proof, RewardDistributionSettings, UpdateInfo,
+	ProcessorPairingFor, ProcessorPairingUpdateFor, Proof, UpdateInfo,
 };
 use acurast_common::{ListUpdateOperation, ManagerLookup, Version};
 use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
 use hex_literal::hex;
-use pallet_balances::Event as BalancesEvent;
 
 fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (signer, manager_account) = generate_pair_account();

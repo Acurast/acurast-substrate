@@ -1,6 +1,11 @@
 use frame_benchmarking::v2::*;
 use frame_support::{
-	pallet_prelude::*, sp_runtime::traits::AccountIdConversion, traits::fungible::Mutate,
+	pallet_prelude::*,
+	sp_runtime::traits::AccountIdConversion,
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
@@ -17,6 +22,17 @@ mod benches {
 	// helper inside the benchmark module so `T` is injected by the macro
 	fn mint_to<T: Config>(who: &T::AccountId, amount: BalanceFor<T>) {
 		let _ = <<T as crate::Config>::Currency as Mutate<T::AccountId>>::mint_into(who, amount);
+	}
+
+	fn burn_all_from<T: Config>(who: &T::AccountId) {
+		let balance = <<T as crate::Config>::Currency as Inspect<T::AccountId>>::balance(who);
+		let _ = <<T as crate::Config>::Currency as Mutate<T::AccountId>>::burn_from(
+			who,
+			balance,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Force,
+		);
 	}
 
 	/// convert
@@ -139,6 +155,7 @@ mod benches {
 	fn retry_process_conversion() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
+		burn_all_from::<T>(&pallet_account);
 
 		// insert an unprocessed conversion for `target`
 		let msg = ConversionMessageFor::<T> {
@@ -163,6 +180,7 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		let target: T::AccountId = account("target", 0, 0);
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
+		burn_all_from::<T>(&pallet_account);
 
 		// insert an unprocessed conversion for `target`
 		let msg = ConversionMessageFor::<T> {

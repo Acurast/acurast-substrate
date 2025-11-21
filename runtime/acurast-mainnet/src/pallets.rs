@@ -7,6 +7,7 @@ mod pallet_acurast_hyperdrive_config;
 mod pallet_acurast_marketplace_config;
 mod pallet_acurast_processor_manager_config;
 mod pallet_acurast_rewards_treasury_config;
+mod pallet_acurast_token_claim;
 mod pallet_acurast_token_conversion_config;
 mod pallet_aura_config;
 mod pallet_authorship_config;

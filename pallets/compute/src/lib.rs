@@ -109,9 +109,9 @@ pub mod pallet {
 		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`Stake`]`::cooldown_period / MaxCooldownPeriod`.
 		#[pallet::constant]
 		type MaxCooldownPeriod: Get<BlockNumberFor<Self>>;
-		/// The target cooldown period for delegators in number of blocks, used as reference for economic calculations.
+		/// Target-weight-per-compute multiplier (e.g. 5 = 500%).
 		#[pallet::constant]
-		type TargetCooldownPeriod: Get<BlockNumberFor<Self>>;
+		type TargetWeightPerComputeMultiplier: Get<FixedU128>;
 		/// The target ratio of total token supply that should be staked, used for adjusting incentives.
 		#[pallet::constant]
 		type TargetStakedTokenSupply: Get<Perquintill>;
@@ -1222,14 +1222,11 @@ pub mod pallet {
 				// we have to use the pool's total compute from the last_epoch since only this one is a completed rolling sum
 				let target_weight_per_compute = U256::from(target_token_supply)
 					.saturating_mul(U256::from(PER_TOKEN_DECIMALS))
-					.saturating_mul(U256::from(
-						T::TargetCooldownPeriod::get().saturated_into::<u128>(),
-					))
-					.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-					.unwrap_or(Zero::zero())
-					.saturating_mul(U256::from(FIXEDU128_DECIMALS))
 					.checked_div(U256::from(pool.total.get(last_epoch).into_inner()))
-					.unwrap_or(Zero::zero());
+					.unwrap_or(Zero::zero())
+					.saturating_mul(U256::from(
+						T::TargetWeightPerComputeMultiplier::get().into_inner(),
+					));
 				StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
 					// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
 					let stale_budget = r.get(last_epoch.saturating_sub(One::one()));

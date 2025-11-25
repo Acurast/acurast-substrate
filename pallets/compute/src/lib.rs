@@ -755,7 +755,7 @@ pub mod pallet {
 		///
 		/// This is called by the committer that should already be backing a manager, the he offered and got accepted to be backing the manager's compute.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::commit_compute())]
+		#[pallet::weight(T::WeightInfo::commit_compute(commitment.len() as u32))]
 		pub fn commit_compute(
 			origin: OriginFor<T>,
 			amount: BalanceFor<T, I>,
@@ -782,7 +782,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::stake_more())]
+		#[pallet::weight(T::WeightInfo::stake_more(commitment.as_ref().map(|c| c.len()).unwrap_or_default() as u32))]
 		pub fn stake_more(
 			origin: OriginFor<T>,
 			extra_amount: BalanceFor<T, I>,

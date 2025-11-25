@@ -233,7 +233,7 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		AcurastCompute::create_pool(
 			RuntimeOrigin::root(),
 			name,
-			Perquintill::from_percent(25),
+			Perquintill::from_percent(1),
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");

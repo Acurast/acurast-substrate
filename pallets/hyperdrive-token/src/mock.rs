@@ -13,7 +13,7 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureRoot};
 use hex_literal::hex;
-use pallet_acurast::{MessageBody, MessageProcessor, CU32};
+use pallet_acurast::{MessageBody, MessageProcessor, ProxyAcurastChain, ProxyChain, CU32};
 use pallet_acurast_hyperdrive_ibc::{HoldReason, LayerFor, SubjectFor};
 use sp_core::*;
 use sp_runtime::traits::AccountIdConversion;
@@ -60,6 +60,7 @@ parameter_types! {
 	pub const MinReceiptConfirmationSignatures: u32 = 1;
 	pub const MinFee: Balance = UNIT / 10;
 	pub const ParachainId: ParaId = ParaId::new(2000);
+	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::Acurast;
 }
 
 impl pallet_acurast_hyperdrive_ibc::Config for Test {
@@ -75,6 +76,7 @@ impl pallet_acurast_hyperdrive_ibc::Config for Test {
 	type MessageProcessor = HyperdriveMessageProcessor;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type ParachainId = ParachainId;
+	type SelfChain = SelfChain;
 	type WeightInfo = pallet_acurast_hyperdrive_ibc::weights::WeightInfo<Test>;
 }
 
@@ -158,7 +160,7 @@ impl pallet_balances::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let storage = system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	let storage = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(storage);
 	ext.execute_with(|| System::set_block_number(1));

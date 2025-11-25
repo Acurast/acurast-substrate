@@ -45,14 +45,12 @@ pub mod pallet {
 		PalletId, Parameter,
 	};
 	use frame_system::pallet_prelude::*;
-	use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 	use sp_core::U256;
 	use sp_runtime::{
-		traits::{AccountIdConversion, One, SaturatedConversion, Saturating, Zero},
+		traits::{AccountIdConversion, CheckedAdd, One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Perbill, Perquintill,
 	};
-	use sp_std::cmp::max;
-	use sp_std::prelude::*;
+	use sp_std::{cmp::max, prelude::*};
 
 	use crate::*;
 
@@ -111,9 +109,9 @@ pub mod pallet {
 		/// The maximum cooldown period for delegators in number of blocks. Delegator's weight is linear as [`Stake`]`::cooldown_period / MaxCooldownPeriod`.
 		#[pallet::constant]
 		type MaxCooldownPeriod: Get<BlockNumberFor<Self>>;
-		/// The target cooldown period for delegators in number of blocks, used as reference for economic calculations.
+		/// Target-weight-per-compute multiplier (e.g. 5 = 500%).
 		#[pallet::constant]
-		type TargetCooldownPeriod: Get<BlockNumberFor<Self>>;
+		type TargetWeightPerComputeMultiplier: Get<FixedU128>;
 		/// The target ratio of total token supply that should be staked, used for adjusting incentives.
 		#[pallet::constant]
 		type TargetStakedTokenSupply: Get<Perquintill>;
@@ -497,6 +495,8 @@ pub mod pallet {
 		DelegationInCooldown,
 		CommissionIncreaseTooLarge,
 		CommissionIncreaseTooSoon,
+		CannotCreatePool,
+		InvalidTotalPoolRewards,
 	}
 
 	#[pallet::hooks]
@@ -536,65 +536,49 @@ pub mod pallet {
 
 					// Handle inflation-based reward distribution on new epoch
 					{
-						if let Some(mut inflation_info) = Self::inflate() {
-							let used_weight = Self::store_metrics_reward(
-								inflation_info.metrics_reward,
-								current_epoch,
-							);
-							weight = weight.saturating_add(used_weight);
-							let (used_weight, unused_amount) = Self::store_staked_compute_reward(
-								inflation_info.staked_compute_reward,
-								current_epoch,
-								last_epoch,
-								target_token_supply,
-							);
-							weight = weight.saturating_add(used_weight);
-							let used_weight =
-								Self::store_collators_reward(inflation_info.collators_reward);
-							collators_reward = Some(inflation_info.collators_reward);
-							weight = weight.saturating_add(used_weight);
-							if !unused_amount.is_zero() {
-								if let Ok(unused) =
-									<T::Currency as Balanced<T::AccountId>>::withdraw(
-										&Self::account_id(),
-										unused_amount,
-										Precision::Exact,
-										Preservation::Preserve,
-										Fortitude::Polite,
-									) {
-									inflation_info.credit = inflation_info.credit.merge(unused);
+						let mut inflation_info = Self::inflate();
+						let used_weight = Self::store_metrics_reward(
+							inflation_info.metrics_reward,
+							current_epoch,
+						);
+						weight = weight.saturating_add(used_weight);
+						let (used_weight, unused_amount) = Self::store_staked_compute_reward(
+							inflation_info.staked_compute_reward,
+							current_epoch,
+							last_epoch,
+							target_token_supply,
+						);
+						weight = weight.saturating_add(used_weight);
+						let used_weight =
+							Self::store_collators_reward(inflation_info.collators_reward);
+						collators_reward = Some(inflation_info.collators_reward);
+						weight = weight.saturating_add(used_weight);
+						if !unused_amount.is_zero() {
+							if let Ok(unused) = <T::Currency as Balanced<T::AccountId>>::withdraw(
+								&Self::account_id(),
+								unused_amount,
+								Precision::Exact,
+								Preservation::Preserve,
+								Fortitude::Polite,
+							) {
+								if inflation_info.credit.is_some() {
+									inflation_info.credit =
+										inflation_info.credit.map(|c| c.merge(unused));
+								} else {
+									inflation_info.credit = Some(unused);
 								}
 							}
-							T::InflationHandler::on_unbalanced(inflation_info.credit);
-							weight = weight.saturating_add(T::DbWeight::get().writes(2));
 						}
+						if let Some(credit) = inflation_info.credit {
+							T::InflationHandler::on_unbalanced(credit);
+						}
+						weight = weight.saturating_add(T::DbWeight::get().writes(2));
 					}
 				}
 			}
 
-			if collators_reward.is_none() {
-				collators_reward = Some(<CollatorRewards<T, I>>::get());
-				weight = weight.saturating_add(T::DbWeight::get().reads(1));
-			}
-
-			if let Some(collators_reward) = collators_reward {
-				if !collators_reward.is_zero() {
-					let epoch_length: BlockNumberFor<T> = T::Epoch::get();
-					let collators_reward: u128 = collators_reward.saturated_into();
-					let collators_reward_per_block: BalanceFor<T, I> =
-						collators_reward.saturating_div(epoch_length.saturated_into()).into();
-					weight = weight.saturating_add(T::DbWeight::get().reads(1));
-					if let Some(author) = T::AuthorProvider::author() {
-						_ = T::Currency::transfer(
-							&Self::account_id(),
-							&author,
-							collators_reward_per_block,
-							ExistenceRequirement::KeepAlive,
-						);
-						weight = weight.saturating_add(T::DbWeight::get().writes(1));
-					}
-				}
-			}
+			let used_weight = Self::reward_collator(collators_reward);
+			weight = weight.saturating_add(used_weight);
 
 			weight
 		}
@@ -634,6 +618,7 @@ pub mod pallet {
 			new_config: Option<ModifyMetricPoolConfig>,
 		) -> DispatchResultWithPostInfo {
 			T::CreateModifyPoolOrigin::ensure_origin(origin)?;
+			let current_epoch = Self::current_cycle().epoch;
 
 			<MetricPools<T, I>>::try_mutate(pool_id, |pool| -> Result<(), Error<T, I>> {
 				let p = pool.as_mut().ok_or(Error::<T, I>::PoolNotFound)?;
@@ -651,7 +636,7 @@ pub mod pallet {
 				}
 
 				// we use current epoch - 1 to be sure no rewards are overwritten that still are used for calculations/claiming
-				let previous_epoch = Self::current_cycle().epoch.saturating_sub(One::one());
+				let previous_epoch = current_epoch.saturating_sub(One::one());
 
 				if let Some((epoch, reward)) = new_reward_from_epoch {
 					p.reward
@@ -687,6 +672,10 @@ pub mod pallet {
 
 				Ok(())
 			})?;
+
+			let current_pools = MetricPools::<T, I>::iter().map(|(_, v)| v).collect::<Vec<_>>();
+			Self::validate_metric_pools(current_pools.as_slice(), current_epoch)?;
+
 			Ok(Pays::No.into())
 		}
 
@@ -741,15 +730,17 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
 
-			let offer_manager_id =
-				BackingOffers::<T, I>::take(committer).ok_or(Error::<T, I>::NoBackingOfferFound)?;
+			ensure!(Self::backing_lookup(manager_id).is_none(), Error::<T, I>::AlreadyBacking);
+
+			let offer_manager_id = BackingOffers::<T, I>::take(&committer)
+				.ok_or(Error::<T, I>::NoBackingOfferFound)?;
 			ensure!(manager_id == offer_manager_id, Error::<T, I>::NoBackingOfferFound);
 
 			// technically this call allows to reuse a commitment_id NFT here, but the mechanism to create commitment IDs in this pallet does not yet allow committers to swap which managers they back (they can do offer-accept-flow at most once)
-			let (commitment_id, created) = Self::do_get_or_create_commitment_id(&who)?;
+			let (commitment_id, created) = Self::do_get_or_create_commitment_id(&committer)?;
 			if created {
 				// we always emit this if extrinsic call succeeds, but it's likely to change in the future so we already emit this separate event for the first time a commitment_id-NFT is created
-				Self::deposit_event(Event::<T, I>::CommitmentCreated(who, commitment_id));
+				Self::deposit_event(Event::<T, I>::CommitmentCreated(committer, commitment_id));
 			}
 
 			<Backings<T, I>>::insert(commitment_id, manager_id);
@@ -764,7 +755,7 @@ pub mod pallet {
 		///
 		/// This is called by the committer that should already be backing a manager, the he offered and got accepted to be backing the manager's compute.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::commit_compute())]
+		#[pallet::weight(T::WeightInfo::commit_compute(commitment.len() as u32))]
 		pub fn commit_compute(
 			origin: OriginFor<T>,
 			amount: BalanceFor<T, I>,
@@ -791,7 +782,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::stake_more())]
+		#[pallet::weight(T::WeightInfo::stake_more(commitment.as_ref().map(|c| c.len()).unwrap_or_default() as u32))]
 		pub fn stake_more(
 			origin: OriginFor<T>,
 			extra_amount: BalanceFor<T, I>,
@@ -963,22 +954,6 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Force-unstakes a commitment, removing all delegations and the commitment's own stake.
-		///
-		/// This is a operator-only operation that bypasses normal cooldown and validation checks.
-		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::force_end_commitment())]
-		pub fn force_end_commitment(
-			origin: OriginFor<T>,
-			commitment_id: T::CommitmentId,
-		) -> DispatchResultWithPostInfo {
-			T::OperatorOrigin::ensure_origin(origin)?;
-
-			Self::force_end_commitment_for(commitment_id);
-
-			Ok(Pays::No.into())
-		}
-
 		/// Withdraws accrued rewards and slashes for a delegator.
 		///
 		/// The caller must be a delegator to the specified commitment.
@@ -1143,11 +1118,11 @@ pub mod pallet {
 			})
 		}
 
-		fn inflate() -> Option<InflationInfoFor<T, I>> {
+		fn inflate() -> InflationInfoFor<T, I> {
 			let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
 
 			if inflation_amount.is_zero() {
-				return None;
+				return InflationInfo::default();
 			}
 
 			// Mint new tokens into distribution account
@@ -1172,12 +1147,12 @@ pub mod pallet {
 				imbalance = imbalance.merge(credit);
 			}
 
-			Some(InflationInfo {
+			InflationInfo {
 				metrics_reward: compute_based_amount,
 				staked_compute_reward: stake_backed_amount,
 				collators_reward: collators_amount,
-				credit: imbalance,
-			})
+				credit: Some(imbalance),
+			}
 		}
 
 		fn store_metrics_reward(amount: BalanceFor<T, I>, current_epoch: EpochOf<T>) -> Weight {
@@ -1200,12 +1175,32 @@ pub mod pallet {
 		fn store_collators_reward(amount: BalanceFor<T, I>) -> Weight {
 			let mut weight = Weight::default();
 
-			if !amount.is_zero() {
-				<CollatorRewards<T, I>>::set(amount);
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
-			}
+			<CollatorRewards<T, I>>::set(amount);
+			weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 			weight
+		}
+
+		fn validate_metric_pools(
+			pools: &[MetricPoolFor<T>],
+			current_epoch: EpochOf<T>,
+		) -> DispatchResult {
+			let mut epochs_to_test = vec![current_epoch];
+			epochs_to_test
+				.extend(pools.iter().filter_map(|pool| pool.reward.next_epoch(current_epoch)));
+			epochs_to_test.sort_unstable();
+			epochs_to_test.dedup();
+			for epoch in epochs_to_test {
+				let mut reward_sum: Perquintill = Perquintill::zero();
+				for metric_pool in pools {
+					let reward = metric_pool.reward.get(epoch);
+					reward_sum = reward_sum
+						.checked_add(&reward)
+						.ok_or(Error::<T, I>::InvalidTotalPoolRewards)?;
+				}
+			}
+
+			Ok(())
 		}
 	}
 
@@ -1227,14 +1222,11 @@ pub mod pallet {
 				// we have to use the pool's total compute from the last_epoch since only this one is a completed rolling sum
 				let target_weight_per_compute = U256::from(target_token_supply)
 					.saturating_mul(U256::from(PER_TOKEN_DECIMALS))
-					.saturating_mul(U256::from(
-						T::TargetCooldownPeriod::get().saturated_into::<u128>(),
-					))
-					.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
-					.unwrap_or(Zero::zero())
-					.saturating_mul(U256::from(FIXEDU128_DECIMALS))
 					.checked_div(U256::from(pool.total.get(last_epoch).into_inner()))
-					.unwrap_or(Zero::zero());
+					.unwrap_or(Zero::zero())
+					.saturating_mul(U256::from(
+						T::TargetWeightPerComputeMultiplier::get().into_inner(),
+					));
 				StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
 					// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
 					let stale_budget = r.get(last_epoch.saturating_sub(One::one()));
@@ -1261,13 +1253,47 @@ pub mod pallet {
 			(weight, unused_amount)
 		}
 
+		fn reward_collator(maybe_amount: Option<BalanceFor<T, I>>) -> Weight {
+			let mut weight = Weight::default();
+
+			let collators_reward = maybe_amount.unwrap_or_else(|| {
+				weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+				<CollatorRewards<T, I>>::get()
+			});
+
+			if !collators_reward.is_zero() {
+				let epoch_length: BlockNumberFor<T> = T::Epoch::get();
+				let collators_reward: u128 = collators_reward.saturated_into();
+				let collators_reward_per_block: BalanceFor<T, I> =
+					collators_reward.saturating_div(epoch_length.saturated_into()).into();
+				weight = weight.saturating_add(T::DbWeight::get().reads(1));
+				if let Some(author) = T::AuthorProvider::author() {
+					_ = T::Currency::transfer(
+						&Self::account_id(),
+						&author,
+						collators_reward_per_block,
+						ExistenceRequirement::KeepAlive,
+					);
+					weight = weight.saturating_add(T::DbWeight::get().writes(1));
+				}
+			}
+
+			weight
+		}
+
 		fn do_create_pool(
 			name: MetricPoolName,
 			reward_ratio: Perquintill,
 			config: MetricPoolConfigValues,
 		) -> Result<(PoolId, MetricPoolFor<T>), DispatchError> {
+			let mut current_pools = MetricPools::<T, I>::iter().map(|(_, v)| v).collect::<Vec<_>>();
+			let current_pools_count = current_pools.len().saturated_into::<u32>();
+			if current_pools_count >= T::MaxPools::get() {
+				return Err(Error::<T, I>::CannotCreatePool)?;
+			}
 			if Self::metric_pool_lookup(name).is_some() {
-				Err(Error::<T, I>::PoolNameMustBeUnique)?
+				return Err(Error::<T, I>::PoolNameMustBeUnique)?;
 			}
 			let pool_id = LastMetricPoolId::<T, I>::try_mutate::<_, Error<T, I>, _>(|id| {
 				*id = id.checked_add(1).ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -1281,8 +1307,13 @@ pub mod pallet {
 				total: SlidingBuffer::new(Zero::zero()),
 				total_with_bonus: SlidingBuffer::new(Zero::zero()),
 			};
+
 			MetricPools::<T, I>::insert(pool_id, &pool);
 			<MetricPoolLookup<T, I>>::insert(name, pool_id);
+
+			current_pools.push(pool.clone());
+			let current_epoch = Self::current_cycle().epoch;
+			Self::validate_metric_pools(current_pools.as_slice(), current_epoch)?;
 
 			Ok((pool_id, pool))
 		}

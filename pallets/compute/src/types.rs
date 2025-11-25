@@ -473,11 +473,12 @@ pub enum LockReason<ManagerId> {
 	Delegation(ManagerId),
 }
 
+#[derive(RuntimeDebug, Default)]
 pub struct InflationInfo<Balance, Credit> {
 	pub metrics_reward: Balance,
 	pub staked_compute_reward: Balance,
 	pub collators_reward: Balance,
-	pub credit: Credit,
+	pub credit: Option<Credit>,
 }
 
 pub type InflationInfoFor<T, I> = InflationInfo<

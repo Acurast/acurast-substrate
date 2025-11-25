@@ -8,7 +8,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use sp_std::prelude::*;
 
-use pallet_acurast::{AccountId20, ContractCall, Layer, MultiOrigin, Subject};
+use pallet_acurast::{AccountId20, ContractCall, Layer, MultiOrigin, ProxyAcurastChain, Subject};
 
 use crate::{
 	ActivityWindow, BalanceOf, Call, Config, HoldReason, IncomingMessageWithMetaFor,
@@ -98,7 +98,11 @@ fn seed_incoming_message<T: Config<I>, I: 'static>(
 
 fn default_subjects<T: Config<I>, I: 'static>() -> (SubjectFor<T>, SubjectFor<T>) {
 	let who = account::<T::AccountId>("sender", 0, 0);
-	let sender = Subject::Acurast(Layer::Extrinsic(who));
+	let layer = Layer::Extrinsic(who);
+	let sender = match T::SelfChain::get() {
+		ProxyAcurastChain::Acurast => Subject::Acurast(layer),
+		ProxyAcurastChain::AcurastCanary => Subject::AcurastCanary(layer),
+	};
 	let recipient = Subject::Ethereum(Layer::Contract(ContractCall {
 		contract: AccountId20(hex!("7F44aD0fD6c15CfBA6f417C33924c8cF0C751d23")),
 		selector: None,

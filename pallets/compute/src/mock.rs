@@ -5,7 +5,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{ConstU128, ConstU32, IdentityLookup},
-		BuildStorage, Perbill, Perquintill,
+		BuildStorage, FixedU128, Perbill, Perquintill,
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
@@ -124,7 +124,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 36;
 	pub const MaxCooldownPeriod: BlockNumber = 108;
-	pub const TargetCooldownPeriod: BlockNumber = 108; // Target cooldown period for economic calculations
+	pub const TargetWeightPerComputeMultiplier: FixedU128 = FixedU128::from_u32(1); // 1.0 = 100%
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
 	pub const MinDelegation: Balance = 1;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -156,7 +156,7 @@ impl Config for Test {
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
-	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetWeightPerComputeMultiplier = TargetWeightPerComputeMultiplier;
 	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
@@ -202,7 +202,7 @@ thread_local! {
 		map
 	});
 
-	static INFLATION_PER_EPOCH: RefCell<Balance> = RefCell::new(8_561_643_835_616_438);
+	static INFLATION_PER_EPOCH: RefCell<Balance> = const { RefCell::new(8_561_643_835_616_438) };
 }
 
 /// Dynamic parameter type for InflationPerEpoch that can be modified in tests
@@ -225,7 +225,7 @@ impl InflationPerEpoch {
 	/// Reset to default value
 	pub fn reset() {
 		INFLATION_PER_EPOCH.with(|v| {
-			*v.borrow_mut() = 1 * UNIT;
+			*v.borrow_mut() = UNIT;
 		});
 	}
 }

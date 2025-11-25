@@ -1690,6 +1690,13 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 	if modify_reward {
 		assert_ok!(Compute::modify_pool(
 			RuntimeOrigin::root(),
+			2,
+			None,
+			Some((2, Perquintill::from_percent(40))),
+			None
+		));
+		assert_ok!(Compute::modify_pool(
+			RuntimeOrigin::root(),
 			1,
 			None,
 			Some((2, Perquintill::from_percent(35))),
@@ -2191,10 +2198,8 @@ fn test_commit_compute_overstaked() {
 
 		// Burn minimum 1000 tokens from total supply
 		let total_issuance_before_burn = Balances::total_issuance();
-		let burn_amount = 1000 * UNIT;
 
 		// Burn from Charlie's account (he has most of the tokens)
-		let charlie_balance = Balances::free_balance(&charlie);
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			charlie.clone(),

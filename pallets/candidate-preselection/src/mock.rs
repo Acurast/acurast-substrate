@@ -6,7 +6,6 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
-use sp_io;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 
 use crate::*;
@@ -32,12 +31,6 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
-	}
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
 	}
 }
 

@@ -795,8 +795,6 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			* (registration1.extra.requirements.slots as u128)
 			* (registration1.schedule.execution_count() as u128);
 		let fee_percentage = FeeManagerImpl::get_fee_percentage();
-		let fee1 = fee_percentage.mul_floor(assignment1.fee_per_execution);
-		let reward1_after_fee = assignment1.fee_per_execution - fee1;
 		let matcher_percentage = FeeManagerImpl::get_matcher_percentage();
 		let matcher_payout = matcher_percentage
 			.mul_floor(registration1.extra.requirements.reward - assignment1.fee_per_execution)
@@ -809,14 +807,8 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance - total_reward
 		);
-
 		assert_eq!(Balances::free_balance(processor_2_account_id()), processor_initial_balance);
-
 		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
-
-		let fee2 = fee_percentage.mul_floor(assignment2.fee_per_execution);
-		let reward2_after_fee = assignment2.fee_per_execution - fee2;
-
 		assert_eq!(
 			Balances::free_balance(alice_account_id()),
 			consumer_initial_balance

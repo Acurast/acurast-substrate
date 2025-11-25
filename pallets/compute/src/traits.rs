@@ -16,13 +16,12 @@ pub trait WeightInfo {
 	fn cooldown_delegation() -> Weight;
 	fn redelegate() -> Weight;
 	fn end_delegation() -> Weight;
-	fn commit_compute() -> Weight;
-	fn stake_more() -> Weight;
+	fn commit_compute(x: u32) -> Weight;
+	fn stake_more(x: u32) -> Weight;
 	fn cooldown_compute_commitment() -> Weight;
 	fn end_compute_commitment() -> Weight;
 	fn kick_out() -> Weight;
 	fn slash() -> Weight;
-	fn force_end_commitment() -> Weight;
 	fn withdraw_delegation() -> Weight;
 	fn withdraw_commitment() -> Weight;
 	fn delegate_more() -> Weight;
@@ -75,11 +74,11 @@ impl WeightInfo for () {
 		Weight::from_parts(10_000, 0)
 	}
 
-	fn commit_compute() -> Weight {
+	fn commit_compute(_x: u32) -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 
-	fn stake_more() -> Weight {
+	fn stake_more(_x: u32) -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 
@@ -96,10 +95,6 @@ impl WeightInfo for () {
 	}
 
 	fn slash() -> Weight {
-		Weight::from_parts(10_000, 0)
-	}
-
-	fn force_end_commitment() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

@@ -38,10 +38,7 @@ pub mod pallet {
 	};
 	use sp_std::{prelude::*, vec};
 
-	use acurast_common::{
-		Layer, MessageBody, MessageFeeProvider, MessageProcessor, MessageSender, ProxyChain,
-		Subject,
-	};
+	use acurast_common::{MessageBody, MessageFeeProvider, MessageProcessor, MessageSender};
 
 	use super::*;
 
@@ -55,7 +52,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type PalletId: Get<PalletId>;
-		type Chain: Get<ProxyChain>;
 		type SendTo: Get<Option<SubjectFor<Self>>>;
 		type ReceiveFrom: Get<Option<SubjectFor<Self>>>;
 		type Currency: Inspect<Self::AccountId>
@@ -108,7 +104,6 @@ pub mod pallet {
 		ConvertToNotEnabled,
 		ConvertFromNotEnabled,
 		InvalidSender,
-		InvalidSubject,
 		DecodingFailure,
 		ConversionLockNotFound,
 		InvalidDuration,
@@ -394,16 +389,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn subject_for(proxy: ProxyChain) -> Result<SubjectFor<T>, Error<T>> {
-			match proxy {
-				ProxyChain::Acurast => Ok(Subject::Acurast(Layer::Extrinsic(Self::account_id()))),
-				ProxyChain::AcurastCanary => {
-					Ok(Subject::AcurastCanary(Layer::Extrinsic(Self::account_id())))
-				},
-				_ => Err(Error::<T>::InvalidSubject),
-			}
-		}
-
 		fn update_initiated_conversion(
 			account: &T::AccountId,
 			new_fee_payer: T::AccountId,
@@ -443,7 +428,7 @@ pub mod pallet {
 			let message = ConversionMessageFor::<T> { account: account.clone(), amount };
 			let payload = message.encode();
 			let (_, maybe_replaced_message) = T::MessageSender::send_message(
-				Self::subject_for(T::Chain::get())?,
+				&pallet_account,
 				&pallet_account,
 				T::MessageIdHasher::hash(nonce.as_slice()),
 				destination,

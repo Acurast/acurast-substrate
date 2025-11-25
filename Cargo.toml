@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.23.4"
+version = "0.23.5"
 edition = "2021"
 
 [workspace.dependencies]
@@ -71,6 +71,7 @@ acurast-reputation = { path = "./pallets/marketplace/reputation", default-featur
 pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default-features = false }
 pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselection", default-features = false }
 pallet-acurast-token-conversion = { path = "./pallets/token-conversion", default-features = false }
+pallet-acurast-token-claim = { path = "./pallets/token-claim", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
 acurast-hyperdrive-substrate-core = { path = "./hyperdrive/substrate-core", default-features = false }
 

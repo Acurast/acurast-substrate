@@ -5,7 +5,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
 		traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-		BuildStorage, Perbill, Percent, Perquintill,
+		BuildStorage, FixedU128, Perbill, Percent, Perquintill,
 	},
 	traits::{
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
@@ -74,12 +74,6 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
-	}
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
 	}
 }
 
@@ -210,7 +204,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 3600; // 1 hour
 	pub const MaxCooldownPeriod: BlockNumber = 432000; // ~1 month
-	pub const TargetCooldownPeriod: BlockNumber = 72; // Target cooldown period for economic calculations
+	pub const TargetWeightPerComputeMultiplier: FixedU128 = FixedU128::from_u32(5); // 5.0 = 500%
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
 	pub const MinDelegation: Balance = 1;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -244,7 +238,7 @@ impl pallet_acurast_compute::Config for Test {
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
-	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetWeightPerComputeMultiplier = TargetWeightPerComputeMultiplier;
 	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;
@@ -482,7 +476,7 @@ impl crate::benchmarking::BenchmarkHelper<Test> for TestBenchmarkHelper {
 		caller
 	}
 
-	fn remove_job_registration(job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
+	fn remove_job_registration(_job_id: &JobId<<Test as frame_system::Config>::AccountId>) {}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

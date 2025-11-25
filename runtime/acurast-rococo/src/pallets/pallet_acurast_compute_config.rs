@@ -17,7 +17,7 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_runtime::{Perbill, Perquintill};
+use sp_runtime::{FixedU128, Perbill, Perquintill};
 
 use crate::{
 	Acurast, AcurastProcessorManager, Authorship, Balances, CommitmentCollectionId,
@@ -33,7 +33,7 @@ parameter_types! {
 	pub const MaxMetricCommitmentRatio: Perquintill = Perquintill::from_percent(80);
 	pub const MinCooldownPeriod: BlockNumber = 10; // 10 blocks (for testing purposes)
 	pub const MaxCooldownPeriod: BlockNumber = 3600; // ~1 hour
-	pub const TargetCooldownPeriod: BlockNumber = 3600 / 2; // half of MaxCooldownPeriod
+	pub const TargetWeightPerComputeMultiplier: FixedU128 = FixedU128::from_u32(5); // 5.0 = 500%
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(80);
 	pub const MinDelegation: Balance = UNIT;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -66,7 +66,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;
-	type TargetCooldownPeriod = TargetCooldownPeriod;
+	type TargetWeightPerComputeMultiplier = TargetWeightPerComputeMultiplier;
 	type TargetStakedTokenSupply = TargetStakedTokenSupply;
 	type MinDelegation = MinDelegation;
 	type MaxDelegationRatio = MaxDelegationRatio;

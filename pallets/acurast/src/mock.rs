@@ -46,12 +46,6 @@ impl ExtBuilder {
 	}
 }
 
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
-	}
-}
-
 pub const INITIAL_BALANCE: u128 = UNIT * 10;
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
 pub const UNIT: Balance = 1_000_000;

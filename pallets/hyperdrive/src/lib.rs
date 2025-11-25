@@ -222,7 +222,7 @@ pub mod pallet {
 			};
 			let message_nonce = T::MessageIdHasher::hash_of(&next_message_number);
 			_ = T::MessageSender::send_message(
-				Subject::Acurast(Layer::Extrinsic(T::Sender::get())),
+				&T::Sender::get(),
 				// payer
 				payer,
 				message_nonce.clone(),

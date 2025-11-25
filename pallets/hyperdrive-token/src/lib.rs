@@ -450,7 +450,7 @@ pub mod pallet {
 				&[proxy.encode().as_slice(), transfer_nonce.to_be_bytes().as_slice()].concat();
 
 			let (_, maybe_replaced_message) = T::MessageSender::send_message(
-				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
+				&T::PalletAccount::get(),
 				&fee_vault,
 				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,
@@ -514,7 +514,7 @@ pub mod pallet {
 			.concat();
 
 			let (_, maybe_replaced_message) = T::MessageSender::send_message(
-				Subject::Acurast(Layer::Extrinsic(T::PalletAccount::get())),
+				&T::PalletAccount::get(),
 				&fee_vault,
 				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,

@@ -1,18 +1,16 @@
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU16, ConstU32, ConstU64},
-	PalletId,
+	traits::{ConstU16, ConstU32, ConstU64, WithdrawReasons},
 };
-use frame_system::EnsureRoot;
-use sp_core::H256;
+use parity_scale_codec::Encode;
+use sp_core::{sr25519::Pair, ConstU128, Pair as PairTrait, H256};
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
+	traits::{ConvertInto, IdentityLookup},
+	AccountId32, BuildStorage, MultiSignature,
 };
 
-use acurast_common::{Layer, Subject};
-
-use crate::SubjectFor;
+#[cfg(feature = "runtime-benchmarks")]
+use crate::benchmarking::BenchmarkHelper;
 
 pub type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -47,7 +45,8 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		AcurastTokenConversion: crate::{Pallet, Call, Storage, Event<T>, FreezeReason}
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
+		AcurastTokenClaim: crate::{Pallet, Call, Storage, Event<T>}
 	}
 );
 
@@ -57,15 +56,10 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxReserves: u32 = 50;
 	pub const MaxLocks: u32 = 50;
-	pub const ConversionPallelId: PalletId = PalletId(*b"cnvrspid");
-	pub ConversionPalletAccountId: AccountId = ConversionPallelId::get().into_account_truncating();
-	pub const TokenConversionPalletId: PalletId = PalletId(*b"cvrsnpid");
-	pub SendTo: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
-	pub ReceiveFrom: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
-	pub const Liquidity: Balance = UNIT / 100;
-	pub const MinLockDuration: BlockNumber = 3 * 28 * DAYS;
-	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
-	pub OutgoingTransferTTL: BlockNumber = 15;
+	pub const LockDuration: BlockNumber = 48 * 28 * DAYS;
+	pub const VestingWithdrawReasons: WithdrawReasons = WithdrawReasons::FEE;
+	pub Funder: AccountId = generate_pair_account("Alice").1;
+	pub Signer: AccountId = generate_pair_account("Bob").1;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
@@ -112,22 +106,28 @@ impl pallet_balances::Config for Test {
 	type DoneSlashHandler = ();
 }
 
+impl pallet_vesting::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
+	type UnvestedFundsAllowedWithdrawReasons = VestingWithdrawReasons;
+	type BlockNumberProvider = System;
+	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Self>;
+	const MAX_VESTING_SCHEDULES: u32 = 10;
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type PalletId = ConversionPallelId;
-	type SendTo = SendTo;
-	type ReceiveFrom = ReceiveFrom;
-	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type Liquidity = Liquidity;
-	type MinLockDuration = MinLockDuration;
-	type MaxLockDuration = MaxLockDuration;
-	type MessageSender = ();
-	type MessageIdHasher = BlakeTwo256;
-	type OnSlash = ResolveTo<ConversionPalletAccountId, Balances>;
-	type ConvertTTL = OutgoingTransferTTL;
-	type EnableOrigin = EnsureRoot<Self::AccountId>;
+	type VestedTransferer = Vesting;
+	type Signature = MultiSignature;
+	type Signer = Signer;
+	type Funder = Funder;
+	type VestingDuration = LockDuration;
+	type BlockNumberToBalance = ConvertInto;
 	type WeightInfo = crate::weights::WeightInfo<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub fn events() -> Vec<RuntimeEvent> {
@@ -136,4 +136,27 @@ pub fn events() -> Vec<RuntimeEvent> {
 	System::reset_events();
 
 	evt
+}
+
+pub fn generate_pair_account(seed: &str) -> (Pair, AccountId) {
+	let pair =
+		Pair::from_string(&format!("//{}", seed), None).expect("static values are valid; qed");
+	let account_id: AccountId = pair.public().into();
+
+	(pair, account_id)
+}
+
+pub fn generate_signature(signer: &Pair, account: &AccountId, amount: Balance) -> MultiSignature {
+	let message =
+		[b"<Bytes>".to_vec(), account.encode(), amount.encode(), b"</Bytes>".to_vec()].concat();
+	signer.sign(&message).into()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<Test> for () {
+	fn dummy_signature() -> MultiSignature {
+		use sp_core::crypto::UncheckedFrom;
+
+		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+	}
 }

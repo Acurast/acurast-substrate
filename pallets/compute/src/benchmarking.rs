@@ -4,7 +4,10 @@ use frame_support::{
 	traits::{fungible::Mutate, Get, Hooks, IsType},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
-use sp_runtime::{traits::One, AccountId32, FixedU128, Perbill, Perquintill};
+use sp_runtime::{
+	traits::{BlockNumberProvider, One},
+	AccountId32, FixedU128, Perbill, Perquintill, Saturating,
+};
 use sp_std::prelude::*;
 
 use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version};
@@ -15,10 +18,7 @@ use pallet_acurast_processor_manager::{
 
 use crate::{stub::UNIT, types::*, Call, Config, Pallet};
 
-fn generate_pairing_update_add<
-	T: Config<I> + pallet_acurast_processor_manager::Config,
-	I: 'static,
->(
+fn generate_pairing_update_add<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 	index: u32,
 ) -> ProcessorPairingUpdateFor<T>
 where
@@ -27,7 +27,7 @@ where
 	let processor_account_id = generate_account(index).into();
 	let timestamp = 1657363915002u128;
 	// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
-	let signature = <T as pallet_acurast_processor_manager::Config>::BenchmarkHelper::dummy_proof();
+	let signature = <T as ProcessorManagerConfig>::BenchmarkHelper::dummy_proof();
 	ProcessorPairingUpdateFor::<T> {
 		operation: ListUpdateOperation::Add,
 		item: ProcessorPairingFor::<T>::new_with_proof(processor_account_id, timestamp, signature),
@@ -64,18 +64,116 @@ where
 	BlockNumberFor<T>: One,
 	BalanceFor<T, I>: From<u128>,
 {
-	let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 	let mut name = *b"cpu-ops-per-second______";
-	name[23] = c[Pallet::<T, I>::last_metric_pool_id() as usize];
+	name[23] = Pallet::<T, I>::last_metric_pool_id() as u8;
 
 	Pallet::<T, I>::create_pool(
 		RawOrigin::Root.into(),
 		name,
-		Perquintill::from_percent(25),
+		Perquintill::from_percent(1),
 		Default::default(),
 	)
 	.expect("Expecting that pool creation always succeeds");
 	Pallet::<T, I>::last_metric_pool_id()
+}
+
+fn epoch_heartbeat<T: Config<I> + ProcessorManagerConfig, I: 'static>(
+	processor: &T::AccountId,
+) -> Result<(), BenchmarkError>
+where
+	BalanceFor<T, I>: IsType<u128>,
+	pallet_acurast_processor_manager::BalanceFor<T>: IsType<u128>,
+	BlockNumberFor<T>: IsType<u32> + One,
+	<T as frame_system::Config>::AccountId: frame_support::traits::IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
+{
+	let mut metrics = Vec::<MetricInput>::new();
+	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
+	for index in 0..current_pools_count {
+		metrics.push(((index + 1) as u8, 10u128, 1u128));
+	}
+
+	let version = Version { platform: 0, build_number: 1 };
+	ProcessorManager::<T>::heartbeat_with_metrics(
+		RawOrigin::Signed(processor.clone()).into(),
+		version,
+		metrics.clone().try_into().unwrap(),
+	)?;
+
+	let current_block = System::<T>::current_block_number();
+	roll_to_block::<T, I>(current_block + T::Epoch::get());
+
+	Ok(())
+}
+
+fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
+	manager: &T::AccountId,
+	processor: &T::AccountId,
+	commitments_count: u32,
+	commit_compute: bool,
+) -> Result<Vec<ComputeCommitment>, BenchmarkError> where
+	<T as frame_system::Config>::AccountId: frame_support::traits::IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
+	<T as Config<I>>::Currency: Mutate<T::AccountId>,
+	BalanceFor<T, I>: IsType<u128>,
+	BlockNumberFor<T>: IsType<u32> + One,
+	pallet_acurast_processor_manager::BalanceFor<T>: IsType<u128>,
+{
+	let current_block = System::<T>::current_block_number();
+	<T as ProcessorManagerConfig>::BenchmarkHelper::attest_account(&processor);
+	<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
+		&manager, &processor,
+	);
+
+	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
+	for _ in 0..commitments_count.saturating_sub(current_pools_count) {
+		_ = create_compute_pool::<T, I>();
+	}
+
+	let mut metrics = Vec::<MetricInput>::new();
+	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
+	for index in 0..current_pools_count {
+		metrics.push(((index + 1) as u8, 10u128, 1u128));
+	}
+
+	let version = Version { platform: 0, build_number: 1 };
+	ProcessorManager::<T>::heartbeat_with_metrics(
+		RawOrigin::Signed(processor.clone()).into(),
+		version,
+		metrics.clone().try_into().unwrap(),
+	)?;
+
+	roll_to_block::<T, I>(current_block + 1901u32.into());
+	ProcessorManager::<T>::heartbeat_with_metrics(
+		RawOrigin::Signed(processor.clone()).into(),
+		version,
+		metrics.clone().try_into().unwrap(),
+	)?;
+
+	let pool_ids = (1..=Pallet::<T, I>::last_metric_pool_id()).collect::<Vec<_>>();
+	let commitments = pool_ids
+		.into_iter()
+		.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
+		.collect::<Vec<_>>();
+
+	roll_to_block::<T, I>(current_block + 2701u32.into());
+
+	Pallet::<T, I>::offer_backing(RawOrigin::Signed(manager.clone()).into(), manager.clone())?;
+	Pallet::<T, I>::accept_backing_offer(
+		RawOrigin::Signed(manager.clone()).into(),
+		manager.clone(),
+	)?;
+
+	if commit_compute {
+		Pallet::<T, I>::commit_compute(
+			RawOrigin::Signed(manager.clone()).into(),
+			T::MinStake::get(),
+			T::MinCooldownPeriod::get(),
+			commitments.clone().try_into().unwrap(),
+			Perbill::from_percent(1),
+			false,
+		)?;
+	}
+
+	Ok(commitments)
 }
 
 #[instance_benchmarks(
@@ -89,12 +187,19 @@ where
 		<T as frame_system::Config>::AccountId: frame_support::traits::IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
 )]
 mod benches {
+	use sp_runtime::traits::BlockNumberProvider;
+
 	use super::{Pallet as Compute, *};
 
 	#[benchmark]
 	fn create_pool(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) {
 		set_timestamp::<T>(1000);
 		roll_to_block::<T, I>(100u32.into());
+
+		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
+		for _ in 0..initial_pools_count {
+			create_compute_pool::<T, I>();
+		}
 
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
@@ -117,6 +222,11 @@ mod benches {
 	fn modify_pool_same_config() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		roll_to_block::<T, I>(100u32.into());
+
+		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
+		for _ in 0..initial_pools_count {
+			create_compute_pool::<T, I>();
+		}
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -151,6 +261,11 @@ mod benches {
 	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		roll_to_block::<T, I>(100u32.into());
+
+		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
+		for _ in 0..initial_pools_count {
+			create_compute_pool::<T, I>();
+		}
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -193,6 +308,11 @@ mod benches {
 	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		roll_to_block::<T, I>(100u32.into());
+
+		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
+		for _ in 0..initial_pools_count {
+			create_compute_pool::<T, I>();
+		}
 
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut config_values = Vec::<MetricPoolConfigValue>::new();
@@ -310,54 +430,380 @@ mod benches {
 		let processor: T::AccountId = account("processor", 1, 1);
 		mint_to::<T, I>(&manager, (100 * UNIT).into());
 
-		<T as ProcessorManagerConfig>::BenchmarkHelper::attest_account(&processor);
-		<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
-			&manager, &processor,
-		);
-
-		let mut metrics = Vec::<MetricInput>::new();
-		for _ in 0..n {
-			let pool_id = create_compute_pool::<T, I>();
-			metrics.push((pool_id, 10u128, 1u128));
-		}
-
-		let version = Version { platform: 0, build_number: 1 };
-		ProcessorManager::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(processor.clone()).into(),
-			version,
-			metrics.clone().try_into().unwrap(),
-		)?;
-
-		roll_to_block::<T, I>(1901u32.into());
-		ProcessorManager::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(processor.clone()).into(),
-			version,
-			metrics.clone().try_into().unwrap(),
-		)?;
-
-		let pool_ids = (1..=Compute::<T, I>::last_metric_pool_id()).collect::<Vec<_>>();
-		let commitments = pool_ids
-			.into_iter()
-			.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
-			.collect::<Vec<_>>();
-
-		roll_to_block::<T, I>(2701u32.into());
-
-		Compute::<T, I>::offer_backing(RawOrigin::Signed(manager.clone()).into(), manager.clone())?;
-		Compute::<T, I>::accept_backing_offer(
-			RawOrigin::Signed(manager.clone()).into(),
-			manager.clone(),
-		)?;
+		let commitments = setup_stake::<T, I>(&manager, &processor, n, false)?;
 
 		#[extrinsic_call]
 		_(
 			RawOrigin::Signed(manager),
-			(50 * UNIT).into(),
+			T::MinStake::get(),
 			T::MinCooldownPeriod::get(),
 			commitments.try_into().unwrap(),
 			Perbill::from_percent(1),
 			false,
 		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn stake_more(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		let commitments = setup_stake::<T, I>(&manager, &processor, n, true)?;
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(manager),
+			T::MinStake::get(),
+			Some(T::MinCooldownPeriod::get()),
+			Some(commitments.try_into().unwrap()),
+			Some(Perbill::from_percent(1)),
+			Some(false),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn cooldown_compute_commitment() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn end_compute_commitment() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::cooldown_compute_commitment(RawOrigin::Signed(manager.clone()).into())?;
+
+		let current_block = System::<T>::current_block_number();
+
+		roll_to_block::<T, I>(current_block + T::MinCooldownPeriod::get());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn delegate() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(delegator),
+			manager,
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn cooldown_delegation() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator.clone()), manager);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn redelegate() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		let manager_2: T::AccountId = account("manager", 3, 3);
+		let processor_2: T::AccountId = account("processor", 4, 4);
+		mint_to::<T, I>(&manager_2, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager_2, &processor_2, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		let current_block = System::<T>::current_block_number();
+
+		roll_to_block::<T, I>(
+			current_block + T::RedelegationBlockingPeriod::get().saturating_mul(T::Epoch::get()),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator.clone()), manager, manager_2);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn end_delegation() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		Compute::<T, I>::cooldown_delegation(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+		)?;
+
+		let current_block = System::<T>::current_block_number();
+		roll_to_block::<T, I>(current_block + T::MinCooldownPeriod::get());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator.clone()), manager);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn kick_out() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		Compute::<T, I>::cooldown_compute_commitment(RawOrigin::Signed(manager.clone()).into())?;
+
+		let current_block = System::<T>::current_block_number();
+		roll_to_block::<T, I>(current_block + T::MinCooldownPeriod::get());
+
+		Compute::<T, I>::end_compute_commitment(RawOrigin::Signed(manager.clone()).into())?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager.clone()), delegator, manager.clone());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn slash() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		let current_block = System::<T>::current_block_number();
+		roll_to_block::<T, I>(current_block + T::Epoch::get());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager.clone()), manager.clone());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn withdraw_delegation() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		epoch_heartbeat::<T, I>(&processor)?;
+		epoch_heartbeat::<T, I>(&processor)?;
+		epoch_heartbeat::<T, I>(&processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator), manager);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn withdraw_commitment() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		epoch_heartbeat::<T, I>(&processor)?;
+		epoch_heartbeat::<T, I>(&processor)?;
+		epoch_heartbeat::<T, I>(&processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn delegate_more() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(delegator),
+			manager,
+			T::MinDelegation::get(),
+			Some(T::MinCooldownPeriod::get()),
+			Some(false),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn compound_delegation() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			T::MinDelegation::get(),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		epoch_heartbeat::<T, I>(&processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator), manager, None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn compound_stake() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+
+		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+
+		epoch_heartbeat::<T, I>(&processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(manager), None);
 
 		Ok(())
 	}

@@ -7,10 +7,10 @@ use sp_std::prelude::*;
 use crate::Runtime;
 
 const MONTH: BlockNumber = DAYS * 30;
-const OLD_VESTING_START: BlockNumber = 414_229;
+const OLD_VESTING_START: BlockNumber = 527_410;
 const OLD_VESTING_START_6_MONTHS: BlockNumber = OLD_VESTING_START + (6 * MONTH);
 
-const VESTING_START: BlockNumber = 527_410;
+const VESTING_START: BlockNumber = 1_359_716;
 const VESTING_START_6_MONTHS: BlockNumber = VESTING_START + (6 * MONTH);
 
 pub struct VestingMigration;

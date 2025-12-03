@@ -22,8 +22,8 @@ const NATIVE_TOKEN_SYMBOL: &str = "ACU";
 const NATIVE_TOKEN_DECIMALS: u8 = 12;
 
 const INITIAL_TOTAL_SUPPLY: Balance = 1_000_000_000 * UNIT;
-const VESTING_START: BlockNumber = 20 * DAYS;
-const VESTING_START_6_MONTHS: BlockNumber = 6 * MONTH + 21 * DAYS;
+const VESTING_START: BlockNumber = 527_410;
+const VESTING_START_6_MONTHS: BlockNumber = VESTING_START + (6 * MONTH);
 const VESTING_INITIAL_LIQUIDITY: Balance = UNIT;
 const MONTH: BlockNumber = DAYS * 30;
 const VESTING_PERIOD_1: BlockNumber = 24 * MONTH;

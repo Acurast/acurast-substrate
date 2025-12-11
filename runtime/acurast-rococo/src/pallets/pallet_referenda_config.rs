@@ -18,7 +18,7 @@ const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 	sp_arithmetic::FixedI64::from_rational(x as u128, 100)
 }
 
-const APP_ROOT: Curve = Curve::make_reciprocal(4, 10, percent(80), percent(50), percent(100));
+const APP_ROOT: Curve = Curve::make_reciprocal(4, 20, percent(80), percent(50), percent(100));
 const SUP_ROOT: Curve = Curve::make_linear(20, 20, percent(0), percent(25));
 
 parameter_types! {

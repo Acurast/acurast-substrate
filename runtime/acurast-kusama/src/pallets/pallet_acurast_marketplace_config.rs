@@ -25,7 +25,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MaxAllowedConsumers = CU32<100>;
 	type Competing = CU32<4>;
 	type MatchingCompetingMinInterval = ConstU64<300_000>; // 5 min
-	type MatchingCompetingDueDelta = ConstU64<120_000>; // 2 min
+	type MatchingCompetingDueDelta = ConstU64<300_000>; // 5 min
 	type MaxProposedMatches = ConstU32<10>;
 	type MaxProposedExecutionMatches = ConstU32<10>;
 	type MaxFinalizeJobs = ConstU32<10>;

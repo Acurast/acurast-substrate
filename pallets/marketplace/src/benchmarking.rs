@@ -46,7 +46,7 @@ pub fn advertisement<T: Config>(
 	Advertisement {
 		pricing: Pricing {
 			fee_per_millisecond: fee_per_millisecond.into(),
-			fee_per_storage_byte: 5u8.into(),
+			fee_per_storage_byte: 0u8.into(),
 			base_fee_per_execution: 0u8.into(),
 			scheduling_window: SchedulingWindow::End(4133977199000),
 		},
@@ -70,7 +70,7 @@ pub fn job_registration_with_reward<T: Config>(
 	network_requests: u32,
 	storage: u32,
 	schedule_shift: Option<u64>,
-	instant_match_processor: Option<PlannedExecution<T::AccountId>>,
+	instant_match_processor: Option<Vec<PlannedExecution<T::AccountId>>>,
 ) -> JobRegistrationFor<T> {
 	let reward: <T as Config>::Balance = reward_value.into();
 	let r = JobRequirements {
@@ -78,7 +78,7 @@ pub fn job_registration_with_reward<T: Config>(
 		reward,
 		min_reputation: Some(0),
 		assignment_strategy: AssignmentStrategy::Single(
-			instant_match_processor.map(|m| vec![m].try_into().unwrap()),
+			instant_match_processor.map(|m| m.try_into().unwrap()),
 		),
 		processor_version: None,
 		runtime: Runtime::NodeJS,
@@ -296,7 +296,7 @@ where
 		1,
 		1000,
 		None,
-		Some(PlannedExecution { source: processor.clone(), start_delay: 0 }),
+		Some(vec![PlannedExecution { source: processor.clone(), start_delay: 0 }]),
 	);
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 	let job_id: JobId<T::AccountId> =
@@ -685,7 +685,7 @@ benchmarks! {
 				1,
 				0, 0, 0,
 				Some(i as u64),
-				Some(PlannedExecution { source: processor.clone(), start_delay: 0 }),
+				Some(vec![PlannedExecution { source: processor.clone(), start_delay: 0 }]),
 			);
 			assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 			let job_id_sequence = Acurast::<T>::job_id_sequence();
@@ -731,6 +731,35 @@ benchmarks! {
 	}: {
 		assert_ok!(AcurastMarketplace::<T>::update_min_fee_per_millisecond(RawOrigin::Root.into(), new_min_fee_per_millisecond));
 	}
+
+	cleanup_job_assignments {
+		set_timestamp::<T>(1000);
+		let slots: u8 = T::MaxSlots::get() as u8;
+		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u64::MAX.into());
+		let processors = (0..slots).map(|index| <T as Config>::BenchmarkHelper::funded_account((index + 1) as u32, 0u8.into())).collect::<Vec<_>>();
+		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&consumer)?;
+		for processor in &processors {
+			pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(processor, manager_id)?;
+			let ad = advertisement::<T>(1, 1_000_000);
+			assert_ok!(
+				AcurastMarketplace::<T>::advertise(RawOrigin::Signed(processor.clone()).into(), ad)
+			);
+		}
+
+		let job = job_registration_with_reward::<T>(
+			script(),
+			slots,
+			1,
+			1,
+			0, 0, 0,
+			None,
+			Some(processors.into_iter().map(|processor| PlannedExecution { source: processor, start_delay: 0 }).collect::<Vec<_>>()),
+		);
+		assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
+		let job_id_sequence = Acurast::<T>::job_id_sequence();
+		let job_id = (MultiOrigin::Acurast(consumer.clone()), job_id_sequence);
+		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.end_time + 1);
+	}: _(RawOrigin::Signed(consumer), job_id)
 
 	//impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

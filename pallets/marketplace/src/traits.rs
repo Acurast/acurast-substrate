@@ -25,4 +25,5 @@ pub trait WeightInfo {
 	fn transfer_editor() -> Weight;
 	fn deploy() -> Weight;
 	fn update_min_fee_per_millisecond() -> Weight;
+	fn cleanup_job_assignments() -> Weight;
 }

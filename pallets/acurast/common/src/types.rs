@@ -432,6 +432,13 @@ impl Schedule {
 		}
 	}
 
+	pub fn is_expired(&self, now: u64, report_tolerance: u64) -> bool {
+		let end = self
+			.actual_end(self.actual_start(self.max_start_delay))
+			.saturating_add(report_tolerance);
+		now > end
+	}
+
 	/// Range of a schedule from first execution's start to end of last execution, respecting `start_delay`.
 	///
 	/// Example:

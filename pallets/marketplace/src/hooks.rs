@@ -100,7 +100,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 			JobStatus::Matched => {
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
-				// Remove matching data and increase processor capacity
+				// Remove matching data
 				for (p, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					<StoredMatches<T>>::remove(&p, job_id);
 				}

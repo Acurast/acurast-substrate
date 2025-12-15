@@ -633,24 +633,14 @@ impl<T: Config> Pallet<T> {
 		start_delay: u64,
 	) -> Result<(), Error<T>> {
 		let now = Self::now()?;
+		let report_tolerance = T::ReportTolerance::get();
 		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(source) {
 			// ignore job registrations not found (shouldn't happen if invariant is kept that assignments are cleared whenever a job is removed)
 			// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
 			if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
-				if !assignment.acknowledged {
-					let actual_start_time = match assignment.execution {
-						ExecutionSpecifier::All => {
-							other.schedule.start_time.saturating_add(assignment.start_delay)
-						},
-						ExecutionSpecifier::Index(i) => other
-							.schedule
-							.nth_start_time(assignment.start_delay, i)
-							.unwrap_or_default(),
-					};
-					if now > actual_start_time {
-						// assignment that have not been acknowledged after the start time is already in the past do not count
-						continue;
-					}
+				if assignment.is_invalid(&other.schedule, now, report_tolerance) {
+					// assignment that have not been acknowledged after the start time is already in the past do not count
+					continue;
 				}
 				// check if the whole schedule periods have an overlap in worst case scenario for max_start_delay
 				if !schedule.overlaps(start_delay, other.schedule.range(assignment.start_delay)) {

@@ -254,6 +254,31 @@ impl<Reward> Assignment<Reward> {
 		}
 		None
 	}
+
+	pub fn is_invalid(&self, schedule: &Schedule, now: u64, report_tolerance: u64) -> bool {
+		let (actual_start_time, actual_end_time) = match self.execution {
+			ExecutionSpecifier::All => (
+				schedule.start_time.saturating_add(self.start_delay),
+				schedule
+					.end_time
+					.saturating_add(self.start_delay)
+					.saturating_add(report_tolerance),
+			),
+			ExecutionSpecifier::Index(i) => {
+				let execution_start =
+					schedule.nth_start_time(self.start_delay, i).unwrap_or_default();
+				let execution_end = execution_start
+					.saturating_add(schedule.duration)
+					.saturating_add(report_tolerance);
+				(execution_start, execution_end)
+			},
+		};
+		if !self.acknowledged {
+			now > actual_start_time
+		} else {
+			now > actual_end_time
+		}
+	}
 }
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]

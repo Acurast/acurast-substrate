@@ -206,10 +206,11 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn do_cleanup_assignments(
 		processor: &T::AccountId,
-		job_ids: Vec<JobId<T::AccountId>>,
+		job_ids: &[JobId<T::AccountId>],
 	) -> DispatchResult {
+		let now = Self::now()?;
 		for job_id in job_ids {
-			Self::do_cleanup_assignment(processor, &job_id)?;
+			Self::do_cleanup_assignment(processor, job_id, now)?;
 		}
 		Ok(())
 	}
@@ -217,21 +218,19 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_cleanup_assignment(
 		processor: &T::AccountId,
 		job_id: &JobId<T::AccountId>,
+		now: u64,
 	) -> DispatchResult {
-		if let Some(assignment) = <StoredMatches<T>>::get(processor, job_id) {
-			if let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
-				let now = Self::now()?;
-				let job_end_time =
-					job.schedule.actual_end(job.schedule.actual_start(assignment.start_delay))
-						+ T::ReportTolerance::get();
-				if job_end_time < now {
-					<StoredMatches<T>>::remove(processor, job_id);
-					<AssignedProcessors<T>>::remove(job_id, processor);
-				}
-			} else {
-				<StoredMatches<T>>::remove(processor, job_id);
-				<AssignedProcessors<T>>::remove(job_id, processor);
-			}
+		let Some(assignment) = <StoredMatches<T>>::get(processor, job_id) else {
+			return Ok(());
+		};
+		let Some(job) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) else {
+			<StoredMatches<T>>::remove(processor, job_id);
+			<AssignedProcessors<T>>::remove(job_id, processor);
+			return Ok(());
+		};
+		if assignment.is_invalid(&job.schedule, now, T::ReportTolerance::get()) {
+			<StoredMatches<T>>::remove(processor, job_id);
+			<AssignedProcessors<T>>::remove(job_id, processor);
 		}
 		Ok(())
 	}

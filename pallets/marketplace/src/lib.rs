@@ -325,6 +325,13 @@ pub mod pallet {
 		V7MigrationStarted,
 		/// Migration completed.
 		V7MigrationCompleted,
+		/// Processor assignments cleaned up
+		ProcessorAssignmentsCleanedUp(
+			T::AccountId,
+			BoundedVec<JobId<T::AccountId>, T::MaxJobCleanups>,
+		),
+		/// Job assignments cleaned up
+		JobAssignmentsCleanedUp(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -597,8 +604,9 @@ pub mod pallet {
 			job_id: JobId<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			let now = Self::now()?;
 
-			Self::do_cleanup_assignment(&who, &job_id)?;
+			Self::do_cleanup_assignment(&who, &job_id, now)?;
 
 			Self::deposit_event(Event::JobFinalized(job_id));
 			Ok(().into())
@@ -668,7 +676,8 @@ pub mod pallet {
 			job_ids: BoundedVec<JobId<T::AccountId>, T::MaxJobCleanups>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_cleanup_assignments(&who, job_ids.into())?;
+			Self::do_cleanup_assignments(&who, job_ids.as_slice())?;
+			Self::deposit_event(Event::ProcessorAssignmentsCleanedUp(who, job_ids));
 			Ok(().into())
 		}
 
@@ -860,6 +869,40 @@ pub mod pallet {
 			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 			<MinFeePerMillisecond<T>>::set(new_min_fee);
 			Self::deposit_event(Event::MinFeePerMillisecondUpdated(new_min_fee));
+			Ok(().into())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_assignments(job_ids.len() as u32))]
+		pub fn cleanup_assignments_for(
+			origin: OriginFor<T>,
+			processor: T::AccountId,
+			job_ids: BoundedVec<JobId<T::AccountId>, T::MaxJobCleanups>,
+		) -> DispatchResultWithPostInfo {
+			_ = ensure_signed(origin)?;
+			Self::do_cleanup_assignments(&processor, job_ids.as_slice())?;
+			Self::deposit_event(Event::ProcessorAssignmentsCleanedUp(processor, job_ids));
+			Ok(().into())
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_job_assignments())]
+		pub fn cleanup_job_assignments(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			_ = ensure_signed(origin)?;
+
+			let now = Self::now()?;
+			let is_expired = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
+				.map(|job| job.schedule.is_expired(now, T::ReportTolerance::get()))
+				.unwrap_or(true);
+			if is_expired {
+				for (p, _) in <AssignedProcessors<T>>::drain_prefix(&job_id) {
+					<StoredMatches<T>>::remove(&p, &job_id);
+				}
+				Self::deposit_event(Event::JobAssignmentsCleanedUp(job_id));
+			}
 			Ok(().into())
 		}
 	}

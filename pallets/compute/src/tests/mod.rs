@@ -2829,3 +2829,142 @@ fn commit_compute(who: AccountId32) {
 		allow_auto_compound,
 	));
 }
+
+#[test]
+fn test_delegate_undelegate_after_slash() {
+	ExtBuilder.build().execute_with(|| {
+		setup_balances();
+		create_pools();
+
+		// Charlie will act as both manager and committer (same account for simplicity)
+		let committer = charlie_account_id();
+
+		offer_accept_backing(committer.clone());
+
+		let committer_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&committer).unwrap();
+
+		// Charlie commits first time in warmup period (epoch 0) - setting up as processor
+		roll_to_block(10);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
+		assert_eq!(
+			Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Zero::zero()
+		);
+
+		// Move to epoch 1 after warmup, Charlie commits again (now active)
+		roll_to_block(150);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 1, epoch_start: 102 });
+
+		// Charlie commits 4000 units for pool 2 as an active processor
+		assert_eq!(
+			Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Zero::zero()
+		);
+
+		// Now move to epoch 2 where Charlie can commit compute based on epoch 1 metrics
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		// Charlie can commit up to 80% of the previous epoch's metrics (4000 * 0.8 = 3200)
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(3200u128, 1u128), // Commit 3200 units (80% of 4000)
+			},];
+
+		let stake_amount = 10 * UNIT; // 10 tokens
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10); // 10% commission
+		let allow_auto_compound = true;
+
+		// Committer commits compute
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
+
+		// Get committer's commitment ID
+		let committer_commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		let delegator = ferdie_account_id();
+		let delegate_stake_amount = 25 * UNIT;
+		let delegate_cooldown_period = 36u64;
+
+		// Delegator delegates to committer
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			delegate_stake_amount,
+			delegate_cooldown_period,
+			allow_auto_compound,
+		));
+
+		// Verify delegation happened
+		assert!(events()
+			.iter()
+			.any(|e| matches!(e, RuntimeEvent::Compute(Event::Delegated(_, _)))));
+
+		// Move to next epoch
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
+
+		// Committer delivers only 50% of committed metrics (1600 instead of 3200) to trigger slash
+		Compute::commit(&committer, &committer_manager, &[(2u8, 1600u128, 1u128)]);
+
+		// Move to next epoch to allow slashing
+		roll_to_block(402);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
+
+		// Verify initial stake before slashing
+		let initial_commitment = Compute::commitments(committer_commitment_id).unwrap();
+		let initial_stake = initial_commitment.stake.as_ref().unwrap();
+
+		// Someone (alice) calls slash on the committer for the missed metrics
+		assert_ok!(Compute::slash(RuntimeOrigin::signed(alice_account_id()), committer.clone()));
+
+		// Verify committer's stake was decreased
+		let slashed_commitment = Compute::commitments(committer_commitment_id).unwrap();
+		let slashed_stake = slashed_commitment.stake.as_ref().unwrap();
+		assert!(
+			slashed_stake.amount < initial_stake.amount,
+			"Stake should be decreased after slashing. Initial: {}, After slash: {}",
+			initial_stake.amount,
+			slashed_stake.amount
+		);
+
+		assert!(
+			slashed_commitment.pool_rewards.get_current().1.slash_per_weight > Zero::zero(),
+			"Delegation pool's slash_per_weight should be non-zero but is",
+		);
+
+		// Verify Slashed event was emitted
+		assert!(events().iter().any(|e| matches!(e, RuntimeEvent::Compute(Event::Slashed(_)))));
+
+		// Committer cooldowns
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
+
+		// Delegator cooldowns (must be done before committer ends commitment)
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone()
+		));
+
+		// roll to block where both committer's and delegator's cooldowns are over
+		roll_to_block(474);
+
+		// Committer ends commitment first
+		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone()),));
+
+		// Delegator tries to end delegation (this is supposed to fail because of bug)
+		assert_ok!(Compute::end_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone()
+		));
+	});
+}

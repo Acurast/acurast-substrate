@@ -1719,13 +1719,20 @@ where
 			let metric_epoch_sum = MetricsEpochSum::<T, I>::get(manager_id, pool_id);
 			let (actual_metric_sum, _) = metric_epoch_sum.get(last_epoch);
 
-			let missed_epochs: u128 =
-				if actual_metric_sum.is_zero() && metric_epoch_sum.epoch < last_epoch {
-					// we still know an "old" value since it got not overwritten and we can slash for all the epoch's missed
-					last_epoch.saturating_sub(metric_epoch_sum.epoch).saturated_into::<u128>()
-				} else {
-					One::one()
-				};
+			let missed_epochs: u128 = if actual_metric_sum.is_zero()
+				&& metric_epoch_sum.epoch < last_epoch
+			{
+				// we still know an "old" value since it got not overwritten and we can slash for all the epoch's missed
+				last_epoch
+					.saturating_sub(if metric_epoch_sum.epoch > commitment.last_slashing_epoch {
+						metric_epoch_sum.epoch
+					} else {
+						commitment.last_slashing_epoch
+					})
+					.saturated_into::<u128>()
+			} else {
+				One::one()
+			};
 
 			// Calculate slash amount for this pool
 			let pool_slash_amount: BalanceFor<T, I> =

@@ -596,4 +596,8 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	fn enable_inflation() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
 }

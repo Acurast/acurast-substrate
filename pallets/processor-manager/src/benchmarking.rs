@@ -170,6 +170,7 @@ benchmarks! {
 
 	heartbeat_with_version {
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);
@@ -184,7 +185,6 @@ benchmarks! {
 		};
 
 		let mut values = Vec::<MetricInput>::new();
-		T::BenchmarkHelper::setup_compute_settings();
 		for i in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
@@ -207,6 +207,7 @@ benchmarks! {
 
 	heartbeat_with_version_no_claim {
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);
@@ -221,7 +222,6 @@ benchmarks! {
 		};
 
 		let mut values = Vec::<MetricInput>::new();
-		T::BenchmarkHelper::setup_compute_settings();
 		for i in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
@@ -236,6 +236,7 @@ benchmarks! {
 
 	heartbeat_with_version_metrics_claim {
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);
@@ -250,7 +251,6 @@ benchmarks! {
 		};
 
 		let mut values = Vec::<MetricInput>::new();
-		T::BenchmarkHelper::setup_compute_settings();
 		for i in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
@@ -270,6 +270,7 @@ benchmarks! {
 		let x in 1 .. METRICS_MAX_LENGTH;
 
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);
@@ -307,6 +308,7 @@ benchmarks! {
 		let x in 1 .. METRICS_MAX_LENGTH;
 
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);
@@ -336,6 +338,7 @@ benchmarks! {
 		let x in 1 .. METRICS_MAX_LENGTH;
 
 		set_timestamp::<T>(1000);
+		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
 		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
 		whitelist_account!(caller);

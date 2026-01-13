@@ -65,7 +65,7 @@ where
 	BalanceFor<T, I>: From<u128>,
 {
 	let mut name = *b"cpu-ops-per-second______";
-	name[23] = Pallet::<T, I>::last_metric_pool_id() as u8;
+	name[23] = Pallet::<T, I>::last_metric_pool_id();
 
 	Pallet::<T, I>::create_pool(
 		RawOrigin::Root.into(),
@@ -118,10 +118,8 @@ fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 	pallet_acurast_processor_manager::BalanceFor<T>: IsType<u128>,
 {
 	let current_block = System::<T>::current_block_number();
-	<T as ProcessorManagerConfig>::BenchmarkHelper::attest_account(&processor);
-	<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
-		&manager, &processor,
-	);
+	<T as ProcessorManagerConfig>::BenchmarkHelper::attest_account(processor);
+	<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(manager, processor);
 
 	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
 	for _ in 0..commitments_count.saturating_sub(current_pools_count) {
@@ -192,8 +190,9 @@ mod benches {
 	use super::{Pallet as Compute, *};
 
 	#[benchmark]
-	fn create_pool(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) {
+	fn create_pool(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
@@ -216,11 +215,14 @@ mod benches {
 			Perquintill::from_percent(20),
 			config_values.try_into().unwrap(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
 	fn modify_pool_same_config() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
@@ -260,6 +262,7 @@ mod benches {
 		n: Linear<1, CONFIG_VALUES_MAX_LENGTH>,
 	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
@@ -307,6 +310,7 @@ mod benches {
 		n: Linear<1, CONFIG_VALUES_MAX_LENGTH>,
 	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let initial_pools_count = T::MaxPools::get().saturating_sub(1);
@@ -357,6 +361,7 @@ mod benches {
 	#[benchmark]
 	fn offer_backing() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = account("manager", 0, 0);
@@ -377,6 +382,7 @@ mod benches {
 	#[benchmark]
 	fn withdraw_backing_offer() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = account("manager", 0, 0);
@@ -400,6 +406,7 @@ mod benches {
 	#[benchmark]
 	fn accept_backing_offer() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 
 		let manager: T::AccountId = account("manager", 0, 0);
@@ -425,6 +432,7 @@ mod benches {
 	#[benchmark]
 	fn commit_compute(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -448,6 +456,7 @@ mod benches {
 	#[benchmark]
 	fn stake_more(n: Linear<1, CONFIG_VALUES_MAX_LENGTH>) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -471,6 +480,7 @@ mod benches {
 	#[benchmark]
 	fn cooldown_compute_commitment() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -487,6 +497,7 @@ mod benches {
 	#[benchmark]
 	fn end_compute_commitment() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -509,6 +520,7 @@ mod benches {
 	#[benchmark]
 	fn delegate() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -533,6 +545,7 @@ mod benches {
 	#[benchmark]
 	fn cooldown_delegation() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -559,6 +572,7 @@ mod benches {
 	#[benchmark]
 	fn redelegate() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -597,6 +611,7 @@ mod benches {
 	#[benchmark]
 	fn end_delegation() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -631,6 +646,7 @@ mod benches {
 	#[benchmark]
 	fn kick_out() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -664,6 +680,7 @@ mod benches {
 	#[benchmark]
 	fn slash() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -683,6 +700,7 @@ mod benches {
 	#[benchmark]
 	fn withdraw_delegation() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -713,6 +731,7 @@ mod benches {
 	#[benchmark]
 	fn withdraw_commitment() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -733,6 +752,7 @@ mod benches {
 	#[benchmark]
 	fn delegate_more() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -765,6 +785,7 @@ mod benches {
 	#[benchmark]
 	fn compound_delegation() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -793,6 +814,7 @@ mod benches {
 	#[benchmark]
 	fn compound_stake() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
@@ -804,6 +826,17 @@ mod benches {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(manager), None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn enable_inflation() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		roll_to_block::<T, I>(100u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root);
 
 		Ok(())
 	}

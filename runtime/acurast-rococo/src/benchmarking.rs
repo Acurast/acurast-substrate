@@ -231,7 +231,9 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		AcurastCompute::last_metric_pool_id()
 	}
 
-	fn setup_compute_settings() {}
+	fn setup_compute_settings() {
+		_ = AcurastCompute::enable_inflation(RuntimeOrigin::root());
+	}
 
 	fn commit(_manager: &<Runtime as frame_system::Config>::AccountId) {}
 

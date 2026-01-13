@@ -386,6 +386,9 @@ pub mod pallet {
 	pub type CollatorRewards<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceFor<T, I>, ValueQuery>;
 
+	#[pallet::storage]
+	pub type InflationEnabled<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, ValueQuery>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
@@ -441,6 +444,8 @@ pub mod pallet {
 		V11MigrationCompleted,
 		/// A backing ended. [committer_id, manager_id]
 		BackingEnded(T::CommitmentId, T::ManagerId),
+		/// Inflation has been enabled
+		InflationEnabled,
 	}
 
 	// Errors inform users that something went wrong.
@@ -540,6 +545,7 @@ pub mod pallet {
 					// Handle inflation-based reward distribution on new epoch
 					{
 						let mut inflation_info = Self::inflate();
+						weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						let used_weight = Self::store_metrics_reward(
 							inflation_info.metrics_reward,
 							current_epoch,
@@ -1112,6 +1118,18 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::enable_inflation())]
+		pub fn enable_inflation(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			_ = T::OperatorOrigin::ensure_origin(origin)?;
+
+			InflationEnabled::<T, I>::set(true);
+
+			Self::deposit_event(Event::<T, I>::InflationEnabled);
+
+			Ok(().into())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1130,6 +1148,12 @@ pub mod pallet {
 		}
 
 		fn inflate() -> InflationInfoFor<T, I> {
+			let enabled = InflationEnabled::<T, I>::get();
+
+			if !enabled {
+				return InflationInfo::default();
+			}
+
 			let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
 
 			if inflation_amount.is_zero() {

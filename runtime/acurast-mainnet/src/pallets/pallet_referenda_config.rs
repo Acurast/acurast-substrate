@@ -30,7 +30,7 @@ parameter_types! {
 		info: TrackInfo {
 			name: s("root"),
 			max_deciding: 1,
-			decision_deposit: 100 * UNIT,
+			decision_deposit: UNIT,
 			prepare_period: 2 * HOURS,
 			decision_period: 20 * HOURS,
 			confirm_period: 2 * HOURS,

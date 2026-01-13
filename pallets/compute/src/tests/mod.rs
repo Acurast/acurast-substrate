@@ -1385,6 +1385,7 @@ fn test_create_pools_name_conflict() {
 #[test]
 fn test_single_processor_commit() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		assert_ok!(Compute::create_pool(
 			RuntimeOrigin::root(),
@@ -1861,6 +1862,7 @@ fn check_events() {
 #[test]
 fn test_multiple_processor_commit() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup_balances();
 		create_pools();
@@ -1872,6 +1874,7 @@ fn test_multiple_processor_commit() {
 #[test]
 fn test_multiple_processor_commit_reward_modified() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup_balances();
 		create_pools();
@@ -1883,6 +1886,7 @@ fn test_multiple_processor_commit_reward_modified() {
 #[test]
 fn test_multiple_processor_commit_with_interleaving_charlie() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup_balances();
 		create_pools();
@@ -1894,6 +1898,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie() {
 #[test]
 fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		// Use test helpers to replicate test below with interleaving Charlie's commit (should return same rewards for Alice and Bob)
 		setup_balances();
 		create_pools();
@@ -1905,6 +1910,7 @@ fn test_multiple_processor_commit_with_interleaving_charlie_reward_modified() {
 #[test]
 fn test_commit_compute() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		create_pools();
 
@@ -2082,13 +2088,10 @@ fn test_commit_compute() {
 #[test]
 fn test_commit_compute_overstaked() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		// keep total supply at 1_000_000_000 * UNIT
-		assert_ok!(Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			alice_account_id(),
-			1 * UNIT
-		));
-		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), 1 * UNIT));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), UNIT));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), UNIT));
 		let charlie_initial_balance: Balance = 999_999_998 * UNIT; // give a lot to committer so he can attempt to overstake
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
@@ -2240,6 +2243,7 @@ fn test_commit_compute_overstaked() {
 #[test]
 fn test_commit_compute_with_slash() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		create_pools();
 
@@ -2361,6 +2365,7 @@ fn test_commit_compute_with_slash() {
 #[test]
 fn test_delegate_undelegate() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		create_pools();
 
@@ -2591,6 +2596,7 @@ fn test_delegate_undelegate() {
 #[test]
 fn test_delegate_more() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		create_pools();
 
@@ -2833,6 +2839,7 @@ fn commit_compute(who: AccountId32) {
 #[test]
 fn test_delegate_undelegate_after_slash() {
 	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
 		setup_balances();
 		create_pools();
 

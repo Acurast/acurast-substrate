@@ -27,6 +27,7 @@ pub trait WeightInfo {
 	fn delegate_more() -> Weight;
 	fn compound_delegation() -> Weight;
 	fn compound_stake() -> Weight;
+	fn enable_inflation() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -115,6 +116,10 @@ impl WeightInfo for () {
 	}
 
 	fn compound_stake() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn enable_inflation() -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 }

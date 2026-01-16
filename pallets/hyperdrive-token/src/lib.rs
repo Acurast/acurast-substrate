@@ -112,7 +112,7 @@ pub mod pallet {
 			> + TypeInfo;
 
 		#[pallet::constant]
-		type OutgoingTransferTTL: Get<BlockNumberFor<Self>>;
+		type DefaultOutgoingTransferTTL: Get<BlockNumberFor<Self>>;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -138,6 +138,10 @@ pub mod pallet {
 		},
 		PalletEnabled {
 			enabled: bool,
+		},
+		DefaultOutgoingTransferTTLUpdated {
+			proxy_chain: ProxyChain,
+			ttl: Option<BlockNumberFor<T>>,
 		},
 	}
 
@@ -226,6 +230,14 @@ pub mod pallet {
 	#[pallet::getter(fn next_enable_nonce)]
 	pub type NextEnableNonce<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, EnableNonce, OptionQuery>;
+
+	/// Per-proxy-chain override for the outgoing transfer TTL.
+	///
+	/// If not set for a chain, falls back to the `DefaultOutgoingTransferTTL` config constant.
+	#[pallet::storage]
+	#[pallet::getter(fn outgoing_transfer_ttl)]
+	pub type OutgoingTransferTTL<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, ProxyChain, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -349,6 +361,25 @@ pub mod pallet {
 			Self::do_enable(T::OperationalFeeAccount::get(), proxy_chain, enabled, fee)?;
 			Ok(())
 		}
+
+		/// Updates the outgoing transfer TTL for a specific proxy chain.
+		/// If `ttl` is `None`, the override is removed and the default config value is used.
+		/// Can only be called by a privileged/root account.
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::update_outgoing_transfer_ttl())]
+		pub fn update_outgoing_transfer_ttl(
+			origin: OriginFor<T>,
+			proxy_chain: ProxyChain,
+			ttl: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
+			match ttl {
+				Some(value) => <OutgoingTransferTTL<T, I>>::insert(proxy_chain, value),
+				None => <OutgoingTransferTTL<T, I>>::remove(proxy_chain),
+			}
+			Self::deposit_event(Event::DefaultOutgoingTransferTTLUpdated { proxy_chain, ttl });
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -375,6 +406,12 @@ pub mod pallet {
 				return Err(Error::<T, I>::NotEnabled);
 			}
 			Ok(())
+		}
+
+		/// Returns the outgoing transfer TTL for the given proxy chain.
+		/// Uses the per-chain override if set, otherwise falls back to the config constant.
+		pub fn outgoing_transfer_ttl_or_default(proxy: ProxyChain) -> BlockNumberFor<T> {
+			Self::outgoing_transfer_ttl(proxy).unwrap_or_else(T::DefaultOutgoingTransferTTL::get)
 		}
 
 		/// Sends a message with a [`Action::TransferToken`] over Hyperdrive.
@@ -455,7 +492,7 @@ pub mod pallet {
 				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,
 				encoded,
-				T::OutgoingTransferTTL::get(),
+				Self::outgoing_transfer_ttl_or_default(proxy),
 				fee,
 			)?;
 
@@ -519,7 +556,7 @@ pub mod pallet {
 				T::MessageIdHasher::hash_of(complete_nonce),
 				recipient,
 				encoded,
-				T::OutgoingTransferTTL::get(),
+				Self::outgoing_transfer_ttl_or_default(proxy),
 				fee,
 			)?;
 

@@ -145,5 +145,11 @@ benchmarks_instance_pallet! {
 		run_to_block::<T, I>(100u32.into());
 	}: _(RawOrigin::Root, ProxyChain::Ethereum, true, fee_amount.into())
 
+	update_outgoing_transfer_ttl {
+		let ttl = 10u32;
+
+		run_to_block::<T, I>(100u32.into());
+	}: _(RawOrigin::Root, ProxyChain::Ethereum, Some(ttl.into()))
+
 	//impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

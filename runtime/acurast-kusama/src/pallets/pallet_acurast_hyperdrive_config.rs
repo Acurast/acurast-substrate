@@ -76,7 +76,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
 	type OperationalFeeAccount = OperationalFeeAccount;
-	type OutgoingTransferTTL = OutgoingTransferTTL;
+	type DefaultOutgoingTransferTTL = OutgoingTransferTTL;
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type MinTransferAmount = MinTransferAmount;

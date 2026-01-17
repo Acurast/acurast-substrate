@@ -24,7 +24,7 @@ pub mod pallet {
 		dispatch::DispatchResult,
 		pallet_prelude::*,
 		traits::{
-			fungible::{Balanced, Credit, Inspect, InspectFreeze, Mutate, MutateFreeze},
+			fungible::{Balanced, Credit, Inspect, InspectHold, Mutate, MutateHold},
 			tokens::{Fortitude, Precision, Preservation},
 			EnsureOrigin, Get, OnUnbalanced,
 		},
@@ -55,11 +55,11 @@ pub mod pallet {
 		type SendTo: Get<Option<SubjectFor<Self>>>;
 		type ReceiveFrom: Get<Option<SubjectFor<Self>>>;
 		type Currency: Inspect<Self::AccountId>
-			+ InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
-			+ MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>;
-		type RuntimeFreezeReason: From<FreezeReason>;
+		type RuntimeHoldReason: From<HoldReason>;
 		type Liquidity: Get<BalanceFor<Self>>;
 		type MinLockDuration: Get<BlockNumberFor<Self>>;
 		type MaxLockDuration: Get<BlockNumberFor<Self>>;
@@ -141,8 +141,8 @@ pub mod pallet {
 
 	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
-	pub enum FreezeReason {
-		/// Funds converted from canary.
+	pub enum HoldReason {
+		/// Funds migrated from canary.
 		#[codec(index = 0)]
 		Conversion,
 	}
@@ -240,7 +240,11 @@ pub mod pallet {
 					let amount_unlocked = amount_factor.mul_floor(locked_conversion.amount);
 					let slash = locked_conversion.amount.saturating_sub(amount_unlocked);
 
-					T::Currency::thaw(&FreezeReason::Conversion.into(), &who)?;
+					T::Currency::release_all(
+						&HoldReason::Conversion.into(),
+						&who,
+						Precision::Exact,
+					)?;
 
 					if !slash.is_zero() {
 						let reducible_balance = T::Currency::reducible_balance(
@@ -465,8 +469,8 @@ pub mod pallet {
 			let fund_result = Self::fund(&conversion_message);
 			match fund_result {
 				Ok(balance) => {
-					let freeze_result = Self::freeze(balance, &conversion_message);
-					match freeze_result {
+					let hold_result = Self::hold(balance, &conversion_message);
+					match hold_result {
 						Ok(_) => {
 							Self::deposit_event(Event::<T>::ConversionProcessed {
 								account: conversion_message.account,
@@ -524,22 +528,26 @@ pub mod pallet {
 			)
 		}
 
-		fn freeze(
+		fn hold(
 			transferred_balance: BalanceFor<T>,
 			conversion_message: &ConversionMessageFor<T>,
 		) -> DispatchResult {
-			let mut freeze_amount = transferred_balance.saturating_sub(T::Liquidity::get());
-			if freeze_amount.is_zero() {
-				// in case there is not enough to leave Liquidity as free balance, we freeze everything
-				freeze_amount = transferred_balance;
+			let mut hold_amount = transferred_balance.saturating_sub(T::Liquidity::get());
+			if hold_amount.is_zero() {
+				// in case there is not enough to leave Liquidity as free balance, we hold the max we can
+				hold_amount = transferred_balance.min(T::Currency::reducible_balance(
+					&conversion_message.account,
+					Preservation::Protect,
+					Fortitude::Polite,
+				));
 			}
-			T::Currency::set_freeze(
-				&FreezeReason::Conversion.into(),
+			T::Currency::hold(
+				&HoldReason::Conversion.into(),
 				&conversion_message.account,
-				freeze_amount,
+				hold_amount,
 			)?;
 			let current_block_number = <frame_system::Pallet<T>>::block_number();
-			let conversion = Conversion { amount: freeze_amount, lock_start: current_block_number };
+			let conversion = Conversion { amount: hold_amount, lock_start: current_block_number };
 			<LockedConversion<T>>::insert(&conversion_message.account, conversion);
 			Ok(())
 		}

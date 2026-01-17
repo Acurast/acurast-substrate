@@ -1,13 +1,14 @@
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate},
+		fungible::{Inspect, InspectHold, Mutate},
 		tokens::{Fortitude, Preservation},
+		LockableCurrency, WithdrawReasons,
 	},
 };
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
-use crate::{mock::*, BalanceFor, Config, ConversionMessageFor, Error, FreezeReason};
+use crate::{mock::*, BalanceFor, Config, ConversionMessageFor, Error, HoldReason};
 
 fn account_id() -> AccountId {
 	aid(0)
@@ -81,9 +82,71 @@ fn test_unlock_1() {
 			Balances::reducible_balance(&account_id(), Preservation::Expendable, Fortitude::Polite);
 		assert_eq!(reducible_balance, UNIT);
 
-		let frozen_balance =
-			Balances::balance_frozen(&FreezeReason::Conversion.into(), &account_id());
-		assert!(frozen_balance.is_zero());
+		let on_hold_balance =
+			Balances::balance_on_hold(&HoldReason::Conversion.into(), &account_id());
+		assert!(on_hold_balance.is_zero());
+	});
+}
+
+/// Test that conversion hold works even when there's an existing lock (via LockableCurrency)
+/// covering the account's total balance.
+#[test]
+fn test_unlock_with_existing_lock() {
+	ExtBuilder.build().execute_with(|| {
+		enable();
+		const LOCK_ID: [u8; 8] = *b"testlock";
+
+		// First, mint funds to the pallet account and the user account
+		assert_ok!(<Balances as Mutate<_>>::mint_into(
+			&<Test as Config>::PalletId::get().into_account_truncating(),
+			1000 * UNIT
+		));
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&account_id(), UNIT));
+
+		// Set up a lock covering the entire balance
+		<Balances as LockableCurrency<_>>::set_lock(
+			LOCK_ID,
+			&account_id(),
+			UNIT,
+			WithdrawReasons::all(),
+		);
+
+		// Process conversion - this should still be able to hold funds despite the lock
+		assert_ok!(AcurastTokenConversion::process_conversion(ConversionMessageFor::<Test> {
+			account: account_id(),
+			amount: UNIT,
+		}));
+
+		// Verify the hold is in place
+		let expected_hold = UNIT.saturating_sub(<Test as Config>::Liquidity::get());
+		let on_hold_balance =
+			Balances::balance_on_hold(&HoldReason::Conversion.into(), &account_id());
+		assert_eq!(on_hold_balance, expected_hold);
+
+		// Verify conversion is locked
+		assert!(AcurastTokenConversion::locked_conversion(account_id()).is_some());
+
+		// Move to after max lock duration
+		System::set_block_number(<Test as Config>::MaxLockDuration::get().saturating_add(2).into());
+
+		// Unlock should work
+		assert_ok!(AcurastTokenConversion::unlock(RuntimeOrigin::signed(account_id())));
+
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::AcurastTokenConversion(crate::Event::ConversionUnlocked {
+				account: account_id()
+			}))
+		);
+
+		// Hold should be released
+		let on_hold_balance =
+			Balances::balance_on_hold(&HoldReason::Conversion.into(), &account_id());
+		assert!(on_hold_balance.is_zero());
+
+		// Total balance should be 2*UNIT (original + converted)
+		let total_balance = Balances::total_balance(&account_id());
+		assert_eq!(total_balance, 2 * UNIT);
 	});
 }
 
@@ -114,7 +177,7 @@ fn test_unlock_2() {
 		assert_eq!(post_reducible_balance, 71875);
 		assert_eq!(post_pot_balance, 999928125);
 
-		assert!(Balances::balance_frozen(&FreezeReason::Conversion.into(), &account_id()).is_zero());
+		assert!(Balances::balance_on_hold(&HoldReason::Conversion.into(), &account_id()).is_zero());
 	});
 }
 
@@ -153,8 +216,11 @@ fn test_unlock_3() {
 			}))
 		);
 
+		// With holds, the pre_reducible_balance is lower by ED when there's a hold, so we need to add ED
 		assert_eq!(
-			pre_reducible_balance.saturating_add(locked_balance.saturating_div(2)),
+			pre_reducible_balance
+				.saturating_add(locked_balance.saturating_div(2))
+				.saturating_add(EXISTENTIAL_DEPOSIT),
 			post_reducible_balance
 		);
 		assert_eq!(
@@ -162,7 +228,7 @@ fn test_unlock_3() {
 			post_pot_balance
 		);
 
-		assert!(Balances::balance_frozen(&FreezeReason::Conversion.into(), &account_id()).is_zero());
+		assert!(Balances::balance_on_hold(&HoldReason::Conversion.into(), &account_id()).is_zero());
 	});
 }
 

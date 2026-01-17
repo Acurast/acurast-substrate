@@ -11,8 +11,8 @@ use pallet_acurast::{Layer, Subject};
 use pallet_acurast_token_conversion::SubjectFor;
 
 use crate::{
-	AcurastHyperdriveIbc, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent,
-	RuntimeFreezeReason, Treasury,
+	AcurastHyperdriveIbc, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent, RuntimeHoldReason,
+	Treasury,
 };
 
 parameter_types! {
@@ -31,7 +31,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Liquidity = Liquidity;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;

@@ -72,7 +72,7 @@ mod benches {
 			account: caller.clone(),
 			amount: 1_000_000_000_000u128.into(),
 		};
-		_ = TokenConversion::<T>::process_conversion(msg);
+		TokenConversion::<T>::process_conversion(msg)?;
 
 		// compute unlock block from stored lock
 		let lock = TokenConversion::<T>::locked_conversion(&caller)

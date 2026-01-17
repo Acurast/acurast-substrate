@@ -47,7 +47,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		AcurastTokenConversion: crate::{Pallet, Call, Storage, Event<T>, FreezeReason}
+		AcurastTokenConversion: crate::{Pallet, Call, Storage, Event<T>, HoldReason}
 	}
 );
 
@@ -118,7 +118,7 @@ impl crate::Config for Test {
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Liquidity = Liquidity;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;

@@ -1986,7 +1986,7 @@ where
 		};
 
 		// also reserved balance can be locked, therefore compare to total_balance
-		if <T::Currency as Currency<T::AccountId>>::free_balance(who)
+		if <T::Currency as Currency<T::AccountId>>::total_balance(who)
 			< new_lock_total.saturated_into()
 		{
 			Err(Error::<T, I>::InsufficientBalance)?;

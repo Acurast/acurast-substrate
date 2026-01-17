@@ -105,7 +105,7 @@ impl crate::Config for Test {
 	type EthereumFeeVault = HyperdriveTokenEthereumFeeVault;
 	type SolanaVault = HyperdriveTokenSolanaVault;
 	type SolanaFeeVault = HyperdriveTokenSolanaFeeVault;
-	type OutgoingTransferTTL = OutgoingTransferTTL;
+	type DefaultOutgoingTransferTTL = OutgoingTransferTTL;
 	type OperationalFeeAccount = HyperdriveTokenOperationalFeeAccount;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;

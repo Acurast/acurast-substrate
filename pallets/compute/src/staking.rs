@@ -269,20 +269,28 @@ where
 						}
 					};
 
+				let score_limit = target_weight_per_compute
+					.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(FIXEDU128_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(U256::from(PER_TOKEN_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?;
 				let score = {
 					// calculate from the total commitment's reward_weight (reduced during cooldown), with delegators
-					let score = commitment_total_weight;
-					let score_limit = target_weight_per_compute
-						.checked_mul(U256::from(commitment_bounded_metric_sum.into_inner()))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(FIXEDU128_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(U256::from(PER_TOKEN_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?;
-					if score_limit < score {
+					if score_limit < commitment_total_weight {
 						score_limit
 					} else {
 						commitment_total_weight
+					}
+				};
+
+				let score_without_delegations = {
+					// calculate from just committer's reward_weight (reduced during cooldown)
+					if score_limit < weights.self_reward_weight {
+						score_limit
+					} else {
+						weights.self_reward_weight
 					}
 				};
 
@@ -291,11 +299,12 @@ where
 					// calculate from only reward_weight (reduced during cooldown) of committer (ignoring delegations' weights)
 					// bonus_score = bounded_bonus_metric_sum / commitment_bounded_metric_sum * score
 					let bonus_score = U256::from(bounded_bonus_metric_sum.into_inner())
-						.checked_mul(score)
+						.checked_mul(score_without_delegations)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_div(U256::from(commitment_bounded_metric_sum.into_inner()))
 						.ok_or(Error::<T, I>::CalculationOverflow)?;
-					let bonus_score_limit = T::BusyWeightBonus::get().mul_floor(score);
+					let bonus_score_limit =
+						T::BusyWeightBonus::get().mul_floor(score_without_delegations);
 					if bonus_score_limit < bonus_score {
 						bonus_score_limit
 					} else {
@@ -1719,13 +1728,20 @@ where
 			let metric_epoch_sum = MetricsEpochSum::<T, I>::get(manager_id, pool_id);
 			let (actual_metric_sum, _) = metric_epoch_sum.get(last_epoch);
 
-			let missed_epochs: u128 =
-				if actual_metric_sum.is_zero() && metric_epoch_sum.epoch < last_epoch {
-					// we still know an "old" value since it got not overwritten and we can slash for all the epoch's missed
-					last_epoch.saturating_sub(metric_epoch_sum.epoch).saturated_into::<u128>()
-				} else {
-					One::one()
-				};
+			let missed_epochs: u128 = if actual_metric_sum.is_zero()
+				&& metric_epoch_sum.epoch < last_epoch
+			{
+				// we still know an "old" value since it got not overwritten and we can slash for all the epoch's missed
+				last_epoch
+					.saturating_sub(if metric_epoch_sum.epoch > commitment.last_slashing_epoch {
+						metric_epoch_sum.epoch
+					} else {
+						commitment.last_slashing_epoch
+					})
+					.saturated_into::<u128>()
+			} else {
+				One::one()
+			};
 
 			// Calculate slash amount for this pool
 			let pool_slash_amount: BalanceFor<T, I> =
@@ -1970,7 +1986,7 @@ where
 		};
 
 		// also reserved balance can be locked, therefore compare to total_balance
-		if <T::Currency as Currency<T::AccountId>>::free_balance(who)
+		if <T::Currency as Currency<T::AccountId>>::total_balance(who)
 			< new_lock_total.saturated_into()
 		{
 			Err(Error::<T, I>::InsufficientBalance)?;

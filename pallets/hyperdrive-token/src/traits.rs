@@ -8,4 +8,5 @@ pub trait WeightInfo {
 	fn update_solana_contract() -> Weight;
 	fn set_enabled() -> Weight;
 	fn enable_proxy_chain() -> Weight;
+	fn update_outgoing_transfer_ttl() -> Weight;
 }

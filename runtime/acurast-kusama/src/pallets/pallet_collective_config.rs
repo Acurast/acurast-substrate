@@ -8,7 +8,10 @@ use acurast_runtime_common::{
 	types::{AccountId, BlockNumber, CouncilInstance, CouncilThreeSeventh},
 };
 
-use crate::{Council, Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin};
+use crate::{
+	Council, EnsureCouncilOrRoot, Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin,
+};
 
 type CouncilMembershipInstance = pallet_membership::Instance1;
 
@@ -37,11 +40,11 @@ impl pallet_collective::Config<CouncilInstance> for Runtime {
 
 impl pallet_membership::Config<CouncilMembershipInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = CouncilThreeSeventh;
-	type RemoveOrigin = CouncilThreeSeventh;
-	type SwapOrigin = CouncilThreeSeventh;
-	type ResetOrigin = CouncilThreeSeventh;
-	type PrimeOrigin = CouncilThreeSeventh;
+	type AddOrigin = EnsureCouncilOrRoot;
+	type RemoveOrigin = EnsureCouncilOrRoot;
+	type SwapOrigin = EnsureCouncilOrRoot;
+	type ResetOrigin = EnsureCouncilOrRoot;
+	type PrimeOrigin = EnsureCouncilOrRoot;
 	type MembershipInitialized = Council;
 	type MembershipChanged = Council;
 	type MaxMembers = MaxMembers;

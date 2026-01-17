@@ -386,6 +386,9 @@ pub mod pallet {
 	pub type CollatorRewards<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceFor<T, I>, ValueQuery>;
 
+	#[pallet::storage]
+	pub type InflationEnabled<T: Config<I>, I: 'static = ()> = StorageValue<_, bool, ValueQuery>;
+
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
@@ -403,7 +406,7 @@ pub mod pallet {
 		BackingOfferWithdrew(T::AccountId, T::ManagerId),
 		/// A manager accepted a committer's backing offer. [committer_id, manager_id]
 		BackingAccepted(T::CommitmentId, T::ManagerId),
-		/// A commitment with corresponding. [account, commitment_id]
+		/// A commitment was created. [account, commitment_id]
 		CommitmentCreated(T::AccountId, T::CommitmentId),
 		/// An account started delegation to a commitment. [delegator, commitment_id]
 		Delegated(T::AccountId, T::CommitmentId),
@@ -439,6 +442,10 @@ pub mod pallet {
 		V11MigrationStarted,
 		/// V11 migration completed (clearing deprecated MetricsEraAverage storage)
 		V11MigrationCompleted,
+		/// A backing ended. [committer_id, manager_id]
+		BackingEnded(T::CommitmentId, T::ManagerId),
+		/// Inflation has been enabled
+		InflationEnabled,
 	}
 
 	// Errors inform users that something went wrong.
@@ -497,6 +504,7 @@ pub mod pallet {
 		CommissionIncreaseTooSoon,
 		CannotCreatePool,
 		InvalidTotalPoolRewards,
+		CannotEndBacking,
 	}
 
 	#[pallet::hooks]
@@ -537,6 +545,7 @@ pub mod pallet {
 					// Handle inflation-based reward distribution on new epoch
 					{
 						let mut inflation_info = Self::inflate();
+						weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						let used_weight = Self::store_metrics_reward(
 							inflation_info.metrics_reward,
 							current_epoch,
@@ -730,16 +739,24 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
 
-			ensure!(Self::backing_lookup(manager_id).is_none(), Error::<T, I>::AlreadyBacking);
+			if let Some(commitment_id) = Self::backing_lookup(manager_id) {
+				// we allow to reassign a different committer if the existing committer did not have an active commitment
+				if Self::commitments(commitment_id).is_some() {
+					Err(Error::<T, I>::AlreadyBacking)?
+				} else {
+					<Backings<T, I>>::remove(commitment_id);
+				}
+				Self::deposit_event(Event::<T, I>::BackingEnded(commitment_id, manager_id));
+			}
 
 			let offer_manager_id = BackingOffers::<T, I>::take(&committer)
 				.ok_or(Error::<T, I>::NoBackingOfferFound)?;
 			ensure!(manager_id == offer_manager_id, Error::<T, I>::NoBackingOfferFound);
 
-			// technically this call allows to reuse a commitment_id NFT here, but the mechanism to create commitment IDs in this pallet does not yet allow committers to swap which managers they back (they can do offer-accept-flow at most once)
+			// this call allows to reuse a commitment_id NFT here
 			let (commitment_id, created) = Self::do_get_or_create_commitment_id(&committer)?;
 			if created {
-				// we always emit this if extrinsic call succeeds, but it's likely to change in the future so we already emit this separate event for the first time a commitment_id-NFT is created
+				// we emit this event for the first time a commitment_id-NFT is created
 				Self::deposit_event(Event::<T, I>::CommitmentCreated(committer, commitment_id));
 			}
 
@@ -1101,6 +1118,18 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::enable_inflation())]
+		pub fn enable_inflation(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			_ = T::OperatorOrigin::ensure_origin(origin)?;
+
+			InflationEnabled::<T, I>::set(true);
+
+			Self::deposit_event(Event::<T, I>::InflationEnabled);
+
+			Ok(().into())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1119,6 +1148,12 @@ pub mod pallet {
 		}
 
 		fn inflate() -> InflationInfoFor<T, I> {
+			let enabled = InflationEnabled::<T, I>::get();
+
+			if !enabled {
+				return InflationInfo::default();
+			}
+
 			let inflation_amount: BalanceFor<T, I> = T::InflationPerEpoch::get();
 
 			if inflation_amount.is_zero() {

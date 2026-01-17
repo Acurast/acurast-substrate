@@ -128,7 +128,6 @@ pub struct LiquidityInfo {
 	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
 }
 
-// We allow root only to execute privileged collator selection operations.
 pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
 
 pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<

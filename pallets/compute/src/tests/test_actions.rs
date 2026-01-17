@@ -269,6 +269,8 @@ impl ComputeTestFlow {
 		// Set inflation per epoch to 0 for tests
 		InflationPerEpoch::set(142857142857 * NANOUNIT); // 142.857142857 makes 70% be 100 * UNITS
 
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+
 		// Setup
 		setup_balances();
 

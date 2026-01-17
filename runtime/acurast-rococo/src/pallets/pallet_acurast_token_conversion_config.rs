@@ -21,7 +21,7 @@ use pallet_acurast_token_conversion::SubjectFor;
 use crate::{
 	pallets::pallet_acurast_hyperdrive_config::SelfChain, AcurastHyperdriveIbc,
 	AcurastTokenConversion, Balances, OutgoingTransferTTL, Runtime, RuntimeEvent,
-	RuntimeFreezeReason,
+	RuntimeHoldReason,
 };
 
 parameter_types! {
@@ -41,7 +41,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type SendTo = SendTo;
 	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Liquidity = Liquidity;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;

@@ -80,7 +80,6 @@ pub fn acurast_config() -> ChainSpec {
 		endowed_accounts(),
 		vesting(),
 		MAINNET_PARACHAIN_ID.into(),
-		Some(acurast_sudo_account()),
 	))
 	.build()
 }
@@ -90,7 +89,6 @@ fn genesis_config(
 	endowed_accounts: Vec<(AccountId, Balance)>,
 	vesting: Vec<(AccountId, BlockNumber, BlockNumber, Balance)>,
 	id: ParaId,
-	sudo_account: Option<AccountId>,
 ) -> serde_json::Value {
 	serde_json::json!({
 		"balances": {
@@ -131,9 +129,6 @@ fn genesis_config(
 				"max_funds": 300_000_000_000u128,
 				"funds_account": onboarding_funds_account(),
 			}
-		},
-		"sudo": {
-			"key": sudo_account
 		},
 		"councilMembership": {
 			"members": council_members()

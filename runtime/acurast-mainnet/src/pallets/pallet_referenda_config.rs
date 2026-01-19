@@ -18,8 +18,8 @@ const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 	sp_arithmetic::FixedI64::from_rational(x as u128, 100)
 }
 
-const APP_ROOT: Curve = Curve::make_reciprocal(4, 20, percent(80), percent(50), percent(100));
-const SUP_ROOT: Curve = Curve::make_linear(20, 20, percent(0), percent(25));
+const APP_ROOT: Curve = Curve::make_reciprocal(4, 48, percent(80), percent(50), percent(100));
+const SUP_ROOT: Curve = Curve::make_linear(48, 48, percent(0), percent(50));
 
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
@@ -31,15 +31,15 @@ parameter_types! {
 			name: s("root"),
 			max_deciding: 1,
 			decision_deposit: UNIT,
-			prepare_period: 2 * HOURS,
-			decision_period: 20 * HOURS,
-			confirm_period: 2 * HOURS,
+			prepare_period: 12 * HOURS,
+			decision_period: 48 * HOURS,
+			confirm_period: 6 * HOURS,
 			min_enactment_period: 2 * HOURS,
 			min_approval: APP_ROOT,
 			min_support: SUP_ROOT,
 		},
 	}];
-	pub const VoteLockingPeriod: BlockNumber = 2 * HOURS;
+	pub const VoteLockingPeriod: BlockNumber = 7 * DAYS;
 }
 
 impl pallet_referenda::Config for Runtime {

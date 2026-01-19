@@ -44,7 +44,7 @@ parameter_types! {
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 112; // can redelegate once per 7*16=112 epochs ~= 1 week
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
-	pub const InflationPerEpoch: Balance = 0;//8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
+	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B: ((1000000000 * 10^12 * 0.05) / 365 / 24) * 1.5
 	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
 	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(10);
 	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(5);

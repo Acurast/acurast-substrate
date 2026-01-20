@@ -41,7 +41,7 @@ mod benches {
 		let caller: T::AccountId = account("origin", 0, 0);
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
 
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);
@@ -96,7 +96,7 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);
 
@@ -126,7 +126,7 @@ mod benches {
 		let account: T::AccountId = account("target", 0, 0);
 		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
+		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
 		mint_to::<T>(&caller, initial_balance);
 		mint_to::<T>(&account, initial_balance);
 		mint_to::<T>(&pallet_account, initial_balance);

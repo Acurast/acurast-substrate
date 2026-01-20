@@ -77,6 +77,7 @@ pub mod pallet {
 					BlockNumberFor<Self>,
 				>>::MessageNonce,
 			> + TypeInfo;
+		type MinTransferAmount: Get<BalanceFor<Self>>;
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 		#[pallet::constant]
 		type ConvertTTL: Get<BlockNumberFor<Self>>;
@@ -180,7 +181,7 @@ pub mod pallet {
 			if reducible_balance < fee {
 				return Err(Error::<T>::CannotPayFee)?;
 			}
-			if reducible_balance - fee < T::Liquidity::get() {
+			if reducible_balance - fee < T::MinTransferAmount::get() {
 				return Err(Error::<T>::BalanceTooLow)?;
 			}
 

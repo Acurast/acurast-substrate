@@ -37,7 +37,7 @@ fn setup_conversion(amount: BalanceFor<Test>) {
 fn test_convert() {
 	ExtBuilder.build().execute_with(|| {
 		enable();
-		assert_ok!(<Balances as Mutate<_>>::mint_into(&account_id(), UNIT));
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&account_id(), 205 * UNIT));
 		let reducible_balance = <Balances as Inspect<_>>::reducible_balance(
 			&account_id(),
 			Preservation::Preserve,
@@ -252,7 +252,7 @@ fn test_unlock_4() {
 fn test_retry_convert() {
 	ExtBuilder.build().execute_with(|| {
 		enable();
-		assert_ok!(<Balances as Mutate<_>>::mint_into(&account_id(), UNIT));
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&account_id(), 205 * UNIT));
 		assert_ok!(<Balances as Mutate<_>>::mint_into(&aid(1), UNIT));
 		let fee = UNIT / 1000;
 

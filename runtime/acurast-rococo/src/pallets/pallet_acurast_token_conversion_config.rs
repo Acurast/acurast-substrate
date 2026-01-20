@@ -31,6 +31,7 @@ parameter_types! {
 	pub SendTo: Option<SubjectFor<Runtime>> = Some(Subject::Acurast(Layer::Extrinsic(MainnetTokenConversionPalletId::get().into_account_truncating())));//Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub ReceiveFrom: Option<SubjectFor<Runtime>> = None;//Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
 	pub const Liquidity: Balance = UNIT;
+	pub const MinTransferAmount: Balance = 200 * UNIT;
 	pub const MinLockDuration: BlockNumber = MINUTES;
 	pub const MaxLockDuration: BlockNumber = 5 * MINUTES;
 }
@@ -43,6 +44,7 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Liquidity = Liquidity;
+	type MinTransferAmount = MinTransferAmount;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
 	// TODO maybe change back to LocalMessageSender once tested with mockmainnet

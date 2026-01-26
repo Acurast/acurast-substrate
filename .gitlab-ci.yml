@@ -47,19 +47,43 @@ test:
 build-mainnet:
   stage: build
   when: manual
+  variables:
+    LOCAL_ACURAST: "acurast-$CI_PIPELINE_ID"
   script:
     - docker build -t $MAINNET_TAG --build-arg chain="mainnet" .
+    - docker create --name $LOCAL_ACURAST $MAINNET_TAG
+    - docker cp $LOCAL_ACURAST:/runtimes/acurast_mainnet_runtime.compact.compressed.wasm acurast_mainnet_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
+    - docker rm $LOCAL_ACURAST
+  artifacts:
+    paths:
+      - acurast_mainnet_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
 
 build-canary:
   stage: build
+  variables:
+    LOCAL_ACURAST: "acurast-$CI_PIPELINE_ID"
   script:
     - docker build -t $KUSAMA_TAG --build-arg chain="kusama" .
+    - docker create --name $LOCAL_ACURAST $KUSAMA_TAG
+    - docker cp $LOCAL_ACURAST:/runtimes/acurast_kusama_runtime.compact.compressed.wasm acurast_kusama_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
+    - docker rm $LOCAL_ACURAST
+  artifacts:
+    paths:
+      - acurast_kusama_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
 
 build-dev:
   stage: build
   when: manual
+  variables:
+    LOCAL_ACURAST: "acurast-$CI_PIPELINE_ID"
   script:
     - docker build -t $GOOGLE_TAG .
+    - docker create --name $LOCAL_ACURAST $GOOGLE_TAG
+    - docker cp $LOCAL_ACURAST:/runtimes/acurast_rococo_runtime.compact.compressed.wasm acurast_rococo_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
+    - docker rm $LOCAL_ACURAST
+  artifacts:
+    paths:
+      - acurast_rococo_runtime-$CI_PIPELINE_ID.compact.compressed.wasm
 
 publish-dev:
   stage: publish

@@ -26,6 +26,9 @@ RUN \
 FROM docker.io/library/ubuntu:22.04
 
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
+COPY --from=builder /code/target/release/wbuild/acurast-mainnet-runtime/acurast_mainnet_runtime.compact.compressed.wasm /runtimes/
+COPY --from=builder /code/target/release/wbuild/acurast-kusama-runtime/acurast_kusama_runtime.compact.compressed.wasm /runtimes/
+COPY --from=builder /code/target/release/wbuild/acurast-rococo-runtime/acurast_rococo_runtime.compact.compressed.wasm /runtimes/
 COPY --from=builder /code/chain-specs /chain-specs
 
 RUN apt update && \

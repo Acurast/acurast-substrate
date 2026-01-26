@@ -38,7 +38,7 @@ pub mod pallet {
 		pallet_prelude::{ValueQuery, *},
 		traits::{
 			fungible::{Balanced, Credit},
-			tokens::{ExistenceRequirement, Fortitude, Precision, Preservation},
+			tokens::ExistenceRequirement,
 			Currency, EnsureOrigin, Get, Imbalance, InspectLockableCurrency, LockIdentifier,
 			OnUnbalanced,
 		},
@@ -544,14 +544,14 @@ pub mod pallet {
 
 					// Handle inflation-based reward distribution on new epoch
 					{
-						let mut inflation_info = Self::inflate();
+						let inflation_info = Self::inflate();
 						weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						let used_weight = Self::store_metrics_reward(
 							inflation_info.metrics_reward,
 							current_epoch,
 						);
 						weight = weight.saturating_add(used_weight);
-						let (used_weight, unused_amount) = Self::store_staked_compute_reward(
+						let used_weight = Self::store_staked_compute_reward(
 							inflation_info.staked_compute_reward,
 							current_epoch,
 							last_epoch,
@@ -562,22 +562,6 @@ pub mod pallet {
 							Self::store_collators_reward(inflation_info.collators_reward);
 						collators_reward = Some(inflation_info.collators_reward);
 						weight = weight.saturating_add(used_weight);
-						if !unused_amount.is_zero() {
-							if let Ok(unused) = <T::Currency as Balanced<T::AccountId>>::withdraw(
-								&Self::account_id(),
-								unused_amount,
-								Precision::Exact,
-								Preservation::Preserve,
-								Fortitude::Polite,
-							) {
-								if inflation_info.credit.is_some() {
-									inflation_info.credit =
-										inflation_info.credit.map(|c| c.merge(unused));
-								} else {
-									inflation_info.credit = Some(unused);
-								}
-							}
-						}
 						if let Some(credit) = inflation_info.credit {
 							T::InflationHandler::on_unbalanced(credit);
 						}
@@ -1248,9 +1232,8 @@ pub mod pallet {
 			current_epoch: EpochOf<T>,
 			last_epoch: EpochOf<T>,
 			target_token_supply: u128,
-		) -> (Weight, BalanceFor<T, I>) {
+		) -> Weight {
 			// Store stake-based rewards split by pool (to avoid redoing this in every stake-based-reward-claiming heartbeat)
-			let mut unused_amount: BalanceFor<T, I> = Zero::zero();
 			let mut weight = Weight::default();
 
 			for (pool_id, pool) in MetricPools::<T, I>::iter() {
@@ -1263,11 +1246,6 @@ pub mod pallet {
 						T::TargetWeightPerComputeMultiplier::get().into_inner(),
 					));
 				StakeBasedRewards::<T, I>::mutate(pool_id, |r| {
-					// before overwriting the second-to-last epoch's budget, we gather the soon stale_budget to refund it as part of imbalance
-					let stale_budget = r.get(last_epoch.saturating_sub(One::one()));
-					unused_amount = unused_amount.saturating_add(
-						stale_budget.total.saturating_sub(stale_budget.distributed),
-					);
 					r.mutate(
 						current_epoch,
 						|v| {
@@ -1285,7 +1263,7 @@ pub mod pallet {
 				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
 			}
 
-			(weight, unused_amount)
+			weight
 		}
 
 		fn reward_collator(maybe_amount: Option<BalanceFor<T, I>>) -> Weight {

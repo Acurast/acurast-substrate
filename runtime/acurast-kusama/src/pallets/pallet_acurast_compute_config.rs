@@ -46,7 +46,7 @@ parameter_types! {
 	pub const RedelegationBlockingPeriod: BlockNumber = 16; // can redelegate once per 16 epochs ~= 1 day
 	pub const ComputeStakingLockId: LockIdentifier = *b"compstak";
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
-	pub const InflationPerEpoch: Balance = 8_561_643_835_616_439; // ~ 5% a year for a total supply of 1B
+	pub const InflationPerEpoch: Balance = 2_140_410_958_904_109; // ~ 1.25% a year for a total supply of 1B
 	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(70);
 	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(10);
 	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(5);

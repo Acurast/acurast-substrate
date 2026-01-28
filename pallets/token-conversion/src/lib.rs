@@ -115,6 +115,7 @@ pub mod pallet {
 		NotEnabled,
 		LockedBalance,
 		CannotUnlockYet,
+		ConversionDenied,
 	}
 
 	#[pallet::storage]
@@ -140,6 +141,10 @@ pub mod pallet {
 	#[pallet::getter(fn enabled)]
 	pub type Enabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn denied_source)]
+	pub type DeniedSource<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
+
 	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
@@ -158,6 +163,7 @@ pub mod pallet {
 		pub fn convert(origin: OriginFor<T>, fee: BalanceFor<T>) -> DispatchResult {
 			Self::ensure_enabled()?;
 			let who = ensure_signed(origin)?;
+			Self::ensure_not_denied(&who)?;
 			let Some(destination) = T::SendTo::get() else {
 				cfg_if::cfg_if! {
 					if #[cfg(not(feature = "runtime-benchmarks"))] {
@@ -374,10 +380,22 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion_for())]
+		#[pallet::weight(< T as Config>::WeightInfo::set_enabled())]
 		pub fn set_enabled(origin: OriginFor<T>, enable: bool) -> DispatchResult {
 			_ = T::EnableOrigin::ensure_origin(origin)?;
 			<Enabled<T>>::set(enable);
+			Ok(())
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion_for())]
+		pub fn deny_source(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			denied: bool,
+		) -> DispatchResult {
+			_ = T::EnableOrigin::ensure_origin(origin)?;
+			<DeniedSource<T>>::insert(&account, denied);
 			Ok(())
 		}
 	}
@@ -390,6 +408,14 @@ pub mod pallet {
 		fn ensure_enabled() -> Result<(), Error<T>> {
 			if !Self::enabled() {
 				return Err(Error::<T>::NotEnabled);
+			}
+			Ok(())
+		}
+
+		fn ensure_not_denied(account: &T::AccountId) -> Result<(), Error<T>> {
+			let is_denied = Self::denied_source(account).unwrap_or_default();
+			if is_denied {
+				return Err(Error::<T>::ConversionDenied);
 			}
 			Ok(())
 		}

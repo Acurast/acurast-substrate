@@ -8,4 +8,5 @@ pub trait WeightInfo {
 	fn retry_process_conversion() -> Weight;
 	fn retry_process_conversion_for() -> Weight;
 	fn set_enabled() -> Weight;
+	fn deny_source() -> Weight;
 }

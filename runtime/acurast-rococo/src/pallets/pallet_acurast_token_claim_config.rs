@@ -2,7 +2,7 @@ use frame_support::parameter_types;
 use sp_runtime::traits::ConvertInto;
 
 use acurast_runtime_common::{
-	constants::DAYS,
+	constants::MINUTES,
 	types::{AccountId, BlockNumber, Signature},
 	weight,
 };
@@ -11,12 +11,12 @@ use acurast_runtime_common::{
 use crate::benchmarking::AcurastBenchmarkHelper;
 use crate::{Balances, Runtime, RuntimeEvent};
 
-const MONTH: BlockNumber = 30 * DAYS;
-
 parameter_types! {
-	pub Signer: AccountId = AccountId::from(hex_literal::hex!("546bfb7826b72e20d41d7ece2ab05b11440906622f4c16042816604d663a465b"));
-	pub Funder: AccountId = AccountId::from(hex_literal::hex!("747f83e907bfecee52377542fc2f65181f224d59dcfd69eef059b1c3203f1501"));
-	pub VestingDuration: BlockNumber = 24 * MONTH;
+	// Testnet signer - using a well-known test account
+	pub Signer: AccountId = AccountId::from(hex_literal::hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d")); // Alice
+	// Testnet funder - using a well-known test account
+	pub Funder: AccountId = AccountId::from(hex_literal::hex!("306721211d5404bd9da88e0204360a1a9ab8b87c66c1bc2fcdd37f3c2222cc20")); // Dave
+	pub VestingDuration: BlockNumber = 5 * MINUTES;
 }
 
 impl pallet_acurast_token_claim::Config for Runtime {

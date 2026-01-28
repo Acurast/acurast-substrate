@@ -1,9 +1,9 @@
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, WithdrawReasons},
+	traits::{ConstU16, ConstU32, ConstU64},
 };
 use parity_scale_codec::Encode;
-use sp_core::{sr25519::Pair, ConstU128, Pair as PairTrait, H256};
+use sp_core::{sr25519::Pair, Pair as PairTrait, H256};
 use sp_runtime::{
 	traits::{ConvertInto, IdentityLookup},
 	AccountId32, BuildStorage, MultiSignature,
@@ -45,7 +45,6 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
 		AcurastTokenClaim: crate::{Pallet, Call, Storage, Event<T>}
 	}
 );
@@ -57,7 +56,6 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 	pub const MaxLocks: u32 = 50;
 	pub const LockDuration: BlockNumber = 48 * 28 * DAYS;
-	pub const VestingWithdrawReasons: WithdrawReasons = WithdrawReasons::FEE;
 	pub Funder: AccountId = generate_pair_account("Alice").1;
 	pub Signer: AccountId = generate_pair_account("Bob").1;
 }
@@ -106,20 +104,9 @@ impl pallet_balances::Config for Test {
 	type DoneSlashHandler = ();
 }
 
-impl pallet_vesting::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BlockNumberToBalance = ConvertInto;
-	type MinVestedTransfer = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
-	type UnvestedFundsAllowedWithdrawReasons = VestingWithdrawReasons;
-	type BlockNumberProvider = System;
-	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Self>;
-	const MAX_VESTING_SCHEDULES: u32 = 10;
-}
-
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type VestedTransferer = Vesting;
+	type Currency = Balances;
 	type Signature = MultiSignature;
 	type Signer = Signer;
 	type Funder = Funder;

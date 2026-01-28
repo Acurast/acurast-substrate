@@ -18,6 +18,7 @@ use pallet_acurast::{
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
+use sp_runtime::MultiSignature;
 
 use crate::{
 	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,
@@ -155,6 +156,12 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 
 	fn remove_job_registration(job_id: &JobId<<Runtime as frame_system::Config>::AccountId>) {
 		<StoredJobRegistration<Runtime>>::remove(&job_id.0, job_id.1);
+	}
+}
+
+impl pallet_acurast_token_claim::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
+	fn dummy_signature() -> <Runtime as pallet_acurast_token_claim::Config>::Signature {
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
 	}
 }
 

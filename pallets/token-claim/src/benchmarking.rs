@@ -2,7 +2,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::{IdentifyAccount, StaticLookup, Verify},
-	traits::{Currency, VestedTransfer},
+	traits::Currency,
 };
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
@@ -24,10 +24,9 @@ mod benches {
 
 	// helper inside the benchmark module so `T` is injected by the macro
 	fn mint_to<T: Config>(who: &T::AccountId, amount: BalanceFor<T>) {
-		let _ = <<<T as crate::Config>::VestedTransferer as VestedTransfer<T::AccountId>>::Currency as Currency<T::AccountId>>::deposit_into_existing(who, amount);
+		let _ = <T::Currency as Currency<T::AccountId>>::deposit_into_existing(who, amount);
 	}
 
-	/// convert
 	#[benchmark]
 	fn claim() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = account("origin", 0, 0);
@@ -38,9 +37,33 @@ mod benches {
 		let amount: BalanceFor<T> = 100_000_000_000_000u128.into();
 		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
 
-		// measured extrinsic call — **bare** call expression, first arg must be origin
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), proof, caller.clone().into().into());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn vest() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = account("origin", 0, 0);
+		let initial_funds: BalanceFor<T> = 1_000_000_000_000_000u128.into();
+
+		mint_to::<T>(&T::Funder::get(), initial_funds);
+
+		// First create a claim to set up vesting
+		let amount: BalanceFor<T> = 100_000_000_000_000u128.into();
+		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
+		Pallet::<T>::claim(
+			RawOrigin::Signed(caller.clone()).into(),
+			proof,
+			caller.clone().into().into(),
+		)?;
+
+		// Move forward in time to have something to vest
+		frame_system::Pallet::<T>::set_block_number(1000u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), None, None);
 
 		Ok(())
 	}

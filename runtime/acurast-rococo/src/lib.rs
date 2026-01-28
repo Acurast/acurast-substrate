@@ -135,6 +135,8 @@ mod runtime {
 	pub type AcurastHyperdriveToken = pallet_acurast_hyperdrive_token<Instance1>;
 	#[runtime::pallet_index(54)]
 	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
+	#[runtime::pallet_index(55)]
+	pub type AcurastTokenClaim = pallet_acurast_token_claim;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

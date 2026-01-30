@@ -14,7 +14,6 @@ pub mod benchmarking;
 mod constants;
 mod pallets;
 mod types;
-mod upgrades;
 mod utils;
 mod weights;
 pub mod xcm_config;

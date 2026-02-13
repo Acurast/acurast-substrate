@@ -31,7 +31,7 @@ const LOG_TARGET: &str = "runtime::acurast_compute";
 #[frame_support::pallet]
 pub mod pallet {
 	use acurast_common::{
-		CommitmentIdProvider, ManagerIdProvider, ManagerLookup, MetricInput, PoolId,
+		CommitmentIdProvider, ManagerIdProvider, ManagerLookup, MetricInput, PoolId, Slashable,
 	};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
@@ -171,6 +171,7 @@ pub mod pallet {
 		/// Origin that can execute operational extrinsics
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type AuthorProvider: BlockAuthorProvider<Self::AccountId>;
+		type Slashable: Slashable<Self::AccountId, Currency = Self::Currency>;
 		/// Weight Info for extrinsics.
 		type WeightInfo: WeightInfo;
 	}

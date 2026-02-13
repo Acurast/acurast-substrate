@@ -1,7 +1,11 @@
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::RawOrigin,
-	traits::{fungible::Mutate, Get, Hooks, IsType},
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+		Get, Hooks, IsType,
+	},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::{
@@ -15,8 +19,15 @@ use pallet_acurast_processor_manager::{
 	generate_account, BenchmarkHelper, Config as ProcessorManagerConfig,
 	Pallet as ProcessorManager, ProcessorPairingFor, ProcessorPairingUpdateFor,
 };
+use pallet_acurast_token_conversion::{
+	Config as TokenConversionConfig, ConversionMessageFor, Pallet as TokenConversion,
+};
 
-use crate::{stub::UNIT, types::*, Call, Config, Pallet};
+use crate::{
+	stub::{MILLIUNIT, UNIT},
+	types::*,
+	Call, Config, Pallet,
+};
 
 fn generate_pairing_update_add<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 	index: u32,
@@ -52,11 +63,29 @@ fn set_timestamp<T: pallet_timestamp::Config>(timestamp: u32) {
 	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
 }
 
-fn mint_to<T: Config<I>, I: 'static>(who: &T::AccountId, amount: BalanceFor<T, I>)
-where
+fn mint_to<T: Config<I> + TokenConversionConfig, I: 'static>(
+	who: &T::AccountId,
+	amount: BalanceFor<T, I>,
+) where
 	<T as Config<I>>::Currency: Mutate<T::AccountId>,
+	BalanceFor<T, I>: IsType<u128>,
+	<<T as TokenConversionConfig>::Currency as Inspect<T::AccountId>>::Balance: IsType<u128>,
 {
-	let _ = <<T as Config<I>>::Currency as Mutate<T::AccountId>>::mint_into(who, amount);
+	let liquidity: u128 = <T as TokenConversionConfig>::Liquidity::get().into();
+	let conversion_amount: u128 = amount.into() + liquidity;
+	TokenConversion::<T>::process_conversion(ConversionMessageFor::<T> {
+		account: who.clone(),
+		amount: conversion_amount.into(),
+	})
+	.expect("Conversion works");
+	let to_burn: u128 = liquidity - MILLIUNIT;
+	let _ = <<T as Config<I>>::Currency as Mutate<T::AccountId>>::burn_from(
+		who,
+		to_burn.into(),
+		Preservation::Preserve,
+		Precision::BestEffort,
+		Fortitude::Polite,
+	);
 }
 
 fn create_compute_pool<T: Config<I>, I: 'static>() -> PoolId
@@ -176,13 +205,14 @@ fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 
 #[instance_benchmarks(
 	where
-		T: Config<I> + pallet_timestamp::Config<Moment = u64> + pallet_acurast_processor_manager::Config,
+		T: Config<I> + pallet_timestamp::Config<Moment = u64> + ProcessorManagerConfig + TokenConversionConfig,
 		BlockNumberFor<T>: IsType<u32> + One,
 		T::AccountId: From<AccountId32> + From<[u8; 32]>,
 		<T as Config<I>>::Currency: Mutate<T::AccountId>,
 		BalanceFor<T, I>: IsType<u128>,
 		pallet_acurast_processor_manager::BalanceFor<T>: IsType<u128>,
-		<T as frame_system::Config>::AccountId: frame_support::traits::IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
+		<<T as TokenConversionConfig>::Currency as Inspect<T::AccountId>>::Balance: IsType<u128>,
+		<T as frame_system::Config>::AccountId: IsType<<<<T as ProcessorManagerConfig>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
 )]
 mod benches {
 	use sp_runtime::traits::BlockNumberProvider;

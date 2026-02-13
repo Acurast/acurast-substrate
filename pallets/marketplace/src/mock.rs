@@ -1,4 +1,4 @@
-use acurast_common::ManagerIdProvider;
+use acurast_common::{ManagerIdProvider, Slashable};
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
 use frame_support::{
@@ -261,6 +261,7 @@ impl pallet_acurast_compute::Config for Test {
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type AuthorProvider = MockAuthorProvider;
+	type Slashable = MockSlashable;
 	type WeightInfo = ();
 }
 
@@ -268,6 +269,18 @@ pub struct MockAuthorProvider;
 impl BlockAuthorProvider<AccountId> for MockAuthorProvider {
 	fn author() -> Option<AccountId> {
 		Some(alice_account_id())
+	}
+}
+
+pub struct MockSlashable;
+impl Slashable<AccountId> for MockSlashable {
+	type Currency = Balances;
+
+	fn slash(
+		_account: &AccountId,
+		_amount: acurast_common::BalanceFor<Self::Currency, AccountId>,
+	) -> Option<acurast_common::ImbalanceFor<Self::Currency, AccountId>> {
+		None
 	}
 }
 

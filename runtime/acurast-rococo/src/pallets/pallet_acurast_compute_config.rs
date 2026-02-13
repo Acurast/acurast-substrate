@@ -20,8 +20,9 @@ use frame_support::{
 use sp_runtime::{FixedU128, Perbill, Perquintill};
 
 use crate::{
-	Acurast, AcurastProcessorManager, Authorship, Balances, CommitmentCollectionId,
-	EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent, Treasury, Uniques,
+	Acurast, AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances,
+	CommitmentCollectionId, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent, Treasury,
+	Uniques,
 };
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
@@ -96,6 +97,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type AuthorProvider = AuthorProvider;
+	type Slashable = AcurastTokenConversion;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

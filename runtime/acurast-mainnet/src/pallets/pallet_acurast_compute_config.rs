@@ -20,8 +20,8 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 
 use crate::{
 	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
-	Acurast, AcurastProcessorManager, Authorship, Balances, EnsureCouncilOrRoot, Runtime,
-	RuntimeEvent, Treasury, Uniques,
+	Acurast, AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances,
+	EnsureCouncilOrRoot, Runtime, RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -94,6 +94,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type AuthorProvider = AuthorProvider;
+	type Slashable = AcurastTokenConversion;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

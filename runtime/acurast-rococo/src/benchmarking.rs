@@ -18,7 +18,6 @@ use pallet_acurast::{
 use pallet_acurast_marketplace::{
 	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
 };
-use sp_runtime::MultiSignature;
 
 use crate::{
 	AcurastCompute, AcurastMarketplace, Balance, Balances, BundleId, Runtime, RuntimeOrigin,

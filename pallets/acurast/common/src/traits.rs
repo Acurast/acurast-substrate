@@ -1,6 +1,9 @@
 use frame_support::{
 	sp_runtime::{DispatchError, DispatchResult},
-	traits::{Get, IsType},
+	traits::{
+		fungible::{Balanced, Imbalance, Inspect},
+		Get, IsType,
+	},
 };
 use sp_std::{fmt, prelude::*};
 
@@ -88,3 +91,20 @@ pub trait AttestationValidator<AccountId> {
 pub trait IsFundableCall<Call> {
 	fn is_fundable_call(call: &Call) -> bool;
 }
+
+pub trait Slashable<AccountId> {
+	type Currency: Balanced<AccountId>;
+
+	fn slash(
+		account: &AccountId,
+		amount: BalanceFor<Self::Currency, AccountId>,
+	) -> Option<ImbalanceFor<Self::Currency, AccountId>>;
+}
+
+pub type BalanceFor<Currency, AccountId> = <Currency as Inspect<AccountId>>::Balance;
+
+pub type ImbalanceFor<Currency, AccountId> = Imbalance<
+	BalanceFor<Currency, AccountId>,
+	<Currency as Balanced<AccountId>>::OnDropCredit,
+	<Currency as Balanced<AccountId>>::OnDropDebt,
+>;

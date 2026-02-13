@@ -21,8 +21,8 @@ use sp_runtime::{FixedU128, Perbill, Perquintill};
 use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
-	AcurastProcessorManager, Authorship, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime,
-	RuntimeEvent, Treasury, Uniques,
+	AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances, EnsureCouncilOrRoot,
+	RootAccountId, Runtime, RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -96,6 +96,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type AuthorProvider = AuthorProvider;
+	type Slashable = AcurastTokenConversion;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

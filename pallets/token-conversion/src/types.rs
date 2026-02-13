@@ -1,5 +1,8 @@
 use acurast_common::Subject;
-use frame_support::{pallet_prelude::*, traits::fungible::Inspect};
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungible::{Balanced, Imbalance, Inspect},
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::RuntimeDebug;
@@ -9,6 +12,12 @@ use crate::Config;
 
 pub type BalanceFor<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type ImbalanceFor<T> = Imbalance<
+	BalanceFor<T>,
+	<<T as Config>::Currency as Balanced<<T as frame_system::Config>::AccountId>>::OnDropCredit,
+	<<T as Config>::Currency as Balanced<<T as frame_system::Config>::AccountId>>::OnDropDebt,
+>;
 
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub struct InitiatedConversionMessage<AccountId, Balance, BlockNumber> {

@@ -14,34 +14,8 @@ use sp_std::prelude::*;
 pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
 pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
 pub type MessagePrefix = BoundedVec<u8, ConstU32<100>>;
-pub type WalletAddress = [u8; 20];
 
 const ACURAST_SIGNATURE_PREFIX: &[u8] = b"ACURAST TRANSACTION:\n";
-
-/// keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
-const CBS_DOMAIN_TYPE_HASH: [u8; 32] = [
-	0x8b, 0x73, 0xc3, 0xc6, 0x9b, 0xb8, 0xfe, 0x3d, 0x51, 0x2e, 0xcc, 0x4c, 0xf7, 0x59, 0xcc,
-	0x79, 0x23, 0x9f, 0x7b, 0x17, 0x9b, 0x0f, 0xfa, 0xca, 0xa9, 0xa7, 0x5d, 0x52, 0x2b, 0x39,
-	0x40, 0x0f,
-];
-/// keccak256("CoinbaseSmartWalletMessage(bytes32 hash)")
-const CBS_MESSAGE_TYPE_HASH: [u8; 32] = [
-	0x9b, 0x49, 0x3d, 0x22, 0x21, 0x05, 0xfe, 0xe7, 0xdf, 0x16, 0x3a, 0xb5, 0xd5, 0x7f, 0x0b,
-	0xf1, 0xff, 0xd2, 0xda, 0x04, 0xdd, 0x5f, 0xaf, 0xbe, 0x10, 0xb5, 0x4c, 0x41, 0xc1, 0xad,
-	0xc6, 0x57,
-];
-/// keccak256("Coinbase Smart Wallet")
-const CBS_NAME_HASH: [u8; 32] = [
-	0x65, 0x34, 0x2b, 0x33, 0x65, 0x2b, 0x3c, 0x0b, 0xc1, 0x73, 0x04, 0x9e, 0xd7, 0x49, 0x6b,
-	0x73, 0x22, 0xdb, 0x7f, 0xf8, 0xab, 0xfc, 0x07, 0x52, 0x04, 0x4a, 0x5a, 0x59, 0x2b, 0xdd,
-	0xe6, 0x4e,
-];
-/// keccak256("1")
-const CBS_VERSION_HASH: [u8; 32] = [
-	0xc8, 0x9e, 0xfd, 0xaa, 0x54, 0xc0, 0xf2, 0x0c, 0x7a, 0xdf, 0x61, 0x28, 0x82, 0xdf, 0x09,
-	0x50, 0xf5, 0xa9, 0x51, 0x63, 0x7e, 0x03, 0x07, 0xcd, 0xcb, 0x4c, 0x67, 0x2f, 0x29, 0x8b,
-	0x8b, 0xc6,
-];
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
@@ -72,9 +46,10 @@ pub enum MultiSignature {
 	K256WithPrefix(ecdsa::Signature, MessagePrefix),
 	/// An Ed25519 signature with message prefix and Base64 encoding.
 	Ed25519WithBase64(ed25519::Signature, MessagePrefix),
-	/// An ECDSA/SECP256k1 signature with message prefix for Coinbase Smart Wallet.
-	/// Contains: signature, message prefix, wallet contract address (20 bytes), chain ID.
-	K256WithPrefixCBS(ecdsa::Signature, MessagePrefix, WalletAddress, u64),
+	/// An ECDSA/SECP256k1 signature with message prefix and EIP-712 replay-safe hash.
+	/// For smart wallets (ERC-4337) that wrap personal_sign in an EIP-712 typed hash.
+	/// Contains: signature, message prefix, precomputed domain separator, message type hash.
+	K256WithPrefixEIP712(ecdsa::Signature, MessagePrefix, [u8; 32], [u8; 32]),
 }
 
 impl From<ed25519::Signature> for MultiSignature {
@@ -338,14 +313,14 @@ impl Verify for MultiSignature {
 					_ => false,
 				}
 			},
-			(MultiSignature::K256WithPrefixCBS(sig, prefix, wallet_address, chain_id), who) => {
+			(MultiSignature::K256WithPrefixEIP712(sig, prefix, domain_separator, message_type_hash), who) => {
 				let original_hash = sp_io::hashing::keccak_256(
 					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
 				);
-				let replay_safe_hash = Self::compute_cbs_replay_safe_hash(
+				let replay_safe_hash = Self::compute_eip712_hash(
 					&original_hash,
-					wallet_address,
-					*chain_id,
+					domain_separator,
+					message_type_hash,
 				);
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 					sig.as_ref(),
@@ -379,36 +354,22 @@ const ENGINE: engine::GeneralPurpose =
 	engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
 
 impl MultiSignature {
-	fn compute_cbs_domain_separator(wallet_address: &WalletAddress, chain_id: u64) -> [u8; 32] {
-		let mut buf = [0u8; 160];
-		buf[0..32].copy_from_slice(&CBS_DOMAIN_TYPE_HASH);
-		buf[32..64].copy_from_slice(&CBS_NAME_HASH);
-		buf[64..96].copy_from_slice(&CBS_VERSION_HASH);
-		// chain_id as uint256: big-endian u64 at bytes 120..128
-		buf[120..128].copy_from_slice(&chain_id.to_be_bytes());
-		// address: 20 bytes right-aligned at bytes 140..160
-		buf[140..160].copy_from_slice(wallet_address);
-		sp_io::hashing::keccak_256(&buf)
-	}
-
-	fn compute_cbs_replay_safe_hash(
+	fn compute_eip712_hash(
 		original_hash: &[u8; 32],
-		wallet_address: &WalletAddress,
-		chain_id: u64,
+		domain_separator: &[u8; 32],
+		message_type_hash: &[u8; 32],
 	) -> [u8; 32] {
-		let domain_separator = Self::compute_cbs_domain_separator(wallet_address, chain_id);
-
-		// struct_hash = keccak256(CBS_MESSAGE_TYPE_HASH || original_hash)
+		// struct_hash = keccak256(message_type_hash || original_hash)
 		let mut struct_buf = [0u8; 64];
-		struct_buf[0..32].copy_from_slice(&CBS_MESSAGE_TYPE_HASH);
+		struct_buf[0..32].copy_from_slice(message_type_hash);
 		struct_buf[32..64].copy_from_slice(original_hash);
 		let struct_hash = sp_io::hashing::keccak_256(&struct_buf);
 
-		// EIP-712: keccak256("\x19\x01" || domain_separator || struct_hash)
+		// keccak256("\x19\x01" || domain_separator || struct_hash)
 		let mut final_buf = [0u8; 66];
 		final_buf[0] = 0x19;
 		final_buf[1] = 0x01;
-		final_buf[2..34].copy_from_slice(&domain_separator);
+		final_buf[2..34].copy_from_slice(domain_separator);
 		final_buf[34..66].copy_from_slice(&struct_hash);
 		sp_io::hashing::keccak_256(&final_buf)
 	}
@@ -448,91 +409,60 @@ mod tests {
 	use sp_runtime::traits::Verify;
 
 	#[test]
-	fn cbs_constant_domain_type_hash() {
-		let computed = sp_io::hashing::keccak_256(
-			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
-		);
-		assert_eq!(computed, CBS_DOMAIN_TYPE_HASH);
-	}
-
-	#[test]
-	fn cbs_constant_message_type_hash() {
-		let computed =
-			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
-		assert_eq!(computed, CBS_MESSAGE_TYPE_HASH);
-	}
-
-	#[test]
-	fn cbs_constant_name_hash() {
-		let computed = sp_io::hashing::keccak_256(b"Coinbase Smart Wallet");
-		assert_eq!(computed, CBS_NAME_HASH);
-	}
-
-	#[test]
-	fn cbs_constant_version_hash() {
-		let computed = sp_io::hashing::keccak_256(b"1");
-		assert_eq!(computed, CBS_VERSION_HASH);
-	}
-
-	#[test]
-	fn cbs_domain_separator_computation() {
-		// Compute domain separator for a known wallet address on Base (chainId=8453)
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
-
-		let domain_sep =
-			MultiSignature::compute_cbs_domain_separator(&wallet_address, chain_id);
-
-		// Manually compute expected value
-		let mut buf = [0u8; 160];
-		buf[0..32].copy_from_slice(&CBS_DOMAIN_TYPE_HASH);
-		buf[32..64].copy_from_slice(&CBS_NAME_HASH);
-		buf[64..96].copy_from_slice(&CBS_VERSION_HASH);
-		buf[120..128].copy_from_slice(&chain_id.to_be_bytes());
-		buf[140..160].copy_from_slice(&wallet_address);
-		let expected = sp_io::hashing::keccak_256(&buf);
-
-		assert_eq!(domain_sep, expected);
-	}
-
-	#[test]
-	fn cbs_replay_safe_hash_computation() {
+	fn eip712_hash_computation() {
 		let original_hash: [u8; 32] =
 			hex!("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
+		let domain_separator: [u8; 32] =
+			hex!("1111111111111111111111111111111111111111111111111111111111111111");
+		let message_type_hash: [u8; 32] =
+			hex!("2222222222222222222222222222222222222222222222222222222222222222");
 
-		let replay_safe = MultiSignature::compute_cbs_replay_safe_hash(
+		let result = MultiSignature::compute_eip712_hash(
 			&original_hash,
-			&wallet_address,
-			chain_id,
+			&domain_separator,
+			&message_type_hash,
 		);
 
-		// Manually compute expected
-		let domain_sep =
-			MultiSignature::compute_cbs_domain_separator(&wallet_address, chain_id);
+		// Manually compute expected value
 		let mut struct_buf = [0u8; 64];
-		struct_buf[0..32].copy_from_slice(&CBS_MESSAGE_TYPE_HASH);
+		struct_buf[0..32].copy_from_slice(&message_type_hash);
 		struct_buf[32..64].copy_from_slice(&original_hash);
 		let struct_hash = sp_io::hashing::keccak_256(&struct_buf);
 		let mut final_buf = [0u8; 66];
 		final_buf[0] = 0x19;
 		final_buf[1] = 0x01;
-		final_buf[2..34].copy_from_slice(&domain_sep);
+		final_buf[2..34].copy_from_slice(&domain_separator);
 		final_buf[34..66].copy_from_slice(&struct_hash);
 		let expected = sp_io::hashing::keccak_256(&final_buf);
 
-		assert_eq!(replay_safe, expected);
+		assert_eq!(result, expected);
 	}
 
 	#[test]
-	fn cbs_signature_verification() {
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
-		let prefix_bytes = b"\x19Ethereum Signed Message:\n32";
-		let prefix: MessagePrefix = prefix_bytes.to_vec().try_into().unwrap();
+	fn eip712_signature_verification() {
+		// Use Coinbase Smart Wallet constants as a concrete example
+		let cbs_message_type_hash =
+			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
 
-		// The "transaction" payload
+		// Precompute a domain separator (simulating what the frontend would do)
+		let domain_type_hash = sp_io::hashing::keccak_256(
+			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+		);
+		let name_hash = sp_io::hashing::keccak_256(b"Coinbase Smart Wallet");
+		let version_hash = sp_io::hashing::keccak_256(b"1");
+		let chain_id: u64 = 8453;
+		let wallet_address: [u8; 20] = hex!("1234567890abcdef1234567890abcdef12345678");
+
+		let mut domain_buf = [0u8; 160];
+		domain_buf[0..32].copy_from_slice(&domain_type_hash);
+		domain_buf[32..64].copy_from_slice(&name_hash);
+		domain_buf[64..96].copy_from_slice(&version_hash);
+		domain_buf[120..128].copy_from_slice(&chain_id.to_be_bytes());
+		domain_buf[140..160].copy_from_slice(&wallet_address);
+		let domain_separator = sp_io::hashing::keccak_256(&domain_buf);
+
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let tx_payload = b"test transaction payload";
 
 		// Step 1: Compute the original_hash (what K256WithPrefix would compute)
@@ -540,11 +470,11 @@ mod tests {
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
 
-		// Step 2: Compute the replay-safe hash (what the CBS wallet wraps)
-		let replay_safe_hash = MultiSignature::compute_cbs_replay_safe_hash(
+		// Step 2: Compute the replay-safe hash (what the smart wallet wraps)
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
 			&original_hash,
-			&wallet_address,
-			chain_id,
+			&domain_separator,
+			&cbs_message_type_hash,
 		);
 
 		// Step 3: Sign the replay-safe hash with a secp256k1 key
@@ -556,30 +486,34 @@ mod tests {
 			sp_io::hashing::blake2_256(pair.public().as_ref()).into();
 
 		// Step 5: Construct MultiSignature and verify
-		let multi_sig = MultiSignature::K256WithPrefixCBS(
+		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
-			prefix.clone(),
-			wallet_address,
-			chain_id,
+			prefix,
+			domain_separator,
+			cbs_message_type_hash,
 		);
 		assert!(multi_sig.verify(&tx_payload[..], &account_id));
 	}
 
 	#[test]
-	fn cbs_wrong_chain_id_fails() {
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
-		let wrong_chain_id: u64 = 1; // Ethereum mainnet
-		let prefix: MessagePrefix = b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
+	fn eip712_wrong_domain_separator_fails() {
+		let message_type_hash: [u8; 32] =
+			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
+		let domain_separator: [u8; 32] =
+			hex!("1111111111111111111111111111111111111111111111111111111111111111");
+		let wrong_domain_separator: [u8; 32] =
+			hex!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let tx_payload = b"test transaction payload";
 
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_cbs_replay_safe_hash(
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
 			&original_hash,
-			&wallet_address,
-			chain_id,
+			&domain_separator,
+			&message_type_hash,
 		);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
@@ -587,31 +521,35 @@ mod tests {
 		let account_id: AccountId32 =
 			sp_io::hashing::blake2_256(pair.public().as_ref()).into();
 
-		// Verify with wrong chain_id should fail
-		let multi_sig = MultiSignature::K256WithPrefixCBS(
+		// Verify with wrong domain_separator should fail
+		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
 			prefix,
-			wallet_address,
-			wrong_chain_id,
+			wrong_domain_separator,
+			message_type_hash,
 		);
 		assert!(!multi_sig.verify(&tx_payload[..], &account_id));
 	}
 
 	#[test]
-	fn cbs_wrong_wallet_address_fails() {
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let wrong_address: WalletAddress = hex!("aabbccddee1234567890abcdef1234567890abcd");
-		let chain_id: u64 = 8453;
-		let prefix: MessagePrefix = b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
+	fn eip712_wrong_message_type_hash_fails() {
+		let message_type_hash: [u8; 32] =
+			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
+		let wrong_message_type_hash: [u8; 32] =
+			sp_io::hashing::keccak_256(b"SafeMessage(bytes32 message)");
+		let domain_separator: [u8; 32] =
+			hex!("1111111111111111111111111111111111111111111111111111111111111111");
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let tx_payload = b"test transaction payload";
 
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_cbs_replay_safe_hash(
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
 			&original_hash,
-			&wallet_address,
-			chain_id,
+			&domain_separator,
+			&message_type_hash,
 		);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
@@ -619,31 +557,34 @@ mod tests {
 		let account_id: AccountId32 =
 			sp_io::hashing::blake2_256(pair.public().as_ref()).into();
 
-		// Verify with wrong wallet_address should fail
-		let multi_sig = MultiSignature::K256WithPrefixCBS(
+		// Verify with wrong message_type_hash should fail
+		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
 			prefix,
-			wrong_address,
-			chain_id,
+			domain_separator,
+			wrong_message_type_hash,
 		);
 		assert!(!multi_sig.verify(&tx_payload[..], &account_id));
 	}
 
 	#[test]
-	fn cbs_tampered_message_fails() {
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
-		let prefix: MessagePrefix = b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
+	fn eip712_tampered_message_fails() {
+		let message_type_hash: [u8; 32] =
+			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
+		let domain_separator: [u8; 32] =
+			hex!("1111111111111111111111111111111111111111111111111111111111111111");
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let tx_payload = b"test transaction payload";
 		let tampered_payload = b"tampered transaction payload";
 
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_cbs_replay_safe_hash(
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
 			&original_hash,
-			&wallet_address,
-			chain_id,
+			&domain_separator,
+			&message_type_hash,
 		);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
@@ -652,33 +593,36 @@ mod tests {
 			sp_io::hashing::blake2_256(pair.public().as_ref()).into();
 
 		// Verify with tampered message should fail
-		let multi_sig = MultiSignature::K256WithPrefixCBS(
+		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
 			prefix,
-			wallet_address,
-			chain_id,
+			domain_separator,
+			message_type_hash,
 		);
 		assert!(!multi_sig.verify(&tampered_payload[..], &account_id));
 	}
 
 	#[test]
-	fn cbs_scale_codec_roundtrip() {
-		let wallet_address: WalletAddress = hex!("1234567890abcdef1234567890abcdef12345678");
-		let chain_id: u64 = 8453;
-		let prefix: MessagePrefix = b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
+	fn eip712_scale_codec_roundtrip() {
+		let domain_separator: [u8; 32] =
+			hex!("1111111111111111111111111111111111111111111111111111111111111111");
+		let message_type_hash: [u8; 32] =
+			hex!("2222222222222222222222222222222222222222222222222222222222222222");
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let sig = ecdsa::Signature::from_raw([0u8; 65]);
 
-		let multi_sig = MultiSignature::K256WithPrefixCBS(
+		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
 			prefix,
-			wallet_address,
-			chain_id,
+			domain_separator,
+			message_type_hash,
 		);
 
 		let encoded = multi_sig.encode();
 		// Variant index should be 8 (0-indexed: Ed25519=0, Sr25519=1, Ecdsa=2, P256=3,
 		// P256WithAuthData=4, Ed25519WithPrefix=5, K256WithPrefix=6, Ed25519WithBase64=7,
-		// K256WithPrefixCBS=8)
+		// K256WithPrefixEIP712=8)
 		assert_eq!(encoded[0], 8);
 
 		let decoded = MultiSignature::decode(&mut &encoded[..]).unwrap();

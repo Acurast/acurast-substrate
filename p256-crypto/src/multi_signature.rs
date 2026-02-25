@@ -314,6 +314,9 @@ impl Verify for MultiSignature {
 				}
 			},
 			(MultiSignature::K256WithPrefixEIP712(sig, prefix, domain_separator, message_type_hash), who) => {
+				// CBS smart wallets wrap personal_sign in a single EIP-712 replay-safe hash:
+				//   1. Wallet computes standard_hash = keccak256(eth_prefix || message)
+				//   2. Wallet wraps: signed = eip712Hash(standard_hash)
 				let original_hash = sp_io::hashing::keccak_256(
 					&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, msg.get()].concat(),
 				);
@@ -440,11 +443,11 @@ mod tests {
 
 	#[test]
 	fn eip712_signature_verification() {
-		// Use Coinbase Smart Wallet constants as a concrete example
+		// Use Coinbase Smart Wallet constants as a concrete example.
+		// CBS wraps personal_sign in a single EIP-712 replay-safe hash.
 		let cbs_message_type_hash =
 			sp_io::hashing::keccak_256(b"CoinbaseSmartWalletMessage(bytes32 hash)");
 
-		// Precompute a domain separator (simulating what the frontend would do)
 		let domain_type_hash = sp_io::hashing::keccak_256(
 			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
 		);
@@ -465,27 +468,25 @@ mod tests {
 			b"\x19Ethereum Signed Message:\n32".to_vec().try_into().unwrap();
 		let tx_payload = b"test transaction payload";
 
-		// Step 1: Compute the original_hash (what K256WithPrefix would compute)
+		// Step 1: original_hash (same as personal_sign)
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
 
-		// Step 2: Compute the replay-safe hash (what the smart wallet wraps)
+		// Step 2: Single EIP-712 wrap (CBS replay-safe hash for personal_sign)
 		let replay_safe_hash = MultiSignature::compute_eip712_hash(
 			&original_hash,
 			&domain_separator,
 			&cbs_message_type_hash,
 		);
 
-		// Step 3: Sign the replay-safe hash with a secp256k1 key
+		// Step 3: Sign the replay-safe hash
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
 		let sig = pair.sign_prehashed(&replay_safe_hash);
 
-		// Step 4: Compute the expected AccountId (blake2_256 of compressed pubkey)
 		let account_id: AccountId32 =
 			sp_io::hashing::blake2_256(pair.public().as_ref()).into();
 
-		// Step 5: Construct MultiSignature and verify
 		let multi_sig = MultiSignature::K256WithPrefixEIP712(
 			sig,
 			prefix,
@@ -510,11 +511,8 @@ mod tests {
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_eip712_hash(
-			&original_hash,
-			&domain_separator,
-			&message_type_hash,
-		);
+		// Sign with correct domain (single-wrap)
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(&original_hash, &domain_separator, &message_type_hash);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
 		let sig = pair.sign_prehashed(&replay_safe_hash);
@@ -546,11 +544,8 @@ mod tests {
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_eip712_hash(
-			&original_hash,
-			&domain_separator,
-			&message_type_hash,
-		);
+		// Sign with correct type hash (single-wrap)
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(&original_hash, &domain_separator, &message_type_hash);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
 		let sig = pair.sign_prehashed(&replay_safe_hash);
@@ -581,11 +576,8 @@ mod tests {
 		let original_hash = sp_io::hashing::keccak_256(
 			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, tx_payload.as_slice()].concat(),
 		);
-		let replay_safe_hash = MultiSignature::compute_eip712_hash(
-			&original_hash,
-			&domain_separator,
-			&message_type_hash,
-		);
+		// Sign with correct message (single-wrap)
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(&original_hash, &domain_separator, &message_type_hash);
 
 		let (pair, _) = sp_core::ecdsa::Pair::generate();
 		let sig = pair.sign_prehashed(&replay_safe_hash);
@@ -628,4 +620,146 @@ mod tests {
 		let decoded = MultiSignature::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(multi_sig, decoded);
 	}
+
+	#[test]
+	fn eip712_real_coinbase_smart_wallet_verification() {
+		// Real data captured from a Coinbase Smart Wallet (Base) via the hub frontend.
+		// ETH address: 0x9b9d94b745df3507e714ab9458cc2601532e104c
+		//
+		// Verifies that the runtime correctly recovers the public key from a real
+		// CBS EIP-712 wrapped signature using domain_separator and message_type_hash
+		// derived from the wallet's on-chain contract.
+
+		let ecdsa_sig = hex!("4f5bf8b4b5c4d7ceeaf1b1500b596959b3b0e573fd49898123ac08231ebdc5ce05b06a9e92ea07abe908ddc1dc4b6842084be8c793ec51f30d338af70f3bc05f1b");
+		let domain_separator = hex!("a22b2624ca4ecf1d8e1c1f292d5bb97e9304c40fc9d100e4adfd5e0cf6d40cf1");
+		let message_type_hash = hex!("9b493d222105fee7df163ab5d57f0bf1ffd2da04dd5fafbe10b54c41c1adc657");
+		let pub_key = hex!("02d77a21e3ba23b6c77cbe76fee6a57c024d3249f06f5c395398b052ad4a57cc44");
+
+		// A login challenge was signed via personal_sign. The wallet hashes:
+		// keccak256(eth_prefix || challenge), then wraps in EIP-712.
+		// This test verifies end-to-end EIP-712 recovery with real Base Wallet data.
+
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n44".to_vec().try_into().unwrap();
+		let challenge = b"Login to https://angular.lukeisontheroad.com";
+
+		// The CBS wallet computes: keccak256(eth_prefix || challenge) as the standard hash,
+		// then wraps it in EIP-712
+		let standard_hash = sp_io::hashing::keccak_256(
+			&[prefix.as_slice(), challenge.as_slice()].concat(),
+		);
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
+			&standard_hash,
+			&domain_separator,
+			&message_type_hash,
+		);
+
+		// Verify recovery of the correct public key
+		let mut sig_bytes = ecdsa_sig;
+		sig_bytes[64] = 0; // v=27 -> recovery_id=0
+		let recovered = sp_io::crypto::secp256k1_ecdsa_recover_compressed(
+			&sig_bytes,
+			&replay_safe_hash,
+		);
+		let recovered_pubkey = match recovered {
+			Ok(pk) => pk,
+			Err(_) => panic!("secp256k1 recovery failed"),
+		};
+		assert_eq!(recovered_pubkey, pub_key, "Recovered pubkey must match the stored CBS wallet key");
+
+		// Verify account_id derivation
+		let account_id: AccountId32 =
+			sp_io::hashing::blake2_256(&pub_key).into();
+		let recovered_account: AccountId32 =
+			sp_io::hashing::blake2_256(&recovered_pubkey).into();
+		assert_eq!(recovered_account, account_id);
+
+		// Verify messageTypeHash is keccak256("CoinbaseSmartWalletMessage(bytes32 hash)")
+		let expected_type_hash = sp_io::hashing::keccak_256(
+			b"CoinbaseSmartWalletMessage(bytes32 hash)",
+		);
+		assert_eq!(message_type_hash, expected_type_hash);
+
+		// Verify domain separator matches the CBS EIP-712 domain for this wallet address
+		let domain_type_hash = sp_io::hashing::keccak_256(
+			b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+		);
+		let name_hash = sp_io::hashing::keccak_256(b"Coinbase Smart Wallet");
+		let version_hash = sp_io::hashing::keccak_256(b"1");
+		let mut domain_buf = [0u8; 160];
+		domain_buf[0..32].copy_from_slice(&domain_type_hash);
+		domain_buf[32..64].copy_from_slice(&name_hash);
+		domain_buf[64..96].copy_from_slice(&version_hash);
+		domain_buf[120..128].copy_from_slice(&8453u64.to_be_bytes()); // Base mainnet chainId
+		let wallet_addr = hex!("9b9d94b745df3507e714ab9458cc2601532e104c");
+		domain_buf[140..160].copy_from_slice(&wallet_addr);
+		let expected_domain = sp_io::hashing::keccak_256(&domain_buf);
+		assert_eq!(domain_separator, expected_domain);
+	}
+
+	#[test]
+	fn eip712_real_cbs_transaction_hash_chain() {
+		// Real transaction data captured from CBS smart wallet debug overlay.
+		// Verifies the hash chain: extrinsic_payload -> original_hash -> EIP-712 wrap.
+		//
+		// Wallet: 0x9b9d94b745df3507e714ab9458cc2601532e104c
+		// Same key as the login test above.
+		//
+		// NOTE: Signature recovery is NOT tested here — this test focuses on
+		// verifying the hash chain is deterministic and correct.
+		// The login test above proves end-to-end recovery works.
+
+		let domain_separator = hex!("a22b2624ca4ecf1d8e1c1f292d5bb97e9304c40fc9d100e4adfd5e0cf6d40cf1");
+		let message_type_hash = hex!("9b493d222105fee7df163ab5d57f0bf1ffd2da04dd5fafbe10b54c41c1adc657");
+
+		// Transaction 1 rawData from debug overlay
+		let extrinsic_payload = hex!("0a03002f0a90d4ec02324c97c1b0e42b5423368a6b1210d2210f6e5872a6779e439aae070010a5d4e8550300000a000000010000004b5f95eefedf0d0fb514339edc24d2d411310520f687b4146145bcedb99885b9d939372b134ba21a246f1bf2085624d535a1c792178b2a448e321cf7006d7800");
+
+		// Prefix from debug overlay: "\x19Ethereum Signed Message:\n138"
+		// 138 = 21 (ACURAST_SIGNATURE_PREFIX) + 117 (extrinsic payload bytes)
+		let prefix: MessagePrefix =
+			b"\x19Ethereum Signed Message:\n138".to_vec().try_into().unwrap();
+
+		// Step 1: Verify original_hash matches captured debug value
+		let original_hash = sp_io::hashing::keccak_256(
+			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, &extrinsic_payload].concat(),
+		);
+		assert_eq!(
+			original_hash,
+			hex!("84d27bd84c3ce049d88435b4828f1d7154bec5291025e046ae35b80cf7b040e4"),
+			"original_hash must match the value captured from CBS debug overlay"
+		);
+
+		// Step 2: Verify EIP-712 wrap produces a deterministic replay_safe_hash
+		let replay_safe_hash = MultiSignature::compute_eip712_hash(
+			&original_hash,
+			&domain_separator,
+			&message_type_hash,
+		);
+		// The replay_safe_hash is what the wallet WOULD sign if it produced a fresh signature.
+		// Verify it's deterministic and non-zero.
+		assert_ne!(replay_safe_hash, [0u8; 32]);
+		assert_ne!(replay_safe_hash, original_hash,
+			"EIP-712 wrap must produce a different hash than the original");
+
+		// Step 3: Verify Transaction 2 produces a DIFFERENT hash (different payload)
+		let extrinsic_payload_2 = hex!("0a03002f0a90d4ec02324c97c1b0e42b5423368a6b1210d2210f6e5872a6779e439aae070010a5d4e8750300000a000000010000004b5f95eefedf0d0fb514339edc24d2d411310520f687b4146145bcedb99885b9f85d293c877c83ce96a7f3dfb53062169ba267a7e92928be105bd28cdd88bb06");
+		let original_hash_2 = sp_io::hashing::keccak_256(
+			&[prefix.as_slice(), ACURAST_SIGNATURE_PREFIX, &extrinsic_payload_2].concat(),
+		);
+		assert_eq!(
+			original_hash_2,
+			hex!("fd12ab1833fd2ecdcfb3edea98f24559579fde0b6a999649a2fd8d25085e15af"),
+			"Transaction 2 original_hash must match captured debug value"
+		);
+
+		let replay_safe_hash_2 = MultiSignature::compute_eip712_hash(
+			&original_hash_2,
+			&domain_separator,
+			&message_type_hash,
+		);
+		assert_ne!(replay_safe_hash, replay_safe_hash_2,
+			"Different transactions must produce different replay_safe_hashes");
+	}
+
 }

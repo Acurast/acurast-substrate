@@ -47,6 +47,7 @@ log = { workspace = true }
 
 # benchmarks
 pallet-acurast-processor-manager = { workspace = true, optional = true }
+pallet-acurast-token-conversion = { workspace = true, optional = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, features = ["std"] }
@@ -85,6 +86,7 @@ runtime-benchmarks = [
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
     "pallet-acurast-processor-manager/runtime-benchmarks",
+    "pallet-acurast-token-conversion/runtime-benchmarks",
 	"hex-literal",
 ]
 try-runtime = ["frame-support/try-runtime"]

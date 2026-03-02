@@ -24,7 +24,7 @@ pub mod pallet {
 		dispatch::DispatchResult,
 		pallet_prelude::*,
 		traits::{
-			fungible::{Balanced, Credit, Inspect, InspectHold, Mutate, MutateHold},
+			fungible::{Balanced, BalancedHold, Credit, Inspect, InspectHold, Mutate, MutateHold},
 			tokens::{Fortitude, Precision, Preservation},
 			EnsureOrigin, Get, OnUnbalanced,
 		},
@@ -34,11 +34,13 @@ pub mod pallet {
 	use parity_scale_codec::Encode;
 	use sp_runtime::{
 		traits::{AccountIdConversion, Hash, Saturating, Zero},
-		Perquintill, SaturatedConversion,
+		DispatchError, Perquintill, SaturatedConversion,
 	};
 	use sp_std::{prelude::*, vec};
 
-	use acurast_common::{MessageBody, MessageFeeProvider, MessageProcessor, MessageSender};
+	use acurast_common::{
+		MessageBody, MessageFeeProvider, MessageProcessor, MessageSender, Slashable,
+	};
 
 	use super::*;
 
@@ -58,7 +60,7 @@ pub mod pallet {
 			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ Mutate<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+			+ BalancedHold<Self::AccountId>;
 		type RuntimeHoldReason: From<HoldReason>;
 		type Liquidity: Get<BalanceFor<Self>>;
 		type MinLockDuration: Get<BlockNumberFor<Self>>;
@@ -483,9 +485,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn process_conversion(
-			conversion_message: ConversionMessageFor<T>,
-		) -> DispatchResult {
+		pub fn process_conversion(conversion_message: ConversionMessageFor<T>) -> DispatchResult {
 			if Self::locked_conversion(&conversion_message.account).is_some() {
 				// we just silently ignore multiple conversion messages for the same account
 				return Ok(());
@@ -601,6 +601,29 @@ pub mod pallet {
 					.map_err(|_| Error::<T>::DecodingFailure)?;
 			Self::process_conversion(decoded_message)?;
 			Ok(().into())
+		}
+	}
+
+	impl<T: Config> Slashable<T::AccountId> for Pallet<T> {
+		type Currency = T::Currency;
+
+		fn slash(account: &T::AccountId, amount: BalanceFor<T>) -> Option<ImbalanceFor<T>> {
+			<LockedConversion<T>>::mutate(account, |conversion_| {
+				let Some(conversion) = conversion_ else {
+					return None;
+				};
+				let (credit, not_slashed) =
+					T::Currency::slash(&HoldReason::Conversion.into(), account, amount);
+				let new_amount =
+					conversion.amount.saturating_sub(amount.saturating_sub(not_slashed));
+				if !new_amount.is_zero() {
+					conversion.amount = new_amount;
+				} else {
+					*conversion_ = None;
+				}
+
+				Some(credit)
+			})
 		}
 	}
 }

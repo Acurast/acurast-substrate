@@ -1,12 +1,12 @@
 #![allow(clippy::type_complexity)]
 
-use acurast_common::{CommitmentIdProvider, PoolId};
+use acurast_common::{CommitmentIdProvider, PoolId, Slashable};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Balanced,
 		tokens::{Fortitude, Precision, Preservation},
-		Currency, ExistenceRequirement, Get, InspectLockableCurrency, LockableCurrency,
+		Currency, ExistenceRequirement, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		WithdrawReasons,
 	},
 };
@@ -1105,18 +1105,7 @@ where
 			Self::decrease_delegator_stake(who, commitment_id, accrued_slash)?;
 
 		// Burn only what was actually decreased
-		if !slashed.is_zero() {
-			// no check `slashed < balance` needed since we now at least `slashed` is free on account after calling `decrease_delegator_stake`
-			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
-				who,
-				slashed,
-				Precision::Exact,
-				Preservation::Expendable,
-				Fortitude::Force,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-			// The credit is automatically burned when dropped
-		}
+		Self::slash_for(who, slashed)?;
 
 		// Update accrued_slash to any remaining amount
 		Delegations::<T, I>::try_mutate(who, commitment_id, |d_| -> Result<(), Error<T, I>> {
@@ -1842,17 +1831,7 @@ where
 
 		let to_burn = self_slash_amount.saturating_sub(slasher_reward);
 		// Burn the slashed amount from committer
-		if !to_burn.is_zero() {
-			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
-				&committer,
-				to_burn,
-				Precision::Exact,
-				Preservation::Expendable,
-				Fortitude::Force,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-			// The credit is automatically burned when dropped
-		}
+		Self::slash_for(&committer, to_burn)?;
 
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
@@ -1880,6 +1859,30 @@ where
 		Ok(())
 	}
 
+	fn slash_for(who: &T::AccountId, amount: BalanceFor<T, I>) -> Result<(), Error<T, I>> {
+		if !amount.is_zero() {
+			let burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
+				who,
+				amount,
+				Precision::BestEffort,
+				Preservation::Expendable,
+				Fortitude::Force,
+			)
+			.map_err(|_| Error::<T, I>::InternalError)?;
+			// The credit is automatically burned when dropped
+			if burned.peek() < amount {
+				let remaining = amount - burned.peek();
+				let Some(slashed) = T::Slashable::slash(who, remaining) else {
+					return Err(Error::<T, I>::InternalError);
+				};
+				if slashed.peek() < remaining {
+					return Err(Error::<T, I>::InternalError);
+				}
+			}
+		}
+		Ok(())
+	}
+
 	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {
 		Self::unlock_funds(who, stake.amount);
 		// Burn the slashed amount
@@ -1896,15 +1899,7 @@ where
 			};
 
 			// Withdraw and burn the slashed amount
-			let _burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
-				who,
-				maximum_slashable,
-				Precision::Exact,
-				Preservation::Expendable,
-				Fortitude::Force,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-			// The credit is automatically burned when dropped
+			Self::slash_for(who, maximum_slashable)?;
 		}
 
 		Ok(())

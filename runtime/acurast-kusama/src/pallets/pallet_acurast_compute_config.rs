@@ -21,8 +21,8 @@ use sp_runtime::{FixedU128, Perbill, Perquintill};
 use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
-	AcurastProcessorManager, Authorship, Balances, EnsureCouncilOrRoot, RootAccountId, Runtime,
-	RuntimeEvent, Treasury, Uniques,
+	AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances, EnsureCouncilOrRoot,
+	RootAccountId, Runtime, RuntimeEvent, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -49,7 +49,7 @@ parameter_types! {
 	pub const InflationPerEpoch: Balance = 856_164_383_561_643; // ~ 0.5% a year for a total supply of 1B
 	pub const InflationStakedComputeRatio: Perquintill = Perquintill::from_percent(5);
 	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(10);
-	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(5);
+	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(0);
 	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
@@ -96,6 +96,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CreateModifyPoolOrigin = EnsureCouncilOrRoot;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type AuthorProvider = AuthorProvider;
+	type Slashable = AcurastTokenConversion;
 	type WeightInfo = weight::pallet_acurast_compute::WeightInfo<Runtime>;
 }
 

@@ -1,14 +1,17 @@
+use acurast_common::Slashable;
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{
 		fungible::{Inspect, InspectHold, Mutate},
 		tokens::{Fortitude, Preservation},
-		LockableCurrency, WithdrawReasons,
+		Imbalance, LockableCurrency, WithdrawReasons,
 	},
 };
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
-use crate::{mock::*, BalanceFor, Config, ConversionMessageFor, Error, HoldReason};
+use crate::{
+	mock::*, BalanceFor, Config, ConversionMessageFor, Error, HoldReason, LockedConversion,
+};
 
 fn account_id() -> AccountId {
 	aid(0)
@@ -363,5 +366,68 @@ fn test_retry_process_conversion_for() {
 		);
 
 		assert!(AcurastTokenConversion::locked_conversion(account_id()).is_some());
+	});
+}
+
+#[test]
+fn test_slash() {
+	ExtBuilder.build().execute_with(|| {
+		enable();
+		let amount = 100 * UNIT;
+		setup_conversion(amount);
+
+		let current_block = <Test as Config>::MinLockDuration::get().saturating_sub(1);
+		System::set_block_number(current_block.into());
+
+		let account_id = account_id();
+
+		let conversion = LockedConversion::<Test>::get(&account_id).expect("Conversion is present");
+		let locked_amount = amount - <Test as Config>::Liquidity::get();
+		assert_eq!(conversion.amount, locked_amount);
+
+		let slash_amount = 10 * UNIT;
+		let credit = AcurastTokenConversion::slash(&account_id, slash_amount).expect("Slash works");
+		assert_eq!(credit.peek(), slash_amount);
+
+		let conversion = LockedConversion::<Test>::get(&account_id).expect("Conversion is present");
+		assert_eq!(conversion.amount, locked_amount - slash_amount);
+
+		assert_eq!(
+			conversion.amount,
+			<Balances as InspectHold<AccountId>>::balance_on_hold(
+				&HoldReason::Conversion.into(),
+				&account_id
+			)
+		);
+	});
+}
+
+#[test]
+fn test_slash_2() {
+	ExtBuilder.build().execute_with(|| {
+		enable();
+		let amount = 100 * UNIT;
+		setup_conversion(amount);
+
+		let current_block = <Test as Config>::MinLockDuration::get().saturating_sub(1);
+		System::set_block_number(current_block.into());
+
+		let account_id = account_id();
+
+		let conversion = LockedConversion::<Test>::get(&account_id).expect("Conversion is present");
+		let locked_amount = amount - <Test as Config>::Liquidity::get();
+		assert_eq!(conversion.amount, locked_amount);
+
+		let slash_amount = 110 * UNIT;
+		let credit = AcurastTokenConversion::slash(&account_id, slash_amount).expect("Slash works");
+		assert_eq!(credit.peek(), locked_amount);
+		assert_eq!(LockedConversion::<Test>::get(&account_id), None);
+		assert_eq!(
+			0,
+			<Balances as InspectHold<AccountId>>::balance_on_hold(
+				&HoldReason::Conversion.into(),
+				&account_id
+			)
+		);
 	});
 }

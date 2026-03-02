@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerLookup};
+use acurast_common::{CommitmentIdProvider, ManagerIdProvider, ManagerLookup, Slashable};
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::{
@@ -180,6 +180,7 @@ impl Config for Test {
 	type CreateModifyPoolOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
 	type AuthorProvider = MockAuthorProvider;
+	type Slashable = MockSlashable;
 	type WeightInfo = ();
 }
 
@@ -187,6 +188,18 @@ pub struct MockAuthorProvider;
 impl BlockAuthorProvider<AccountId> for MockAuthorProvider {
 	fn author() -> Option<AccountId> {
 		Some(alice_account_id())
+	}
+}
+
+pub struct MockSlashable;
+impl Slashable<AccountId> for MockSlashable {
+	type Currency = Balances;
+
+	fn slash(
+		_account: &AccountId,
+		_amount: acurast_common::BalanceFor<Self::Currency, AccountId>,
+	) -> Option<acurast_common::ImbalanceFor<Self::Currency, AccountId>> {
+		None
 	}
 }
 

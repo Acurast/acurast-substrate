@@ -471,6 +471,7 @@ pub enum ProcessorVersionRequirements<Version, MaxVersions: ParameterBound> {
 pub enum Runtime {
 	NodeJS,
 	NodeJSWithBundle,
+	Shell,
 }
 
 /// Strategies for matching/assigning a job to single or multiple competing processors.

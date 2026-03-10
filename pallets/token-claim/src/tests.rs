@@ -3,7 +3,7 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 };
 
-use crate::{mock::*, ClaimProof, Config, Error};
+use crate::{mock::*, ClaimProof, ClaimTypeConfig, Config, Error};
 
 // ============================================================================
 // Happy path tests
@@ -906,5 +906,486 @@ fn test_multiple_claims_different_destinations() {
 		// Both should work
 		assert!(AcurastTokenClaim::vesting(&destination1, &claimer1).is_some());
 		assert!(AcurastTokenClaim::vesting(&destination2, &claimer2).is_some());
+	});
+}
+
+// ============================================================================
+// Multi-claim admin tests
+// ============================================================================
+
+fn create_test_claim_type() -> ClaimTypeConfig<AccountId, u64> {
+	let (_, signer) = generate_pair_account("MultiSigner");
+	let (_, funder) = generate_pair_account("MultiFunder");
+	ClaimTypeConfig { signer, funder, vesting_duration: (LockDuration::get() as u64) }
+}
+
+#[test]
+fn test_create_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let config = create_test_claim_type();
+
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config.clone()));
+
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::AcurastTokenClaim(crate::Event::ClaimTypeCreated {
+				claim_type_id: 0,
+				config: config.clone(),
+			}))
+		);
+
+		// Verify storage
+		assert_eq!(AcurastTokenClaim::next_claim_type_id(), 1);
+		assert_eq!(AcurastTokenClaim::claim_type_configs(0), Some(config));
+	});
+}
+
+#[test]
+fn test_create_claim_type_non_root_fails() {
+	ExtBuilder.build().execute_with(|| {
+		let config = create_test_claim_type();
+		let (_, account) = generate_pair_account("User");
+
+		assert_err!(
+			AcurastTokenClaim::create_claim_type(RuntimeOrigin::signed(account), config),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn test_update_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let config = create_test_claim_type();
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, new_signer) = generate_pair_account("NewSigner");
+		let (_, new_funder) = generate_pair_account("NewFunder");
+		let new_config =
+			ClaimTypeConfig { signer: new_signer, funder: new_funder, vesting_duration: 1000u64 };
+
+		assert_ok!(AcurastTokenClaim::update_claim_type(
+			RuntimeOrigin::root(),
+			0,
+			new_config.clone()
+		));
+
+		assert_eq!(AcurastTokenClaim::claim_type_configs(0), Some(new_config));
+	});
+}
+
+#[test]
+fn test_update_nonexistent_claim_type_fails() {
+	ExtBuilder.build().execute_with(|| {
+		let config = create_test_claim_type();
+		assert_err!(
+			AcurastTokenClaim::update_claim_type(RuntimeOrigin::root(), 99, config),
+			Error::<Test>::ClaimTypeNotFound
+		);
+	});
+}
+
+#[test]
+fn test_remove_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let config = create_test_claim_type();
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		assert_ok!(AcurastTokenClaim::remove_claim_type(RuntimeOrigin::root(), 0));
+
+		assert_eq!(AcurastTokenClaim::claim_type_configs(0), None);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::AcurastTokenClaim(crate::Event::ClaimTypeRemoved { claim_type_id: 0 })
+		)));
+	});
+}
+
+#[test]
+fn test_remove_nonexistent_claim_type_fails() {
+	ExtBuilder.build().execute_with(|| {
+		assert_err!(
+			AcurastTokenClaim::remove_claim_type(RuntimeOrigin::root(), 99),
+			Error::<Test>::ClaimTypeNotFound
+		);
+	});
+}
+
+// ============================================================================
+// Multi-claim flow tests
+// ============================================================================
+
+#[test]
+fn test_multi_claim_to_same_account() {
+	ExtBuilder.build().execute_with(|| {
+		let (multi_signer_pair, multi_signer) = generate_pair_account("MultiSigner");
+		let (_, multi_funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&multi_funder, initial_funds));
+
+		let config = ClaimTypeConfig {
+			signer: multi_signer,
+			funder: multi_funder.clone(),
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+		let signature =
+			generate_signature_with_claim_type(&multi_signer_pair, &account, claim_amount, 0);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			proof,
+			account.clone()
+		));
+
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::AcurastTokenClaim(crate::Event::MultiClaimed {
+				claim_type_id: 0,
+				claimer: c,
+				destination: d,
+				amount: a,
+			}) if c == &account && d == &account && *a == claim_amount
+		)));
+
+		// Funds stay on funder until vest
+		assert_eq!(Balances::balance(&multi_funder), initial_funds);
+		assert_eq!(Balances::balance(&account), 0);
+
+		// Check multi vesting storage
+		let vesting = AcurastTokenClaim::multi_vesting((0u32, &account, &account));
+		assert!(vesting.is_some());
+		let schedule = vesting.unwrap();
+		assert_eq!(schedule.remaining, claim_amount);
+	});
+}
+
+#[test]
+fn test_multi_claim_already_claimed() {
+	ExtBuilder.build().execute_with(|| {
+		let (multi_signer_pair, multi_signer) = generate_pair_account("MultiSigner");
+		let (_, multi_funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&multi_funder, initial_funds));
+
+		let config = ClaimTypeConfig {
+			signer: multi_signer,
+			funder: multi_funder,
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+		let signature =
+			generate_signature_with_claim_type(&multi_signer_pair, &account, claim_amount, 0);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			proof.clone(),
+			account.clone()
+		));
+
+		assert_err!(
+			AcurastTokenClaim::multi_claim(
+				RuntimeOrigin::signed(account.clone()),
+				0,
+				proof,
+				account.clone()
+			),
+			Error::<Test>::AlreadyClaimed
+		);
+	});
+}
+
+#[test]
+fn test_multi_claim_invalid_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let (_, account) = generate_pair_account("User");
+		let (signer, _) = generate_pair_account("Bob");
+		let claim_amount: Balance = 100 * UNIT;
+		let signature = generate_signature(&signer, &account, claim_amount);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		assert_err!(
+			AcurastTokenClaim::multi_claim(
+				RuntimeOrigin::signed(account.clone()),
+				99,
+				proof,
+				account.clone()
+			),
+			Error::<Test>::ClaimTypeNotFound
+		);
+	});
+}
+
+#[test]
+fn test_multi_vest_complete() {
+	ExtBuilder.build().execute_with(|| {
+		let (multi_signer_pair, multi_signer) = generate_pair_account("MultiSigner");
+		let (_, multi_funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&multi_funder, initial_funds));
+
+		let config = ClaimTypeConfig {
+			signer: multi_signer,
+			funder: multi_funder.clone(),
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+		let signature =
+			generate_signature_with_claim_type(&multi_signer_pair, &account, claim_amount, 0);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			proof,
+			account.clone()
+		));
+
+		// Move forward past vesting duration
+		let vesting_duration = LockDuration::get() as u64;
+		System::set_block_number(vesting_duration * 2);
+
+		assert_ok!(AcurastTokenClaim::multi_vest(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			None,
+			None
+		));
+
+		assert_eq!(Balances::balance(&account), claim_amount);
+		assert!(AcurastTokenClaim::multi_vesting((0u32, &account, &account)).is_none());
+
+		assert!(events().iter().any(|e| matches!(
+			e,
+			RuntimeEvent::AcurastTokenClaim(crate::Event::MultiVested {
+				claim_type_id: 0,
+				claimer: c,
+				destination: d,
+				remaining: 0,
+			}) if c == &account && d == &account
+		)));
+	});
+}
+
+#[test]
+fn test_multi_vest_partial() {
+	ExtBuilder.build().execute_with(|| {
+		let (multi_signer_pair, multi_signer) = generate_pair_account("MultiSigner");
+		let (_, multi_funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&multi_funder, initial_funds));
+
+		let config = ClaimTypeConfig {
+			signer: multi_signer,
+			funder: multi_funder,
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+		let signature =
+			generate_signature_with_claim_type(&multi_signer_pair, &account, claim_amount, 0);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			proof,
+			account.clone()
+		));
+
+		// Move forward to half the vesting duration
+		let vesting_duration = LockDuration::get() as u64;
+		System::set_block_number(vesting_duration / 2);
+
+		assert_ok!(AcurastTokenClaim::multi_vest(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			None,
+			None
+		));
+
+		let user_balance = Balances::balance(&account);
+		assert!(user_balance > 0);
+		assert!(user_balance < claim_amount);
+
+		// Vesting schedule should still exist
+		let vesting = AcurastTokenClaim::multi_vesting((0u32, &account, &account));
+		assert!(vesting.is_some());
+		assert!(vesting.unwrap().remaining > 0);
+	});
+}
+
+#[test]
+fn test_multi_vest_nonexistent_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let (_, account) = generate_pair_account("User");
+
+		assert_err!(
+			AcurastTokenClaim::multi_vest(RuntimeOrigin::signed(account.clone()), 99, None, None),
+			Error::<Test>::ClaimTypeNotFound
+		);
+	});
+}
+
+#[test]
+fn test_multi_claim_different_types_same_user() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer_pair1, signer1) = generate_pair_account("MultiSigner1");
+		let (signer_pair2, signer2) = generate_pair_account("MultiSigner2");
+		let (_, funder1) = generate_pair_account("MultiFunder1");
+		let (_, funder2) = generate_pair_account("MultiFunder2");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&funder1, initial_funds));
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&funder2, initial_funds));
+
+		let config1 = ClaimTypeConfig {
+			signer: signer1,
+			funder: funder1,
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		let config2 = ClaimTypeConfig {
+			signer: signer2,
+			funder: funder2,
+			vesting_duration: (LockDuration::get() as u64),
+		};
+
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config1));
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config2));
+
+		let (_, account) = generate_pair_account("User");
+
+		// Claim on type 0
+		let sig1 = generate_signature_with_claim_type(&signer_pair1, &account, claim_amount, 0);
+		let proof1 = ClaimProof::new(claim_amount, sig1);
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			proof1,
+			account.clone()
+		));
+
+		// Claim on type 1 (same user)
+		let sig2 = generate_signature_with_claim_type(&signer_pair2, &account, claim_amount, 1);
+		let proof2 = ClaimProof::new(claim_amount, sig2);
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			1,
+			proof2,
+			account.clone()
+		));
+
+		// Both vesting schedules should exist
+		assert!(AcurastTokenClaim::multi_vesting((0u32, &account, &account)).is_some());
+		assert!(AcurastTokenClaim::multi_vesting((1u32, &account, &account)).is_some());
+	});
+}
+
+#[test]
+fn test_legacy_and_multi_claim_independent() {
+	ExtBuilder.build().execute_with(|| {
+		let (multi_signer_pair, multi_signer) = generate_pair_account("MultiSigner");
+		let (_, multi_funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		// Fund both legacy funder and multi funder
+		assert_ok!(<Balances as Mutate<_>>::mint_into(
+			&<Test as Config>::Funder::get(),
+			initial_funds
+		));
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&multi_funder, initial_funds));
+
+		let config = ClaimTypeConfig {
+			signer: multi_signer,
+			funder: multi_funder,
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+		let (legacy_signer, _) = generate_pair_account("Bob"); // legacy signer
+
+		// Legacy claim
+		let legacy_sig = generate_signature(&legacy_signer, &account, claim_amount);
+		let legacy_proof = ClaimProof::new(claim_amount, legacy_sig);
+		assert_ok!(AcurastTokenClaim::claim(
+			RuntimeOrigin::signed(account.clone()),
+			legacy_proof,
+			account.clone()
+		));
+
+		// Multi claim (same user, different claim type)
+		let multi_sig =
+			generate_signature_with_claim_type(&multi_signer_pair, &account, claim_amount, 0);
+		let multi_proof = ClaimProof::new(claim_amount, multi_sig);
+		assert_ok!(AcurastTokenClaim::multi_claim(
+			RuntimeOrigin::signed(account.clone()),
+			0,
+			multi_proof,
+			account.clone()
+		));
+
+		// Both should exist independently
+		assert!(AcurastTokenClaim::vesting(&account, &account).is_some());
+		assert!(AcurastTokenClaim::multi_vesting((0u32, &account, &account)).is_some());
+	});
+}
+
+#[test]
+fn test_multi_claim_signature_bound_to_claim_type() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer_pair, signer_account) = generate_pair_account("MultiSigner");
+		let (_, funder) = generate_pair_account("MultiFunder");
+		let claim_amount: Balance = 100 * UNIT;
+		let initial_funds = claim_amount * 10;
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&funder, initial_funds));
+
+		// Create two claim types with the same signer
+		let config = ClaimTypeConfig {
+			signer: signer_account.clone(),
+			funder: funder.clone(),
+			vesting_duration: (LockDuration::get() as u64),
+		};
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config.clone()));
+		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
+
+		let (_, account) = generate_pair_account("User");
+
+		// Generate signature for claim type 0
+		let signature = generate_signature_with_claim_type(&signer_pair, &account, claim_amount, 0);
+		let proof = ClaimProof::new(claim_amount, signature);
+
+		// Using the signature for claim type 1 should fail (signature was generated for type 0)
+		assert_err!(
+			AcurastTokenClaim::multi_claim(
+				RuntimeOrigin::signed(account.clone()),
+				1,
+				proof,
+				account.clone()
+			),
+			Error::<Test>::InvalidClaim
+		);
 	});
 }

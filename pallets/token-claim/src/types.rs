@@ -11,6 +11,11 @@ use crate::pallet::Config;
 pub type BalanceFor<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub type ClaimTypeConfigFor<T> = ClaimTypeConfig<
+	<T as frame_system::Config>::AccountId,
+	frame_system::pallet_prelude::BlockNumberFor<T>,
+>;
+
 pub type ProcessedClaimFor<T> = ProcesssedClaim<
 	<T as frame_system::Config>::AccountId,
 	<T as Config>::Signature,
@@ -67,6 +72,40 @@ where
 				.concat();
 		self.signature.verify(message.as_ref(), &signer.into())
 	}
+
+	pub fn validate_with_claim_type<ClaimTypeId: Encode>(
+		&self,
+		account_id: &AccountId,
+		signer: AccountId,
+		claim_type_id: ClaimTypeId,
+	) -> bool {
+		let message = [
+			b"<Bytes>".to_vec(),
+			account_id.encode(),
+			self.amount.encode(),
+			claim_type_id.encode(),
+			b"</Bytes>".to_vec(),
+		]
+		.concat();
+		self.signature.verify(message.as_ref(), &signer.into())
+	}
+}
+
+#[derive(
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+)]
+pub struct ClaimTypeConfig<AccountId, BlockNumber> {
+	pub signer: AccountId,
+	pub funder: AccountId,
+	pub vesting_duration: BlockNumber,
 }
 
 /// Struct to encode the vesting schedule of an individual account.
@@ -100,16 +139,16 @@ where
 	Balance: AtLeast32BitUnsigned + Copy,
 	BlockNumber: AtLeast32BitUnsigned + Copy + Bounded,
 {
-	/// Vestable amount of remaining amount at block `n`.
+	/// Vestable amount of remaining amount at block `block_number`.
 	///
 	/// Capped at [`Self::remaining`].
 	pub fn vestable<BlockNumberToBalance: Convert<BlockNumber, Balance>>(
 		&self,
-		n: BlockNumber,
+		block_number: BlockNumber,
 	) -> Balance {
 		// Number of blocks that count toward vesting;
-		// saturating to 0 when n < latest_vest.
-		let vested_block_count = n.saturating_sub(self.latest_vest);
+		// saturating to 0 when block_number < latest_vest.
+		let vested_block_count = block_number.saturating_sub(self.latest_vest);
 		let vested_block_count = BlockNumberToBalance::convert(vested_block_count);
 		// Calculate amount vested so far, capped at remaining.
 		let vested = vested_block_count.saturating_mul(self.per_block);

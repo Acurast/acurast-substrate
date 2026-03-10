@@ -1,6 +1,6 @@
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64},
+	traits::{ConstU16, ConstU32, ConstU64, EnsureOrigin},
 };
 use parity_scale_codec::Encode;
 use sp_core::{sr25519::Pair, Pair as PairTrait, H256};
@@ -104,6 +104,21 @@ impl pallet_balances::Config for Test {
 	type DoneSlashHandler = ();
 }
 
+pub struct EnsureRootOrigin;
+impl EnsureOrigin<RuntimeOrigin> for EnsureRootOrigin {
+	type Success = ();
+	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		match origin.clone().into() {
+			Ok(frame_system::RawOrigin::Root) => Ok(()),
+			_ => Err(origin),
+		}
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -112,6 +127,8 @@ impl crate::Config for Test {
 	type Funder = Funder;
 	type VestingDuration = LockDuration;
 	type BlockNumberToBalance = ConvertInto;
+	type ClaimTypeId = u32;
+	type UpdateOrigin = EnsureRootOrigin;
 	type WeightInfo = crate::weights::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -136,6 +153,23 @@ pub fn generate_pair_account(seed: &str) -> (Pair, AccountId) {
 pub fn generate_signature(signer: &Pair, account: &AccountId, amount: Balance) -> MultiSignature {
 	let message =
 		[b"<Bytes>".to_vec(), account.encode(), amount.encode(), b"</Bytes>".to_vec()].concat();
+	signer.sign(&message).into()
+}
+
+pub fn generate_signature_with_claim_type(
+	signer: &Pair,
+	account: &AccountId,
+	amount: Balance,
+	claim_type_id: u32,
+) -> MultiSignature {
+	let message = [
+		b"<Bytes>".to_vec(),
+		account.encode(),
+		amount.encode(),
+		claim_type_id.encode(),
+		b"</Bytes>".to_vec(),
+	]
+	.concat();
 	signer.sign(&message).into()
 }
 

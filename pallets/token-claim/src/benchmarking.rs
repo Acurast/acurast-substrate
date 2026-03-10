@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
-use crate::{BalanceFor, Call, ClaimProofFor, Config, Pallet};
+use crate::{BalanceFor, Call, ClaimProofFor, ClaimTypeConfigFor, Config, Pallet};
 
 pub trait BenchmarkHelper<T: Config> {
 	fn dummy_signature() -> T::Signature;
@@ -64,6 +64,126 @@ mod benches {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), None, None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn create_claim_type() -> Result<(), BenchmarkError> {
+		let config = ClaimTypeConfigFor::<T> {
+			signer: T::Signer::get(),
+			funder: T::Funder::get(),
+			vesting_duration: T::VestingDuration::get(),
+		};
+
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, config);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_claim_type() -> Result<(), BenchmarkError> {
+		let config = ClaimTypeConfigFor::<T> {
+			signer: T::Signer::get(),
+			funder: T::Funder::get(),
+			vesting_duration: T::VestingDuration::get(),
+		};
+
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		Pallet::<T>::create_claim_type(origin.clone(), config.clone())?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, T::ClaimTypeId::default(), config);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_claim_type() -> Result<(), BenchmarkError> {
+		let config = ClaimTypeConfigFor::<T> {
+			signer: T::Signer::get(),
+			funder: T::Funder::get(),
+			vesting_duration: T::VestingDuration::get(),
+		};
+
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		Pallet::<T>::create_claim_type(origin.clone(), config)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, T::ClaimTypeId::default());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn multi_claim() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = account("origin", 0, 0);
+		let initial_funds: BalanceFor<T> = 1_000_000_000_000_000u128.into();
+
+		let config = ClaimTypeConfigFor::<T> {
+			signer: T::Signer::get(),
+			funder: T::Funder::get(),
+			vesting_duration: T::VestingDuration::get(),
+		};
+
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Pallet::<T>::create_claim_type(origin, config)?;
+
+		mint_to::<T>(&T::Funder::get(), initial_funds);
+
+		let amount: BalanceFor<T> = 100_000_000_000_000u128.into();
+		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(caller.clone()),
+			T::ClaimTypeId::default(),
+			proof,
+			caller.clone().into().into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn multi_vest() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = account("origin", 0, 0);
+		let initial_funds: BalanceFor<T> = 1_000_000_000_000_000u128.into();
+
+		let config = ClaimTypeConfigFor::<T> {
+			signer: T::Signer::get(),
+			funder: T::Funder::get(),
+			vesting_duration: T::VestingDuration::get(),
+		};
+
+		let origin =
+			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Pallet::<T>::create_claim_type(origin, config)?;
+
+		mint_to::<T>(&T::Funder::get(), initial_funds);
+
+		let amount: BalanceFor<T> = 100_000_000_000_000u128.into();
+		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
+		Pallet::<T>::multi_claim(
+			RawOrigin::Signed(caller.clone()).into(),
+			T::ClaimTypeId::default(),
+			proof,
+			caller.clone().into().into(),
+		)?;
+
+		frame_system::Pallet::<T>::set_block_number(1000u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), T::ClaimTypeId::default(), None, None);
 
 		Ok(())
 	}

@@ -9,7 +9,7 @@ use acurast_runtime_common::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::AcurastBenchmarkHelper;
-use crate::{Balances, Runtime, RuntimeEvent};
+use crate::{Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent};
 
 parameter_types! {
 	// Testnet signer - using a well-known test account
@@ -27,6 +27,8 @@ impl pallet_acurast_token_claim::Config for Runtime {
 	type Funder = Funder;
 	type VestingDuration = VestingDuration;
 	type BlockNumberToBalance = ConvertInto;
+	type ClaimTypeId = u32;
+	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_token_claim::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AcurastBenchmarkHelper;

@@ -80,6 +80,7 @@ dependencies = [
  "pallet-acurast-marketplace",
  "pallet-acurast-processor-manager",
  "pallet-acurast-rewards-treasury",
+ "pallet-acurast-token-claim",
  "pallet-acurast-token-conversion",
  "pallet-aura",
  "pallet-authorship",

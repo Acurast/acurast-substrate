@@ -11,6 +11,7 @@ use sp_runtime::{
 	traits::{Debug, One, Saturating, Zero},
 	FixedU128, Perbill, Perquintill,
 };
+use sp_std::prelude::*;
 
 use crate::{
 	datastructures::{ProvisionalBuffer, SlidingBuffer},
@@ -209,8 +210,8 @@ impl<
 }
 
 /// Stores a processor's metric commitment.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
-pub struct MetricCommit<Epoch: Debug> {
+#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq)]
+pub struct MetricCommit<Epoch> {
 	/// The processor epoch number the metric got committed for.
 	pub epoch: Epoch,
 	/// The metric result.
@@ -230,13 +231,7 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	#[deprecated]
 	pub claimed: Epoch,
 	pub status: ProcessorStatus<BlockNumber>,
-	/// The amount accrued but not yet paid out.
-	///
-	/// This is helpful in case the reward transfer fails, we still keep the open amount in accrued.
-	///
-	/// Also see [`Self.paid`]:
-	#[deprecated]
-	pub accrued: Balance,
+	pub reward_contribution: Balance,
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
 	#[deprecated]
 	pub paid: Balance,
@@ -263,7 +258,7 @@ where
 			committed: Zero::zero(),
 			claimed: Zero::zero(),
 			status: ProcessorStatus::WarmupUntil(warmup_end),
-			accrued: Zero::zero(),
+			reward_contribution: Zero::zero(),
 			paid: Zero::zero(),
 		}
 	}
@@ -485,3 +480,76 @@ pub type InflationInfoFor<T, I> = InflationInfo<
 	BalanceFor<T, I>,
 	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>,
 >;
+
+#[derive(RuntimeDebug, Default)]
+pub struct MetricPoolUpdateInfo {
+	pub pool_id: PoolId,
+	pub epoch_sum: Option<(Metric, Metric)>,
+	pub pool_total: Option<(Metric, Perquintill)>,
+}
+
+impl MetricPoolUpdateInfo {
+	pub fn new(
+		pool_id: PoolId,
+		epoch_sum: Option<(Metric, Metric)>,
+		pool_total: Option<(Metric, Perquintill)>,
+	) -> Self {
+		Self { pool_id, epoch_sum, pool_total }
+	}
+}
+
+#[derive(RuntimeDebug, Default)]
+pub struct CommitMetricsInfo {
+	pub previous_metrics: Option<Vec<(PoolId, Metric)>>,
+	pub previous_pool_totals: Option<Vec<(PoolId, (Metric, Perquintill))>>,
+	pub previous_sums: Option<Vec<(PoolId, (Metric, Metric))>>,
+}
+
+impl CommitMetricsInfo {
+	pub fn compute_reward_contribution<Balance>(&self, total_reward: Balance) -> Option<Balance>
+	where
+		Balance: IsType<u128>,
+	{
+		let Some(previous_metrics) = &self.previous_metrics else {
+			return None;
+		};
+		let Some(previous_pool_totals) = &self.previous_pool_totals else {
+			return None;
+		};
+		let mut total_reward_ratio: Perquintill = Zero::zero();
+		for (pool_id, metric) in previous_metrics {
+			let pool_info = previous_pool_totals.iter().find_map(|(id, (total, ratio))| {
+				if id == pool_id {
+					return Some((*total, *ratio));
+				}
+				None
+			});
+			let Some((pool_total, reward_ratio)) = pool_info else {
+				continue;
+			};
+			// check if we would divide by zero building rational
+			let compute_weighted_reward_ratio = if pool_total.is_zero() {
+				// can happen if we got commits for this pool but all of them committed metric 0
+				Zero::zero()
+			} else {
+				reward_ratio.saturating_mul(Perquintill::from_rational(
+					metric.into_inner(),
+					pool_total.into_inner(),
+				))
+			};
+
+			total_reward_ratio = total_reward_ratio.saturating_add(compute_weighted_reward_ratio);
+		}
+
+		let reward: Balance = total_reward_ratio.mul_floor::<u128>(total_reward.into()).into();
+
+		Some(reward)
+	}
+}
+
+#[derive(RuntimeDebug, Default)]
+pub struct RewardInfo<Balance> {
+	pub reward: Balance,
+	pub metrics_reward_claimed: bool,
+	pub staked_compute_reward_claimed: bool,
+}

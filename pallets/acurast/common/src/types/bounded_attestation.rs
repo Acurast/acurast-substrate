@@ -99,6 +99,7 @@ pub struct AttestationValidity {
 	Serialize,
 	Deserialize,
 )]
+#[allow(clippy::large_enum_variant)]
 pub enum BoundedAttestationContent {
 	KeyDescription(BoundedKeyDescription),
 	DeviceAttestation(BoundedDeviceAttestation),

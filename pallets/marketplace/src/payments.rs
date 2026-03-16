@@ -12,7 +12,6 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_std::prelude::*;
 
 use pallet_acurast::{JobId, MultiOrigin};
 
@@ -29,7 +28,8 @@ pub trait RewardManager<T: frame_system::Config + Config> {
 		reward: <T as Config>::Balance,
 	) -> Result<(), DispatchError>;
 	fn pay_matcher_reward(
-		remaining_rewards: Vec<(JobId<T::AccountId>, <T as Config>::Balance)>,
+		job_id: &JobId<T::AccountId>,
+		price_difference: <T as Config>::Balance,
 		matcher: &T::AccountId,
 	) -> Result<(), DispatchError>;
 	fn refund(job_id: &JobId<T::AccountId>) -> Result<T::Balance, DispatchError>;
@@ -51,7 +51,8 @@ impl<T: frame_system::Config + Config> RewardManager<T> for () {
 	}
 
 	fn pay_matcher_reward(
-		_remaining_rewards: Vec<(JobId<T::AccountId>, <T as Config>::Balance)>,
+		_job_id: &JobId<T::AccountId>,
+		_price_difference: <T as Config>::Balance,
 		_matcher: &T::AccountId,
 	) -> Result<(), DispatchError> {
 		Ok(())
@@ -144,27 +145,23 @@ where
 	}
 
 	fn pay_matcher_reward(
-		remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)>,
+		job_id: &JobId<T::AccountId>,
+		price_difference: T::Balance,
 		matcher: &T::AccountId,
 	) -> Result<(), DispatchError> {
 		let matcher_fee_percentage = AssetSplit::get_matcher_percentage();
-
-		let mut matcher_reward: T::Balance = 0u8.into();
-		for (job_id, remaining_reward) in remaining_rewards.into_iter() {
-			let matcher_fee = matcher_fee_percentage.mul_floor(remaining_reward);
-			Budget::unreserve(&job_id, matcher_fee)
-				.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
-			matcher_reward += matcher_fee;
-		}
+		let matcher_fee = matcher_fee_percentage.mul_floor(price_difference);
+		Budget::unreserve(job_id, matcher_fee)
+			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
 
 		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
 		// Extract fee from the matcher reward
 		let fee_percentage = AssetSplit::get_fee_percentage();
-		let fee = fee_percentage.mul_floor(matcher_reward);
+		let fee = fee_percentage.mul_floor(matcher_fee);
 
 		// Subtract the fee from the reward
-		let reward_after_fee = matcher_reward - fee;
+		let reward_after_fee = matcher_fee - fee;
 
 		// Transfer fees to Acurast fees manager account
 		let fee_pallet_account: T::AccountId = AssetSplit::pallet_id().into_account_truncating();

@@ -15,7 +15,7 @@ use sp_runtime::traits::Debug;
 	Eq,
 	Default,
 )]
-pub struct MemoryBuffer<Timestamp: Ord, Value> {
+pub struct MemoryBuffer<Timestamp, Value> {
 	/// The past value and the timestamp range when it was valid as `(start_time, value)`.
 	/// `end_time` is the same as `current.0` (when current value became valid).
 	past: Option<(Timestamp, Value)>,

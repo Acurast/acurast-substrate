@@ -48,11 +48,10 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		match requirements.assignment_strategy {
 			AssignmentStrategy::Single(instant_match) => {
 				if let Some(sources) = instant_match {
-					// ignore remaining rewards; do not pay out the matcher which is the same as the one registering
-					let _ = Self::process_matching(once(&crate::types::Match {
-						job_id: job_id.clone(),
-						sources,
-					}))?;
+					Self::process_matching(
+						once(&crate::types::Match { job_id: job_id.clone(), sources }),
+						None,
+					)?;
 				}
 			},
 			AssignmentStrategy::Competing => {

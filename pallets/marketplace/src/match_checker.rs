@@ -2,8 +2,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::*,
 	sp_runtime::{
-		traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
-		DispatchError, Permill, SaturatedConversion,
+		traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
+		DispatchError, FixedPointNumber, Permill, SaturatedConversion,
 	},
 	traits::UnixTime,
 };
@@ -19,11 +19,6 @@ use crate::{
 	*,
 };
 
-pub type MatchingResult<T> = Result<
-	Vec<(JobId<<T as frame_system::Config>::AccountId>, <T as Config>::Balance)>,
-	DispatchError,
->;
-
 impl<T: Config> Pallet<T> {
 	/// Checks if a Processor - Job match is possible and returns the remaining job rewards by `job_id`.
 	///
@@ -33,10 +28,8 @@ impl<T: Config> Pallet<T> {
 	/// Every other invalidity in a provided [`Match`] fails the entire call.
 	pub(crate) fn process_matching<'a>(
 		matching: impl IntoIterator<Item = &'a MatchFor<T>>,
-	) -> MatchingResult<T> {
-		let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
-		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
-
+		matcher_account: Option<&T::AccountId>,
+	) -> DispatchResult {
 		for m in matching {
 			let job_status = <StoredJobStatus<T>>::get(&m.job_id.0, m.job_id.1)
 				.ok_or(Error::<T>::JobStatusNotFound)?;
@@ -99,17 +92,6 @@ impl<T: Config> Pallet<T> {
 					);
 				}
 
-				let pricing = <StoredAdvertisementPricing<T>>::get(&planned_execution.source)
-					.ok_or(Error::<T>::AdvertisementPricingNotFound)?;
-
-				// CHECK the scheduling_window allow to schedule this job
-				Self::check_scheduling_window(
-					&pricing.scheduling_window,
-					&registration.schedule,
-					now,
-					planned_execution.start_delay,
-				)?;
-
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(
 					&ad,
@@ -151,12 +133,8 @@ impl<T: Config> Pallet<T> {
 				)?;
 
 				// calculate fee
-				let fee_per_execution = Self::fee_per_execution(
-					&registration.schedule,
-					registration.storage,
-					&pricing,
-					min_fee_per_millisecond,
-				)?;
+				let fee_per_execution =
+					Self::price_for(&planned_execution.source, &registration.schedule);
 
 				// CHECK price not exceeding reward
 				ensure!(fee_per_execution <= reward_amount, Error::<T>::InsufficientRewardInMatch);
@@ -200,18 +178,10 @@ impl<T: Config> Pallet<T> {
 					},
 				)?;
 				<AssignedProcessors<T>>::insert(&m.job_id, &planned_execution.source, ());
+				if let Some(matcher_account) = matcher_account {
+					<JobMatcher<T>>::insert(&m.job_id, matcher_account);
+				}
 			}
-
-			// CHECK total fee is not exceeding reward
-			let total_reward_amount = Self::total_reward_amount(&registration)?;
-			let diff = total_reward_amount
-				.checked_sub(&total_fee)
-				.ok_or(Error::<T>::InsufficientRewardInMatch)?;
-			// We better check for diff positive <=> total_fee <= total_reward_amount
-			// because we cannot assume that asset amount is an unsigned integer for all future
-			ensure!(diff >= 0u32.into(), Error::<T>::InsufficientRewardInMatch);
-
-			remaining_rewards.push((m.job_id.clone(), diff));
 
 			let total_reward_per_execution: u128 = total_reward_per_execution.into();
 			if total_reward_per_execution > 0 {
@@ -223,7 +193,7 @@ impl<T: Config> Pallet<T> {
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
 			Self::deposit_event(Event::JobRegistrationMatchedV2(m.job_id.clone()));
 		}
-		Ok(remaining_rewards)
+		Ok(())
 	}
 
 	fn cleanup_previous_execution_matches(current_match: &ExecutionMatchFor<T>) {
@@ -253,10 +223,8 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn process_execution_matching<'a>(
 		matching: impl IntoIterator<Item = &'a ExecutionMatchFor<T>>,
-	) -> MatchingResult<T> {
-		let mut remaining_rewards: Vec<(JobId<T::AccountId>, T::Balance)> = Default::default();
-		let min_fee_per_millisecond = Self::min_fee_per_millisecond();
-
+		matcher_account: Option<&T::AccountId>,
+	) -> DispatchResult {
 		for m in matching {
 			// if the job_execution_status was never set, the default `Open` is returned
 			if <StoredJobExecutionStatus<T>>::get(&m.job_id, m.execution_index) != JobStatus::Open {
@@ -329,17 +297,6 @@ impl<T: Config> Pallet<T> {
 					);
 				}
 
-				let pricing = <StoredAdvertisementPricing<T>>::get(&planned_execution.source)
-					.ok_or(Error::<T>::AdvertisementPricingNotFound)?;
-
-				// CHECK the scheduling_window allow to schedule this job
-				Self::check_scheduling_window(
-					&pricing.scheduling_window,
-					&registration.schedule,
-					now,
-					planned_execution.start_delay,
-				)?;
-
 				// CHECK network request quota sufficient
 				Self::check_network_request_quota_sufficient(
 					&ad,
@@ -381,12 +338,8 @@ impl<T: Config> Pallet<T> {
 				)?;
 
 				// calculate fee
-				let fee_per_execution = Self::fee_per_execution(
-					&registration.schedule,
-					registration.storage,
-					&pricing,
-					min_fee_per_millisecond,
-				)?;
+				let fee_per_execution =
+					Self::price_for(&planned_execution.source, &registration.schedule);
 
 				// CHECK price not exceeding reward
 				ensure!(fee_per_execution <= reward_amount, Error::<T>::InsufficientRewardInMatch);
@@ -443,19 +396,6 @@ impl<T: Config> Pallet<T> {
 				<AssignedProcessors<T>>::insert(&m.job_id, &planned_execution.source, ());
 			}
 
-			// CHECK total fee is not exceeding reward
-			let total_reward_amount = reward_amount
-				.checked_mul(&(m.sources.len() as u128).into())
-				.ok_or(Error::<T>::CalculationOverflow)?;
-			let diff = total_reward_amount
-				.checked_sub(&total_fee)
-				.ok_or(Error::<T>::InsufficientRewardInMatch)?;
-			// We better check for diff positive <=> total_fee <= total_reward_amount
-			// because we cannot assume that asset amount is an unsigned integer for all future
-			ensure!(diff >= 0u32.into(), Error::<T>::InsufficientRewardInMatch);
-
-			remaining_rewards.push((m.job_id.clone(), diff));
-
 			// only update average on first execution's match to not have the average proportionally influenced by single executions that get matched
 			if m.execution_index == 0 && !total_fee.is_zero() {
 				let avarage_fee_per_execution = total_fee
@@ -466,10 +406,29 @@ impl<T: Config> Pallet<T> {
 
 			<StoredJobStatus<T>>::insert(&m.job_id.0, m.job_id.1, JobStatus::Matched);
 			<StoredJobExecutionStatus<T>>::insert(&m.job_id, m.execution_index, JobStatus::Matched);
+			if let Some(matcher_account) = matcher_account {
+				<JobMatcher<T>>::insert(&m.job_id, matcher_account);
+			}
 
 			Self::deposit_event(Event::JobExecutionMatchedV2(m.job_id.clone()));
 		}
-		Ok(remaining_rewards)
+		Ok(())
+	}
+
+	fn price_for(processor: &T::AccountId, schedule: &Schedule) -> T::Balance {
+		let price_settings = Self::price_settings().unwrap_or(PriceSettingsFor::<T> {
+			min_price: T::DefaultMinPrice::get(),
+			multiplier: T::DefaultPriceMultiplier::get(),
+		});
+
+		price_settings
+			.multiplier
+			.saturating_mul_int(
+				T::ProcessorPriceProvider::price_per_millisecond_for(processor)
+					.map(|price| price.saturating_mul(schedule.duration.into()))
+					.unwrap_or_default(),
+			)
+			.max(price_settings.min_price)
 	}
 
 	fn update_average_reward(fee_per_execution: u128) -> Result<(), DispatchError> {
@@ -497,37 +456,6 @@ impl<T: Config> Pallet<T> {
 
 			Ok::<_, DispatchError>(())
 		})?;
-		Ok(())
-	}
-
-	fn check_scheduling_window(
-		_scheduling_window: &SchedulingWindow,
-		_schedule: &Schedule,
-		_now: u64,
-		_start_delay: u64,
-	) -> Result<(), Error<T>> {
-		//match scheduling_window {
-		//	SchedulingWindow::End(end) => {
-		//		ensure!(
-		//			*end >= schedule
-		//				.end_time
-		//				.checked_add(start_delay)
-		//				.ok_or(Error::<T>::CalculationOverflow)?,
-		//			Error::<T>::SchedulingWindowExceededInMatch
-		//		);
-		//	},
-		//	SchedulingWindow::Delta(delta) => {
-		//		ensure!(
-		//			now.checked_add(*delta).ok_or(Error::<T>::CalculationOverflow)?
-		//				>= schedule
-		//					.end_time
-		//					.checked_add(start_delay)
-		//					.ok_or(Error::<T>::CalculationOverflow)?,
-		//			Error::<T>::SchedulingWindowExceededInMatch
-		//		);
-		//	},
-		//}
-
 		Ok(())
 	}
 
@@ -754,45 +682,6 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::CalculationOverflow)
 	}
 
-	/// Calculates the fee per job execution.
-	fn fee_per_execution(
-		schedule: &Schedule,
-		storage: u32,
-		pricing: &PricingFor<T>,
-		min_fee_per_millisecond: T::Balance,
-	) -> Result<T::Balance, Error<T>> {
-		pricing
-			.fee_per_millisecond
-			.max(min_fee_per_millisecond)
-			.checked_mul(&schedule.duration.into())
-			.ok_or(Error::<T>::CalculationOverflow)?
-			.checked_add(
-				&pricing
-					.fee_per_storage_byte
-					.clone()
-					.checked_mul(&storage.into())
-					.ok_or(Error::<T>::CalculationOverflow)?,
-			)
-			.ok_or(Error::<T>::CalculationOverflow)?
-			.checked_add(&pricing.base_fee_per_execution)
-			.ok_or(Error::<T>::CalculationOverflow)
-	}
-
-	/// Returns the stored matches for a source.
-	///
-	/// Intended to be called for providing runtime API, might return corresponding error.
-	pub fn stored_matches_for_source(
-		source: T::AccountId,
-	) -> Result<Vec<JobAssignmentFor<T>>, RuntimeApiError> {
-		<StoredMatches<T>>::iter_prefix(source)
-			.map(|(job_id, assignment)| {
-				let job = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-					.ok_or(RuntimeApiError::MatchedJobs)?;
-				Ok(JobAssignment { job_id, job, assignment })
-			})
-			.collect()
-	}
-
 	pub fn process_acknowledge_match(
 		who: T::AccountId,
 		job_id: JobId<T::AccountId>,
@@ -807,7 +696,7 @@ impl<T: Config> Pallet<T> {
 			&job_id,
 			execution,
 			pub_keys,
-			job.schedule,
+			&job.schedule,
 		)?;
 		if changed {
 			Self::update_job_status(&job_id, execution)?;
@@ -815,6 +704,19 @@ impl<T: Config> Pallet<T> {
 
 			// activate hook so implementing side can react on job assignment
 			T::MarketplaceHooks::assign_job(&job_id, &assignment.pub_keys)?;
+
+			if let Some(matcher_account) = <JobMatcher<T>>::get(&job_id) {
+				let extra: <T as Config>::RegistrationExtra = job.extra.into();
+				let requirements: JobRequirementsFor<T> = extra.into();
+				let price_diff = requirements.reward.saturating_sub(assignment.fee_per_execution);
+				let remaining = match execution {
+					ExecutionSpecifier::All => {
+						price_diff.saturating_mul(job.schedule.execution_count().into())
+					},
+					ExecutionSpecifier::Index(_) => price_diff,
+				};
+				T::RewardManager::pay_matcher_reward(&job_id, remaining, &matcher_account)?;
+			}
 
 			Self::deposit_event(Event::JobRegistrationAssignedV2(job_id, who));
 		}
@@ -826,7 +728,7 @@ impl<T: Config> Pallet<T> {
 		job_id: &JobId<T::AccountId>,
 		execution: ExecutionSpecifier,
 		pub_keys: PubKeys,
-		schedule: Schedule,
+		schedule: &Schedule,
 	) -> Result<(bool, AssignmentFor<T>), DispatchError> {
 		Ok(<StoredMatches<T>>::try_mutate(
 			processor,

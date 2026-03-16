@@ -385,4 +385,16 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().reads(67))
 			.saturating_add(T::DbWeight::get().writes(128))
 	}
+
+	/// Storage: `AcurastMarketplace::MinFeePerMillisecond` (r:0 w:1)
+	/// Proof: `AcurastMarketplace::MinFeePerMillisecond` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	fn update_price_settings() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_610_000 picoseconds.
+		Weight::from_parts(8_130_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

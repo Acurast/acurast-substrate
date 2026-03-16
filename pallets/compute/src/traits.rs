@@ -4,6 +4,10 @@ pub trait BlockAuthorProvider<AccountId> {
 	fn author() -> Option<AccountId>;
 }
 
+pub trait RewardContributionProvider<AccountId, Balance> {
+	fn reward_contribution_per_block_for(processor: &AccountId) -> Option<Balance>;
+}
+
 pub trait WeightInfo {
 	fn create_pool(x: u32) -> Weight;
 	fn modify_pool_same_config() -> Weight;

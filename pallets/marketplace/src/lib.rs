@@ -114,6 +114,9 @@ pub mod pallet {
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Origin allowed to call operational extrinsics
 		type OperatorOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type ProcessorPriceProvider: PriceProvider<Self::AccountId, Self::Balance>;
+		type DefaultMinPrice: Get<Self::Balance>;
+		type DefaultPriceMultiplier: Get<FixedU128>;
 		/// WeightInfo
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
@@ -282,6 +285,15 @@ pub mod pallet {
 	pub type V7MigrationState<T: Config> =
 		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn price_settings)]
+	pub type JobPriceSettings<T: Config> = StorageValue<_, PriceSettingsFor<T>, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn job_matcher)]
+	pub type JobMatcher<T: Config> =
+		StorageMap<_, Blake2_128Concat, JobId<T::AccountId>, T::AccountId>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -332,6 +344,8 @@ pub mod pallet {
 		),
 		/// Job assignments cleaned up
 		JobAssignmentsCleanedUp(JobId<T::AccountId>),
+		/// Price settings updated
+		PriceSettingsUpdated,
 	}
 
 	#[pallet::error]
@@ -462,6 +476,8 @@ pub mod pallet {
 		ExecutionAlreadyReported,
 		/// Cannot acknowledge a job after its start time
 		CannotAcknowledgeAfterStartTime,
+		/// Cannot get a price for a processor
+		CannotGetProcessorPrice,
 	}
 
 	#[pallet::hooks]
@@ -527,10 +543,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let remaining_rewards = Self::process_matching(&matches)?;
-
-			// pay part of accumulated remaining reward (unspent to consumer) to matcher
-			T::RewardManager::pay_matcher_reward(remaining_rewards, &who)?;
+			Self::process_matching(&matches, Some(&who))?;
 
 			Ok(().into())
 		}
@@ -639,10 +652,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let remaining_rewards = Self::process_execution_matching(&matches)?;
-
-			// pay part of accumulated remaining reward (unspent to consumer) to matcher
-			T::RewardManager::pay_matcher_reward(remaining_rewards, &who)?;
+			Self::process_execution_matching(&matches, Some(&who))?;
 
 			Ok(().into())
 		}
@@ -903,6 +913,18 @@ pub mod pallet {
 				}
 				Self::deposit_event(Event::JobAssignmentsCleanedUp(job_id));
 			}
+			Ok(().into())
+		}
+
+		#[pallet::call_index(17)]
+		#[pallet::weight(< T as Config >::WeightInfo::update_price_settings())]
+		pub fn update_price_settings(
+			origin: OriginFor<T>,
+			price_settings: Option<PriceSettingsFor<T>>,
+		) -> DispatchResultWithPostInfo {
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
+			<JobPriceSettings<T>>::set(price_settings);
+			Self::deposit_event(Event::PriceSettingsUpdated);
 			Ok(().into())
 		}
 	}

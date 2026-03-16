@@ -62,21 +62,21 @@ impl<Signature, Balance, AccountId> ClaimProof<Signature, Balance, AccountId> {
 
 impl<Signature, Balance, AccountId> ClaimProof<Signature, Balance, AccountId>
 where
-	Signature: Parameter + Member + Verify,
+	Signature: Parameter + Member + Verify<Signer: IdentifyAccount<AccountId = AccountId>>,
 	Balance: Encode,
-	AccountId: IsType<<<Signature as Verify>::Signer as IdentifyAccount>::AccountId> + Encode,
+	AccountId: Encode,
 {
-	pub fn validate(&self, account_id: &AccountId, signer: AccountId) -> bool {
+	pub fn validate(&self, account_id: &AccountId, signer: &AccountId) -> bool {
 		let message =
 			[b"<Bytes>".to_vec(), account_id.encode(), self.amount.encode(), b"</Bytes>".to_vec()]
 				.concat();
-		self.signature.verify(message.as_ref(), &signer.into())
+		self.signature.verify(message.as_ref(), &signer)
 	}
 
 	pub fn validate_with_claim_type<ClaimTypeId: Encode>(
 		&self,
 		account_id: &AccountId,
-		signer: AccountId,
+		signer: &AccountId,
 		claim_type_id: ClaimTypeId,
 	) -> bool {
 		let message = [
@@ -87,7 +87,7 @@ where
 			b"</Bytes>".to_vec(),
 		]
 		.concat();
-		self.signature.verify(message.as_ref(), &signer.into())
+		self.signature.verify(message.as_ref(), signer)
 	}
 }
 
@@ -103,7 +103,6 @@ where
 	Eq,
 )]
 pub struct ClaimTypeConfig<AccountId, BlockNumber> {
-	pub signer: AccountId,
 	pub funder: AccountId,
 	pub vesting_duration: BlockNumber,
 }

@@ -1326,33 +1326,33 @@ fn test_compute_flow_2_committers() {
 // 	});
 // }
 
-fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
-	let withdrew_events: Vec<_> = events()
-		.into_iter()
-		.filter_map(|e| match e {
-			RuntimeEvent::Compute(Event::DelegatorWithdrew(delegator, cid, amount)) => {
-				Some((delegator, cid, amount))
-			},
-			_ => None,
-		})
-		.collect();
-
-	// Should have exactly one DelegatorWithdrew event
-	assert_eq!(withdrew_events.len(), 1);
-	let (event_delegator, event_commitment_id, event_reward_amount) = &withdrew_events[0];
-
-	// Extract expected values from the input event
-	if let Event::DelegatorWithdrew(expected_delegator, expected_cid, expected_amount) =
-		expected_event
-	{
-		assert_eq!(
-			(event_delegator.clone(), *event_commitment_id, *event_reward_amount),
-			(expected_delegator, expected_cid, expected_amount)
-		);
-	} else {
-		panic!("Expected DelegatorWithdrew event");
-	}
-}
+//fn assert_delegator_withdrew_event(expected_event: Event<Test>) {
+//	let withdrew_events: Vec<_> = events()
+//		.into_iter()
+//		.filter_map(|e| match e {
+//			RuntimeEvent::Compute(Event::DelegatorWithdrew(delegator, cid, amount)) => {
+//				Some((delegator, cid, amount))
+//			},
+//			_ => None,
+//		})
+//		.collect();
+//
+//	// Should have exactly one DelegatorWithdrew event
+//	assert_eq!(withdrew_events.len(), 1);
+//	let (event_delegator, event_commitment_id, event_reward_amount) = &withdrew_events[0];
+//
+//	// Extract expected values from the input event
+//	if let Event::DelegatorWithdrew(expected_delegator, expected_cid, expected_amount) =
+//		expected_event
+//	{
+//		assert_eq!(
+//			(event_delegator.clone(), *event_commitment_id, *event_reward_amount),
+//			(expected_delegator, expected_cid, expected_amount)
+//		);
+//	} else {
+//		panic!("Expected DelegatorWithdrew event");
+//	}
+//}
 
 #[test]
 fn test_create_pools_name_conflict() {
@@ -1412,7 +1412,7 @@ fn test_single_processor_commit() {
 				committed: 0,
 				claimed: 0,
 				status: ProcessorStatus::WarmupUntil(40),
-				accrued: 0,
+				reward_contribution: 0,
 				paid: 0
 			})
 		);
@@ -1434,7 +1434,7 @@ fn test_single_processor_commit() {
 				committed: 3,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 0,
 				paid: 0
 			})
 		);
@@ -1454,7 +1454,7 @@ fn test_single_processor_commit() {
 				committed: 3,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 0,
 				paid: 0
 			})
 		);
@@ -1475,7 +1475,7 @@ fn test_single_processor_commit() {
 				committed: 4,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 642123287671232,
 				paid: 0
 			})
 		);
@@ -1497,7 +1497,7 @@ fn test_single_processor_commit() {
 				committed: 4,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 642123287671232,
 				paid: 0
 			})
 		);
@@ -1523,7 +1523,7 @@ fn test_single_processor_commit() {
 				committed: 5,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 642123287671232,
 				paid: 0,
 			})
 		);
@@ -1644,7 +1644,7 @@ fn commit_alice_bob() {
 				committed: 1,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 0,
 				paid: 0
 			})
 		);
@@ -1667,7 +1667,7 @@ fn commit_alice_bob() {
 				committed: 1,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 0,
 				paid: 0
 			})
 		);
@@ -1783,7 +1783,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				committed: 2,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 963184931506849,
 				paid: 0,
 			})
 		);
@@ -1815,7 +1815,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				committed: 2,
 				claimed: 0,
 				status: ProcessorStatus::Active,
-				accrued: 0,
+				reward_contribution: 1605308219178081,
 				paid: 0,
 			})
 		);
@@ -2116,9 +2116,9 @@ fn test_commit_compute_overstaked() {
 				metric: FixedU128::from_rational(1000u128, 1u128), // Maximal possible commitment value
 			},];
 		// target_weight_per_compute_pool_2 = 1_000_000_000 * UNIT / 8000 / 2  (2 is TargetStakedTokenSupply) = 62500.0 (tests showed actual value is 62500.53510273973)
-		let stake_amount_limit = 62500_535_102_739_730 * 1000;
-		let overstake_amount = stake_amount_limit + 1 * MILLIUNIT;
-		let stake_amount = stake_amount_limit - 1 * MILLIUNIT;
+		let stake_amount_limit = 62_500_535_102_739_730 * 1000;
+		let overstake_amount = stake_amount_limit + MILLIUNIT;
+		let stake_amount = stake_amount_limit - MILLIUNIT;
 		let cooldown_period = 108u64;
 		let commission = Perbill::from_percent(10); // 10% commission
 		let allow_auto_compound = true;

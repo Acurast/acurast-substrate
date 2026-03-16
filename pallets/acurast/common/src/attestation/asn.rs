@@ -140,7 +140,6 @@ impl<'a> SimpleAsn1Readable<'a> for Extension<'a> {
 		asn1::parse(data, |p| {
 			let extn_id = p.read_element::<ObjectIdentifier>()?;
 			let mut critical = false;
-			let extn_value: &'a [u8];
 
 			let mut tlv = p.read_element::<Tlv>()?;
 			if tlv.tag() == <bool as SimpleAsn1Readable>::TAG {
@@ -148,18 +147,18 @@ impl<'a> SimpleAsn1Readable<'a> for Extension<'a> {
 				tlv = p.read_element()?;
 			}
 
-			if tlv.tag() == <&[u8] as SimpleAsn1Readable>::TAG {
-				extn_value = tlv.data();
-			} else {
+			if tlv.tag() != <&[u8] as SimpleAsn1Readable>::TAG {
 				return Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue));
 			}
+
+			let extn_value = tlv.data();
 
 			Ok(Self { extn_id, critical, extn_value })
 		})
 	}
 }
 
-fn read_lenient_boolean<'a>(tlv: &Tlv<'_>) -> ParseResult<bool> {
+fn read_lenient_boolean(tlv: &Tlv<'_>) -> ParseResult<bool> {
 	let data = tlv.data();
 	if data.len() != 1 {
 		return Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue));
@@ -466,6 +465,7 @@ pub struct DeviceAttestation<'a> {
 	pub nonce: DeviceAttestationNonce<'a>,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum ParsedAttestation<'a> {
 	KeyDescription(KeyDescription<'a>),
 	DeviceAttestation(DeviceAttestation<'a>),

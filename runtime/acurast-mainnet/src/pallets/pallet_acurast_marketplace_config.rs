@@ -1,11 +1,11 @@
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, PalletId};
+use frame_support::{pallet_prelude::DispatchResultWithPostInfo, parameter_types, PalletId};
 use frame_system::EnsureRoot;
 use sp_core::{ConstU32, ConstU64};
-use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError};
+use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError, FixedU128};
 use sp_std::prelude::*;
 
 use acurast_runtime_common::{
-	types::{AccountId, Balance, ExtraFor},
+	types::{AccountId, Balance, ExtraFor, ProcessorPriceProvider},
 	weight,
 };
 use pallet_acurast::{JobId, MultiOrigin, CU32};
@@ -20,6 +20,11 @@ use crate::{
 	EnsureCouncilOrRoot, FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId,
 	ReportTolerance, Runtime, RuntimeEvent,
 };
+
+parameter_types! {
+	pub const MinPrice: Balance = 2_000_000_000;
+	pub const PriceMultiplier: FixedU128 = FixedU128::from_rational(11, 10);
+}
 
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
@@ -47,6 +52,9 @@ impl pallet_acurast_marketplace::Config for Runtime {
 	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
+	type DefaultMinPrice = MinPrice;
+	type DefaultPriceMultiplier = PriceMultiplier;
+	type ProcessorPriceProvider = ProcessorPriceProvider<Self, AcurastCompute>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_marketplace::WeightInfo<Self>;

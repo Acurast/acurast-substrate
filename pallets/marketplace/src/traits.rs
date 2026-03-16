@@ -2,10 +2,14 @@ use frame_support::{sp_runtime::FixedU128, weights::Weight};
 use pallet_acurast::PoolId;
 
 /// Trait used to lookup the time a processor was last seen, i.e. sent a heartbeat.
-pub trait ProcessorInfoProvider<T: frame_system::Config + crate::Config> {
+pub trait ProcessorInfoProvider<T: crate::Config> {
 	fn last_seen(processor: &T::AccountId) -> Option<u128>;
 	fn processor_version(processor: &T::AccountId) -> Option<T::ProcessorVersion>;
 	fn last_processor_metric(processor: &T::AccountId, pool_id: PoolId) -> Option<FixedU128>;
+}
+
+pub trait PriceProvider<AccountId, Balance> {
+	fn price_per_millisecond_for(processor: &AccountId) -> Option<Balance>;
 }
 
 /// Weight functions needed for pallet_acurast_marketplace.
@@ -26,4 +30,5 @@ pub trait WeightInfo {
 	fn deploy() -> Weight;
 	fn update_min_fee_per_millisecond() -> Weight;
 	fn cleanup_job_assignments() -> Weight;
+	fn update_price_settings() -> Weight;
 }

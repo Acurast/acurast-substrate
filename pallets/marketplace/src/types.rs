@@ -1,4 +1,6 @@
-use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec, PalletError};
+use frame_support::{
+	pallet_prelude::*, sp_runtime::FixedU128, storage::bounded_vec::BoundedVec, PalletError,
+};
 use sp_core::H256;
 use sp_std::prelude::*;
 
@@ -6,7 +8,6 @@ use pallet_acurast::{
 	AllowedSources, JobId, JobModules, JobRegistration, MultiOrigin, ParameterBound, Schedule,
 };
 
-use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
@@ -638,40 +639,22 @@ impl<T: Config> MarketplaceHooks<T> for () {
 	}
 }
 
-/// Runtime API error.
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+/// The details for a single planned slot execution with the delay.
 #[derive(
-	RuntimeDebug, parity_scale_codec::Encode, parity_scale_codec::Decode, PartialEq, Eq, TypeInfo,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
 )]
-pub enum RuntimeApiError {
-	/// Error when filtering matching sources failed.
-	#[cfg_attr(feature = "std", error("Filtering matching sources failed."))]
-	FilterMatchingSources,
-	/// Error when retrieving matched jobs.
-	#[cfg_attr(feature = "std", error("Retriving matched jobs failed."))]
-	MatchedJobs,
+pub struct PriceSettings<Balance> {
+	pub min_price: Balance,
+	pub multiplier: FixedU128,
 }
 
-impl RuntimeApiError {
-	/// Consume given error `e` with `self` and generate a native log entry with error details.
-	pub fn log_error(self, e: impl Debug) -> Self {
-		log::error!(
-			target: "runtime::acurast_marketplace",
-			"[{:?}] error: {:?}",
-			self,
-			e,
-		);
-		self
-	}
-
-	/// Consume given error `e` with `self` and generate a native log entry with error details.
-	pub fn log_debug(self, e: impl Debug) -> Self {
-		log::debug!(
-			target: "runtime::acurast_marketplace",
-			"[{:?}] error: {:?}",
-			self,
-			e,
-		);
-		self
-	}
-}
+pub type PriceSettingsFor<T> = PriceSettings<<T as Config>::Balance>;

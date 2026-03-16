@@ -13,8 +13,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 mod traits;
-
 mod types;
 pub mod weights;
 
@@ -39,11 +39,14 @@ pub mod pallet {
 
 	type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	/// A pallet for token claiming and vesting.
 	///
 	/// This is V2 with integrated vesting. Funds are held by the pallet account and released over time.
 	/// V1 relayed on external `VestedTransferer`.
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	/// Configures the pallet.
@@ -55,7 +58,10 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId>;
 
 		/// Signature type for claim proofs.
-		type Signature: Parameter + Member + Verify + MaxEncodedLen;
+		type Signature: Parameter
+			+ Member
+			+ Verify<Signer: IdentifyAccount<AccountId = Self::AccountId>>
+			+ MaxEncodedLen;
 
 		/// Account that signs the claim proofs.
 		type Signer: Get<Self::AccountId>;
@@ -203,6 +209,13 @@ pub mod pallet {
 		VestingInfoFor<T>,
 	>;
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			crate::migration::migrate::<T>()
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
@@ -225,7 +238,7 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyClaimed)?;
 			}
 
-			if !proof.validate(&who, T::Signer::get()) {
+			if !proof.validate(&who, &T::Signer::get()) {
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				return Err(Error::<T>::InvalidClaim)?;
 			}
@@ -347,7 +360,7 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyClaimed)?;
 			}
 
-			if !proof.validate_with_claim_type(&who, config.signer, claim_type_id) {
+			if !proof.validate_with_claim_type(&who, &config.funder, claim_type_id) {
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				return Err(Error::<T>::InvalidClaim)?;
 			}

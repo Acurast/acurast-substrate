@@ -71,7 +71,6 @@ mod benches {
 	#[benchmark]
 	fn create_claim_type() -> Result<(), BenchmarkError> {
 		let config = ClaimTypeConfigFor::<T> {
-			signer: T::Signer::get(),
 			funder: T::Funder::get(),
 			vesting_duration: T::VestingDuration::get(),
 		};
@@ -88,7 +87,6 @@ mod benches {
 	#[benchmark]
 	fn update_claim_type() -> Result<(), BenchmarkError> {
 		let config = ClaimTypeConfigFor::<T> {
-			signer: T::Signer::get(),
 			funder: T::Funder::get(),
 			vesting_duration: T::VestingDuration::get(),
 		};
@@ -107,7 +105,6 @@ mod benches {
 	#[benchmark]
 	fn remove_claim_type() -> Result<(), BenchmarkError> {
 		let config = ClaimTypeConfigFor::<T> {
-			signer: T::Signer::get(),
 			funder: T::Funder::get(),
 			vesting_duration: T::VestingDuration::get(),
 		};
@@ -129,7 +126,6 @@ mod benches {
 		let initial_funds: BalanceFor<T> = 1_000_000_000_000_000u128.into();
 
 		let config = ClaimTypeConfigFor::<T> {
-			signer: T::Signer::get(),
 			funder: T::Funder::get(),
 			vesting_duration: T::VestingDuration::get(),
 		};
@@ -160,7 +156,6 @@ mod benches {
 		let initial_funds: BalanceFor<T> = 1_000_000_000_000_000u128.into();
 
 		let config = ClaimTypeConfigFor::<T> {
-			signer: T::Signer::get(),
 			funder: T::Funder::get(),
 			vesting_duration: T::VestingDuration::get(),
 		};

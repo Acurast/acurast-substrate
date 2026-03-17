@@ -70,7 +70,7 @@ where
 		let message =
 			[b"<Bytes>".to_vec(), account_id.encode(), self.amount.encode(), b"</Bytes>".to_vec()]
 				.concat();
-		self.signature.verify(message.as_ref(), &signer)
+		self.signature.verify(message.as_ref(), signer)
 	}
 
 	pub fn validate_with_claim_type<ClaimTypeId: Encode>(

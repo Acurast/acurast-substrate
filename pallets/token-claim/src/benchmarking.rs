@@ -1,9 +1,5 @@
 use frame_benchmarking::v2::*;
-use frame_support::{
-	pallet_prelude::*,
-	sp_runtime::traits::{IdentifyAccount, StaticLookup, Verify},
-	traits::Currency,
-};
+use frame_support::{pallet_prelude::*, sp_runtime::traits::StaticLookup, traits::Currency};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
@@ -15,8 +11,7 @@ pub trait BenchmarkHelper<T: Config> {
 
 #[benchmarks(
 	where BalanceFor<T>: IsType<u128> + From<u64>,
-	T::AccountId: IsType<<<T::Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
-	<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
+	<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<T::AccountId>,
 )]
 mod benches {
 
@@ -38,7 +33,7 @@ mod benches {
 		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), proof, caller.clone().into().into());
+		_(RawOrigin::Signed(caller.clone()), proof, caller.clone().into());
 
 		Ok(())
 	}
@@ -53,11 +48,7 @@ mod benches {
 		// First create a claim to set up vesting
 		let amount: BalanceFor<T> = 100_000_000_000_000u128.into();
 		let proof = ClaimProofFor::<T>::new(amount, T::BenchmarkHelper::dummy_signature());
-		Pallet::<T>::claim(
-			RawOrigin::Signed(caller.clone()).into(),
-			proof,
-			caller.clone().into().into(),
-		)?;
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), proof, caller.clone().into())?;
 
 		// Move forward in time to have something to vest
 		frame_system::Pallet::<T>::set_block_number(1000u32.into());
@@ -144,7 +135,7 @@ mod benches {
 			RawOrigin::Signed(caller.clone()),
 			T::ClaimTypeId::default(),
 			proof,
-			caller.clone().into().into(),
+			caller.clone().into(),
 		);
 
 		Ok(())
@@ -172,7 +163,7 @@ mod benches {
 			RawOrigin::Signed(caller.clone()).into(),
 			T::ClaimTypeId::default(),
 			proof,
-			caller.clone().into().into(),
+			caller.clone().into(),
 		)?;
 
 		frame_system::Pallet::<T>::set_block_number(1000u32.into());

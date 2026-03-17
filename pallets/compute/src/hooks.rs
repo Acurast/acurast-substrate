@@ -19,7 +19,7 @@ impl<T: Config<I>, I: 'static> ComputeHooks<T::AccountId, T::ManagerId, BalanceF
 	{
 		let pool_ids = (1..=Self::last_metric_pool_id()).collect::<Vec<_>>();
 		let cycle = Self::current_cycle();
-		let (reward, metrics_reward_claimed, staked_compute_reward_claimed) =
+		let RewardInfo { reward, metrics_reward_claimed, staked_compute_reward_claimed } =
 			Self::do_commit(processor, manager, metrics, pool_ids.as_slice(), cycle);
 
 		if !reward.is_zero() {

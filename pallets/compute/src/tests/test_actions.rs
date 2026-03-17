@@ -608,10 +608,9 @@ impl ComputeTestFlow {
 			.collect();
 
 		// Look for DelegationEnded event
-		let delegation_ended: bool = all_events.iter().any(|e| match e {
-			RuntimeEvent::Compute(Event::DelegationEnded(del, _, _)) if *del == *delegator => true,
-			_ => false,
-		});
+		let delegation_ended: bool = all_events.iter().any(
+			|e| matches!(e, RuntimeEvent::Compute(Event::DelegationEnded(del, _, _)) if *del == *delegator),
+		);
 
 		assert!(delegation_ended, "No DelegationEnded event found for delegator");
 
@@ -625,7 +624,7 @@ impl ComputeTestFlow {
 			);
 
 			assert!(
-				expected_reward - transfer_events[0] < 1 * MICROUNIT, // allow for small rounding error
+				expected_reward - transfer_events[0] < MICROUNIT, // allow for small rounding error
 				"Expected reward {} but got {}",
 				expected_reward,
 				transfer_events[0]
@@ -636,7 +635,7 @@ impl ComputeTestFlow {
 	}
 
 	fn execute_processor_commit(processor: &AccountId32, metrics: &Vec<(u8, u128, u128)>) {
-		let commit_data: Vec<(u8, u128, u128)> = metrics.iter().cloned().collect();
+		let commit_data: Vec<(u8, u128, u128)> = metrics.to_vec();
 		let manager =
 			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(processor).unwrap();
 		let _ = Compute::commit(processor, &manager, &commit_data);

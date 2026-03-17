@@ -21,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 52,
+	spec_version: 53,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -79,7 +79,7 @@ parameter_types! {
 		.build_or_panic();
 	pub const SS58Prefix: u16 = 42;
 
-	pub const MinimumPeriod: u64 = 0; //SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0;
 
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;

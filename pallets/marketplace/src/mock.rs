@@ -222,6 +222,8 @@ parameter_types! {
 	pub const InflationMetricsRatio: Perquintill = Perquintill::from_percent(30);
 	pub const InflationCollatorsRatio: Perquintill = Perquintill::from_percent(0);
 	pub const TreasuryAccountId: AccountId = AccountId::new([0u8; 32]);
+	pub const MinPrice: Balance = 1;
+	pub const PriceMultiplier: FixedU128 = FixedU128::from_u32(1);
 }
 
 impl pallet_acurast_compute::Config for Test {
@@ -472,8 +474,20 @@ impl Config for Test {
 	type WeightInfo = weights::WeightInfo<Test>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type OperatorOrigin = EnsureRoot<Self::AccountId>;
+	type ProcessorPriceProvider = MockPriceProvider;
+	type DefaultMinPrice = MinPrice;
+	type DefaultPriceMultiplier = PriceMultiplier;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = TestBenchmarkHelper;
+}
+
+pub struct MockPriceProvider;
+impl PriceProvider<AccountId, Balance> for MockPriceProvider {
+	fn price_per_millisecond_for(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<Balance> {
+		Some(1)
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

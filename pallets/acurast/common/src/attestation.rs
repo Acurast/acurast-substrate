@@ -319,9 +319,11 @@ pub fn validate_certificate_chain(
 ) -> Result<(Vec<CertificateId>, TBSCertificate<'_>, PublicKey), ValidationError> {
 	let google_root_pub_key =
 		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(GOOGLE_ROOT_PUB_KEY)?)?;
+	let google_p384_root_pub_key =
+		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(GOOGLE_P384_ROOT_PUB_KEY)?)?;
 	let apple_root_pub_key =
 		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(APPLE_ROOT_PUB_KEY)?)?;
-	let trusted_roots = &[google_root_pub_key, apple_root_pub_key];
+	let trusted_roots = &[google_root_pub_key, google_p384_root_pub_key, apple_root_pub_key];
 	let mut cert_ids = Vec::<CertificateId>::new();
 	let fold_result = chain.iter().try_fold::<_, _, Result<_, ValidationError>>(
 		(Option::<PublicKey>::None, Option::<Certificate>::None),
@@ -329,24 +331,35 @@ pub fn validate_certificate_chain(
 			let cert = parse_cert(cert_data)?;
 			let payload = parse_cert_payload(cert_data)?;
 			let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
-			let validating_pbk: &PublicKey = if let Some(ref prev_pbk) = prev_pbk {
-				prev_pbk
+			let validating_pbk: Option<&PublicKey> = if let Some(ref prev_pbk) = prev_pbk {
+				Some(prev_pbk)
 			} else if trusted_roots.contains(&current_pbk) {
-				&current_pbk
+				Some(&current_pbk)
 			} else {
 				// this can happen if the submitted certificate chain does not contain the root,
 				// which is fine, we can start validating from the intermediate certificate since
 				// we already have the root public key.
-				&trusted_roots[0] // we try to validate with google first
+				None
 			};
 
-			match validate(&cert, payload, validating_pbk) {
-				Err(ValidationError::InvalidSignature)
-				| Err(ValidationError::UnsupportedPublicKeyAlgorithm) => {
-					validate(&cert, payload, &trusted_roots[1])?
-				},
-				Err(error) => return Err(error),
-				_ => {},
+			if let Some(validating_pbk) = validating_pbk {
+				validate(&cert, payload, validating_pbk)?;
+			} else {
+				let mut accepted = false;
+				for trusted_root in trusted_roots.iter() {
+					match validate(&cert, payload, trusted_root) {
+						Ok(_) => {
+							accepted = true;
+							break;
+						},
+						Err(ValidationError::InvalidSignature)
+						| Err(ValidationError::UnsupportedPublicKeyAlgorithm) => {},
+						Err(error) => return Err(error),
+					}
+				}
+				if !accepted {
+					return Err(ValidationError::InvalidSignature);
+				}
 			}
 
 			let unique_id =
@@ -367,6 +380,7 @@ pub fn validate_certificate_chain(
 }
 
 const GOOGLE_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/google-public.key");
+const GOOGLE_P384_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/google-p384-public.key");
 const APPLE_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/apple-public.key");
 
 #[cfg(test)]
@@ -531,6 +545,55 @@ mod tests {
 		Ok(())
 	}
 
+	/// Samsung chain omitting the root cert. The Samsung root carries the same
+	/// RSA public key as GOOGLE_ROOT_PUB_KEY, so SAMSUNG_INTERMEDIATE_2_CERT
+	/// (which is signed by that root) should be accepted as the chain head.
+	#[test]
+	fn test_validate_samsung_chain_without_root() -> Result<(), Error> {
+		let chain =
+			vec![SAMSUNG_INTERMEDIATE_2_CERT, SAMSUNG_INTERMEDIATE_1_CERT, SAMSUNG_KEY_CERT];
+		let decoded_chain = decode_certificate_chain(&chain);
+		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
+		let parsed_attestation = extract_attestation(cert.extensions)?;
+		if let ParsedAttestation::KeyDescription(KeyDescription::V100(key_description)) =
+			parsed_attestation
+		{
+			assert_eq!(key_description.attestation_version, 100);
+			let _: BoundedKeyDescription = key_description.try_into()?;
+		} else {
+			return Err(());
+		}
+		Ok(())
+	}
+
+	/// Pixel chain omitting the root cert. PIXEL_INTERMEDIATE_2_CERT is signed
+	/// by the Google RSA root and should pass direct validation against
+	/// GOOGLE_ROOT_PUB_KEY.
+	#[test]
+	fn test_validate_pixel_chain_without_root() -> Result<(), Error> {
+		let chain = vec![PIXEL_INTERMEDIATE_2_CERT, PIXEL_INTERMEDIATE_1_CERT, PIXEL_KEY_CERT];
+		let decoded_chain = decode_certificate_chain(&chain);
+		validate_certificate_chain(&decoded_chain)?;
+		Ok(())
+	}
+
+	/// A chain that starts with an intermediate that is NOT signed by any
+	/// trusted root must be rejected. Here we supply the second-level Samsung
+	/// intermediate as the head, which was signed by the first-level
+	/// intermediate (not by the root), so none of the embedded trusted root
+	/// keys can verify it.
+	#[test]
+	fn test_validate_chain_without_root_invalid_first_intermediate() -> Result<(), ()> {
+		// SAMSUNG_INTERMEDIATE_1_CERT is signed by SAMSUNG_INTERMEDIATE_2_CERT,
+		// not by the Google/Samsung root, so it must not be accepted as a chain head.
+		let chain = vec![SAMSUNG_INTERMEDIATE_1_CERT, SAMSUNG_KEY_CERT];
+		let decoded_chain = decode_certificate_chain(&chain);
+		match validate_certificate_chain(&decoded_chain) {
+			Err(ValidationError::InvalidSignature) => Ok(()),
+			_ => Err(()),
+		}
+	}
+
 	#[test]
 	fn test_validate_pixel_invalid_signature_chain() -> Result<(), ()> {
 		let chain = vec![
@@ -559,7 +622,7 @@ mod tests {
 		let decoded_chain = decode_certificate_chain(&chain);
 		let res = validate_certificate_chain(&decoded_chain);
 		match res {
-			Err(e) => assert_eq!(e, ValidationError::UnsupportedPublicKeyAlgorithm),
+			Err(e) => assert_eq!(e, ValidationError::InvalidSignature),
 			_ => return Err(()),
 		};
 		Ok(())

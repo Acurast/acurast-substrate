@@ -133,6 +133,7 @@ where
 			.ok_or(Error::<T, I>::CommitmentNotFound)?
 			.weights
 			.get(epoch)
+			.unwrap_or_default()
 			.total_reward_weight();
 
 		// Check existing commitments from storage
@@ -185,7 +186,7 @@ where
 			.ok_or(Error::<T, I>::NoManagerBackingCommitment)?;
 
 		// Get commitment's total reward weight
-		let weights = commitment.weights.get_latest(epoch); // take current epoch to already respect changes to the stake down in this call flow (like delegate_more, stake_more)
+		let weights = commitment.weights.get_latest(epoch).unwrap_or_default(); // take current epoch to already respect changes to the stake down in this call flow (like delegate_more, stake_more)
 		let commitment_total_weight = weights.total_reward_weight();
 
 		// Check each pool to see if any would hit the score limit
@@ -236,7 +237,7 @@ where
 		commitment: &CommitmentFor<T, I>,
 		previous_epoch_metric_sums: &[(PoolId, (Metric, Metric))],
 	) -> Result<(), Error<T, I>> {
-		let weights = commitment.weights.get_latest(last_epoch);
+		let weights = commitment.weights.get_latest(last_epoch).unwrap_or_default();
 		let commitment_total_weight = weights.total_reward_weight();
 
 		for (pool_id, (metric_sum, metric_with_bonus_sum)) in previous_epoch_metric_sums {
@@ -347,7 +348,7 @@ where
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let committer_stake = commitment.stake.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 
-		let weights = commitment.weights.get_latest(epoch);
+		let weights = commitment.weights.get_latest(epoch).unwrap_or_default();
 		let commitment_total_weight = weights.total_reward_weight();
 
 		let mut total_delegations_reward: BalanceFor<T, I> = Zero::zero();
@@ -448,13 +449,9 @@ where
 			// TODO add try_mutate to MemoryBuffer to make this not saturating
 			commitment
 				.pool_rewards
-				.mutate(
-					committer_stake.created,
-					|r| {
-						r.reward_per_weight = r.reward_per_weight.saturating_add(extra);
-					},
-					true,
-				)
+				.mutate(committer_stake.created, |r| {
+					r.reward_per_weight = r.reward_per_weight.saturating_add(extra);
+				})
 				.map_err(|_| Error::<T, I>::InternalError)?;
 		}
 
@@ -656,14 +653,10 @@ where
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			c.weights
-				.mutate(
-					epoch,
-					|w| {
-						w.self_reward_weight = self_reward_weight;
-						w.self_slash_weight = self_reward_weight;
-					},
-					true,
-				)
+				.mutate(epoch, |w| {
+					w.self_reward_weight = self_reward_weight;
+					w.self_slash_weight = self_reward_weight;
+				})
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 			Self::update_total_stake(StakeChange::Add(extra_amount))?;
@@ -715,14 +708,10 @@ where
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
 			c.weights
-				.mutate(
-					epoch,
-					|w| {
-						w.self_reward_weight = self_reward_weight;
-						w.self_slash_weight = self_reward_weight;
-					},
-					true,
-				)
+				.mutate(epoch, |w| {
+					w.self_reward_weight = self_reward_weight;
+					w.self_slash_weight = self_reward_weight;
+				})
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 			Self::update_total_stake(StakeChange::Sub(decrease_amount))?;
@@ -778,13 +767,14 @@ where
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash_weight = reward_weight;
 
+			let pool_rewards = commitment.pool_rewards.get_latest(created).unwrap_or_default();
 			let reward_debt = reward_weight
-				.checked_mul(commitment.pool_rewards.get_latest(created).reward_per_weight)
+				.checked_mul(pool_rewards.reward_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			let slash_debt = slash_weight
-				.checked_mul(commitment.pool_rewards.get_latest(created).slash_per_weight)
+				.checked_mul(pool_rewards.slash_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -813,16 +803,12 @@ where
 				commitment.delegations_total_rewardable_amount.saturating_add(amount);
 			commitment
 				.weights
-				.mutate(
-					epoch,
-					|w| {
-						w.delegations_reward_weight =
-							w.delegations_reward_weight.saturating_add(reward_weight);
-						w.delegations_slash_weight =
-							w.delegations_slash_weight.saturating_add(slash_weight)
-					},
-					true,
-				)
+				.mutate(epoch, |w| {
+					w.delegations_reward_weight =
+						w.delegations_reward_weight.saturating_add(reward_weight);
+					w.delegations_slash_weight =
+						w.delegations_slash_weight.saturating_add(slash_weight)
+				})
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 			Self::update_total_stake(StakeChange::Add(amount))?;
@@ -944,10 +930,10 @@ where
 						let decreased_amount = d.stake.amount.saturating_sub(decrease_amount);
 						let decreased_rewardable_amount = if d.stake.cooldown_started.is_some() {
 							T::CooldownRewardRatio::get()
-								.mul_floor(d.stake.amount.saturated_into::<u128>())
+								.mul_floor(decreased_amount.saturated_into::<u128>())
 								.into()
 						} else {
-							d.stake.amount
+							decreased_amount
 						};
 
 						let amount_diff = d.stake.amount.saturating_sub(decreased_amount);
@@ -968,67 +954,65 @@ where
 							let (reward_weight_diff, slash_weight_diff) = if d.stake.created
 								>= committer_stake.created
 							{
-								let reward_weight =
-									U256::from(d.stake.rewardable_amount.saturated_into::<u128>())
-										.checked_mul(U256::from(
-											d.stake.cooldown_period.saturated_into::<u128>(),
-										))
-										.ok_or(Error::<T, I>::CalculationOverflow)?
-										.checked_div(U256::from(
-											T::MaxCooldownPeriod::get().saturated_into::<u128>(),
-										))
-										.ok_or(Error::<T, I>::CalculationOverflow)?;
-								let slash_weight =
-									U256::from(d.stake.amount.saturated_into::<u128>())
-										.checked_mul(U256::from(
-											d.stake.cooldown_period.saturated_into::<u128>(),
-										))
-										.ok_or(Error::<T, I>::CalculationOverflow)?
-										.checked_div(U256::from(
-											T::MaxCooldownPeriod::get().saturated_into::<u128>(),
-										))
-										.ok_or(Error::<T, I>::CalculationOverflow)?;
-
-								let reward_weight_diff = d
-									.reward_weight
-									.checked_sub(reward_weight)
-									.ok_or(Error::<T, I>::CalculationOverflow)?;
-								let slash_weight_diff = d
-									.slash_weight
-									.checked_sub(slash_weight)
-									.ok_or(Error::<T, I>::CalculationOverflow)?;
-
-								d.reward_weight = reward_weight;
-								d.slash_weight = slash_weight;
-
-								d.reward_debt = d
-									.reward_weight
-									.checked_mul(
-										commitment
-											.pool_rewards
-											.get_latest(d.stake.created)
-											.reward_per_weight,
+								if let Some(pool_rewards) =
+									commitment.pool_rewards.get_latest(d.stake.created)
+								{
+									let reward_weight = U256::from(
+										d.stake.rewardable_amount.saturated_into::<u128>(),
 									)
+									.checked_mul(U256::from(
+										d.stake.cooldown_period.saturated_into::<u128>(),
+									))
 									.ok_or(Error::<T, I>::CalculationOverflow)?
-									.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
-									.ok_or(Error::<T, I>::CalculationOverflow)?
-									.as_u128()
-									.into();
-								d.slash_debt = d
-									.slash_weight
-									.checked_mul(
-										commitment
-											.pool_rewards
-											.get_latest(d.stake.created)
-											.slash_per_weight,
-									)
-									.ok_or(Error::<T, I>::CalculationOverflow)?
-									.checked_div(U256::from(PER_TOKEN_DECIMALS))
-									.ok_or(Error::<T, I>::CalculationOverflow)?
-									.as_u128()
-									.into();
+									.checked_div(U256::from(
+										T::MaxCooldownPeriod::get().saturated_into::<u128>(),
+									))
+									.ok_or(Error::<T, I>::CalculationOverflow)?;
+									let slash_weight =
+										U256::from(d.stake.amount.saturated_into::<u128>())
+											.checked_mul(U256::from(
+												d.stake.cooldown_period.saturated_into::<u128>(),
+											))
+											.ok_or(Error::<T, I>::CalculationOverflow)?
+											.checked_div(U256::from(
+												T::MaxCooldownPeriod::get()
+													.saturated_into::<u128>(),
+											))
+											.ok_or(Error::<T, I>::CalculationOverflow)?;
 
-								(reward_weight_diff, slash_weight_diff)
+									let reward_weight_diff = d
+										.reward_weight
+										.checked_sub(reward_weight)
+										.ok_or(Error::<T, I>::CalculationOverflow)?;
+									let slash_weight_diff = d
+										.slash_weight
+										.checked_sub(slash_weight)
+										.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+									d.reward_weight = reward_weight;
+									d.slash_weight = slash_weight;
+
+									d.reward_debt = d
+										.reward_weight
+										.checked_mul(pool_rewards.reward_per_weight)
+										.ok_or(Error::<T, I>::CalculationOverflow)?
+										.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
+										.ok_or(Error::<T, I>::CalculationOverflow)?
+										.as_u128()
+										.into();
+									d.slash_debt = d
+										.slash_weight
+										.checked_mul(pool_rewards.slash_per_weight)
+										.ok_or(Error::<T, I>::CalculationOverflow)?
+										.checked_div(U256::from(PER_TOKEN_DECIMALS))
+										.ok_or(Error::<T, I>::CalculationOverflow)?
+										.as_u128()
+										.into();
+
+									(reward_weight_diff, slash_weight_diff)
+								} else {
+									(Zero::zero(), Zero::zero())
+								}
 							} else {
 								(Zero::zero(), Zero::zero())
 							};
@@ -1040,18 +1024,14 @@ where
 								.saturating_sub(rewardable_amount_diff);
 							commitment
 								.weights
-								.mutate(
-									epoch,
-									|w| {
-										w.delegations_reward_weight = w
-											.delegations_reward_weight
-											.saturating_sub(reward_weight_diff);
-										w.delegations_slash_weight = w
-											.delegations_slash_weight
-											.saturating_sub(slash_weight_diff);
-									},
-									true,
-								)
+								.mutate(epoch, |w| {
+									w.delegations_reward_weight = w
+										.delegations_reward_weight
+										.saturating_sub(reward_weight_diff);
+									w.delegations_slash_weight = w
+										.delegations_slash_weight
+										.saturating_sub(slash_weight_diff);
+								})
 								.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 						}
 
@@ -1155,6 +1135,76 @@ where
 		}
 	}
 
+	/// Sanitizes a delegation to fix the invariant that rewardable_amount <= amount.
+	/// This is a post-fix for existing delegations that may have rewardable_amount > amount
+	/// due to a previous bug in decrease_delegator_stake.
+	///
+	/// This function also updates the commitment's delegations_total_rewardable_amount
+	/// and the delegation's reward_weight to reflect the corrected rewardable_amount.
+	///
+	/// Returns true if the delegation was sanitized (rewardable_amount was corrected).
+	fn sanitize_delegation(
+		commitment_id: T::CommitmentId,
+		d: &mut DelegationFor<T, I>,
+	) -> Result<bool, Error<T, I>> {
+		let epoch = Self::current_cycle().epoch;
+
+		// Check if rewardable_amount > amount (the bug condition)
+		if d.stake.rewardable_amount <= d.stake.amount {
+			return Ok(false); // No sanitization needed
+		}
+
+		// Calculate the correct rewardable_amount
+		//
+		// The total amount under d.stake.amount was correctly updated despite the bug, so use it as the source of truth
+		let corrected_rewardable_amount = if d.stake.cooldown_started.is_some() {
+			T::CooldownRewardRatio::get()
+				.mul_floor(d.stake.amount.saturated_into::<u128>())
+				.saturated_into()
+		} else {
+			d.stake.amount
+		};
+
+		let rewardable_amount_diff =
+			d.stake.rewardable_amount.saturating_sub(corrected_rewardable_amount);
+
+		// Calculate the new reward_weight based on corrected rewardable_amount
+		let new_reward_weight = U256::from(corrected_rewardable_amount.saturated_into::<u128>())
+			.checked_mul(U256::from(d.stake.cooldown_period.saturated_into::<u128>()))
+			.ok_or(Error::<T, I>::CalculationOverflow)?
+			.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
+			.ok_or(Error::<T, I>::CalculationOverflow)?;
+
+		let reward_weight_diff =
+			d.reward_weight.checked_sub(new_reward_weight).unwrap_or(U256::zero());
+
+		// Update the delegation
+		d.stake.rewardable_amount = corrected_rewardable_amount;
+		d.reward_weight = new_reward_weight;
+
+		// Don't update d.reward_debt here since it's done at the caller
+
+		// Update commitment totals
+		Commitments::<T, I>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
+			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
+
+			c.delegations_total_rewardable_amount =
+				c.delegations_total_rewardable_amount.saturating_sub(rewardable_amount_diff);
+
+			// Update commitment weights
+			c.weights
+				.mutate(epoch, |w| {
+					w.delegations_reward_weight =
+						w.delegations_reward_weight.saturating_sub(reward_weight_diff);
+				})
+				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
+
+			Ok(())
+		})?;
+
+		Ok(true) // Delegation was sanitized
+	}
+
 	/// Accrues into the accrued balances for a delegation.
 	fn accrue_delegator(
 		who: &T::AccountId,
@@ -1165,9 +1215,19 @@ where
 
 		Delegations::<T, I>::try_mutate(who, commitment_id, |d_| -> Result<(), Error<T, I>> {
 			let d = d_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
+
+			// Check if we have valid pool_rewards data for this delegation's creation timestamp.
+			// If the delegation is too old (created before the remembered range), we skip accrual
+			// entirely rather than using potentially incorrect default values.
+			let Some(pool_rewards) = commitment.pool_rewards.get_latest(d.stake.created) else {
+				// Pool rewards history for this delegation's creation time is no longer available.
+				// Skip accrual - the delegation is stale and we can't calculate accurate rewards/slashes.
+				return Ok(());
+			};
+
 			let reward_u256 = d
 				.reward_weight
-				.checked_mul(commitment.pool_rewards.get_latest(d.stake.created).reward_per_weight)
+				.checked_mul(pool_rewards.reward_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -1176,7 +1236,7 @@ where
 
 			let slash_u256 = d
 				.slash_weight
-				.checked_mul(commitment.pool_rewards.get_latest(d.stake.created).slash_per_weight)
+				.checked_mul(pool_rewards.slash_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
@@ -1195,9 +1255,17 @@ where
 				.checked_add(&slash)
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 
+			// Sanitizes a delegation to fix the invariant that rewardable_amount <= amount.
+			//
+			// Since all delegator operations (withdraw_delegation, delegate_more, cooldown_delegation, end_delegation)
+			// call accrue_delegator (directly or via apply_delegator_slash), the sanitization runs on every operation.
+			//
+			// Only do this now after calculating reward based on potentially erroneous reward_weight to not confuse
+			Self::sanitize_delegation(commitment_id, d)?;
+
 			d.reward_debt = d
 				.reward_weight
-				.checked_mul(commitment.pool_rewards.get_latest(d.stake.created).reward_per_weight)
+				.checked_mul(pool_rewards.reward_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -1205,7 +1273,7 @@ where
 				.into();
 			d.slash_debt = d
 				.slash_weight
-				.checked_mul(commitment.pool_rewards.get_latest(d.stake.created).slash_per_weight)
+				.checked_mul(pool_rewards.slash_per_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?
 				.checked_div(U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -1316,7 +1384,7 @@ where
 				.checked_div(U256::from(T::MaxCooldownPeriod::get().saturated_into::<u128>()))
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			c.weights
-				.mutate(epoch, |w| w.self_reward_weight = self_reward_weight, true)
+				.mutate(epoch, |w| w.self_reward_weight = self_reward_weight)
 				.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 			Ok(())
@@ -1352,12 +1420,20 @@ where
 			<Delegations<T, I>>::try_mutate(who, commitment_id, |d_| -> Result<(), Error<T, I>> {
 				let d = d_.as_mut().ok_or(Error::<T, I>::NotDelegating)?;
 				ensure!(d.stake.cooldown_started.is_none(), Error::<T, I>::CooldownAlreadyStarted);
+
 				// We error out if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
 				// In this case the delegator needs to end (or redelegate) his delegation first.
+				//
+				// NOTE: this check is more strict than the next check for pool_rewards since it is requiring the commitment to be fully present with stake struct;
+				// this is necessary since we never want to update the delegations_total_rewardable_amount for a stale delegation!
 				ensure!(
 					d.stake.created >= committer_stake.created,
 					Error::<T, I>::StaleDelegationMustBeEnded
 				);
+
+				let Some(pool_rewards) = commitment.pool_rewards.get_latest(d.stake.created) else {
+					Err(Error::<T, I>::StaleDelegationMustBeEnded)?
+				};
 
 				d.stake.cooldown_started = Some(cooldown_start);
 				// this has to be calculated once and stored, so changes to `T::CooldownRewardRatio` config don't mess up totals
@@ -1381,22 +1457,16 @@ where
 					.saturating_sub(d.stake.amount.saturating_sub(d.stake.rewardable_amount));
 				commitment
 					.weights
-					.mutate(
-						epoch,
-						|w| {
-							w.delegations_reward_weight =
-								w.delegations_reward_weight.saturating_sub(reward_weight_diff);
-						},
-						true,
-					)
+					.mutate(epoch, |w| {
+						w.delegations_reward_weight =
+							w.delegations_reward_weight.saturating_sub(reward_weight_diff);
+					})
 					.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 
 				// feshly record reward_debt because of changed reward_weight!!
 				d.reward_debt = d
 					.reward_weight
-					.checked_mul(
-						commitment.pool_rewards.get_latest(d.stake.created).reward_per_weight,
-					)
+					.checked_mul(pool_rewards.reward_per_weight)
 					.ok_or(Error::<T, I>::CalculationOverflow)?
 					.checked_div_ceil(&U256::from(PER_TOKEN_DECIMALS))
 					.ok_or(Error::<T, I>::CalculationOverflow)?
@@ -1577,18 +1647,13 @@ where
 						.saturating_sub(delegation.stake.rewardable_amount);
 					commitment
 						.weights
-						.mutate(
-							epoch,
-							|w| {
-								w.delegations_reward_weight = w
-									.delegations_reward_weight
-									.saturating_sub(delegation.reward_weight);
-								w.delegations_slash_weight = w
-									.delegations_slash_weight
-									.saturating_sub(delegation.slash_weight);
-							},
-							true,
-						)
+						.mutate(epoch, |w| {
+							w.delegations_reward_weight = w
+								.delegations_reward_weight
+								.saturating_sub(delegation.reward_weight);
+							w.delegations_slash_weight =
+								w.delegations_slash_weight.saturating_sub(delegation.slash_weight);
+						})
 						.map_err(|_| Error::<T, I>::InternalErrorReadingOutdated)?;
 				}
 			}
@@ -1761,7 +1826,7 @@ where
 		ensure!(!total_slash_amount.is_zero(), Error::<T, I>::NotSlashable);
 
 		// Get the slash weights for the last epoch
-		let weights = commitment.weights.get_latest(last_epoch);
+		let weights = commitment.weights.get_latest(last_epoch).unwrap_or_default();
 		let total_slash_weight = weights.total_slash_weight();
 
 		// If no slash weight, nothing to slash; technically never happens but avoids division-by-zero below
@@ -1840,13 +1905,9 @@ where
 			// Apply slash to delegation pool if applicable
 			if let Some(increase) = slash_per_weight_increase {
 				c.pool_rewards
-					.mutate(
-						stake.created,
-						|r| {
-							r.slash_per_weight = r.slash_per_weight.saturating_add(increase);
-						},
-						true,
-					)
+					.mutate(stake.created, |r| {
+						r.slash_per_weight = r.slash_per_weight.saturating_add(increase);
+					})
 					.map_err(|_| Error::<T, I>::InternalError)?;
 			}
 
@@ -1909,7 +1970,7 @@ where
 		epoch: EpochOf<T>,
 		c: &CommitmentFor<T, I>,
 	) -> Result<Perquintill, Error<T, I>> {
-		let w = c.weights.get_latest(epoch);
+		let w = c.weights.get_latest(epoch).unwrap_or_default();
 		let commitment_total_weight = w
 			.self_slash_weight
 			.checked_add(w.delegations_reward_weight)

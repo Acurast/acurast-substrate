@@ -23,7 +23,7 @@ pub struct MemoryBuffer<Timestamp, Value> {
 	current: (Timestamp, Value),
 }
 
-impl<Timestamp: Ord + Copy + Debug, Value: Copy + Default + Debug> MemoryBuffer<Timestamp, Value> {
+impl<Timestamp: Ord + Copy + Debug, Value: Copy + Debug> MemoryBuffer<Timestamp, Value> {
 	pub fn new_with(timestamp: Timestamp, value: Value) -> Self {
 		Self { current: (timestamp, value), past: None }
 	}
@@ -65,7 +65,7 @@ impl<Timestamp: Ord + Copy + Debug, Value: Copy + Default + Debug> MemoryBuffer<
 	/// - If current_timestamp == current start time: mutates current value in place
 	/// - If current_timestamp > current start time: copies current to past, mutates same current value in place
 	#[allow(clippy::result_unit_err)]
-	pub fn mutate<F>(&mut self, t: Timestamp, f: F, retain: bool) -> Result<(), ()>
+	pub fn mutate<F>(&mut self, t: Timestamp, f: F) -> Result<(), ()>
 	where
 		F: FnOnce(&mut Value),
 	{
@@ -81,9 +81,6 @@ impl<Timestamp: Ord + Copy + Debug, Value: Copy + Default + Debug> MemoryBuffer<
 			},
 			Ordering::Greater => {
 				self.past = Some((self.current.0, self.current.1));
-				if !retain {
-					self.current.1 = Default::default();
-				}
 				self.current.0 = t;
 				f(&mut self.current.1);
 				Ok(())
@@ -93,43 +90,44 @@ impl<Timestamp: Ord + Copy + Debug, Value: Copy + Default + Debug> MemoryBuffer<
 
 	/// Returns the value valid only if set exactly at the specified timestamp.
 	///
-	/// Returns default if the timestamp is neither at the set time of past nor current.
-	pub fn get(&self, t: Timestamp) -> Value {
+	/// Returns `None` if the timestamp is neither at the set time of past nor current.
+	pub fn get(&self, t: Timestamp) -> Option<Value> {
 		if t == self.current.0 {
 			// Timestamp is the current value's set time
-			return self.current.1;
+			return Some(self.current.1);
 		}
 
 		if let Some((past_start, past_value)) = &self.past {
 			if t == *past_start {
 				// Timestamp is the current value's set time
-				return *past_value;
+				return Some(*past_value);
 			}
 		}
 
 		// Timestamp is outside the remembered range
-		Default::default()
+		None
 	}
 
-	/// Returns the value valid at the specified timestamp, but maybe set before that.
+	//// Returns the value valid at the specified timestamp if within the remembered range.
 	///
-	/// Returns default if the timestamp is before the past value's set time
+	/// Returns `None` if the timestamp is before the past value's set time
 	/// or before the current value's set time when there's no past value.
-	pub fn get_latest(&self, t: Timestamp) -> Value {
+	/// This allows callers to distinguish between "no data" and "data is default".
+	pub fn get_latest(&self, t: Timestamp) -> Option<Value> {
 		if t >= self.current.0 {
 			// Timestamp is in current value's validity range
-			return self.current.1;
+			return Some(self.current.1);
 		}
 
 		if let Some((past_start, past_value)) = &self.past {
 			if t >= *past_start && t < self.current.0 {
 				// Timestamp is in past value's validity range
-				return *past_value;
+				return Some(*past_value);
 			}
 		}
 
 		// Timestamp is outside the remembered range
-		Default::default()
+		None
 	}
 
 	/// Returns the current value and its start timestamp.
@@ -153,17 +151,17 @@ mod tests {
 	#[test]
 	fn test_new_buffer() {
 		let b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(0, 100);
-		assert_eq!(b.get_latest(0), 100);
-		assert_eq!(b.get_latest(5), 100);
-		assert_eq!(b.get_latest(-1), 0); // Before current start - returns default
+		assert_eq!(b.get_latest(0), Some(100));
+		assert_eq!(b.get_latest(5), Some(100));
+		assert_eq!(b.get_latest(-1), None); // Before current start - returns None
 	}
 
 	#[test]
 	fn test_set_at_current_timestamp() {
 		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(0, 100);
 		assert_ok!(b.set(0, 200));
-		assert_eq!(b.get_latest(0), 200);
-		assert_eq!(b.get_latest(5), 200);
+		assert_eq!(b.get_latest(0), Some(200));
+		assert_eq!(b.get_latest(5), Some(200));
 	}
 
 	#[test]
@@ -172,14 +170,14 @@ mod tests {
 		assert_ok!(b.set(10, 200));
 
 		// Past value should be accessible in [0, 10)
-		assert_eq!(b.get_latest(0), 100);
-		assert_eq!(b.get_latest(5), 100);
-		assert_eq!(b.get_latest(9), 100);
+		assert_eq!(b.get_latest(0), Some(100));
+		assert_eq!(b.get_latest(5), Some(100));
+		assert_eq!(b.get_latest(9), Some(100));
 
 		// Current value should be accessible from [10, ∞)
-		assert_eq!(b.get_latest(10), 200);
-		assert_eq!(b.get_latest(15), 200);
-		assert_eq!(b.get_latest(100), 200);
+		assert_eq!(b.get_latest(10), Some(200));
+		assert_eq!(b.get_latest(15), Some(200));
+		assert_eq!(b.get_latest(100), Some(200));
 	}
 
 	#[test]
@@ -188,18 +186,18 @@ mod tests {
 		assert_ok!(b.set(10, 200));
 		assert_ok!(b.set(20, 300));
 
-		// Old past (0-10) is no longer accessible - returns default
-		assert_eq!(b.get_latest(0), 0);
-		assert_eq!(b.get_latest(5), 0);
+		// Old past (0-10) is no longer accessible - returns None
+		assert_eq!(b.get_latest(0), None);
+		assert_eq!(b.get_latest(5), None);
 
 		// New past (10-20) is accessible
-		assert_eq!(b.get_latest(10), 200);
-		assert_eq!(b.get_latest(15), 200);
-		assert_eq!(b.get_latest(19), 200);
+		assert_eq!(b.get_latest(10), Some(200));
+		assert_eq!(b.get_latest(15), Some(200));
+		assert_eq!(b.get_latest(19), Some(200));
 
 		// Current (20+) is accessible
-		assert_eq!(b.get_latest(20), 300);
-		assert_eq!(b.get_latest(25), 300);
+		assert_eq!(b.get_latest(20), Some(300));
+		assert_eq!(b.get_latest(25), Some(300));
 	}
 
 	#[test]
@@ -230,76 +228,102 @@ mod tests {
 	}
 
 	#[test]
-	fn test_outside_range_returns_default() {
+	fn test_outside_range_returns_none() {
 		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(10, 100);
 
-		// Before current start - returns default
-		assert_eq!(b.get_latest(0), 0);
-		assert_eq!(b.get_latest(5), 0);
-		assert_eq!(b.get_latest(9), 0);
+		// Before current start - returns None
+		assert_eq!(b.get_latest(0), None);
+		assert_eq!(b.get_latest(5), None);
+		assert_eq!(b.get_latest(9), None);
 
 		assert_ok!(b.set(20, 200));
 
-		// Before past start - returns default
-		assert_eq!(b.get_latest(0), 0);
-		assert_eq!(b.get_latest(5), 0);
-		assert_eq!(b.get_latest(9), 0);
+		// Before past start - returns None
+		assert_eq!(b.get_latest(0), None);
+		assert_eq!(b.get_latest(5), None);
+		assert_eq!(b.get_latest(9), None);
 
 		// In past range
-		assert_eq!(b.get_latest(10), 100);
-		assert_eq!(b.get_latest(15), 100);
+		assert_eq!(b.get_latest(10), Some(100));
+		assert_eq!(b.get_latest(15), Some(100));
 
 		// In current range
-		assert_eq!(b.get_latest(20), 200);
+		assert_eq!(b.get_latest(20), Some(200));
 	}
 
 	#[test]
 	fn test_mutate_at_current_timestamp() {
 		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(0, 100);
-		assert_ok!(b.mutate(0, |v| *v += 50, false));
-		assert_eq!(b.get_latest(0), 150);
-		assert_eq!(b.get_latest(5), 150);
+		assert_ok!(b.mutate(0, |v| *v += 50));
+		assert_eq!(b.get_latest(0), Some(150));
+		assert_eq!(b.get_latest(5), Some(150));
 	}
 
 	#[test]
 	fn test_mutate_new_timestamp_creates_past() {
 		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(0, 100);
-		assert_ok!(b.mutate(10, |v| *v += 50, false));
+		assert_ok!(b.mutate(10, |v| *v += 50));
 
 		// Past value should be accessible in [0, 10)
-		assert_eq!(b.get_latest(0), 100);
-		assert_eq!(b.get_latest(5), 100);
-		assert_eq!(b.get_latest(9), 100);
+		assert_eq!(b.get_latest(0), Some(100));
+		assert_eq!(b.get_latest(5), Some(100));
+		assert_eq!(b.get_latest(9), Some(100));
 
 		// Current value should be accessible from [10, ∞) - starts from default (0) + 50
-		assert_eq!(b.get_latest(10), 50);
-		assert_eq!(b.get_latest(15), 50);
+		assert_eq!(b.get_latest(10), Some(150));
+		assert_eq!(b.get_latest(15), Some(150));
 	}
 
 	#[test]
 	fn test_mutate_in_past_fails() {
 		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(10, 100);
-		assert_err!(b.mutate(5, |v| *v = 200, false), ());
+		assert_err!(b.mutate(5, |v| *v = 200), ());
 	}
 
 	#[test]
-	fn test_mutate_multiple_times() {
-		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(0, 100);
+	fn test_get_latest() {
+		let mut b: MemoryBuffer<i32, i32> = MemoryBuffer::new_with(10, 100);
 
-		// Mutate at same timestamp multiple times
-		assert_ok!(b.mutate(0, |v| *v += 10, false));
-		assert_eq!(b.get_latest(0), 110);
+		// Within current range - returns Some
+		assert_eq!(b.get_latest(10), Some(100));
+		assert_eq!(b.get_latest(15), Some(100));
+		assert_eq!(b.get_latest(100), Some(100));
 
-		assert_ok!(b.mutate(0, |v| *v += 20, false));
-		assert_eq!(b.get_latest(0), 130);
+		// Before current start, no past - returns None
+		assert_eq!(b.get_latest(0), None);
+		assert_eq!(b.get_latest(5), None);
+		assert_eq!(b.get_latest(9), None);
 
-		// Move to new timestamp and mutate with retain=true
-		assert_ok!(b.mutate(10, |v| *v += 50, true));
-		assert_eq!(b.get_latest(0), 130);
-		assert_eq!(b.get_latest(10), 180);
+		// Add a past value by setting a new current
+		assert_ok!(b.set(20, 200));
 
-		// Mutate at new timestamp
-		assert_ok!(b.mutate(10, |v| *v += 25, false));
-		assert_eq!(b.get_latest(10), 205);
+		// Within current range
+		assert_eq!(b.get_latest(20), Some(200));
+		assert_eq!(b.get_latest(25), Some(200));
+
+		// Within past range
+		assert_eq!(b.get_latest(10), Some(100));
+		assert_eq!(b.get_latest(15), Some(100));
+		assert_eq!(b.get_latest(19), Some(100));
+
+		// Before past start - returns None
+		assert_eq!(b.get_latest(0), None);
+		assert_eq!(b.get_latest(5), None);
+		assert_eq!(b.get_latest(9), None);
+
+		// After another set, the old past is lost
+		assert_ok!(b.set(30, 300));
+
+		// Within current range
+		assert_eq!(b.get_latest(30), Some(300));
+
+		// Within new past range (was current before)
+		assert_eq!(b.get_latest(20), Some(200));
+		assert_eq!(b.get_latest(25), Some(200));
+
+		// Old past (10-19) is now gone - returns None
+		assert_eq!(b.get_latest(10), None);
+		assert_eq!(b.get_latest(15), None);
+		assert_eq!(b.get_latest(19), None);
 	}
 }

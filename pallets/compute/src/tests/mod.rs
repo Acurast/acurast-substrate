@@ -3160,3 +3160,854 @@ fn test_kick_out_stale_delegation_after_slash_and_commitment_ended() {
 		);
 	});
 }
+
+/// This test reproduces the bug where pool_rewards history is lost after two re-stakes.
+/// The MemoryBuffer only keeps one "past" slot, so after two re-stakes, the original
+/// pool_rewards values are lost, and the delegation reads zeros instead.
+///
+/// Bug scenario:
+/// 1. Commitment 1 created, delegation created, slash occurs
+/// 2. Commitment 1 ends (pool_rewards: current=(t1, values), past=None)
+/// 3. Commitment 2 created (pool_rewards: current=(t2, zeros), past=(t1, values))
+/// 4. Delegator claims - works because get_latest(delegation.created) reads past
+/// 5. Commitment 2 ends
+/// 6. Commitment 3 created (pool_rewards: current=(t3, zeros), past=(t2, zeros))
+/// 7. Delegator tries to claim - FAILS because get_latest(delegation.created) returns zeros
+///    but slash_debt was set with non-zero values
+#[test]
+fn test_delegator_claim_after_two_commitment_restakes() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+		setup_balances();
+		create_pools();
+
+		let committer = charlie_account_id();
+		offer_accept_backing(committer.clone());
+
+		let committer_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&committer).unwrap();
+
+		// === COMMITMENT 1 ===
+		roll_to_block(10);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]);
+
+		roll_to_block(150);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+
+		roll_to_block(202);
+
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(3200u128, 1u128),
+			},];
+
+		let stake_amount = 10 * UNIT;
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10);
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment.clone(),
+			commission,
+			true,
+		));
+
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Delegator delegates
+		let delegator = ferdie_account_id();
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			25 * UNIT,
+			cooldown_period,
+			true,
+		));
+
+		let delegation_created = System::block_number();
+		println!("Delegation created at block: {}", delegation_created);
+
+		// Trigger slash to build up slash_per_weight
+		roll_to_block(302);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 1600u128, 1u128)]);
+
+		roll_to_block(402);
+		assert_ok!(Compute::slash(RuntimeOrigin::signed(alice_account_id()), committer.clone()));
+
+		// Record the slash_per_weight
+		let slash_per_weight_after_slash = Compute::commitments(commitment_id)
+			.unwrap()
+			.pool_rewards
+			.get_current()
+			.1
+			.slash_per_weight;
+		println!("Slash per weight after first slash: {}", slash_per_weight_after_slash);
+
+		// Delegator withdraws - this sets slash_debt based on current slash_per_weight
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone()
+		));
+
+		let delegation_after_withdraw1 = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("After withdraw 1 - slash_debt: {}", delegation_after_withdraw1.slash_debt);
+
+		// === END COMMITMENT 1 ===
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(committer.clone())));
+		roll_to_block(438);
+		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone())));
+		println!("Commitment 1 ended at block: {}", System::block_number());
+
+		// === COMMITMENT 2 ===
+		roll_to_block(502);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(602);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(702);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(802);
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment.clone(),
+			commission,
+			true,
+		));
+
+		let commitment2_created =
+			Compute::commitments(commitment_id).unwrap().stake.as_ref().unwrap().created;
+		println!("Commitment 2 created at block: {}", commitment2_created);
+
+		// Check pool_rewards after first re-stake
+		let pool_rewards_2 = Compute::commitments(commitment_id).unwrap().pool_rewards;
+		println!(
+			"After commitment 2 - pool_rewards.past: {:?}, pool_rewards.current: {:?}",
+			pool_rewards_2.get_past(),
+			pool_rewards_2.get_current()
+		);
+
+		// === END COMMITMENT 2 ===
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(committer.clone())));
+		roll_to_block(838);
+		assert_ok!(Compute::end_compute_commitment(RuntimeOrigin::signed(committer.clone())));
+		println!("Commitment 2 ended at block: {}", System::block_number());
+
+		// === COMMITMENT 3 ===
+		roll_to_block(902);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(1002);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(1102);
+		Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(1202);
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment.clone(),
+			commission,
+			true,
+		));
+
+		let commitment3_created =
+			Compute::commitments(commitment_id).unwrap().stake.as_ref().unwrap().created;
+		println!("Commitment 3 created at block: {}", commitment3_created);
+
+		// Check pool_rewards after second re-stake - past should now be zeros!
+		let pool_rewards_3 = Compute::commitments(commitment_id).unwrap().pool_rewards;
+		println!(
+			"After commitment 3 - pool_rewards.past: {:?}, pool_rewards.current: {:?}",
+			pool_rewards_3.get_past(),
+			pool_rewards_3.get_current()
+		);
+
+		// Now delegator tries to withdraw
+		// get_latest(delegation_created=202) should return zeros because:
+		// - current = (1202, zeros)
+		// - past = (802, zeros)
+		// - 202 < 802, so returns Default (zeros)
+		let delegation_before_final_withdraw =
+			Compute::delegations(&delegator, commitment_id).unwrap();
+		println!(
+			"Before final withdraw - slash_weight: {}, slash_debt: {}",
+			delegation_before_final_withdraw.slash_weight,
+			delegation_before_final_withdraw.slash_debt
+		);
+
+		let what_delegation_reads = pool_rewards_3.get_latest(delegation_created);
+		println!(
+			"What delegation reads from get_latest({}): {:?}",
+			delegation_created, what_delegation_reads
+		);
+
+		// THIS IS THE CRITICAL MOMENT
+		// Previously: If slash_debt > 0 but get_latest returns 0, then:
+		// slash = slash_weight * 0 / DECIMALS = 0
+		// slash - slash_debt = 0 - slash_debt = NEGATIVE -> underflow!
+		//
+		// FIX: accrue_delegator now uses try_get_latest() and skips accrual entirely
+		// when pool_rewards history is unavailable for the delegation's creation time.
+		let result = Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+		);
+
+		println!("Final withdraw result: {:?}", result);
+
+		// After the fix: even when slash_debt > 0 but pool_rewards history is lost,
+		// accrue_delegator skips accrual instead of erroring out
+		println!("EDGE CASE: slash_debt > 0 but get_latest returns 0 - accrual is skipped");
+		// The fix ensures this no longer causes an error
+		assert!(
+			result.is_ok(),
+			"Should succeed - accrual is skipped when pool_rewards history unavailable"
+		);
+	});
+}
+
+/// Test that rewardable_amount is corrected (sanitized) upon withdraw_delegation.
+///
+/// This test force-inserts a delegation with rewardable_amount > amount (the bug state)
+/// and verifies that calling withdraw_delegation corrects the invariant.
+#[test]
+fn test_rewardable_amount_sanitized_on_withdraw() {
+	use crate::datastructures::MemoryBuffer;
+	use crate::types::{Commitment, CommitmentWeights, Delegation, PoolReward, Stake};
+	use crate::{Commitments, CurrentCycle, Delegations};
+	use frame_support::traits::Currency;
+
+	ExtBuilder.build().execute_with(|| {
+		let delegator = ferdie_account_id();
+		let committer = charlie_account_id();
+
+		// Set up cycle and block
+		CurrentCycle::<Test, ()>::put(Cycle { epoch: 10, epoch_start: 1000 });
+		System::set_block_number(1000);
+
+		// Fund accounts
+		let distribution_account = Compute::account_id();
+		let _ = Balances::deposit_creating(&distribution_account, 1_000_000 * UNIT);
+		let _ = Balances::deposit_creating(&delegator, 1_000_000 * UNIT);
+
+		// Create commitment
+		offer_accept_backing(committer.clone());
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Force insert commitment with pool_rewards
+		let pool_rewards: MemoryBuffer<u64, PoolReward> = MemoryBuffer::new_with(
+			5u64,
+			PoolReward {
+				reward_per_weight: U256::from(1_000_000_000_000_000_000u128),
+				slash_per_weight: U256::zero(),
+			},
+		);
+		let weights: MemoryBuffer<u64, CommitmentWeights> = MemoryBuffer::new_with(
+			10u64,
+			CommitmentWeights {
+				self_reward_weight: U256::from(100 * UNIT),
+				self_slash_weight: U256::from(100 * UNIT),
+				delegations_reward_weight: U256::from(100 * UNIT),
+				delegations_slash_weight: U256::from(100 * UNIT),
+			},
+		);
+		let commitment = Commitment {
+			stake: Some(Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 100 * UNIT,
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			}),
+			commission: Perbill::from_percent(10),
+			delegations_total_amount: 100 * UNIT,
+			delegations_total_rewardable_amount: 120 * UNIT, // Intentionally higher (buggy state)
+			weights,
+			pool_rewards,
+			last_scoring_epoch: 10,
+			last_slashing_epoch: 0,
+		};
+		Commitments::<Test, ()>::insert(commitment_id, commitment);
+
+		// Force insert delegation with rewardable_amount > amount (the bug condition)
+		let delegation = Delegation {
+			stake: Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 120 * UNIT, // BUG: rewardable_amount > amount
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			},
+			reward_weight: U256::from(120 * UNIT), // Based on buggy rewardable_amount
+			slash_weight: U256::from(100 * UNIT),
+			reward_debt: 0,
+			slash_debt: 0,
+		};
+		Delegations::<Test, ()>::insert(&delegator, commitment_id, delegation);
+
+		// Verify the buggy state
+		let delegation_before = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("=== Before withdraw (buggy state) ===");
+		println!("  amount: {}", delegation_before.stake.amount);
+		println!("  rewardable_amount: {}", delegation_before.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_before.reward_weight);
+		assert!(
+			delegation_before.stake.rewardable_amount > delegation_before.stake.amount,
+			"Pre-condition: rewardable_amount should be > amount (buggy state)"
+		);
+
+		// Call withdraw_delegation - this triggers accrue_delegator which calls sanitize_delegation
+		let result = Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+		);
+		println!("\nWithdraw result: {:?}", result);
+		assert!(result.is_ok());
+
+		// Verify the sanitized state
+		let delegation_after = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("\n=== After withdraw (sanitized) ===");
+		println!("  amount: {}", delegation_after.stake.amount);
+		println!("  rewardable_amount: {}", delegation_after.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_after.reward_weight);
+
+		// The fix should have corrected rewardable_amount
+		assert!(
+			delegation_after.stake.rewardable_amount <= delegation_after.stake.amount,
+			"FIXED: rewardable_amount ({}) should be <= amount ({}) after sanitization",
+			delegation_after.stake.rewardable_amount,
+			delegation_after.stake.amount
+		);
+
+		// Verify rewardable_amount was corrected to equal amount (since not in cooldown)
+		assert_eq!(
+			delegation_after.stake.rewardable_amount, delegation_after.stake.amount,
+			"rewardable_amount should equal amount when not in cooldown"
+		);
+
+		println!(
+			"\n✓ Sanitization successful: rewardable_amount corrected from {} to {}",
+			120 * UNIT,
+			delegation_after.stake.rewardable_amount
+		);
+	});
+}
+
+/// Test that rewardable_amount is corrected (sanitized) upon delegate_more.
+///
+/// This test force-inserts a delegation with rewardable_amount > amount (the bug state)
+/// and verifies that calling delegate_more corrects the invariant.
+#[test]
+fn test_rewardable_amount_sanitized_on_delegate_more() {
+	use crate::datastructures::MemoryBuffer;
+	use crate::types::{Commitment, CommitmentWeights, Delegation, PoolReward, Stake};
+	use crate::{Commitments, CurrentCycle, Delegations, DelegatorTotal, TotalStake};
+	use frame_support::traits::Currency;
+
+	ExtBuilder.build().execute_with(|| {
+		let delegator = ferdie_account_id();
+		let committer = charlie_account_id();
+
+		// Set up cycle and block
+		CurrentCycle::<Test, ()>::put(Cycle { epoch: 10, epoch_start: 1000 });
+		System::set_block_number(1000);
+
+		// Fund accounts
+		let distribution_account = Compute::account_id();
+		let _ = Balances::deposit_creating(&distribution_account, 1_000_000 * UNIT);
+		let _ = Balances::deposit_creating(&delegator, 1_000_000 * UNIT);
+
+		// Create commitment
+		offer_accept_backing(committer.clone());
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Force insert commitment with pool_rewards
+		let pool_rewards: MemoryBuffer<u64, PoolReward> = MemoryBuffer::new_with(
+			5u64,
+			PoolReward {
+				reward_per_weight: U256::from(1_000_000_000_000_000_000u128),
+				slash_per_weight: U256::zero(),
+			},
+		);
+		let weights: MemoryBuffer<u64, CommitmentWeights> = MemoryBuffer::new_with(
+			10u64,
+			CommitmentWeights {
+				self_reward_weight: U256::from(100 * UNIT),
+				self_slash_weight: U256::from(100 * UNIT),
+				delegations_reward_weight: U256::from(100 * UNIT),
+				delegations_slash_weight: U256::from(100 * UNIT),
+			},
+		);
+		let commitment = Commitment {
+			stake: Some(Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 100 * UNIT,
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			}),
+			commission: Perbill::from_percent(10),
+			delegations_total_amount: 100 * UNIT,
+			delegations_total_rewardable_amount: 120 * UNIT, // Intentionally higher (buggy state)
+			weights,
+			pool_rewards,
+			last_scoring_epoch: 10,
+			last_slashing_epoch: 0,
+		};
+		Commitments::<Test, ()>::insert(commitment_id, commitment);
+
+		// Force insert delegation with rewardable_amount > amount (the bug condition)
+		let delegation = Delegation {
+			stake: Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 120 * UNIT, // BUG: rewardable_amount > amount
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			},
+			reward_weight: U256::from(120 * UNIT), // Based on buggy rewardable_amount
+			slash_weight: U256::from(100 * UNIT),
+			reward_debt: 0,
+			slash_debt: 0,
+		};
+		Delegations::<Test, ()>::insert(&delegator, commitment_id, delegation);
+		DelegatorTotal::<Test, ()>::insert(&delegator, 100 * UNIT);
+		// Set TotalStake to include the delegation amount (needed for end_delegation_for)
+		TotalStake::<Test, ()>::put(100 * UNIT);
+
+		// Verify the buggy state
+		let delegation_before = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("=== Before delegate_more (buggy state) ===");
+		println!("  amount: {}", delegation_before.stake.amount);
+		println!("  rewardable_amount: {}", delegation_before.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_before.reward_weight);
+		assert!(
+			delegation_before.stake.rewardable_amount > delegation_before.stake.amount,
+			"Pre-condition: rewardable_amount should be > amount (buggy state)"
+		);
+
+		// Call delegate_more - this triggers accrue_delegator which calls sanitize_delegation
+		let extra_amount = 10 * UNIT;
+		let result = Compute::delegate_more(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+			extra_amount,
+			None,
+			None,
+		);
+		println!("\nDelegate_more result: {:?}", result);
+		assert!(result.is_ok());
+
+		// Verify the sanitized state (and increased amount)
+		let delegation_after = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("\n=== After delegate_more (sanitized) ===");
+		println!("  amount: {}", delegation_after.stake.amount);
+		println!("  rewardable_amount: {}", delegation_after.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_after.reward_weight);
+
+		// The fix should have corrected rewardable_amount
+		assert!(
+			delegation_after.stake.rewardable_amount <= delegation_after.stake.amount,
+			"FIXED: rewardable_amount ({}) should be <= amount ({}) after sanitization",
+			delegation_after.stake.rewardable_amount,
+			delegation_after.stake.amount
+		);
+
+		// Amount should have increased by extra_amount
+		assert_eq!(
+			delegation_after.stake.amount,
+			100 * UNIT + extra_amount,
+			"amount should have increased by extra_amount"
+		);
+
+		println!(
+			"\n✓ Sanitization successful on delegate_more: rewardable_amount corrected and amount increased to {}",
+			delegation_after.stake.amount
+		);
+	});
+}
+
+/// Test that rewardable_amount is corrected (sanitized) upon cooldown_delegation.
+///
+/// This test force-inserts a delegation with rewardable_amount > amount (the bug state)
+/// and verifies that calling cooldown_delegation corrects the invariant.
+#[test]
+fn test_rewardable_amount_sanitized_on_cooldown() {
+	use crate::datastructures::MemoryBuffer;
+	use crate::types::{Commitment, CommitmentWeights, Delegation, PoolReward, Stake};
+	use crate::{Commitments, CurrentCycle, Delegations, DelegatorTotal};
+	use frame_support::traits::Currency;
+
+	ExtBuilder.build().execute_with(|| {
+		let delegator = ferdie_account_id();
+		let committer = charlie_account_id();
+
+		// Set up cycle and block
+		CurrentCycle::<Test, ()>::put(Cycle { epoch: 10, epoch_start: 1000 });
+		System::set_block_number(1000);
+
+		// Fund accounts
+		let distribution_account = Compute::account_id();
+		let _ = Balances::deposit_creating(&distribution_account, 1_000_000 * UNIT);
+		let _ = Balances::deposit_creating(&delegator, 1_000_000 * UNIT);
+
+		// Create commitment
+		offer_accept_backing(committer.clone());
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// Force insert commitment with pool_rewards
+		let pool_rewards: MemoryBuffer<u64, PoolReward> = MemoryBuffer::new_with(
+			5u64,
+			PoolReward {
+				reward_per_weight: U256::from(1_000_000_000_000_000_000u128),
+				slash_per_weight: U256::zero(),
+			},
+		);
+		let weights: MemoryBuffer<u64, CommitmentWeights> = MemoryBuffer::new_with(
+			10u64,
+			CommitmentWeights {
+				self_reward_weight: U256::from(100 * UNIT),
+				self_slash_weight: U256::from(100 * UNIT),
+				delegations_reward_weight: U256::from(100 * UNIT),
+				delegations_slash_weight: U256::from(100 * UNIT),
+			},
+		);
+		let commitment = Commitment {
+			stake: Some(Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 100 * UNIT,
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			}),
+			commission: Perbill::from_percent(10),
+			delegations_total_amount: 100 * UNIT,
+			delegations_total_rewardable_amount: 120 * UNIT, // Intentionally higher (buggy state)
+			weights,
+			pool_rewards,
+			last_scoring_epoch: 10,
+			last_slashing_epoch: 0,
+		};
+		Commitments::<Test, ()>::insert(commitment_id, commitment);
+
+		// Force insert delegation with rewardable_amount > amount (the bug condition)
+		let delegation = Delegation {
+			stake: Stake {
+				amount: 100 * UNIT,
+				rewardable_amount: 120 * UNIT, // BUG: rewardable_amount > amount
+				created: 5u64,
+				cooldown_period: 100u64,
+				cooldown_started: None,
+				accrued_reward: 0,
+				accrued_slash: 0,
+				allow_auto_compound: true,
+				paid: 0,
+				applied_slash: 0,
+			},
+			reward_weight: U256::from(120 * UNIT), // Based on buggy rewardable_amount
+			slash_weight: U256::from(100 * UNIT),
+			reward_debt: 0,
+			slash_debt: 0,
+		};
+		Delegations::<Test, ()>::insert(&delegator, commitment_id, delegation);
+		DelegatorTotal::<Test, ()>::insert(&delegator, 100 * UNIT);
+
+		// Verify the buggy state
+		let delegation_before = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("=== Before cooldown_delegation (buggy state) ===");
+		println!("  amount: {}", delegation_before.stake.amount);
+		println!("  rewardable_amount: {}", delegation_before.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_before.reward_weight);
+		println!("  cooldown_started: {:?}", delegation_before.stake.cooldown_started);
+		assert!(
+			delegation_before.stake.rewardable_amount > delegation_before.stake.amount,
+			"Pre-condition: rewardable_amount should be > amount (buggy state)"
+		);
+		assert!(
+			delegation_before.stake.cooldown_started.is_none(),
+			"Pre-condition: cooldown should not be started"
+		);
+
+		// Call cooldown_delegation - this triggers apply_delegator_slash -> accrue_delegator -> sanitize_delegation
+		let result = Compute::cooldown_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+		);
+		println!("\nCooldown_delegation result: {:?}", result);
+		assert!(result.is_ok());
+
+		// Verify the sanitized state (and cooldown started)
+		let delegation_after = Compute::delegations(&delegator, commitment_id).unwrap();
+		println!("\n=== After cooldown_delegation (sanitized) ===");
+		println!("  amount: {}", delegation_after.stake.amount);
+		println!("  rewardable_amount: {}", delegation_after.stake.rewardable_amount);
+		println!("  reward_weight: {}", delegation_after.reward_weight);
+		println!("  cooldown_started: {:?}", delegation_after.stake.cooldown_started);
+
+		// The fix should have corrected rewardable_amount
+		assert!(
+			delegation_after.stake.rewardable_amount <= delegation_after.stake.amount,
+			"FIXED: rewardable_amount ({}) should be <= amount ({}) after sanitization",
+			delegation_after.stake.rewardable_amount,
+			delegation_after.stake.amount
+		);
+
+		// Cooldown should now be started
+		assert!(
+			delegation_after.stake.cooldown_started.is_some(),
+			"cooldown should be started"
+		);
+
+		// When in cooldown, rewardable_amount = CooldownRewardRatio * amount
+		// CooldownRewardRatio is typically < 1, so rewardable_amount < amount
+		println!(
+			"\n✓ Sanitization successful on cooldown: rewardable_amount corrected to {} (cooldown ratio applied)",
+			delegation_after.stake.rewardable_amount
+		);
+	});
+}
+
+/// Test with exact production data that caused the InternalError.
+/// This test force-inserts the exact delegation and commitment data from production
+/// and verifies that withdrawal works correctly after the fix.
+#[test]
+fn test_exact_production_data_withdraw() {
+	use crate::datastructures::MemoryBuffer;
+	use crate::types::{Commitment, CommitmentWeights, Delegation, PoolReward, Stake};
+	use crate::{Commitments, CurrentCycle, Delegations};
+	use frame_support::traits::fungible::MutateHold;
+	use frame_support::traits::{Currency, LockableCurrency, WithdrawReasons};
+
+	ExtBuilder.build().execute_with(|| {
+		// Use any accounts - the exact addresses don't matter
+		let delegator = ferdie_account_id();
+		let committer = charlie_account_id();
+
+		// Set the exact production cycle: epoch 2205, epoch_start 1984501
+		CurrentCycle::<Test, ()>::put(Cycle { epoch: 2204, epoch_start: 1983601 });
+		System::set_block_number(1983601);
+
+		// Fund distribution account so rewards can be paid out
+		let distribution_account = Compute::account_id();
+		let _ = Balances::deposit_creating(&distribution_account, 1_000_000 * UNIT);
+
+		// Fund delegator so locks can be applied
+		let _ = Balances::deposit_creating(&delegator, 10_000_000 * UNIT);
+
+		// === Set exact production lock state ===
+		// locks: [
+		//   { id: 0x636f6d707374616b ("compstak"), amount: 4,017,022,779,575,126, reasons: All }
+		//   { id: 0x7079636f6e766f74 ("pyconvot"), amount: 4,017,983,682,467,166, reasons: All }
+		// ]
+		let compstak_lock: u128 = 4_017_022_779_575_126;
+		let pyconvot_lock: u128 = 4_017_983_682_467_166;
+		Balances::set_lock(
+			*b"compstak", // 0x636f6d707374616b - compute staking lock
+			&delegator,
+			compstak_lock,
+			WithdrawReasons::all(),
+		);
+		Balances::set_lock(
+			*b"pyconvot", // 0x7079636f6e766f74 - pallet conversion voting lock
+			&delegator,
+			pyconvot_lock,
+			WithdrawReasons::all(),
+		);
+		println!("Locks set on delegator:");
+		println!("  compstak (0x636f6d707374616b): {}", compstak_lock);
+		println!("  pyconvot (0x7079636f6e766f74): {}", pyconvot_lock);
+
+		// === Set exact production hold state ===
+		// holds: [{ id: { AcurastTokenConversion: Conversion }, amount: 4,017,954,262,441,381 }]
+		// Note: Mock uses RuntimeHoldReason = (), so we use () as the reason
+		let hold_amount: u128 = 4_017_954_262_441_381;
+		let _ = <Balances as MutateHold<_>>::hold(&(), &delegator, hold_amount);
+		println!("Hold set on delegator:");
+		println!("  AcurastTokenConversion::Conversion (simulated as ()): {}", hold_amount);
+
+		// Get commitment_id for charlie (commitment 15 in production)
+		offer_accept_backing(committer.clone());
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&committer).unwrap();
+
+		// === Force insert the exact commitment data ===
+		// poolRewards: past: null, current: [1,196,946, {rewardPerWeight: 51466117290070969348512659396, slashPerWeight: 243210658256359407742350755}]
+		let pool_rewards: MemoryBuffer<u64, PoolReward> = MemoryBuffer::new_with(
+			1_196_946u64,
+			PoolReward {
+				reward_per_weight: U256::from_dec_str("51466117290070969348512659396").unwrap(),
+				slash_per_weight: U256::from_dec_str("243210658256359407742350755").unwrap(),
+			},
+		);
+
+		// weights: past: [1890, {...}], current: [2204, {...}]
+		let mut weights: MemoryBuffer<u64, CommitmentWeights> = MemoryBuffer::new_with(
+			1890u64,
+			CommitmentWeights {
+				self_reward_weight: U256::from(49_999_999_999_999_999u128),
+				self_slash_weight: U256::from(49_999_999_999_999_999u128),
+				delegations_reward_weight: U256::from(4_352_395_776_255_708u128),
+				delegations_slash_weight: U256::from(4_352_352_849_468_652u128),
+			},
+		);
+		// Set current weights at epoch 2204
+		let _ = weights.set(
+			2204u64,
+			CommitmentWeights {
+				self_reward_weight: U256::from(49_999_999_999_999_999u128),
+				self_slash_weight: U256::from(49_999_999_999_999_999u128),
+				delegations_reward_weight: U256::from(4_352_395_776_255_708u128),
+				delegations_slash_weight: U256::from(4_351_375_629_043_778u128),
+			},
+		);
+
+		let commitment = Commitment {
+			stake: Some(Stake {
+				amount: 49_999_999_999_999_999u128,
+				rewardable_amount: 49_999_999_999_999_999u128,
+				created: 1_196_946u64,
+				cooldown_period: 19_353_600u64,
+				cooldown_started: None,
+				accrued_reward: 2_152_176_750_113u128,
+				accrued_slash: 0u128,
+				allow_auto_compound: true,
+				paid: 3_439_439_722_920_650u128,
+				applied_slash: 0u128,
+			}),
+			commission: Perbill::from_percent(5),
+			delegations_total_amount: 5_733_954_916_277_742u128,
+			delegations_total_rewardable_amount: 5_734_979_109_589_042u128,
+			weights,
+			pool_rewards,
+			last_scoring_epoch: 2205u64,
+			last_slashing_epoch: 1617u64,
+		};
+
+		Commitments::<Test, ()>::insert(commitment_id, commitment);
+
+		// === Force insert the exact delegation data ===
+		let delegation = Delegation {
+			stake: Stake {
+				amount: 4_017_022_779_575_126u128,
+				rewardable_amount: 4_018_000_000_000_000u128, // NOTE: rewardable > amount (bug!)
+				created: 1_209_529u64,
+				cooldown_period: 19_353_600u64,
+				cooldown_started: None,
+				accrued_reward: 0u128,
+				accrued_slash: 0u128,
+				allow_auto_compound: true,
+				paid: 206_627_269_800_165u128,
+				applied_slash: 0u128,
+			},
+			reward_weight: U256::from(4_018_000_000_000_000u128),
+			slash_weight: U256::from(4_017_022_779_575_126u128),
+			reward_debt: 206_627_269_800_168u128,
+			slash_debt: 976_982_754_451u128,
+		};
+
+		Delegations::<Test, ()>::insert(&delegator, commitment_id, delegation.clone());
+
+		// Print the state before withdrawal
+		println!("=== Exact Production Data Test ===");
+		println!("Delegation created: {}", delegation.stake.created);
+		println!("Commitment stake created: 1196946");
+		println!("Pool rewards current timestamp: 1196946");
+		println!(
+			"Delegation amount: {}, rewardable_amount: {}",
+			delegation.stake.amount, delegation.stake.rewardable_amount
+		);
+		println!(
+			"Delegation slash_weight: {}, slash_debt: {}",
+			delegation.slash_weight, delegation.slash_debt
+		);
+
+		// Check what get_latest returns for this delegation
+		let commitment_read = Compute::commitments(commitment_id).unwrap();
+		let pool_rewards_result = commitment_read.pool_rewards.get_latest(delegation.stake.created);
+		println!("get_latest({}) returns: {:?}", delegation.stake.created, pool_rewards_result);
+
+		// Verify the delegation is NOT stale (created >= commitment.stake.created)
+		let is_stale = delegation.stake.created < commitment_read.stake.as_ref().unwrap().created;
+		println!("Is delegation stale? {}", is_stale);
+
+		// Track balances before withdrawal
+		let delegator_balance_before = Balances::free_balance(&delegator);
+		let distribution_balance_before = Balances::free_balance(&distribution_account);
+		println!("\nBalances before withdrawal:");
+		println!("  Delegator: {}", delegator_balance_before);
+		println!("  Distribution account: {}", distribution_balance_before);
+
+		// Now try to withdraw - this should work with the fix
+		println!("\n=== Attempting withdrawal ===");
+		let result = Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator.clone()),
+			committer.clone(),
+		);
+		println!("Withdrawal result: {:?}", result);
+
+		// The withdrawal should succeed after the fix
+		assert!(result.is_ok(), "Withdrawal should succeed with the fix applied");
+
+		// Track balances after withdrawal
+		let delegator_balance_after = Balances::free_balance(&delegator);
+		let distribution_balance_after = Balances::free_balance(&distribution_account);
+		println!("\nBalances after withdrawal:");
+		println!("  Delegator: {}", delegator_balance_after);
+		println!("  Distribution account: {}", distribution_balance_after);
+
+		// Calculate and print the transferred amount
+		let amount_transferred_to_delegator =
+			delegator_balance_after.saturating_sub(delegator_balance_before);
+		let amount_transferred_from_distribution =
+			distribution_balance_before.saturating_sub(distribution_balance_after);
+		println!("\nAmount transferred:");
+		println!("  To delegator: {}", amount_transferred_to_delegator);
+		println!("  From distribution account: {}", amount_transferred_from_distribution);
+
+		// Verify delegation still exists and check its state
+		if let Some(d) = Compute::delegations(&delegator, commitment_id) {
+			println!(
+				"\nAfter withdrawal - amount: {}, rewardable_amount: {}, slash_debt: {}",
+				d.stake.amount, d.stake.rewardable_amount, d.slash_debt
+			);
+			println!(
+				"  accrued_reward: {}, accrued_slash: {}",
+				d.stake.accrued_reward, d.stake.accrued_slash
+			);
+		}
+	});
+}

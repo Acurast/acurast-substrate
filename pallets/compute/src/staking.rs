@@ -1517,28 +1517,6 @@ where
 			);
 		}
 
-		// Check if new committer has more own stake than the old one
-		let old_cooldown = old_commitment_stake.cooldown_period;
-		let new_cooldown = Self::commitments(new_commitment_id)
-			.ok_or(Error::<T, I>::NewCommitmentNotFound)?
-			.stake
-			.ok_or(Error::<T, I>::NewCommitmentNotFound)?
-			.cooldown_period;
-
-		ensure!(
-			new_cooldown >= old_cooldown,
-			Error::<T, I>::RedelegationCommitterCooldownCannotBeShorter
-		);
-
-		for (pool_id, old_metric) in ComputeCommitments::<T, I>::iter_prefix(old_commitment_id) {
-			let new_metric = ComputeCommitments::<T, I>::get(new_commitment_id, pool_id)
-				.ok_or(Error::<T, I>::CommitmentNotFound)?;
-			ensure!(
-				new_metric >= old_metric,
-				Error::<T, I>::RedelegationCommitmentMetricsCannotBeLess
-			);
-		}
-
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		let reward = Self::end_delegation_for(who, old_commitment_id, false, false)?;
 		let distribution_account = Self::account_id();

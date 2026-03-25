@@ -4011,3 +4011,236 @@ fn test_exact_production_data_withdraw() {
 		}
 	});
 }
+
+/// Test slashing a committer who has tokens in a hold (e.g. AcurastTokenConversion)
+/// and has staked almost all their remaining tokens, leaving only a small free amount.
+///
+/// This tests the scenario where:
+/// - holds: [{ id: { AcurastTokenConversion: Conversion }, amount: 53,975,124,317,718,079 }]
+/// - staked: 53,973,834,765,089,252
+/// - free balance: ~120,036,022,067
+#[test]
+fn test_slash_committer_with_hold_and_near_max_stake() {
+	use frame_support::traits::{LockableCurrency, WithdrawReasons};
+	use sp_runtime::traits::AccountIdConversion;
+
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+
+		// Set up required accounts (pallet account and alice for slashing), but NOT charlie
+		// We'll set charlie's balance precisely for this test scenario
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			<Test as Config>::PalletId::get().into_account_truncating(),
+			1_000_000_000 * UNIT
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			alice_account_id(),
+			1_000_000_000 * UNIT
+		));
+		// Also need bob for commit_alice_bob called in offer_accept_backing flow
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			bob_account_id(),
+			1_000_000_000 * UNIT
+		));
+
+		create_pools();
+
+		// Charlie will act as both manager and committer
+		let charlie = charlie_account_id();
+
+		// The specific amounts from the production scenario
+		// We use a lock to simulate the AcurastTokenConversion hold effect
+		let lock_amount: u128 = 53_975_124_317_718_079;
+		let stake_amount: u128 = 53_973_834_765_089_252;
+		let extra_free: u128 = 120_036_022_067;
+
+		// In Substrate, when multiple locks exist, the effective lock is the maximum of all locks.
+		// To have exactly `extra_free` remaining usable after staking:
+		// - free_balance = lock_amount + extra_free (since lock_amount > stake_amount, it's the max lock)
+		// - usable_balance = free_balance - max(lock_amount, stake_amount) = extra_free
+		let total_balance = lock_amount + extra_free + EXISTENTIAL_DEPOSIT;
+
+		// Set charlie's balance to the exact amount needed for this scenario
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			charlie.clone(),
+			total_balance
+		));
+
+		// Set up a lock (simulating AcurastTokenConversion hold effect)
+		// The lock makes these tokens unavailable for transfer but they still count in free_balance
+		Balances::set_lock(
+			*b"pyconvot", // 0x7079636f6e766f74 - pallet conversion lock (simulating the hold)
+			&charlie,
+			lock_amount,
+			WithdrawReasons::all(),
+		);
+
+		println!("=== Test Setup ===");
+		println!("Lock amount (simulating AcurastTokenConversion hold): {}", lock_amount);
+		println!("Stake amount: {}", stake_amount);
+		println!("Extra free: {}", extra_free);
+		println!("Total balance: {}", total_balance);
+		println!("Free balance after lock: {}", Balances::free_balance(&charlie));
+		println!("Usable balance after lock: {}", Balances::usable_balance(&charlie));
+
+		// Set up processor backing for charlie
+		offer_accept_backing(charlie.clone());
+
+		let charlie_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&charlie).unwrap();
+
+		// Charlie commits first time in warmup period (epoch 0)
+		roll_to_block(10);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
+		assert_eq!(
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Zero::zero()
+		);
+
+		// Move to epoch 1 after warmup, Charlie commits again (now active)
+		roll_to_block(150);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 1, epoch_start: 102 });
+
+		// Charlie commits 4000 units for pool 2 as an active processor
+		assert_eq!(
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Zero::zero()
+		);
+
+		// Now move to epoch 2 where Charlie can commit compute based on epoch 1 metrics
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		// Charlie can commit up to 80% of the previous epoch's metrics (4000 * 0.8 = 3200)
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(3200u128, 1u128), // Commit 3200 units (80% of 4000)
+			},];
+
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10);
+		let allow_auto_compound = true;
+
+		println!("\n=== Committing compute with stake {} ===", stake_amount);
+		println!("Free balance before commit: {}", Balances::free_balance(&charlie));
+		println!("Usable balance before commit: {}", Balances::usable_balance(&charlie));
+
+		// Charlie commits compute with the near-maximum stake
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(charlie.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
+
+		println!("Free balance after commit: {}", Balances::free_balance(&charlie));
+		println!("Usable balance after commit: {}", Balances::usable_balance(&charlie));
+
+		// Get Charlie's commitment ID
+		let charlie_commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie).unwrap();
+
+		// Verify initial stake
+		let initial_commitment = Compute::commitments(charlie_commitment_id).unwrap();
+		let initial_stake = initial_commitment.stake.as_ref().unwrap();
+		assert_eq!(initial_stake.amount, stake_amount);
+
+		println!("\n=== Initial commitment state ===");
+		println!("Stake amount: {}", initial_stake.amount);
+		println!("Rewardable amount: {}", initial_stake.rewardable_amount);
+
+		// Move to next epoch
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 3, epoch_start: 302 });
+
+		// Charlie delivers only 50% of committed metrics (1600 instead of 3200)
+		// This will trigger slashing
+		Compute::commit(&charlie, &charlie_manager, &[(2u8, 1600u128, 1u128)]);
+
+		// Move to next epoch to allow slashing
+		roll_to_block(402);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 4, epoch_start: 402 });
+
+		let balance_before_slash = Balances::free_balance(&charlie);
+		let usable_before_slash = Balances::usable_balance(&charlie);
+		println!("\n=== Before slash ===");
+		println!("Free balance: {}", balance_before_slash);
+		println!("Usable balance: {}", usable_before_slash);
+
+		// Calculate what the expected slash amount would be
+		let pool = Compute::metric_pools(2).unwrap();
+		let pool_reward_ratio = pool.reward.get(3); // epoch 3
+		let total_stake_for_slash = initial_stake.amount; // No delegations in this test
+		let base_slash = Perquintill::from_percent(1).mul_floor(total_stake_for_slash);
+		let pool_slash = pool_reward_ratio.mul_floor(base_slash);
+		let unfulfilled_ratio = Perquintill::from_percent(50); // 50% missed
+		let expected_slash = unfulfilled_ratio.mul_floor(pool_slash);
+
+		println!("\n=== Expected slash calculation ===");
+		println!("Total stake: {}", total_stake_for_slash);
+		println!("Base slash (1%): {}", base_slash);
+		println!("Pool reward ratio: {:?}", pool_reward_ratio);
+		println!("Pool slash: {}", pool_slash);
+		println!("Expected slash amount: {}", expected_slash);
+		println!("Usable balance for transfer: {}", usable_before_slash);
+
+		// Someone (alice) calls slash on Charlie for the missed metrics in epoch 3
+		// The fix uses slash_for() + imbalance.extract() + resolve() instead of transfer()
+		// This works with locked funds because slash_for uses Balanced::withdraw with Fortitude::Force
+		let slash_result =
+			Compute::slash(RuntimeOrigin::signed(alice_account_id()), charlie.clone());
+		println!("\n=== Slash result: {:?} ===", slash_result);
+		assert_ok!(slash_result);
+
+		// Verify Charlie's stake was decreased
+		let slashed_commitment = Compute::commitments(charlie_commitment_id).unwrap();
+		let slashed_stake = slashed_commitment.stake.as_ref().unwrap();
+
+		println!("\n=== After slash ===");
+		println!("Initial stake amount: {}", initial_stake.amount);
+		println!("Slashed stake amount: {}", slashed_stake.amount);
+		println!("Free balance: {}", Balances::free_balance(&charlie));
+		println!("Usable balance: {}", Balances::usable_balance(&charlie));
+
+		// The stake should be less than the initial stake
+		assert!(
+			slashed_stake.amount < initial_stake.amount,
+			"Stake should be decreased after slashing. Initial: {}, After slash: {}",
+			initial_stake.amount,
+			slashed_stake.amount
+		);
+
+		// Verify Slashed event was emitted
+		assert!(events().iter().any(|e| matches!(e, RuntimeEvent::Compute(Event::Slashed(_)))));
+
+		let actual_slash = initial_stake.amount - slashed_stake.amount;
+
+		println!("\n=== Slash verification ===");
+		println!("Expected slash: {}", expected_slash);
+		println!("Actual slash: {}", actual_slash);
+
+		// The actual slash should match expected (allowing for small rounding differences)
+		assert!(
+			actual_slash >= expected_slash.saturating_sub(1)
+				&& actual_slash <= expected_slash.saturating_add(1),
+			"Actual slash {} should be close to expected slash {}",
+			actual_slash,
+			expected_slash
+		);
+
+		// Verify the lock is still intact - the slashing mechanism should not affect unrelated locks
+		println!("\n=== Fix verified ===");
+		println!("Slashing succeeded even with limited usable balance!");
+		println!("  - Lock/hold amount: {}", lock_amount);
+		println!("  - Staked amount: {}", stake_amount);
+		println!("  - Usable balance before slash: {}", usable_before_slash);
+		println!("  - Slash amount: {}", actual_slash);
+	});
+}

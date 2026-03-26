@@ -4,7 +4,7 @@ use acurast_common::{CommitmentIdProvider, PoolId, Slashable};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::Balanced,
+		fungible::{Balanced, Credit},
 		tokens::{Fortitude, Precision, Preservation},
 		Currency, ExistenceRequirement, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		WithdrawReasons,
@@ -1085,7 +1085,7 @@ where
 			Self::decrease_delegator_stake(who, commitment_id, accrued_slash)?;
 
 		// Burn only what was actually decreased
-		Self::slash_for(who, slashed)?;
+		drop(Self::slash_for(who, slashed)?);
 
 		// Update accrued_slash to any remaining amount
 		Delegations::<T, I>::try_mutate(who, commitment_id, |d_| -> Result<(), Error<T, I>> {
@@ -1517,28 +1517,6 @@ where
 			);
 		}
 
-		// Check if new committer has more own stake than the old one
-		let old_cooldown = old_commitment_stake.cooldown_period;
-		let new_cooldown = Self::commitments(new_commitment_id)
-			.ok_or(Error::<T, I>::NewCommitmentNotFound)?
-			.stake
-			.ok_or(Error::<T, I>::NewCommitmentNotFound)?
-			.cooldown_period;
-
-		ensure!(
-			new_cooldown >= old_cooldown,
-			Error::<T, I>::RedelegationCommitterCooldownCannotBeShorter
-		);
-
-		for (pool_id, old_metric) in ComputeCommitments::<T, I>::iter_prefix(old_commitment_id) {
-			let new_metric = ComputeCommitments::<T, I>::get(new_commitment_id, pool_id)
-				.ok_or(Error::<T, I>::CommitmentNotFound)?;
-			ensure!(
-				new_metric >= old_metric,
-				Error::<T, I>::RedelegationCommitmentMetricsCannotBeLess
-			);
-		}
-
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		let reward = Self::end_delegation_for(who, old_commitment_id, false, false)?;
 		let distribution_account = Self::account_id();
@@ -1873,7 +1851,7 @@ where
 			Self::decrease_committer_stake(&committer, commitment_id, self_slash_amount)?;
 		}
 
-		// Pay slasher reward immediately
+		// Calculate slasher reward
 		let mut slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
 			.mul_floor(total_slash_amount.saturated_into::<u128>())
 			.into();
@@ -1883,20 +1861,20 @@ where
 			slasher_reward = self_slash_amount;
 		}
 
+		// Slash the full self_slash_amount from committer (works with funds in locks and holds)
+		let mut slashed_imbalance = Self::slash_for(&committer, self_slash_amount)?;
+
+		// Extract slasher's portion from the slashed imbalance and credit it to the slasher
 		if !slasher_reward.is_zero() {
-			// Transfer slasher reward from committer to slasher
-			T::Currency::transfer(
-				&committer,
-				slasher,
-				slasher_reward,
-				ExistenceRequirement::AllowDeath,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
+			let slasher_credit = slashed_imbalance.extract(slasher_reward); // extracts at most slasher_reward
+																   // resolve credits the imbalance to the account; if it fails, merge back so we have a single burn event
+			if let Err(remaining) = T::Currency::resolve(slasher, slasher_credit) {
+				slashed_imbalance = slashed_imbalance.merge(remaining);
+			}
 		}
 
-		let to_burn = self_slash_amount.saturating_sub(slasher_reward);
-		// Burn the slashed amount from committer
-		Self::slash_for(&committer, to_burn)?;
+		// Burn the remaining slashed amount (self_slash_amount - slasher_reward, or full amount if resolve failed)
+		drop(slashed_imbalance);
 
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let c = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
@@ -1920,28 +1898,35 @@ where
 		Ok(())
 	}
 
-	fn slash_for(who: &T::AccountId, amount: BalanceFor<T, I>) -> Result<(), Error<T, I>> {
-		if !amount.is_zero() {
-			let burned = <T::Currency as Balanced<T::AccountId>>::withdraw(
+	fn slash_for(
+		who: &T::AccountId,
+		to_slash: BalanceFor<T, I>,
+	) -> Result<Credit<T::AccountId, T::Currency>, Error<T, I>> {
+		if !to_slash.is_zero() {
+			let slash_credit = <T::Currency as Balanced<T::AccountId>>::withdraw(
 				who,
-				amount,
+				to_slash,
 				Precision::BestEffort,
 				Preservation::Expendable,
 				Fortitude::Force,
 			)
 			.map_err(|_| Error::<T, I>::InternalError)?;
-			// The credit is automatically burned when dropped
-			if burned.peek() < amount {
-				let remaining = amount - burned.peek();
-				let Some(slashed) = T::Slashable::slash(who, remaining) else {
-					return Err(Error::<T, I>::InternalError);
-				};
-				if slashed.peek() < remaining {
-					return Err(Error::<T, I>::InternalError);
-				}
+
+			if slash_credit.peek() >= to_slash {
+				// we burned enough
+				return Ok(slash_credit);
 			}
+
+			let remaining = to_slash - slash_credit.peek();
+			let Some(slash_credit_external) = T::Slashable::slash(who, remaining) else {
+				return Err(Error::<T, I>::InternalError);
+			};
+			if slash_credit_external.peek() < remaining {
+				return Err(Error::<T, I>::InternalError);
+			}
+			return Ok(slash_credit.merge(slash_credit_external));
 		}
-		Ok(())
+		Ok(Credit::<T::AccountId, T::Currency>::zero())
 	}
 
 	fn unlock_and_slash(who: &T::AccountId, stake: &StakeFor<T, I>) -> Result<(), Error<T, I>> {
@@ -1960,7 +1945,7 @@ where
 			};
 
 			// Withdraw and burn the slashed amount
-			Self::slash_for(who, maximum_slashable)?;
+			drop(Self::slash_for(who, maximum_slashable)?);
 		}
 
 		Ok(())

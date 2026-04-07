@@ -346,6 +346,8 @@ pub mod pallet {
 		JobAssignmentsCleanedUp(JobId<T::AccountId>),
 		/// Price settings updated
 		PriceSettingsUpdated,
+		/// Job Matcher entry cleaned up
+		JobMatcherEntryCleanedUp(JobId<T::AccountId>),
 	}
 
 	#[pallet::error]
@@ -925,6 +927,26 @@ pub mod pallet {
 			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 			<JobPriceSettings<T>>::set(price_settings);
 			Self::deposit_event(Event::PriceSettingsUpdated);
+			Ok(().into())
+		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_job_matcher())]
+		pub fn cleanup_job_matcher(
+			origin: OriginFor<T>,
+			job_id: JobId<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			_ = ensure_signed(origin)?;
+
+			let now = Self::now()?;
+			let is_expired = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
+				.map(|job| job.schedule.is_expired(now, T::ReportTolerance::get()))
+				.unwrap_or(true);
+			if is_expired {
+				<JobMatcher<T>>::remove(job_id.clone());
+				Self::deposit_event(Event::JobMatcherEntryCleanedUp(job_id));
+			}
+
 			Ok(().into())
 		}
 	}

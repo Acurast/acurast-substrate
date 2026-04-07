@@ -148,6 +148,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 					<T as pallet_acurast::Config>::MaxSlots::get(),
 					None,
 				);
+				<JobMatcher<T>>::remove(job_id);
 			},
 		}
 

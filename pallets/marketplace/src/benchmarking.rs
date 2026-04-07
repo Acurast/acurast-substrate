@@ -776,5 +776,12 @@ benchmarks! {
 		assert_ok!(AcurastMarketplace::<T>::update_price_settings(RawOrigin::Root.into(), Some(price_settings)));
 	}
 
+	cleanup_job_matcher {
+		set_timestamp::<T>(1000);
+		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u64::MAX.into());
+		let job_id = (MultiOrigin::Acurast(consumer.clone()), 1);
+		<JobMatcher<T>>::insert(&job_id, consumer.clone());
+	}: _(RawOrigin::Signed(consumer), job_id)
+
 	//impl_benchmark_test_suite!(AcurastMarketplace, mock::ExtBuilder::default().build(), mock::Test);
 }

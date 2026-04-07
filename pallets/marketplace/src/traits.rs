@@ -31,4 +31,5 @@ pub trait WeightInfo {
 	fn update_min_fee_per_millisecond() -> Weight;
 	fn cleanup_job_assignments() -> Weight;
 	fn update_price_settings() -> Weight;
+	fn cleanup_job_matcher() -> Weight;
 }

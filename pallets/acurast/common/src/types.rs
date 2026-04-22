@@ -284,7 +284,7 @@ pub struct Environment<
 	pub variables: BoundedVec<(EnvVarKey<KeyMaxSize>, EnvVarValue<ValueMaxSize>), MaxEnvVars>,
 }
 
-pub const MAX_JOB_MODULES: u32 = 2;
+pub const MAX_JOB_MODULES: u32 = 3;
 
 #[derive(
 	RuntimeDebug,
@@ -304,6 +304,7 @@ pub const MAX_JOB_MODULES: u32 = 2;
 pub enum JobModule {
 	DataEncryption,
 	LLM,
+	Shell,
 }
 
 impl TryFrom<u32> for JobModule {
@@ -312,6 +313,8 @@ impl TryFrom<u32> for JobModule {
 	fn try_from(value: u32) -> Result<Self, Self::Error> {
 		match value {
 			0 => Ok(JobModule::DataEncryption),
+			1 => Ok(JobModule::LLM),
+			2 => Ok(JobModule::Shell),
 			_ => Err(()),
 		}
 	}

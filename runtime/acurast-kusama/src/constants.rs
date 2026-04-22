@@ -21,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 56,
+	spec_version: 57,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -117,14 +117,16 @@ parameter_types! {
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.canary";
 	pub const LitePackageName: &'static [u8] = b"com.acurast.attested.executor.sbs.canary";
+	pub const CorePackageNameStaging: &'static [u8] = b"com.acurast.attested.executor.staging";
+	pub const LitePackageNameStaging: &'static [u8] = b"com.acurast.attested.executor.sbs.staging";
 	pub const BundleId: &'static [u8] = b"GV2452922R.com.acurast.executor";
 	pub const CoreSignatureDigest: &'static [u8] = hex_literal::hex!("ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac4982433").as_slice();
 	pub const LiteSignatureDigest: &'static [u8] = hex_literal::hex!("ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36").as_slice();
 	pub const LiteSolSignatureDigest: &'static [u8] = hex_literal::hex!("e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc").as_slice();
-	pub PackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), LitePackageName::get()];
+	pub PackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), LitePackageName::get(), CorePackageNameStaging::get(), LitePackageNameStaging::get()];
 	pub BundleIds: Vec<&'static [u8]> = vec![BundleId::get()];
-	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageName::get()];
-	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageName::get()];
+	pub LitePackageNames: Vec<&'static [u8]> = vec![LitePackageName::get(), LitePackageNameStaging::get()];
+	pub CorePackageNames: Vec<&'static [u8]> = vec![CorePackageName::get(), CorePackageNameStaging::get()];
 	pub SignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get(), LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub LiteSignatureDigests: Vec<&'static [u8]> = vec![LiteSignatureDigest::get(), LiteSolSignatureDigest::get()];
 	pub CoreSignatureDigests: Vec<&'static [u8]> = vec![CoreSignatureDigest::get()];

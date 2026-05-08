@@ -88,6 +88,7 @@ pub mod pallet {
 					BlockNumberFor<Self>,
 				>>::MessageNonce,
 			> + TypeInfo;
+		type MessageFee: Get<Self::Balance>;
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 	}
@@ -229,7 +230,7 @@ pub mod pallet {
 				recipient,
 				encoded,
 				30u8.into(),
-				1000u32.into(),
+				T::MessageFee::get(),
 			)?;
 
 			Self::deposit_event(Event::SentToProxyV2(message_nonce));

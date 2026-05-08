@@ -4,6 +4,7 @@ use crate::{
 	chain::tezos::TezosParser, stub::AcurastAccountId, types::RawIncomingAction, weights,
 	ActionExecutor, ParsedAction, ProxyAddress, StateProof, StateProofNode,
 };
+use cumulus_primitives_core::ParaId;
 use derive_more::{Display, From, Into};
 use frame_support::{
 	derive_impl,
@@ -15,9 +16,8 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureRoot};
 use hex_literal::hex;
-use pallet_acurast::{MessageBody, MessageProcessor, ProxyChain, ProxyAcurastChain, CU32};
+use pallet_acurast::{MessageBody, MessageProcessor, ProxyAcurastChain, ProxyChain, CU32};
 use pallet_acurast_marketplace::RegistrationExtra;
-use cumulus_primitives_core::ParaId;
 use sp_core::*;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -34,15 +34,15 @@ parameter_types! {
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
 	pub const MinimumPeriod: u64 = 2000;
 
-    /// The acurast contract on the aleph zero network
+	/// The acurast contract on the aleph zero network
 	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
 	pub AlephZeroContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
 	pub VaraContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into(); // TODO(vara)
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 
-    pub MinTTL: BlockNumber = 15;
-    pub IncomingTTL: BlockNumber = 50;
+	pub MinTTL: BlockNumber = 15;
+	pub IncomingTTL: BlockNumber = 50;
 	pub MinDeliveryConfirmationSignatures: u32 = 1;
 	pub MinReceiptConfirmationSignatures: u32 = 1;
 	pub const MinFee: Balance = 1;
@@ -57,7 +57,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Acurast: pallet_acurast::{Pallet, Call, Storage, Event<T>},
 		AcurastHyperdrive: crate::{Pallet, Call, Storage, Event<T>},
-        AcurastHyperdriveIbc: pallet_acurast_hyperdrive_ibc::{Pallet, Call, Storage, Event<T>},
+		AcurastHyperdriveIbc: pallet_acurast_hyperdrive_ibc::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -111,20 +111,21 @@ impl pallet_acurast::Config for Test {
 
 impl crate::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
-    type ActionExecutor = ();
+	type ActionExecutor = ();
 	type Sender = AcurastPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
 	type AlephZeroContract = AlephZeroContract;
 	type AlephZeroContractSelector = AlephZeroContractSelector;
 	type VaraContract = VaraContract;
 	type Balance = Balance;
+	type MessageFee = MinFee;
 	type WeightInfo = weights::WeightInfo<Test>;
 }
 
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
-    type MinTTL = MinTTL;
-    type IncomingTTL = IncomingTTL;
+	type MinTTL = MinTTL;
+	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
 	type MinReceiptConfirmationSignatures = MinReceiptConfirmationSignatures;
 	type MinFee = MinFee;

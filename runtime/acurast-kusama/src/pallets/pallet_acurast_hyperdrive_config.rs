@@ -40,6 +40,7 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type Balance = Balance;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;
+	type MessageFee = MinFee;
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }

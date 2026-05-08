@@ -25,7 +25,7 @@ use crate::{
 };
 
 parameter_types! {
-	pub const MinFee: Balance = UNIT / 10;
+	pub const MinFee: Balance = UNIT * 20;
 	pub const MinTransferAmount: Balance = UNIT;
 	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::Acurast;
 }
@@ -41,6 +41,7 @@ impl pallet_acurast_hyperdrive::Config<Instance1> for Runtime {
 	type Balance = Balance;
 	type MessageSender = AcurastHyperdriveIbc;
 	type MessageIdHasher = BlakeTwo256;
+	type MessageFee = MinFee;
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_hyperdrive::WeightInfo<Runtime>;
 }

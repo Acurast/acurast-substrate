@@ -81,6 +81,64 @@ pub struct Cli {
 	pub relay_chain_args: Vec<String>,
 }
 
+#[derive(Debug, clap::Args)]
+pub struct TunnelArgs {
+	/// Enable the integrated tunnel server.
+	#[arg(long)]
+	pub tunnel: bool,
+
+	/// Address to bind the tunnel listeners on.
+	#[arg(long, default_value = "0.0.0.0")]
+	pub tunnel_bind_addr: String,
+
+	/// Port for QUIC + HTTP/2 agent connections.
+	#[arg(long, default_value_t = 4433)]
+	pub tunnel_api_port: u16,
+
+	/// Port for public (user-facing) connections.
+	#[arg(long, default_value_t = 8443)]
+	pub tunnel_pub_port: u16,
+
+	/// Port for ACME TLS-ALPN-01 challenges (must be reachable as port 443).
+	#[arg(long, default_value_t = 443)]
+	pub tunnel_alpn_port: u16,
+
+	/// Allowed client domain suffixes (e.g. "example.com"). Clients whose domain
+	/// does not end with one of these suffixes are rejected. May be specified multiple times.
+	#[arg(long)]
+	pub tunnel_domain_suffixes: Vec<String>,
+
+	/// Path to PEM certificate chain. When --tunnel-acme-domain is set this is where the
+	/// provisioned cert is written/read; without it the cert is used as-is with no auto-renewal.
+	#[arg(long)]
+	pub tunnel_cert_path: Option<String>,
+
+	/// Path to PEM private key matching --tunnel-cert-path.
+	#[arg(long)]
+	pub tunnel_key_path: Option<String>,
+
+	/// Server domain for ACME TLS-ALPN-01 provisioning (e.g. "relay.example.com").
+	/// When set, the cert at --tunnel-cert-path is server-managed and auto-renewed.
+	#[arg(long)]
+	pub tunnel_acme_domain: Option<String>,
+
+	/// Contact email for ACME account registration.
+	#[arg(long)]
+	pub tunnel_acme_email: Option<String>,
+
+	/// Path to persist ACME account credentials.
+	#[arg(long, default_value = "server_acme_creds.json")]
+	pub tunnel_acme_creds_path: String,
+
+	/// Use Let's Encrypt staging environment (for testing).
+	#[arg(long)]
+	pub tunnel_acme_staging: bool,
+
+	/// Renew the server ACME cert this many days before expiry.
+	#[arg(long, default_value_t = 30)]
+	pub tunnel_acme_renew_days: u32,
+}
+
 #[derive(Debug, clap::Parser)]
 #[group(skip)]
 pub struct RunCmd {
@@ -94,6 +152,9 @@ pub struct RunCmd {
 	/// Maximum duration in milliseconds to produce a block
 	#[clap(long, default_value = "2000", value_parser=block_authoring_duration_parser)]
 	pub block_authoring_duration: Duration,
+
+	#[command(flatten)]
+	pub tunnel: TunnelArgs,
 }
 
 fn block_authoring_duration_parser(s: &str) -> Result<Duration, String> {

@@ -495,6 +495,26 @@ pub fn run() -> Result<()> {
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
+				let tunnel_config = if cli.run.tunnel.tunnel {
+					Some(tunnel_server::ServerConfig {
+						bind_addr: cli.run.tunnel.tunnel_bind_addr.clone(),
+						api_port: cli.run.tunnel.tunnel_api_port,
+						pub_port: cli.run.tunnel.tunnel_pub_port,
+						alpn_port: cli.run.tunnel.tunnel_alpn_port,
+						domain_suffixes: cli.run.tunnel.tunnel_domain_suffixes.clone(),
+						cert_path: cli.run.tunnel.tunnel_cert_path.clone(),
+						key_path: cli.run.tunnel.tunnel_key_path.clone(),
+						acme_domain: cli.run.tunnel.tunnel_acme_domain.clone(),
+						acme_email: cli.run.tunnel.tunnel_acme_email.clone(),
+						acme_creds_path: cli.run.tunnel.tunnel_acme_creds_path.clone(),
+						acme_staging: cli.run.tunnel.tunnel_acme_staging,
+						acme_renew_days_before_expiry: cli.run.tunnel.tunnel_acme_renew_days,
+						auth_handler: None,
+					})
+				} else {
+					None
+				};
+
 				match &config.chain_spec.variant() {
 					#[cfg(any(
 						feature = "acurast-local",
@@ -509,6 +529,7 @@ pub fn run() -> Result<()> {
 							id,
 							cli.run.block_authoring_duration,
 							hwbench,
+							tunnel_config,
 						)
 						.await
 						.map(|r| r.0)
@@ -523,6 +544,7 @@ pub fn run() -> Result<()> {
 							id,
 							cli.run.block_authoring_duration,
 							hwbench,
+							tunnel_config,
 						)
 						.await
 						.map(|r| r.0)
@@ -537,6 +559,7 @@ pub fn run() -> Result<()> {
 							id,
 							cli.run.block_authoring_duration,
 							hwbench,
+							tunnel_config,
 						)
 						.await
 						.map(|r| r.0)

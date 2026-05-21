@@ -175,8 +175,128 @@ where
 	})
 }
 
+/// Normalize a raw EC public-key BIT-STRING (as extracted from the client mTLS
+/// cert) to SEC1 compressed form (33 bytes) for P-256.
+///
+/// Accepts 33-byte SEC1 compressed (`0x02|0x03 || X`) as-is and 65-byte SEC1
+/// uncompressed (`0x04 || X || Y`) by selecting prefix `0x02` (Y even) or
+/// `0x03` (Y odd). Anything else is returned unchanged so the caller can
+/// surface a clear error.
+fn compress_p256_pubkey(pubkey: &[u8]) -> Vec<u8> {
+	match pubkey.len() {
+		33 if matches!(pubkey[0], 0x02 | 0x03) => pubkey.to_vec(),
+		65 if pubkey[0] == 0x04 => {
+			let mut out = Vec::with_capacity(33);
+			let y_odd = pubkey[64] & 1 == 1;
+			out.push(if y_odd { 0x03 } else { 0x02 });
+			out.extend_from_slice(&pubkey[1..33]);
+			out
+		},
+		_ => pubkey.to_vec(),
+	}
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
+fn build_auth_handler<RuntimeApi>(
+	client: Arc<ParachainClient<RuntimeApi>>,
+) -> tunnel_server::AuthHandler
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
+{
+	use parity_scale_codec::{Decode, Encode};
+	use sc_client_api::StorageProvider;
+	use sp_blockchain::HeaderBackend;
+
+	Arc::new(move |pubkey: &[u8], custom_data: Option<&[u8]>| {
+		let data = custom_data
+			.ok_or_else(|| anyhow::anyhow!("missing custom certificate extension data"))?;
+
+		// Decode (JobId<AccountId32>, AccountId32) where JobId = (MultiOrigin<AccountId32>, u128)
+		type AcurastAccountId = sp_core::crypto::AccountId32;
+		type AcurastJobId = pallet_acurast::JobId<AcurastAccountId>;
+		let (job_id, processor_id): (AcurastJobId, AcurastAccountId) =
+			Decode::decode(&mut &data[..])
+				.map_err(|e| anyhow::anyhow!("failed to SCALE-decode custom data: {:?}", e))?;
+
+		// Compute StoredMatches storage key:
+		// twox_128("AcurastMarketplace") ++ twox_128("StoredMatches")
+		//   ++ Blake2_128Concat(processor_id) ++ Blake2_128Concat(job_id)
+		let pallet_hash = sp_core::twox_128(b"AcurastMarketplace");
+		let storage_hash = sp_core::twox_128(b"StoredMatches");
+
+		let processor_encoded = processor_id.encode();
+		let job_id_encoded = job_id.encode();
+
+		let mut storage_key =
+			Vec::with_capacity(32 + 16 + processor_encoded.len() + 16 + job_id_encoded.len());
+		storage_key.extend_from_slice(&pallet_hash);
+		storage_key.extend_from_slice(&storage_hash);
+		// Blake2_128Concat = blake2_128(data) ++ data
+		storage_key.extend_from_slice(&sp_core::blake2_128(&processor_encoded));
+		storage_key.extend_from_slice(&processor_encoded);
+		storage_key.extend_from_slice(&sp_core::blake2_128(&job_id_encoded));
+		storage_key.extend_from_slice(&job_id_encoded);
+
+		// Query on-chain storage at best block
+		let best_hash = client.info().best_hash;
+		let storage_data = client
+			.storage(best_hash, &sp_storage::StorageKey(storage_key))
+			.map_err(|e| anyhow::anyhow!("storage query failed: {:?}", e))?
+			.ok_or_else(|| anyhow::anyhow!("no assignment found for processor/job"))?;
+
+		// Decode Assignment<u128> (Balance = u128)
+		let assignment: pallet_acurast_marketplace::Assignment<u128> =
+			Decode::decode(&mut &storage_data.0[..])
+				.map_err(|e| anyhow::anyhow!("failed to decode assignment: {:?}", e))?;
+
+		// Check that the P256 pubkey is present in assignment.pub_keys. The cert's
+		// SubjectPublicKey is typically SEC1 uncompressed (65 bytes); the marketplace
+		// stores the compressed form (33 bytes), so normalize before lookup.
+		let compressed = compress_p256_pubkey(pubkey);
+		let pubkey_bounded: pallet_acurast_marketplace::PubKeyBytes =
+			compressed.clone().try_into().map_err(|_| {
+				anyhow::anyhow!(
+					"pubkey is not a valid SEC1 P-256 encoding (got {} bytes after normalization)",
+					compressed.len()
+				)
+			})?;
+		let target = pallet_acurast_marketplace::PubKey::SECP256r1(pubkey_bounded);
+		if !assignment.pub_keys.contains(&target) {
+			return Err(anyhow::anyhow!(
+				"pubkey {} not present among {} registered processor key(s) for this assignment",
+				hex::encode(&compressed),
+				assignment.pub_keys.len()
+			));
+		}
+
+		// Extract the account bytes from the MultiOrigin in the JobId
+		let deployer_bytes = match &job_id.0 {
+			pallet_acurast::MultiOrigin::Acurast(id) => {
+				<AcurastAccountId as AsRef<[u8]>>::as_ref(id).to_vec()
+			},
+			pallet_acurast::MultiOrigin::AlephZero(id) => {
+				<AcurastAccountId as AsRef<[u8]>>::as_ref(id).to_vec()
+			},
+			pallet_acurast::MultiOrigin::Vara(id) => {
+				<AcurastAccountId as AsRef<[u8]>>::as_ref(id).to_vec()
+			},
+			pallet_acurast::MultiOrigin::AcurastCanary(id) => {
+				<AcurastAccountId as AsRef<[u8]>>::as_ref(id).to_vec()
+			},
+			pallet_acurast::MultiOrigin::Solana(id) => {
+				<sp_core::crypto::AccountId32 as AsRef<[u8]>>::as_ref(id).to_vec()
+			},
+			pallet_acurast::MultiOrigin::Tezos(bytes) => bytes.to_vec(),
+			pallet_acurast::MultiOrigin::Ethereum(bytes) => bytes.to_vec(),
+			pallet_acurast::MultiOrigin::Ethereum20(id) => id.0.to_vec(),
+		};
+
+		Ok(Some(deployer_bytes))
+	})
+}
+
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_node_impl<RuntimeApi>(
@@ -186,6 +306,7 @@ async fn start_node_impl<RuntimeApi>(
 	para_id: ParaId,
 	block_authoring_duration: Duration,
 	hwbench: Option<sc_sysinfo::HwBench>,
+	tunnel_config: Option<tunnel_server::ServerConfig>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -215,7 +336,7 @@ where
 		hwbench.clone(),
 	)
 	.await
-	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	let validator = parachain_config.role.is_authority();
 	let transaction_pool = params.transaction_pool.clone();
@@ -359,6 +480,15 @@ where
 		)?;
 	}
 
+	if let Some(mut tunnel_config) = tunnel_config {
+		tunnel_config.auth_handler = Some(build_auth_handler(client.clone()));
+		task_manager.spawn_handle().spawn("tunnel-server", None, async move {
+			if let Err(e) = tunnel_server::run(tunnel_config).await {
+				log::error!(target: "tunnel-server", "Tunnel server exited with error: {:?}", e);
+			}
+		});
+	}
+
 	Ok((task_manager, client))
 }
 
@@ -473,6 +603,7 @@ pub async fn start_parachain_node<RuntimeApi>(
 	block_authoring_duration: Duration,
 	// rpc_config: RpcConfig,
 	hwbench: Option<sc_sysinfo::HwBench>,
+	tunnel_config: Option<tunnel_server::ServerConfig>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -486,6 +617,7 @@ where
 		block_authoring_duration,
 		// rpc_config
 		hwbench,
+		tunnel_config,
 	)
 	.await
 }

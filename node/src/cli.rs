@@ -95,13 +95,21 @@ pub struct TunnelArgs {
 	#[arg(long, default_value_t = 4433)]
 	pub tunnel_api_port: u16,
 
-	/// Port for public (user-facing) connections.
-	#[arg(long, default_value_t = 8443)]
-	pub tunnel_pub_port: u16,
+	/// Port for public (user-facing) connections. Since tunnel-server 0.1.3 the public
+	/// and ALPN listeners are merged onto a single port.
+	/// Precedence: --tunnel-port > --tunnel-alpn-port, defaulting to 443.
+	#[arg(long)]
+	pub tunnel_port: Option<u16>,
 
-	/// Port for ACME TLS-ALPN-01 challenges (must be reachable as port 443).
-	#[arg(long, default_value_t = 443)]
-	pub tunnel_alpn_port: u16,
+	/// DEPRECATED and ignored since tunnel-server 0.1.3 (the public listener now uses the
+	/// ALPN port). Accepted for backwards compatibility only. Use --tunnel-port.
+	#[arg(long)]
+	pub tunnel_pub_port: Option<u16>,
+
+	/// DEPRECATED: use --tunnel-port. Still honored: sets the merged public/ALPN port
+	/// when --tunnel-port is not given.
+	#[arg(long)]
+	pub tunnel_alpn_port: Option<u16>,
 
 	/// Allowed client domain suffixes (e.g. "example.com"). Clients whose domain
 	/// does not end with one of these suffixes are rejected. May be specified multiple times.

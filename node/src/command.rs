@@ -496,11 +496,16 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				let tunnel_config = if cli.run.tunnel.tunnel {
+					let pub_port = cli
+						.run
+						.tunnel
+						.tunnel_port
+						.or(cli.run.tunnel.tunnel_alpn_port)
+						.unwrap_or(443);
 					Some(tunnel_server::ServerConfig {
 						bind_addr: cli.run.tunnel.tunnel_bind_addr.clone(),
 						api_port: cli.run.tunnel.tunnel_api_port,
-						pub_port: cli.run.tunnel.tunnel_pub_port,
-						alpn_port: cli.run.tunnel.tunnel_alpn_port,
+						pub_port,
 						domain_suffixes: cli.run.tunnel.tunnel_domain_suffixes.clone(),
 						cert_path: cli.run.tunnel.tunnel_cert_path.clone(),
 						key_path: cli.run.tunnel.tunnel_key_path.clone(),

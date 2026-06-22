@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "asn1",
  "base58",
@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -135,7 +135,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-mainnet-runtime"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-mainnet-runtime",
@@ -306,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -339,7 +339,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -428,7 +428,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -5388,7 +5388,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -7914,7 +7914,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -7938,7 +7938,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-candidate-preselection"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -7961,7 +7961,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-compute"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -7990,7 +7990,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-hyperdrive-substrate-core",
  "alloy-sol-types",
@@ -8022,7 +8022,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-ibc"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "alloy-sol-types",
  "cumulus-primitives-core",
@@ -8054,7 +8054,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-token"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "alloy-sol-types",
  "cumulus-primitives-core",
@@ -8086,7 +8086,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "acurast-reputation",
@@ -8125,7 +8125,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -8146,7 +8146,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -8169,7 +8169,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-token-claim"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "cfg-if",
  "derive_more 0.99.18",
@@ -8193,7 +8193,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-token-conversion"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "acurast-common",
  "cfg-if",
@@ -11260,7 +11260,7 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.13.0",
  "log",
  "multimap",
@@ -16458,8 +16458,8 @@ dependencies = [
 
 [[package]]
 name = "tunnel-common"
-version = "0.1.2"
-source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.2#14ee18ee1b10a18c476b3a925d64808a574ad6e4"
+version = "0.1.4"
+source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.4#4c1cf795999a9b0be8131282caea30e7e6ae9d1b"
 dependencies = [
  "anyhow",
  "bytes",
@@ -16473,8 +16473,8 @@ dependencies = [
 
 [[package]]
 name = "tunnel-server"
-version = "0.1.2"
-source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.2#14ee18ee1b10a18c476b3a925d64808a574ad6e4"
+version = "0.1.4"
+source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.4#4c1cf795999a9b0be8131282caea30e7e6ae9d1b"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

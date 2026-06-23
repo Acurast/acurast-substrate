@@ -196,6 +196,108 @@ fn compress_p256_pubkey(pubkey: &[u8]) -> Vec<u8> {
 	}
 }
 
+type AcurastAccountId = sp_core::crypto::AccountId32;
+type AcurastJobId = pallet_acurast::JobId<AcurastAccountId>;
+
+/// Build the SCALE storage key for a `StorageDoubleMap` whose two keys both use the
+/// `Blake2_128Concat` hasher:
+///   twox_128(pallet) ++ twox_128(storage)
+///     ++ blake2_128(key1) ++ key1 ++ blake2_128(key2) ++ key2
+fn blake2_double_map_storage_key(
+	pallet: &[u8],
+	storage: &[u8],
+	key1_encoded: &[u8],
+	key2_encoded: &[u8],
+) -> sp_storage::StorageKey {
+	let mut key = Vec::with_capacity(16 + 16 + 16 + key1_encoded.len() + 16 + key2_encoded.len());
+	key.extend_from_slice(&sp_core::twox_128(pallet));
+	key.extend_from_slice(&sp_core::twox_128(storage));
+	// Blake2_128Concat = blake2_128(data) ++ data
+	key.extend_from_slice(&sp_core::blake2_128(key1_encoded));
+	key.extend_from_slice(key1_encoded);
+	key.extend_from_slice(&sp_core::blake2_128(key2_encoded));
+	key.extend_from_slice(key2_encoded);
+	sp_storage::StorageKey(key)
+}
+
+/// Look up the marketplace `Assignment` for a `(processor, job)` pair, i.e. verify the job
+/// has been acknowledged/assigned to this processor.
+///
+/// Reads `AcurastMarketplace::StoredMatches`, a double map keyed by the processor account and
+/// the full `JobId`.
+fn lookup_assignment<RuntimeApi>(
+	client: &ParachainClient<RuntimeApi>,
+	at: Hash,
+	processor_id: &AcurastAccountId,
+	job_id: &AcurastJobId,
+) -> anyhow::Result<pallet_acurast_marketplace::Assignment<u128>>
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
+{
+	use parity_scale_codec::{Decode, Encode};
+	use sc_client_api::StorageProvider;
+
+	let key = blake2_double_map_storage_key(
+		b"AcurastMarketplace",
+		b"StoredMatches",
+		&processor_id.encode(),
+		&job_id.encode(),
+	);
+	let data = client
+		.storage(at, &key)
+		.map_err(|e| anyhow::anyhow!("storage query failed: {:?}", e))?
+		.ok_or_else(|| anyhow::anyhow!("no assignment found for processor/job"))?;
+
+	// Decode Assignment<u128> (Balance = u128)
+	Decode::decode(&mut &data.0[..])
+		.map_err(|e| anyhow::anyhow!("failed to decode assignment: {:?}", e))
+}
+
+/// Read the `allow_only_verified_sources` flag of a job's on-chain registration.
+///
+/// Reads `Acurast::StoredJobRegistration`, a double map that splits the `JobId` into its two
+/// components (`MultiOrigin` and `JobIdSequence`) as separate keys. Only the prefix of
+/// `JobRegistration` up to and including `allow_only_verified_sources` (the 3rd field) is
+/// decoded, avoiding the runtime-specific `extra` field. `BoundedVec` encodes identically to
+/// `Vec`, so the prefix layout is: `script: Vec<u8>`,
+/// `allowed_sources: Option<Vec<AccountId32>>`, `allow_only_verified_sources: bool`.
+fn lookup_job_allow_only_verified_sources<RuntimeApi>(
+	client: &ParachainClient<RuntimeApi>,
+	at: Hash,
+	job_id: &AcurastJobId,
+) -> anyhow::Result<bool>
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: RuntimeApiCollection,
+{
+	use parity_scale_codec::{Decode, Encode};
+	use sc_client_api::StorageProvider;
+
+	let key = blake2_double_map_storage_key(
+		b"Acurast",
+		b"StoredJobRegistration",
+		&job_id.0.encode(),
+		&job_id.1.encode(),
+	);
+	let data = client
+		.storage(at, &key)
+		.map_err(|e| anyhow::anyhow!("job registration storage query failed: {:?}", e))?
+		.ok_or_else(|| anyhow::anyhow!("no job registration found for job"))?;
+
+	let cursor = &mut &data.0[..];
+	let _script: Vec<u8> = Decode::decode(cursor)
+		.map_err(|e| anyhow::anyhow!("failed to decode job registration script: {:?}", e))?;
+	let _allowed_sources: Option<Vec<AcurastAccountId>> = Decode::decode(cursor).map_err(|e| {
+		anyhow::anyhow!("failed to decode job registration allowed_sources: {:?}", e)
+	})?;
+	let allow_only_verified_sources: bool = Decode::decode(cursor).map_err(|e| {
+		anyhow::anyhow!("failed to decode job registration allow_only_verified_sources: {:?}", e)
+	})?;
+
+	Ok(allow_only_verified_sources)
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 fn build_auth_handler<RuntimeApi>(
@@ -205,8 +307,7 @@ where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
 {
-	use parity_scale_codec::{Decode, Encode};
-	use sc_client_api::StorageProvider;
+	use parity_scale_codec::Decode;
 	use sp_blockchain::HeaderBackend;
 
 	Arc::new(move |pubkey: &[u8], custom_data: Option<&[u8]>| {
@@ -214,42 +315,15 @@ where
 			.ok_or_else(|| anyhow::anyhow!("missing custom certificate extension data"))?;
 
 		// Decode (JobId<AccountId32>, AccountId32) where JobId = (MultiOrigin<AccountId32>, u128)
-		type AcurastAccountId = sp_core::crypto::AccountId32;
-		type AcurastJobId = pallet_acurast::JobId<AcurastAccountId>;
 		let (job_id, processor_id): (AcurastJobId, AcurastAccountId) =
 			Decode::decode(&mut &data[..])
 				.map_err(|e| anyhow::anyhow!("failed to SCALE-decode custom data: {:?}", e))?;
 
-		// Compute StoredMatches storage key:
-		// twox_128("AcurastMarketplace") ++ twox_128("StoredMatches")
-		//   ++ Blake2_128Concat(processor_id) ++ Blake2_128Concat(job_id)
-		let pallet_hash = sp_core::twox_128(b"AcurastMarketplace");
-		let storage_hash = sp_core::twox_128(b"StoredMatches");
-
-		let processor_encoded = processor_id.encode();
-		let job_id_encoded = job_id.encode();
-
-		let mut storage_key =
-			Vec::with_capacity(32 + 16 + processor_encoded.len() + 16 + job_id_encoded.len());
-		storage_key.extend_from_slice(&pallet_hash);
-		storage_key.extend_from_slice(&storage_hash);
-		// Blake2_128Concat = blake2_128(data) ++ data
-		storage_key.extend_from_slice(&sp_core::blake2_128(&processor_encoded));
-		storage_key.extend_from_slice(&processor_encoded);
-		storage_key.extend_from_slice(&sp_core::blake2_128(&job_id_encoded));
-		storage_key.extend_from_slice(&job_id_encoded);
-
-		// Query on-chain storage at best block
+		// Query on-chain storage at best block.
 		let best_hash = client.info().best_hash;
-		let storage_data = client
-			.storage(best_hash, &sp_storage::StorageKey(storage_key))
-			.map_err(|e| anyhow::anyhow!("storage query failed: {:?}", e))?
-			.ok_or_else(|| anyhow::anyhow!("no assignment found for processor/job"))?;
 
-		// Decode Assignment<u128> (Balance = u128)
-		let assignment: pallet_acurast_marketplace::Assignment<u128> =
-			Decode::decode(&mut &storage_data.0[..])
-				.map_err(|e| anyhow::anyhow!("failed to decode assignment: {:?}", e))?;
+		// Verify the job has been acknowledged/assigned to this processor.
+		let assignment = lookup_assignment(client.as_ref(), best_hash, &processor_id, &job_id)?;
 
 		// Check that the P256 pubkey is present in assignment.pub_keys. The cert's
 		// SubjectPublicKey is typically SEC1 uncompressed (65 bytes); the marketplace
@@ -268,6 +342,13 @@ where
 				"pubkey {} not present among {} registered processor key(s) for this assignment",
 				hex::encode(&compressed),
 				assignment.pub_keys.len()
+			));
+		}
+
+		// Verify the job registration requires verified sources.
+		if !lookup_job_allow_only_verified_sources(client.as_ref(), best_hash, &job_id)? {
+			return Err(anyhow::anyhow!(
+				"job does not require verified sources (allow_only_verified_sources = false)"
 			));
 		}
 

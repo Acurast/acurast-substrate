@@ -101,7 +101,7 @@ color-print = "0.3.4"
 rustls-webpki = { version = "0.102.8", features = ["std"] }
 
 # Tunnel server
-tunnel-server = { version = "0.1.4", git = "https://github.com/Acurast/quic-tunnel", tag = "0.1.4" }
+tunnel-server = { version = "0.1.5", git = "https://github.com/Acurast/quic-tunnel", tag = "0.1.5" }
 anyhow = "1"
 
 [dev-dependencies]

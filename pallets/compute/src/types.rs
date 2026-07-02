@@ -343,6 +343,7 @@ pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	/// The total amount paid out or compounded. There can be additional amounts waiting in [`Self.accrued_reward`] to be paid out.
 	pub paid: Balance,
 	/// The total slash ever applied to stake or to compounded stake. There can be additional amounts waiting in [`Self.accrued_slash`] to be paid out.
+	#[deprecated]
 	pub applied_slash: Balance,
 }
 

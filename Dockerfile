@@ -9,17 +9,17 @@ ARG benchmarks=""
 
 RUN \
 	if [ "${benchmarks}" = "kusama" ] ; then \
-	cargo build --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
 	elif [ "${benchmarks}" = "mainnet" ] ; then \
-	cargo build --no-default-features --features 'acurast-mainnet,std,runtime-benchmarks' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-mainnet,std,runtime-benchmarks' --release ; \
 	elif [ "${benchmarks}" = "dev" ] ; then \
-	cargo build --features 'runtime-benchmarks' --release ; \
+	cargo build --locked --features 'runtime-benchmarks' --release ; \
 	elif [ "${chain}" = "kusama" ] ; then \
-	cargo build --no-default-features --features 'acurast-kusama,std' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-kusama,std' --release ; \
 	elif [ "${chain}" = "mainnet" ] ; then \
-	cargo build --no-default-features --features 'acurast-mainnet,std' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-mainnet,std' --release ; \
 	else \
-	cargo build --release ; \
+	cargo build --locked --release ; \
 	fi
 
 # adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile

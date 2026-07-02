@@ -3,7 +3,6 @@ pub mod error;
 
 use asn::*;
 use asn1::{oid, BitString, ObjectIdentifier, ParseError, SequenceOf};
-use core::cell::RefCell;
 use ecdsa_vendored::hazmat::VerifyPrimitive;
 use error::ValidationError;
 use frame_support::{traits::ConstU32, BoundedVec};
@@ -65,39 +64,7 @@ pub fn extract_attestation<'a>(
 fn parse_key_description<'a>(
 	extension: &Extension<'a>,
 ) -> Result<KeyDescription<'a>, ValidationError> {
-	let version = peek_attestation_version(extension.extn_value)?;
-
-	match version {
-		1 => {
-			let parsed = asn1::parse_single::<KeyDescriptionV1>(extension.extn_value)?;
-			Ok(KeyDescription::V1(parsed))
-		},
-		2 => {
-			let parsed = asn1::parse_single::<KeyDescriptionV2>(extension.extn_value)?;
-			Ok(KeyDescription::V2(parsed))
-		},
-		3 => {
-			let parsed = asn1::parse_single::<KeyDescriptionV3>(extension.extn_value)?;
-			Ok(KeyDescription::V3(parsed))
-		},
-		4 => {
-			let parsed = asn1::parse_single::<KeyDescriptionV4>(extension.extn_value)?;
-			Ok(KeyDescription::V4(parsed))
-		},
-		100 => {
-			let parsed = asn1::parse_single::<KeyDescriptionKeyMint>(extension.extn_value)?;
-			Ok(KeyDescription::V100(parsed))
-		},
-		200 => {
-			let parsed = asn1::parse_single::<KeyDescriptionKeyMint>(extension.extn_value)?;
-			Ok(KeyDescription::V200(parsed))
-		},
-		300 => {
-			let parsed = asn1::parse_single::<KeyDescriptionKeyMint>(extension.extn_value)?;
-			Ok(KeyDescription::V300(parsed))
-		},
-		_ => Err(ValidationError::UnsupportedAttestationVersion(version)),
-	}
+	Ok(asn1::parse_single::<KeyDescription>(extension.extn_value)?)
 }
 
 fn parse_apple_attestation<'a>(
@@ -293,22 +260,6 @@ fn parse_rsa_pbk(data: &[u8]) -> Result<RSAPbk, ParseError> {
 	})
 }
 
-pub fn peek_attestation_version(data: &[u8]) -> Result<i64, ParseError> {
-	let result: asn1::ParseResult<_> = asn1::parse(data, |d| {
-		// as we are not reading the sequence to the end, the parser always returns an error result
-		// therefore setup a cell to store the result and ignore result
-		let attestation_version: RefCell<i64> = RefCell::from(0);
-		let _: Result<_, ParseError> = d.read_element::<asn1::Sequence>()?.parse(|d| {
-			*attestation_version.borrow_mut() = d.read_element::<i64>()?;
-			// this gets always covered by parse error
-			Ok(())
-		});
-
-		Ok(attestation_version.into_inner())
-	});
-	result
-}
-
 /// Validates the chain by ensuring that
 ///
 /// - the chain starts with a self-signed certificate at index 0 that matches one of the known [TRUSTED_ROOT_CERTS]
@@ -393,9 +344,7 @@ mod tests {
 		BoundedKeyDescription,
 	};
 
-	use super::{
-		asn::KeyDescription, validate_certificate_chain, CertificateChainInput, CertificateInput,
-	};
+	use super::{validate_certificate_chain, CertificateChainInput, CertificateInput};
 
 	pub fn decode_certificate_chain(chain: &[&str]) -> CertificateChainInput {
 		let decoded = chain
@@ -439,9 +388,7 @@ mod tests {
 		let decoded_chain = decode_certificate_chain(&chain);
 		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
 		let parsed_attestation = extract_attestation(cert.extensions)?;
-		if let ParsedAttestation::KeyDescription(KeyDescription::V100(key_description)) =
-			parsed_attestation
-		{
+		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
 		} else {
@@ -460,9 +407,7 @@ mod tests {
         ].to_vec().try_into().unwrap();
 		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
 		let parsed_attestation = extract_attestation(cert.extensions)?;
-		if let ParsedAttestation::KeyDescription(KeyDescription::V100(key_description)) =
-			parsed_attestation
-		{
+		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
 		} else {
@@ -522,19 +467,8 @@ mod tests {
 				validate_certificate_chain(&decoded_chain).expect("validating chain failed");
 			let parsed_attestation = extract_attestation(cert.extensions)?;
 			if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
-				match &key_description {
-					KeyDescription::V4(key_description) => {
-						assert_eq!(key_description.attestation_version, 4)
-					},
-					KeyDescription::V100(key_description) => {
-						assert_eq!(key_description.attestation_version, 100)
-					},
-					KeyDescription::V200(key_description) => {
-						assert_eq!(key_description.attestation_version, 200)
-					},
-					KeyDescription::V300(key_description) => {
-						assert_eq!(key_description.attestation_version, 300)
-					},
+				match key_description.attestation_version {
+					4 | 100 | 200 | 300 => {},
 					_ => return Err(()),
 				}
 				let _: BoundedKeyDescription = key_description.try_into()?;
@@ -555,9 +489,7 @@ mod tests {
 		let decoded_chain = decode_certificate_chain(&chain);
 		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
 		let parsed_attestation = extract_attestation(cert.extensions)?;
-		if let ParsedAttestation::KeyDescription(KeyDescription::V100(key_description)) =
-			parsed_attestation
-		{
+		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
 		} else {
@@ -693,6 +625,421 @@ mod tests {
 				_ => Err(()),
 			},
 			Err(_) => Err(()),
+		}
+	}
+
+	#[test]
+	fn test_validate_cert_chain() -> Result<(), ValidationError> {
+		let decoded_chain = [
+            hex_literal::hex!("3082051c30820304a003020102020900f1c172a699eaf51d300d06092a864886f70d01010b0500301b311930170603550405131066393230303965383533623662303435301e170d3232303332303138303734385a170d3432303331353138303734385a301b31193017060355040513106639323030396538353362366230343530820222300d06092a864886f70d01010105000382020f003082020a0282020100afb6c7822bb1a701ec2bb42e8bcc541663abef982f32c77f7531030c97524b1b5fe809fbc72aa9451f743cbd9a6f1335744aa55e77f6b6ac3535ee17c25e639517dd9c92e6374a53cbfe258f8ffbb6fd129378a22a4ca99c452d47a59f3201f44197ca1ccd7e762fb2f53151b6feb2fffd2b6fe4fe5bc6bd9ec34bfe08239daafceb8eb5a8ed2b3acd9c5e3a7790e1b51442793159859811ad9eb2a96bbdd7a57c93a91c41fccd27d67fd6f671aa0b815261ad384fa37944864604ddb3d8c4f920a19b1656c2f14ad6d03c56ec060899041c1ed1a5fe6d3440b556bad1d0a152589c53e55d370762f0122eef91861b1b0e6c4c80927499c0e9bec0b83e3bc1f93c72c049604bbd2f1345e62c3f8e26dbec06c94766f3c128239d4f4312fad8123887e06becf567583bf8355a81feeabaf99a83c8df3e2a322afc672bf120b135158b6821ceaf309b6eee77f98833b018daa10e451f06a374d50781f359082966bb778b9308942698e74e0bcd24628a01c2cc03e51f0b3e5b4ac1e4df9eaf9ff6a492a77c1483882885015b422ce67b80b88c9b48e13b607ab545c723ff8c44f8f2d368b9f6520d31145ebf9e862ad71df6a3bfd2450959d653740d97a12f368b13ef66d5d0a54a6e2f5d9a6fef446832bc67844725861f093dd0e6f3405da89643ef0f4d69b6420051fdb93049673e36950580d3cdf4fbd08bc58483952600630203010001a3633061301d0603551d0e041604143661e1007c880509518b446c47ff1a4cc9ea4f12301f0603551d230418301680143661e1007c880509518b446c47ff1a4cc9ea4f12300f0603551d130101ff040530030101ff300e0603551d0f0101ff040403020204300d06092a864886f70d01010b050003820201007c70ca939651dcf14faa0ab3a58371fbd7be2599a0ac6e8fdb2740b5ec912030b6f892faeab1766cd35537981fea00183fd6de4f77900e447011b35861a862025bf9ca31abf9ef87fdad93783c2d9996e7c65dbeec21d2691a23bd72d46188bb98ba5cb5d0971c5191841e91d260cd86b648186d96daea5b023d80003fcddcc8357ed5a3a44dfd510a9fe53343cabe6c58375d1162c2badf58eb95e19d71d931a122bffe64906e07169e600466bcc7a05d7fd20b28d47660227d182f35612d203f897097e104f6877279cf7ce796e286d67bfc3507717a2d832088404967eef34e0203de9c40a4d395a69ed9fc1ea978dd375fefda7a8e86780dcb3d77eb59859abe1799a287fc8b53c0e7bbd8d23d65cc12d6555a0afb089130c2117766f6b08d3c0635d224ee9c81c55d187eeca3f394719ec02abff133a8841467d3f34d7e1eee46c94e499ff129b37db4c06dc37ed9f1ddafbe75eafd859db26d7e24b5709fac980ffc9a70d241970a5d7656bc79a54c8ec17a9c19c881039ff732927b4ea7493aaf830507a2c80e10264967512ecdb1f8cacc1bb74dad2ad284161c7ebfe39381eff4e95fa31aca9358bb1face08d2ee03c1fefb3fa9504366a6a9e71e8bda238ee00be4cda648181a49014fa07f9bf534d41b8e0414f384894c119abdaa40d6b8cd9c039916e55dc525471f1e7c3521d6088365b183bc8771065e98542").to_vec().try_into().unwrap(),
+            hex_literal::hex!("3082039a30820182a003020102021100dea90f73eec5583bdc82603511ed604a300d06092a864886f70d01010b0500301b311930170603550405131066393230303965383533623662303435301e170d3234303931323231343631315a170d3334303931303231343631315a303f31123010060355040c0c095374726f6e67426f78312930270603550405132031363638663238336336646437393832353335623562356262616535383631653076301006072a8648ce3d020106052b8104002203620004a6b9ac66db7397f8701c2e366d21bb344d0a450a01d83baf197e7ae200b53264b99ccbb670a89729d57ccdbefe15e430aa6aaf3b3ce2a1fadebb7d20800da1586e62668b768597b3d957165dec2bedba1804aa9cde0f90b7da345fe5cc9b9caea3633061301d0603551d0e0416041446dc08cd396d3115819838b3e78c17076960aa88301f0603551d230418301680143661e1007c880509518b446c47ff1a4cc9ea4f12300f0603551d130101ff040530030101ff300e0603551d0f0101ff040403020204300d06092a864886f70d01010b05000382020100aa7b7080d09865bc607aa9296eaef25c11f1c92444e54c5c46ad333250b6fa6d394d02db4d515c9c1a7198fbfb46066acd3216b9be13ad62f5a48514ab076664f957002ba1d4d696b46385afc4778a8435d50e431ea2b4a939348022c876b04d927bb3e6bce9573c9fd0dd7644329ed073a93c83d077b714338b0806383d3897097c589d2626d74f3e29f9c11b3d93d8732467054216f7bc6096728c1590bbf9a1ac8b99ecc50b732517da8aa0cc8c4e37258ddc09a667bfc31ca95c672d351a9d42bac1293d6d46935a35ff8cfc46e29d96eaef806bfa7d72830970caaac48de88398c361333f8b16f5d889675b590b58444553f1b83036c3076472c8f984400e128c0d272acdb8f8579db8c8f72d735a02fb3b57d97f65aed6dc46f2b313e193cd5e8cd6871846f20ff4f030fec44e08d69e31af74c368d1adc68eceb5a4da5c01e590cf0da14674e5a45c6e93c8afd2757eb71a702d854be23c9f8666c3e1f5c82beba7e1eabf5c408a440bf057f4f3e7580b76c87916e1d2a265922860527afbf944cd02f7181ec49c8a8c62415a865791ad452ec910ba8209ee8179047fef51389fb183ecdb27c991dd22a72aee913912b33d0adee5ed27f2abcd1c459122adf2ad7f1f097472418a06372734d7b1d7c794dc4e4c7f255487d218a99b17d51f5ae3b5acd5ef538d099e6c46f3a83a51d493863cc3863a5d521f2e7babac").to_vec().try_into().unwrap(),
+            hex_literal::hex!("3082020130820186a003020102021100c0b7e9d4c786bd4b0d8665da013a5a44300a06082a8648ce3d040302303f31123010060355040c0c095374726f6e67426f7831293027060355040513203136363866323833633664643739383235333562356235626261653538363165301e170d3234303931323231343733345a170d3334303931303231343733345a303f31123010060355040c0c095374726f6e67426f78312930270603550405132065323234666366366436313831336662366339343164633064386334323561373059301306072a8648ce3d020106082a8648ce3d030107034200042db6dedfd916182ac9c737bc4d85b56542bc3c9d33cb93c93fe37e7d61357c4d50a19ef7b998b29a3ec49eba37bbde5f5193de5a85c987d994e317368952efeca3633061301d0603551d0e04160414399ffc0eb6cec89f2da3cd9decd25a43232cee5d301f0603551d2304183016801446dc08cd396d3115819838b3e78c17076960aa88300f0603551d130101ff040530030101ff300e0603551d0f0101ff040403020204300a06082a8648ce3d0403020369003066023100db26dddf1eafdae33fdf0cefebc271b3d7dddb4f1cf34c88e07cc9fd52009a05f04d5a37ad8bce09a47d3453377799e7023100f2fa2eaebd0c36b294ed7e4caa6d2007f6e8d673994f8944c5bfe445b9dc186c3d6293be775e928c7835e8cd31f35931").to_vec().try_into().unwrap(),
+            hex_literal::hex!("308202e63082028ca003020102020101300a06082a8648ce3d040302303f31123010060355040c0c095374726f6e67426f7831293027060355040513206532323466636636643631383133666236633934316463306438633432356137301e170d3730303130313030303030305a170d3438303130313030303030305a301f311d301b06035504031314416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d03010703420004c1b3588cd513a02aabd138ac2613e47d17f710ea66cbbd244f2714e6b8d97df0df3b2e8eba9a80c95862455d1875f2cfa6cf4fbd9c9e4c8023614ee0566f21bda382019730820193300e0603551d0f0101ff0404030207803082017f060a2b06010401d6790201110482016f3082016b020201900a0102020201900a010204200000a27e69e3df4779cb30b948137fae4b3f9db6e3d1f66bfeb339e4ff016522040030818fbf853d080206019e3e041472bf85455904573055312f302d0428636f6d2e616375726173742e61747465737465642e6578656375746f722e7362732e63616e61727902017631220420ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f36bf8554220420707084d95ae0c59405e4fbd08aa10f4b39022583813cb62def245921da3cf2d93081a4a1083106020102020103a203020103a30402020100a5053103020100aa03020101bf8377020500bf853e03020100bf85404c304a0420ed6130258ca69dfae85401e3562bdac875f10e19ac726040d6beeeacf5dbc4630101ff0a0100042072116376011326b95f5c84c088d90135a816a07efc22144c1da650c21687bcb5bf8541050203027100bf854205020303176cbf854e06020401352635bf854f06020401352635300a06082a8648ce3d04030203480030450221008486009cced05170cb30e4ee43f0e593beb2ba5b380a0944a143ee0f72ab64a50220323792f788ab090587015e0ddefffd640e9ee102ec450acc1e18389b23267279").to_vec().try_into().unwrap(),
+        ].to_vec().try_into().unwrap();
+		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
+		_ = extract_attestation(cert.extensions)?;
+		Ok(())
+	}
+
+	/// Synthetic per-schema parser tests. For each Android Keystore attestation
+	/// schema version documented at
+	/// https://source.android.com/docs/security/features/keystore/attestation
+	/// we build a `KeyDescription` payload via test-only `Asn1Write` wire
+	/// structs and verify our selective parser decodes it. No certificate chain
+	/// validation here — these tests target the ASN.1 parser directly.
+	mod schema_parse_tests {
+		use asn1::{Asn1Write, Enumerated, Null};
+
+		use crate::{
+			attestation::asn::KeyDescription, BoundedAuthorizationList, BoundedKeyDescription,
+			VerifiedBootState,
+		};
+
+		#[derive(Asn1Write)]
+		struct RootOfTrustWire<'a> {
+			verified_boot_key: &'a [u8],
+			device_locked: bool,
+			verified_boot_state: Enumerated,
+			verified_boot_hash: &'a [u8],
+		}
+
+		#[derive(Asn1Write)]
+		struct RootOfTrustV1V2Wire<'a> {
+			verified_boot_key: &'a [u8],
+			device_locked: bool,
+			verified_boot_state: Enumerated,
+		}
+
+		/// Malformed: an unexpected 5th trailing field beyond the 4-field
+		/// RootOfTrust. The parser must reject it, not silently drop it.
+		#[derive(Asn1Write)]
+		struct RootOfTrustMalformedWire<'a> {
+			verified_boot_key: &'a [u8],
+			device_locked: bool,
+			verified_boot_state: Enumerated,
+			verified_boot_hash: &'a [u8],
+			unexpected_trailing: i64,
+		}
+
+		#[derive(Asn1Write)]
+		struct AuthListRotOnlyWire<'a> {
+			#[explicit(704)]
+			root_of_trust: Option<RootOfTrustMalformedWire<'a>>,
+		}
+
+		#[derive(Asn1Write)]
+		struct KeyDescriptionRotWire<'a> {
+			attestation_version: i64,
+			attestation_security_level: Enumerated,
+			key_mint_version: i64,
+			key_mint_security_level: Enumerated,
+			attestation_challenge: &'a [u8],
+			unique_id: &'a [u8],
+			software_enforced: AuthListRotOnlyWire<'a>,
+			tee_enforced: AuthListRotOnlyWire<'a>,
+		}
+
+		/// Wire-format `AuthorizationList` used to feed our selective parser.
+		/// Fields must be declared in ascending tag order (DER requirement).
+		/// Includes tags from the union of V1..V4..V100..V400 plus future tags
+		/// 723 / 724 / 9999 that our parser should silently ignore.
+		#[derive(Asn1Write, Default)]
+		struct AuthorizationListWire<'a> {
+			#[explicit(2)]
+			algorithm: Option<i64>,
+			#[explicit(3)]
+			key_size: Option<i64>,
+			#[explicit(10)]
+			ec_curve: Option<i64>,
+			#[explicit(200)]
+			rsa_public_exponent: Option<i64>,
+			#[explicit(303)]
+			rollback_resistance: Option<Null>,
+			#[explicit(305)]
+			early_boot_only: Option<Null>,
+			#[explicit(400)]
+			active_date_time: Option<i64>,
+			#[explicit(405)]
+			usage_count_limit: Option<i64>,
+			#[explicit(503)]
+			no_auth_required: Option<Null>,
+			#[explicit(506)]
+			allow_while_on_body: Option<Null>,
+			#[explicit(507)]
+			trusted_user_presence_required: Option<Null>,
+			#[explicit(508)]
+			trusted_confirmation_required: Option<Null>,
+			#[explicit(509)]
+			unlocked_device_required: Option<Null>,
+			#[explicit(701)]
+			creation_date_time: Option<i64>,
+			#[explicit(702)]
+			origin: Option<i64>,
+			#[explicit(704)]
+			root_of_trust: Option<RootOfTrustWire<'a>>,
+			#[explicit(705)]
+			os_version: Option<i64>,
+			#[explicit(706)]
+			os_patch_level: Option<i64>,
+			#[explicit(709)]
+			attestation_application_id: Option<&'a [u8]>,
+			#[explicit(710)]
+			attestation_id_brand: Option<&'a [u8]>,
+			#[explicit(718)]
+			vendor_patch_level: Option<i64>,
+			#[explicit(719)]
+			boot_patch_level: Option<i64>,
+			#[explicit(720)]
+			device_unique_attestation: Option<Null>,
+			/// Unknown to our parser (introduced in V200 — `attestationIdSecondImei`).
+			#[explicit(723)]
+			attestation_id_second_imei: Option<&'a [u8]>,
+			/// Unknown to our parser (introduced in V400 — `moduleHash`).
+			#[explicit(724)]
+			module_hash: Option<&'a [u8]>,
+			/// Future tag Google has not assigned. Forward-compat smoke field.
+			#[explicit(9999)]
+			future_unknown: Option<i64>,
+		}
+
+		/// V1/V2 variant whose `root_of_trust` is the 3-field shape. The rest
+		/// of the layout matches V1/V2's restricted field set.
+		#[derive(Asn1Write, Default)]
+		struct AuthorizationListLegacyWire<'a> {
+			#[explicit(2)]
+			algorithm: Option<i64>,
+			#[explicit(3)]
+			key_size: Option<i64>,
+			#[explicit(503)]
+			no_auth_required: Option<Null>,
+			#[explicit(704)]
+			root_of_trust: Option<RootOfTrustV1V2Wire<'a>>,
+			#[explicit(705)]
+			os_version: Option<i64>,
+			#[explicit(706)]
+			os_patch_level: Option<i64>,
+			#[explicit(709)]
+			attestation_application_id: Option<&'a [u8]>,
+			#[explicit(710)]
+			attestation_id_brand: Option<&'a [u8]>,
+		}
+
+		#[derive(Asn1Write)]
+		struct KeyDescriptionWire<'a> {
+			attestation_version: i64,
+			attestation_security_level: Enumerated,
+			key_mint_version: i64,
+			key_mint_security_level: Enumerated,
+			attestation_challenge: &'a [u8],
+			unique_id: &'a [u8],
+			software_enforced: AuthorizationListWire<'a>,
+			tee_enforced: AuthorizationListWire<'a>,
+		}
+
+		#[derive(Asn1Write)]
+		struct KeyDescriptionLegacyWire<'a> {
+			attestation_version: i64,
+			attestation_security_level: Enumerated,
+			key_mint_version: i64,
+			key_mint_security_level: Enumerated,
+			attestation_challenge: &'a [u8],
+			unique_id: &'a [u8],
+			software_enforced: AuthorizationListLegacyWire<'a>,
+			tee_enforced: AuthorizationListLegacyWire<'a>,
+		}
+
+		const CHALLENGE: &[u8] = b"challenge";
+		const UNIQUE_ID: &[u8] = b"uid";
+		const BOOT_KEY: &[u8] = &[0u8; 32];
+		const BOOT_HASH: &[u8] = &[0u8; 32];
+
+		fn sec_level(v: u32) -> Enumerated {
+			Enumerated::new(v)
+		}
+
+		fn parse_kd(bytes: &[u8]) -> BoundedKeyDescription {
+			let kd = asn1::parse_single::<KeyDescription>(bytes).expect("parse KeyDescription");
+			kd.try_into().expect("convert to BoundedKeyDescription")
+		}
+
+		#[test]
+		fn test_parse_schema_v1() {
+			let wire = KeyDescriptionLegacyWire {
+				attestation_version: 1,
+				attestation_security_level: sec_level(1),
+				key_mint_version: 2,
+				key_mint_security_level: sec_level(1),
+				attestation_challenge: CHALLENGE,
+				unique_id: UNIQUE_ID,
+				software_enforced: AuthorizationListLegacyWire::default(),
+				tee_enforced: AuthorizationListLegacyWire {
+					algorithm: Some(3),
+					key_size: Some(256),
+					no_auth_required: Some(()),
+					root_of_trust: Some(RootOfTrustV1V2Wire {
+						verified_boot_key: BOOT_KEY,
+						device_locked: true,
+						verified_boot_state: Enumerated::new(0),
+					}),
+					..Default::default()
+				},
+			};
+			let bytes = asn1::write_single(&wire).expect("write_single");
+			let bkd = parse_kd(&bytes);
+			assert_eq!(bkd.tee_enforced.algorithm, Some(3));
+			assert_eq!(bkd.tee_enforced.key_size, Some(256));
+			assert!(bkd.tee_enforced.no_auth_required);
+			// V1/V2 carry the 3-field RootOfTrust on the wire (no verified_boot_hash);
+			// it must be preserved, not dropped.
+			let rot = bkd.tee_enforced.root_of_trust.expect("V1 RootOfTrust preserved");
+			assert!(rot.device_locked);
+			assert_eq!(rot.verified_boot_state, VerifiedBootState::Verified);
+			assert!(rot.verified_boot_hash.is_none(), "V1 RootOfTrust has no verified_boot_hash");
+		}
+
+		#[test]
+		fn test_parse_schema_v2() {
+			let wire = KeyDescriptionLegacyWire {
+				attestation_version: 2,
+				attestation_security_level: sec_level(1),
+				key_mint_version: 3,
+				key_mint_security_level: sec_level(1),
+				attestation_challenge: CHALLENGE,
+				unique_id: UNIQUE_ID,
+				software_enforced: AuthorizationListLegacyWire::default(),
+				tee_enforced: AuthorizationListLegacyWire {
+					algorithm: Some(3),
+					key_size: Some(256),
+					no_auth_required: Some(()),
+					root_of_trust: Some(RootOfTrustV1V2Wire {
+						verified_boot_key: BOOT_KEY,
+						device_locked: true,
+						verified_boot_state: Enumerated::new(0),
+					}),
+					os_version: Some(28),
+					os_patch_level: Some(202405),
+					// Skip `attestation_application_id`: the bounded conversion
+					// re-parses these bytes as a SEQUENCE (`AttestationApplicationId`),
+					// so we'd need a fully-formed nested SET-OF payload to use it.
+					attestation_application_id: None,
+					attestation_id_brand: Some(b"google"),
+				},
+			};
+			let bytes = asn1::write_single(&wire).expect("write_single");
+			let bkd = parse_kd(&bytes);
+			assert_eq!(bkd.tee_enforced.os_version, Some(28));
+			assert_eq!(bkd.tee_enforced.os_patch_level, Some(202405));
+			assert!(bkd.tee_enforced.attestation_id_brand.is_some());
+			let rot = bkd.tee_enforced.root_of_trust.expect("V2 RootOfTrust preserved");
+			assert!(rot.device_locked);
+			assert_eq!(rot.verified_boot_state, VerifiedBootState::Verified);
+			assert!(rot.verified_boot_hash.is_none(), "V2 RootOfTrust has no verified_boot_hash");
+		}
+
+		#[test]
+		fn test_parse_schema_rejects_malformed_root_of_trust() {
+			let wire = KeyDescriptionRotWire {
+				attestation_version: 3,
+				attestation_security_level: sec_level(1),
+				key_mint_version: 3,
+				key_mint_security_level: sec_level(1),
+				attestation_challenge: CHALLENGE,
+				unique_id: UNIQUE_ID,
+				software_enforced: AuthListRotOnlyWire { root_of_trust: None },
+				tee_enforced: AuthListRotOnlyWire {
+					root_of_trust: Some(RootOfTrustMalformedWire {
+						verified_boot_key: BOOT_KEY,
+						device_locked: true,
+						verified_boot_state: Enumerated::new(0),
+						verified_boot_hash: BOOT_HASH,
+						unexpected_trailing: 1,
+					}),
+				},
+			};
+			let bytes = asn1::write_single(&wire).expect("write_single");
+			assert!(
+				asn1::parse_single::<KeyDescription>(&bytes).is_err(),
+				"malformed RootOfTrust must reject, not silently drop"
+			);
+		}
+
+		fn modern_authlist<'a>() -> AuthorizationListWire<'a> {
+			AuthorizationListWire {
+				algorithm: Some(3),
+				key_size: Some(256),
+				rollback_resistance: Some(()),
+				no_auth_required: Some(()),
+				root_of_trust: Some(RootOfTrustWire {
+					verified_boot_key: BOOT_KEY,
+					device_locked: true,
+					verified_boot_state: Enumerated::new(0),
+					verified_boot_hash: BOOT_HASH,
+				}),
+				os_version: Some(28),
+				os_patch_level: Some(202405),
+				vendor_patch_level: Some(202404),
+				boot_patch_level: Some(202403),
+				..Default::default()
+			}
+		}
+
+		fn modern_kd(version: i64, tee_enforced: AuthorizationListWire) -> KeyDescriptionWire {
+			KeyDescriptionWire {
+				attestation_version: version,
+				attestation_security_level: sec_level(1),
+				key_mint_version: version,
+				key_mint_security_level: sec_level(1),
+				attestation_challenge: CHALLENGE,
+				unique_id: UNIQUE_ID,
+				software_enforced: AuthorizationListWire::default(),
+				tee_enforced,
+			}
+		}
+
+		fn assert_modern_baseline(bkd: &BoundedAuthorizationList) {
+			assert_eq!(bkd.algorithm, Some(3));
+			assert_eq!(bkd.key_size, Some(256));
+			assert_eq!(bkd.rollback_resistance, Some(true));
+			assert!(bkd.no_auth_required);
+			assert!(bkd.root_of_trust.is_some());
+			assert_eq!(bkd.os_version, Some(28));
+			assert_eq!(bkd.os_patch_level, Some(202405));
+			assert_eq!(bkd.vendor_patch_level, Some(202404));
+			assert_eq!(bkd.boot_patch_level, Some(202403));
+		}
+
+		#[test]
+		fn test_parse_schema_v3() {
+			let bytes = asn1::write_single(&modern_kd(3, modern_authlist())).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+		}
+
+		#[test]
+		fn test_parse_schema_v4() {
+			let mut al = modern_authlist();
+			al.early_boot_only = Some(());
+			al.device_unique_attestation = Some(());
+			let bytes = asn1::write_single(&modern_kd(4, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+			assert_eq!(bkd.tee_enforced.early_boot_only, Some(true));
+			assert_eq!(bkd.tee_enforced.device_unique_attestation, Some(true));
+		}
+
+		#[test]
+		fn test_parse_schema_v100() {
+			let mut al = modern_authlist();
+			al.early_boot_only = Some(());
+			al.usage_count_limit = Some(7);
+			let bytes = asn1::write_single(&modern_kd(100, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+			assert_eq!(bkd.tee_enforced.usage_count_limit, Some(7));
+		}
+
+		#[test]
+		fn test_parse_schema_v200() {
+			let mut al = modern_authlist();
+			al.usage_count_limit = Some(7);
+			al.attestation_id_second_imei = Some(b"second-imei");
+			let bytes = asn1::write_single(&modern_kd(200, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+			assert_eq!(bkd.tee_enforced.usage_count_limit, Some(7));
+		}
+
+		#[test]
+		fn test_parse_schema_v300() {
+			let mut al = modern_authlist();
+			al.usage_count_limit = Some(7);
+			al.attestation_id_second_imei = Some(b"second-imei");
+			let bytes = asn1::write_single(&modern_kd(300, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+		}
+
+		#[test]
+		fn test_parse_schema_v400() {
+			let mut al = modern_authlist();
+			al.usage_count_limit = Some(7);
+			al.attestation_id_second_imei = Some(b"second-imei");
+			al.module_hash = Some(b"module-hash-bytes");
+			let bytes = asn1::write_single(&modern_kd(400, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+		}
+
+		#[test]
+		fn test_parse_schema_with_unknown_future_tag() {
+			let mut al = modern_authlist();
+			al.usage_count_limit = Some(7);
+			al.module_hash = Some(b"module-hash");
+			al.future_unknown = Some(0x1234);
+			let bytes = asn1::write_single(&modern_kd(400, al)).unwrap();
+			let bkd = parse_kd(&bytes);
+			assert_modern_baseline(&bkd.tee_enforced);
+			assert_eq!(bkd.tee_enforced.usage_count_limit, Some(7));
 		}
 	}
 }

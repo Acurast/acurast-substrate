@@ -166,83 +166,20 @@ fn read_lenient_boolean(tlv: &Tlv<'_>) -> ParseResult<bool> {
 	Ok(data[0] != 0) // accept 0xFF (DER) or 0x01 (non-canonical BER)
 }
 
-#[derive(Asn1Read, Asn1Write)]
-pub struct KeyDescriptionV1<'a> {
-	/// The [version](https://developer.android.com/training/articles/security-key-attestation#certificate_schema) of the attestation.
-	/// It's necessary to peak this field before parsing all fields, since fields differ in versions and ASN parsing fails with a single deviating field.
+/// Android KeyDescription. Outer layout is identical across all schema versions
+/// (V1..V4, KeyMint V100/V200/V300/V400); only the inner `AuthorizationList`
+/// differs. `AuthorizationList` is decoded selectively (tag-whitelist) so unknown
+/// fields and new schema versions do not break parsing.
+#[derive(Asn1Read)]
+pub struct KeyDescription<'a> {
 	pub attestation_version: i64,
 	pub attestation_security_level: SecurityLevel,
 	pub key_mint_version: i64,
 	pub key_mint_security_level: SecurityLevel,
 	pub attestation_challenge: &'a [u8],
 	pub unique_id: &'a [u8],
-	pub software_enforced: AuthorizationListV1<'a>,
-	pub tee_enforced: AuthorizationListV1<'a>,
-}
-
-#[derive(Asn1Read, Asn1Write)]
-pub struct KeyDescriptionV2<'a> {
-	/// The [version](https://developer.android.com/training/articles/security-key-attestation#certificate_schema) of the attestation.
-	/// It's necessary to peak this field before parsing all fields, since fields differ in versions and ASN parsing fails with a single deviating field.
-	pub attestation_version: i64,
-	pub attestation_security_level: SecurityLevel,
-	pub key_mint_version: i64,
-	pub key_mint_security_level: SecurityLevel,
-	pub attestation_challenge: &'a [u8],
-	pub unique_id: &'a [u8],
-	pub software_enforced: AuthorizationListV2<'a>,
-	pub tee_enforced: AuthorizationListV2<'a>,
-}
-
-#[derive(Asn1Read, Asn1Write)]
-pub struct KeyDescriptionV3<'a> {
-	/// The [version](https://developer.android.com/training/articles/security-key-attestation#certificate_schema) of the attestation.
-	/// It's necessary to peak this field before parsing all fields, since fields differ in versions and ASN parsing fails with a single deviating field.
-	pub attestation_version: i64,
-	pub attestation_security_level: SecurityLevel,
-	pub key_mint_version: i64,
-	pub key_mint_security_level: SecurityLevel,
-	pub attestation_challenge: &'a [u8],
-	pub unique_id: &'a [u8],
-	pub software_enforced: AuthorizationListV3<'a>,
-	pub tee_enforced: AuthorizationListV3<'a>,
-}
-#[derive(Asn1Read, Asn1Write)]
-pub struct KeyDescriptionV4<'a> {
-	/// The [version](https://developer.android.com/training/articles/security-key-attestation#certificate_schema) of the attestation.
-	/// It's necessary to peak this field before parsing all fields, since fields differ in versions and ASN parsing fails with a single deviating field.
-	pub attestation_version: i64,
-	pub attestation_security_level: SecurityLevel,
-	pub key_mint_version: i64,
-	pub key_mint_security_level: SecurityLevel,
-	pub attestation_challenge: &'a [u8],
-	pub unique_id: &'a [u8],
-	pub software_enforced: AuthorizationListV4<'a>,
-	pub tee_enforced: AuthorizationListV4<'a>,
-}
-
-#[derive(Asn1Read, Asn1Write)]
-pub struct KeyDescriptionKeyMint<'a> {
-	/// The [version](https://developer.android.com/training/articles/security-key-attestation#certificate_schema) of the attestation.
-	/// It's necessary to peak this field before parsing all fields, since fields differ in versions and ASN parsing fails with a single deviating field.
-	pub attestation_version: i64,
-	pub attestation_security_level: SecurityLevel,
-	pub key_mint_version: i64,
-	pub key_mint_security_level: SecurityLevel,
-	pub attestation_challenge: &'a [u8],
-	pub unique_id: &'a [u8],
-	pub software_enforced: AuthorizationListKeyMint<'a>,
-	pub tee_enforced: AuthorizationListKeyMint<'a>,
-}
-
-pub enum KeyDescription<'a> {
-	V1(KeyDescriptionV1<'a>),
-	V2(KeyDescriptionV2<'a>),
-	V3(KeyDescriptionV3<'a>),
-	V4(KeyDescriptionV4<'a>),
-	V100(KeyDescriptionKeyMint<'a>),
-	V200(KeyDescriptionKeyMint<'a>),
-	V300(KeyDescriptionKeyMint<'a>),
+	pub software_enforced: AuthorizationList<'a>,
+	pub tee_enforced: AuthorizationList<'a>,
 }
 
 fn try_parse_tags<'a>(
@@ -477,367 +414,312 @@ pub enum ParsedAttestation<'a> {
 /// StrongBox (2) -> only exists in attestation version >= 3
 pub type SecurityLevel = Enumerated;
 
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct AuthorizationListV1<'a> {
-	#[explicit(1)]
+/// Selective ASN.1 decoder for the Android KeyDescription `AuthorizationList`
+/// SEQUENCE. Tag-whitelist parsing (via [`try_parse_tags`]) skips fields not in
+/// this struct, so additions in future schema versions do not break decoding.
+/// The whitelist is the union of fields used downstream (see
+/// `BoundedAuthorizationList`) across V1..V4 and KeyMint (V100/V200/V300/V400).
+pub struct AuthorizationList<'a> {
 	pub purpose: Option<UnorderedSetOf<i64>>,
-	#[explicit(2)]
 	pub algorithm: Option<i64>,
-	#[explicit(3)]
 	pub key_size: Option<i64>,
-	#[explicit(5)]
 	pub digest: Option<SetOf<'a, i64>>,
-	#[explicit(6)]
 	pub padding: Option<SetOf<'a, i64>>,
-	#[explicit(10)]
 	pub ec_curve: Option<i64>,
-	#[explicit(200)]
 	pub rsa_public_exponent: Option<i64>,
-	#[explicit(303)]
-	pub rollback_resistance: Option<Null>,
-	#[explicit(400)]
-	pub active_date_time: Option<i64>,
-	#[explicit(401)]
-	pub origination_expire_date_time: Option<i64>,
-	#[explicit(402)]
-	pub usage_expire_date_time: Option<i64>,
-	#[explicit(503)]
-	pub no_auth_required: Option<Null>,
-	#[explicit(504)]
-	pub user_auth_type: Option<i64>,
-	#[explicit(505)]
-	pub auth_timeout: Option<i64>,
-	#[explicit(506)]
-	pub allow_while_on_body: Option<Null>,
-	#[explicit(507)]
-	pub trusted_user_presence_required: Option<Null>,
-	#[explicit(508)]
-	pub trusted_confirmation_required: Option<Null>,
-	#[explicit(509)]
-	pub unlocked_device_required: Option<Null>,
-	#[explicit(600)]
-	pub all_applications: Option<Null>,
-	#[explicit(601)]
-	pub application_id: Option<&'a [u8]>,
-	#[explicit(701)]
-	pub creation_date_time: Option<i64>,
-	#[explicit(702)]
-	pub origin: Option<i64>,
-	#[explicit(704)]
-	pub root_of_trust: Option<RootOfTrustV1V2<'a>>,
-	#[explicit(705)]
-	pub os_version: Option<i64>,
-	#[explicit(706)]
-	pub os_patch_level: Option<i64>,
-}
-
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct AuthorizationListV2<'a> {
-	#[explicit(1)]
-	pub purpose: Option<UnorderedSetOf<i64>>,
-	#[explicit(2)]
-	pub algorithm: Option<i64>,
-	#[explicit(3)]
-	pub key_size: Option<i64>,
-	#[explicit(5)]
-	pub digest: Option<SetOf<'a, i64>>,
-	#[explicit(6)]
-	pub padding: Option<SetOf<'a, i64>>,
-	#[explicit(10)]
-	pub ec_curve: Option<i64>,
-	#[explicit(200)]
-	pub rsa_public_exponent: Option<i64>,
-	#[explicit(303)]
-	pub rollback_resistance: Option<Null>,
-	#[explicit(400)]
-	pub active_date_time: Option<i64>,
-	#[explicit(401)]
-	pub origination_expire_date_time: Option<i64>,
-	#[explicit(402)]
-	pub usage_expire_date_time: Option<i64>,
-	#[explicit(503)]
-	pub no_auth_required: Option<Null>,
-	#[explicit(504)]
-	pub user_auth_type: Option<i64>,
-	#[explicit(505)]
-	pub auth_timeout: Option<i64>,
-	#[explicit(506)]
-	pub allow_while_on_body: Option<Null>,
-	#[explicit(507)]
-	pub trusted_user_presence_required: Option<Null>,
-	#[explicit(508)]
-	pub trusted_confirmation_required: Option<Null>,
-	#[explicit(509)]
-	pub unlocked_device_required: Option<Null>,
-	#[explicit(600)]
-	pub all_applications: Option<Null>,
-	#[explicit(601)]
-	pub application_id: Option<&'a [u8]>,
-	#[explicit(701)]
-	pub creation_date_time: Option<i64>,
-	#[explicit(702)]
-	pub origin: Option<i64>,
-	#[explicit(704)]
-	pub root_of_trust: Option<RootOfTrustV1V2<'a>>,
-	#[explicit(705)]
-	pub os_version: Option<i64>,
-	#[explicit(706)]
-	pub os_patch_level: Option<i64>,
-	#[explicit(709)]
-	pub attestation_application_id: Option<&'a [u8]>,
-	#[explicit(710)]
-	pub attestation_id_brand: Option<&'a [u8]>,
-	#[explicit(711)]
-	pub attestation_id_device: Option<&'a [u8]>,
-	#[explicit(712)]
-	pub attestation_id_product: Option<&'a [u8]>,
-	#[explicit(713)]
-	pub attestation_id_serial: Option<&'a [u8]>,
-	#[explicit(714)]
-	pub attestation_id_imei: Option<&'a [u8]>,
-	#[explicit(715)]
-	pub attestation_id_meid: Option<&'a [u8]>,
-	#[explicit(716)]
-	pub attestation_id_manufacturer: Option<&'a [u8]>,
-	#[explicit(717)]
-	pub attestation_id_model: Option<&'a [u8]>,
-}
-
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct AuthorizationListV3<'a> {
-	#[explicit(1)]
-	pub purpose: Option<UnorderedSetOf<i64>>,
-	#[explicit(2)]
-	pub algorithm: Option<i64>,
-	#[explicit(3)]
-	pub key_size: Option<i64>,
-	#[explicit(5)]
-	pub digest: Option<SetOf<'a, i64>>,
-	#[explicit(6)]
-	pub padding: Option<SetOf<'a, i64>>,
-	#[explicit(10)]
-	pub ec_curve: Option<i64>,
-	#[explicit(200)]
-	pub rsa_public_exponent: Option<i64>,
-	#[explicit(303)]
-	pub rollback_resistance: Option<Null>,
-	#[explicit(400)]
-	pub active_date_time: Option<i64>,
-	#[explicit(401)]
-	pub origination_expire_date_time: Option<i64>,
-	#[explicit(402)]
-	pub usage_expire_date_time: Option<i64>,
-	#[explicit(503)]
-	pub no_auth_required: Option<Null>,
-	#[explicit(504)]
-	pub user_auth_type: Option<i64>,
-	#[explicit(505)]
-	pub auth_timeout: Option<i64>,
-	#[explicit(506)]
-	pub allow_while_on_body: Option<Null>,
-	#[explicit(600)]
-	pub all_applications: Option<Null>,
-	#[explicit(601)]
-	pub application_id: Option<&'a [u8]>,
-	#[explicit(701)]
-	pub creation_date_time: Option<i64>,
-	#[explicit(702)]
-	pub origin: Option<i64>,
-	#[explicit(704)]
-	pub root_of_trust: Option<RootOfTrust<'a>>,
-	#[explicit(705)]
-	pub os_version: Option<i64>,
-	#[explicit(706)]
-	pub os_patch_level: Option<i64>,
-	#[explicit(709)]
-	pub attestation_application_id: Option<&'a [u8]>,
-	#[explicit(710)]
-	pub attestation_id_brand: Option<&'a [u8]>,
-	#[explicit(711)]
-	pub attestation_id_device: Option<&'a [u8]>,
-	#[explicit(712)]
-	pub attestation_id_product: Option<&'a [u8]>,
-	#[explicit(713)]
-	pub attestation_id_serial: Option<&'a [u8]>,
-	#[explicit(714)]
-	pub attestation_id_imei: Option<&'a [u8]>,
-	#[explicit(715)]
-	pub attestation_id_meid: Option<&'a [u8]>,
-	#[explicit(716)]
-	pub attestation_id_manufacturer: Option<&'a [u8]>,
-	#[explicit(717)]
-	pub attestation_id_model: Option<&'a [u8]>,
-	#[explicit(718)]
-	pub vendor_patch_level: Option<i64>,
-	#[explicit(719)]
-	pub boot_patch_level: Option<i64>,
-}
-
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct RootOfTrustV1V2<'a> {
-	pub verified_boot_key: &'a [u8],
-	pub device_locked: bool,
-	pub verified_boot_state: VerifiedBootState,
-}
-
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct AuthorizationListV4<'a> {
-	#[explicit(1)]
-	pub purpose: Option<UnorderedSetOf<i64>>,
-	#[explicit(2)]
-	pub algorithm: Option<i64>,
-	#[explicit(3)]
-	pub key_size: Option<i64>,
-	#[explicit(5)]
-	pub digest: Option<SetOf<'a, i64>>,
-	#[explicit(6)]
-	pub padding: Option<SetOf<'a, i64>>,
-	#[explicit(10)]
-	pub ec_curve: Option<i64>,
-	#[explicit(200)]
-	pub rsa_public_exponent: Option<i64>,
-	#[explicit(303)]
-	pub rollback_resistance: Option<Null>,
-	#[explicit(305)]
-	pub early_boot_only: Option<Null>,
-	#[explicit(400)]
-	pub active_date_time: Option<i64>,
-	#[explicit(401)]
-	pub origination_expire_date_time: Option<i64>,
-	#[explicit(402)]
-	pub usage_expire_date_time: Option<i64>,
-	#[explicit(503)]
-	pub no_auth_required: Option<Null>,
-	#[explicit(504)]
-	pub user_auth_type: Option<i64>,
-	#[explicit(505)]
-	pub auth_timeout: Option<i64>,
-	#[explicit(506)]
-	pub allow_while_on_body: Option<Null>,
-	#[explicit(507)]
-	pub trusted_user_presence_required: Option<Null>,
-	#[explicit(508)]
-	pub trusted_confirmation_required: Option<Null>,
-	#[explicit(509)]
-	pub unlocked_device_required: Option<Null>,
-	#[explicit(600)]
-	pub all_applications: Option<Null>,
-	#[explicit(601)]
-	pub application_id: Option<&'a [u8]>,
-	#[explicit(701)]
-	pub creation_date_time: Option<i64>,
-	#[explicit(702)]
-	pub origin: Option<i64>,
-	#[explicit(704)]
-	pub root_of_trust: Option<RootOfTrust<'a>>,
-	#[explicit(705)]
-	pub os_version: Option<i64>,
-	#[explicit(706)]
-	pub os_patch_level: Option<i64>,
-	#[explicit(709)]
-	pub attestation_application_id: Option<&'a [u8]>,
-	#[explicit(710)]
-	pub attestation_id_brand: Option<&'a [u8]>,
-	#[explicit(711)]
-	pub attestation_id_device: Option<&'a [u8]>,
-	#[explicit(712)]
-	pub attestation_id_product: Option<&'a [u8]>,
-	#[explicit(713)]
-	pub attestation_id_serial: Option<&'a [u8]>,
-	#[explicit(714)]
-	pub attestation_id_imei: Option<&'a [u8]>,
-	#[explicit(715)]
-	pub attestation_id_meid: Option<&'a [u8]>,
-	#[explicit(716)]
-	pub attestation_id_manufacturer: Option<&'a [u8]>,
-	#[explicit(717)]
-	pub attestation_id_model: Option<&'a [u8]>,
-	#[explicit(718)]
-	pub vendor_patch_level: Option<i64>,
-	#[explicit(719)]
-	pub boot_patch_level: Option<i64>,
-	#[explicit(720)]
-	pub device_unique_attestation: Option<Null>,
-}
-
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
-pub struct AuthorizationListKeyMint<'a> {
-	#[explicit(1)]
-	pub purpose: Option<UnorderedSetOf<i64>>,
-	#[explicit(2)]
-	pub algorithm: Option<i64>,
-	#[explicit(3)]
-	pub key_size: Option<i64>,
-	#[explicit(5)]
-	pub digest: Option<SetOf<'a, i64>>,
-	#[explicit(6)]
-	pub padding: Option<SetOf<'a, i64>>,
-	#[explicit(10)]
-	pub ec_curve: Option<i64>,
-	#[explicit(200)]
-	pub rsa_public_exponent: Option<i64>,
-	#[explicit(203)]
 	pub mgf_digest: Option<SetOf<'a, i64>>,
-	#[explicit(303)]
 	pub rollback_resistance: Option<Null>,
-	#[explicit(305)]
 	pub early_boot_only: Option<Null>,
-	#[explicit(400)]
 	pub active_date_time: Option<i64>,
-	#[explicit(401)]
 	pub origination_expire_date_time: Option<i64>,
-	#[explicit(402)]
 	pub usage_expire_date_time: Option<i64>,
-	#[explicit(405)]
 	pub usage_count_limit: Option<i64>,
-	#[explicit(503)]
 	pub no_auth_required: Option<Null>,
-	#[explicit(504)]
 	pub user_auth_type: Option<i64>,
-	#[explicit(505)]
 	pub auth_timeout: Option<i64>,
-	#[explicit(506)]
 	pub allow_while_on_body: Option<Null>,
-	#[explicit(507)]
 	pub trusted_user_presence_required: Option<Null>,
-	#[explicit(508)]
 	pub trusted_confirmation_required: Option<Null>,
-	#[explicit(509)]
 	pub unlocked_device_required: Option<Null>,
-	#[explicit(701)]
+	pub all_applications: Option<Null>,
+	pub application_id: Option<&'a [u8]>,
 	pub creation_date_time: Option<i64>,
-	#[explicit(702)]
 	pub origin: Option<i64>,
-	#[explicit(704)]
 	pub root_of_trust: Option<RootOfTrust<'a>>,
-	#[explicit(705)]
 	pub os_version: Option<i64>,
-	#[explicit(706)]
 	pub os_patch_level: Option<i64>,
-	#[explicit(709)]
 	pub attestation_application_id: Option<&'a [u8]>,
-	#[explicit(710)]
 	pub attestation_id_brand: Option<&'a [u8]>,
-	#[explicit(711)]
 	pub attestation_id_device: Option<&'a [u8]>,
-	#[explicit(712)]
 	pub attestation_id_product: Option<&'a [u8]>,
-	#[explicit(713)]
 	pub attestation_id_serial: Option<&'a [u8]>,
-	#[explicit(714)]
 	pub attestation_id_imei: Option<&'a [u8]>,
-	#[explicit(715)]
 	pub attestation_id_meid: Option<&'a [u8]>,
-	#[explicit(716)]
 	pub attestation_id_manufacturer: Option<&'a [u8]>,
-	#[explicit(717)]
 	pub attestation_id_model: Option<&'a [u8]>,
-	#[explicit(718)]
 	pub vendor_patch_level: Option<i64>,
-	#[explicit(719)]
 	pub boot_patch_level: Option<i64>,
-	#[explicit(720)]
 	pub device_unique_attestation: Option<Null>,
+}
+
+impl<'a> SimpleAsn1Readable<'a> for AuthorizationList<'a> {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		// DER tag bytes for each `[explicit N]` context-specific constructed
+		// wrapper (see Android Keystore tag list).
+		// https://source.android.com/docs/security/keystore/tags
+		asn1::parse(data, |parser| {
+			let purpose_tag = Tag::from_bytes(&[0xA1, 0x00])?.0;
+			let algorithm_tag = Tag::from_bytes(&[0xA2, 0x00])?.0;
+			let key_size_tag = Tag::from_bytes(&[0xA3, 0x00])?.0;
+			let digest_tag = Tag::from_bytes(&[0xA5, 0x00])?.0;
+			let padding_tag = Tag::from_bytes(&[0xA6, 0x00])?.0;
+			let ec_curve_tag = Tag::from_bytes(&[0xAA, 0x00])?.0;
+			let rsa_public_exponent_tag = Tag::from_bytes(&[0xBF, 0x81, 0x48, 0x00])?.0;
+			let mgf_digest_tag = Tag::from_bytes(&[0xBF, 0x81, 0x4B, 0x00])?.0;
+			let rollback_resistance_tag = Tag::from_bytes(&[0xBF, 0x82, 0x2F, 0x00])?.0;
+			let early_boot_only_tag = Tag::from_bytes(&[0xBF, 0x82, 0x31, 0x00])?.0;
+			let active_date_time_tag = Tag::from_bytes(&[0xBF, 0x83, 0x10, 0x00])?.0;
+			let origination_expire_date_time_tag = Tag::from_bytes(&[0xBF, 0x83, 0x11, 0x00])?.0;
+			let usage_expire_date_time_tag = Tag::from_bytes(&[0xBF, 0x83, 0x12, 0x00])?.0;
+			let usage_count_limit_tag = Tag::from_bytes(&[0xBF, 0x83, 0x15, 0x00])?.0;
+			let no_auth_required_tag = Tag::from_bytes(&[0xBF, 0x83, 0x77, 0x00])?.0;
+			let user_auth_type_tag = Tag::from_bytes(&[0xBF, 0x83, 0x78, 0x00])?.0;
+			let auth_timeout_tag = Tag::from_bytes(&[0xBF, 0x83, 0x79, 0x00])?.0;
+			let allow_while_on_body_tag = Tag::from_bytes(&[0xBF, 0x83, 0x7A, 0x00])?.0;
+			let trusted_user_presence_required_tag = Tag::from_bytes(&[0xBF, 0x83, 0x7B, 0x00])?.0;
+			let trusted_confirmation_required_tag = Tag::from_bytes(&[0xBF, 0x83, 0x7C, 0x00])?.0;
+			let unlocked_device_required_tag = Tag::from_bytes(&[0xBF, 0x83, 0x7D, 0x00])?.0;
+			let all_applications_tag = Tag::from_bytes(&[0xBF, 0x84, 0x58, 0x00])?.0;
+			let application_id_tag = Tag::from_bytes(&[0xBF, 0x84, 0x59, 0x00])?.0;
+			let creation_date_time_tag = Tag::from_bytes(&[0xBF, 0x85, 0x3D, 0x00])?.0;
+			let origin_tag = Tag::from_bytes(&[0xBF, 0x85, 0x3E, 0x00])?.0;
+			let root_of_trust_tag = Tag::from_bytes(&[0xBF, 0x85, 0x40, 0x00])?.0;
+			let os_version_tag = Tag::from_bytes(&[0xBF, 0x85, 0x41, 0x00])?.0;
+			let os_patch_level_tag = Tag::from_bytes(&[0xBF, 0x85, 0x42, 0x00])?.0;
+			let attestation_application_id_tag = Tag::from_bytes(&[0xBF, 0x85, 0x45, 0x00])?.0;
+			let attestation_id_brand_tag = Tag::from_bytes(&[0xBF, 0x85, 0x46, 0x00])?.0;
+			let attestation_id_device_tag = Tag::from_bytes(&[0xBF, 0x85, 0x47, 0x00])?.0;
+			let attestation_id_product_tag = Tag::from_bytes(&[0xBF, 0x85, 0x48, 0x00])?.0;
+			let attestation_id_serial_tag = Tag::from_bytes(&[0xBF, 0x85, 0x49, 0x00])?.0;
+			let attestation_id_imei_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4A, 0x00])?.0;
+			let attestation_id_meid_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4B, 0x00])?.0;
+			let attestation_id_manufacturer_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4C, 0x00])?.0;
+			let attestation_id_model_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4D, 0x00])?.0;
+			let vendor_patch_level_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4E, 0x00])?.0;
+			let boot_patch_level_tag = Tag::from_bytes(&[0xBF, 0x85, 0x4F, 0x00])?.0;
+			let device_unique_attestation_tag = Tag::from_bytes(&[0xBF, 0x85, 0x50, 0x00])?.0;
+			let tlvs = try_parse_tags(
+				parser,
+				&[
+					purpose_tag,
+					algorithm_tag,
+					key_size_tag,
+					digest_tag,
+					padding_tag,
+					ec_curve_tag,
+					rsa_public_exponent_tag,
+					mgf_digest_tag,
+					rollback_resistance_tag,
+					early_boot_only_tag,
+					active_date_time_tag,
+					origination_expire_date_time_tag,
+					usage_expire_date_time_tag,
+					usage_count_limit_tag,
+					no_auth_required_tag,
+					user_auth_type_tag,
+					auth_timeout_tag,
+					allow_while_on_body_tag,
+					trusted_user_presence_required_tag,
+					trusted_confirmation_required_tag,
+					unlocked_device_required_tag,
+					all_applications_tag,
+					application_id_tag,
+					creation_date_time_tag,
+					origin_tag,
+					root_of_trust_tag,
+					os_version_tag,
+					os_patch_level_tag,
+					attestation_application_id_tag,
+					attestation_id_brand_tag,
+					attestation_id_device_tag,
+					attestation_id_product_tag,
+					attestation_id_serial_tag,
+					attestation_id_imei_tag,
+					attestation_id_meid_tag,
+					attestation_id_manufacturer_tag,
+					attestation_id_model_tag,
+					vendor_patch_level_tag,
+					boot_patch_level_tag,
+					device_unique_attestation_tag,
+				],
+			)?;
+			let pick = |tag: Tag| tlvs.iter().find(|tlv| tlv.tag() == tag);
+			Ok(Self {
+				purpose: pick(purpose_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 1>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				algorithm: pick(algorithm_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 2>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				key_size: pick(key_size_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 3>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				digest: pick(digest_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 5>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				padding: pick(padding_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 6>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				ec_curve: pick(ec_curve_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 10>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				rsa_public_exponent: pick(rsa_public_exponent_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 200>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				mgf_digest: pick(mgf_digest_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 203>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				rollback_resistance: pick(rollback_resistance_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 303>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				early_boot_only: pick(early_boot_only_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 305>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				active_date_time: pick(active_date_time_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 400>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				origination_expire_date_time: pick(origination_expire_date_time_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 401>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				usage_expire_date_time: pick(usage_expire_date_time_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 402>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				usage_count_limit: pick(usage_count_limit_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 405>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				no_auth_required: pick(no_auth_required_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 503>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				user_auth_type: pick(user_auth_type_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 504>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				auth_timeout: pick(auth_timeout_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 505>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				allow_while_on_body: pick(allow_while_on_body_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 506>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				trusted_user_presence_required: pick(trusted_user_presence_required_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 507>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				trusted_confirmation_required: pick(trusted_confirmation_required_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 508>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				unlocked_device_required: pick(unlocked_device_required_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 509>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				all_applications: pick(all_applications_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 600>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				application_id: pick(application_id_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 601>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				creation_date_time: pick(creation_date_time_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 701>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				origin: pick(origin_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 702>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				root_of_trust: pick(root_of_trust_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 704>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				os_version: pick(os_version_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 705>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				os_patch_level: pick(os_patch_level_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 706>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_application_id: pick(attestation_application_id_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 709>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_brand: pick(attestation_id_brand_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 710>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_device: pick(attestation_id_device_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 711>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_product: pick(attestation_id_product_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 712>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_serial: pick(attestation_id_serial_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 713>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_imei: pick(attestation_id_imei_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 714>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_meid: pick(attestation_id_meid_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 715>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_manufacturer: pick(attestation_id_manufacturer_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 716>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				attestation_id_model: pick(attestation_id_model_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 717>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				vendor_patch_level: pick(vendor_patch_level_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 718>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				boot_patch_level: pick(boot_patch_level_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 719>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+				device_unique_attestation: pick(device_unique_attestation_tag)
+					.map(Tlv::parse::<Explicit<'a, _, 720>>)
+					.transpose()?
+					.map(Explicit::into_inner),
+			})
+		})
+	}
 }
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write)]
@@ -845,7 +727,7 @@ pub struct RootOfTrust<'a> {
 	pub verified_boot_key: &'a [u8],
 	pub device_locked: bool,
 	pub verified_boot_state: VerifiedBootState,
-	pub verified_boot_hash: &'a [u8],
+	pub verified_boot_hash: Option<&'a [u8]>,
 }
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write)]

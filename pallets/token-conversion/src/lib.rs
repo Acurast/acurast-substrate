@@ -287,7 +287,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(< T as Config>::WeightInfo::retry_convert())]
 		pub fn retry_convert(origin: OriginFor<T>, fee: BalanceFor<T>) -> DispatchResult {
-            Self::ensure_enabled()?;
+			Self::ensure_enabled()?;
 			let who = ensure_signed(origin)?;
 			let Some(destination) = T::SendTo::get() else {
 				cfg_if::cfg_if! {
@@ -314,7 +314,7 @@ pub mod pallet {
 			account: T::AccountId,
 			fee: BalanceFor<T>,
 		) -> DispatchResult {
-            Self::ensure_enabled()?;
+			Self::ensure_enabled()?;
 			let who = ensure_signed(origin)?;
 			let Some(destination) = T::SendTo::get() else {
 				cfg_if::cfg_if! {
@@ -345,7 +345,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion())]
 		pub fn retry_process_conversion(origin: OriginFor<T>) -> DispatchResult {
-            Self::ensure_enabled()?;
+			Self::ensure_enabled()?;
 			let who = ensure_signed(origin)?;
 			if T::ReceiveFrom::get().is_none() {
 				cfg_if::cfg_if! {
@@ -368,7 +368,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			account: T::AccountId,
 		) -> DispatchResult {
-            Self::ensure_enabled()?;
+			Self::ensure_enabled()?;
 			_ = ensure_signed(origin)?;
 			if T::ReceiveFrom::get().is_none() {
 				cfg_if::cfg_if! {
@@ -490,7 +490,7 @@ pub mod pallet {
 		}
 
 		pub fn process_conversion(conversion_message: ConversionMessageFor<T>) -> DispatchResult {
-            Self::ensure_enabled()?;
+			Self::ensure_enabled()?;
 			if Self::locked_conversion(&conversion_message.account).is_some() {
 				// we just silently ignore multiple conversion messages for the same account
 				return Ok(());

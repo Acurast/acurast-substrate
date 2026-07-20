@@ -881,17 +881,8 @@ where
 			allow_auto_compound.unwrap_or(old_delegation.stake.allow_auto_compound);
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
-		let reward = Self::end_delegation_for(who, commitment_id, false, false)?;
-		let distribution_account = Self::account_id();
-		if !reward.is_zero() {
-			T::Currency::transfer(
-				&distribution_account,
-				who,
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-		}
+		// `end_delegation_for` already transfers the accrued reward to `who`, so we must not transfer again here.
+		Self::end_delegation_for(who, commitment_id, false, false)?;
 		Self::delegate_for(who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
 		Ok(())
 	}
@@ -1518,17 +1509,8 @@ where
 		}
 
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
-		let reward = Self::end_delegation_for(who, old_commitment_id, false, false)?;
-		let distribution_account = Self::account_id();
-		if !reward.is_zero() {
-			T::Currency::transfer(
-				&distribution_account,
-				who,
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-		}
+		// `end_delegation_for` already transfers the accrued reward to `who`, so we must not transfer again here.
+		Self::end_delegation_for(who, old_commitment_id, false, false)?;
 		Self::delegate_for(
 			who,
 			new_commitment_id,
@@ -1657,17 +1639,8 @@ where
 		delegator: &T::AccountId,
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
+		// `end_delegation_for` already transfers the accrued reward to `delegator`, so we must not transfer again here.
 		let reward = Self::end_delegation_for(delegator, commitment_id, false, true)?;
-		let distribution_account = Self::account_id();
-		if !reward.is_zero() {
-			T::Currency::transfer(
-				&distribution_account,
-				delegator,
-				reward,
-				ExistenceRequirement::KeepAlive,
-			)
-			.map_err(|_| Error::<T, I>::InternalError)?;
-		}
 
 		Ok(reward)
 	}

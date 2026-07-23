@@ -44,6 +44,10 @@ impl<T: Config> Pallet<T> {
 			let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
 			let requirements: JobRequirementsFor<T> = e.into();
 
+			// CHECK the job uses the single assignment strategy; otherwise this extrinsic must not be used
+			// (a `Competing` job is matched per execution via `propose_execution_matching`).
+			ensure!(requirements.is_single(), Error::<T>::WrongAssignmentStrategyInMatch);
+
 			let now = Self::now()?;
 
 			// CHECK that execution matching happens not after start time
@@ -236,6 +240,10 @@ impl<T: Config> Pallet<T> {
 				.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
 			let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
 			let requirements: JobRequirementsFor<T> = e.into();
+
+			// CHECK the job uses the competing assignment strategy; otherwise this extrinsic must not be used
+			// (a `Single` job is matched via `propose_matching` and uses `ExecutionSpecifier::All`).
+			ensure!(requirements.is_competing(), Error::<T>::WrongAssignmentStrategyInMatch);
 
 			let now = Self::now()?;
 

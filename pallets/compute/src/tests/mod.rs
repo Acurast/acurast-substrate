@@ -2593,6 +2593,127 @@ fn test_delegate_undelegate() {
 	});
 }
 
+/// Regression test for a double-transfer bug in `delegate_more`/`redelegate`/`kick_out`:
+/// those functions call `end_delegation_for`, which already transfers the accrued reward to the
+/// delegator internally, and previously transferred it a second time on top.
+///
+/// Two identical delegators accrue the exact same reward. One claims it through the known-correct
+/// single-transfer path (`withdraw_delegation`), the other through `delegate_more`. The reward paid
+/// out must be identical; with the double transfer, `delegate_more` would pay out twice as much.
+#[test]
+fn test_delegate_more_does_not_double_transfer_reward() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+		setup_balances();
+		create_pools();
+
+		let committer = charlie_account_id();
+		offer_accept_backing(committer.clone());
+		commit_alice_bob();
+
+		let commitment: sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> =
+			bounded_vec![ComputeCommitment {
+				pool_id: 2,
+				metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128),
+			},];
+
+		let stake_amount = 10 * UNIT;
+		let cooldown_period = 36u64;
+		let commission = Perbill::from_percent(10);
+		let allow_auto_compound = true;
+
+		roll_to_block(202);
+		assert_eq!(Compute::current_cycle(), Cycle { epoch: 2, epoch_start: 202 });
+
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
+		// Alice & Bob recommit
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(committer.clone()),
+			stake_amount,
+			cooldown_period,
+			commitment,
+			commission,
+			allow_auto_compound,
+		));
+
+		// Two delegators with IDENTICAL stake, cooldown and timing => identical accrued reward.
+		let delegator_1 = ferdie_account_id();
+		let delegator_2 = george_account_id();
+		let delegation_amount = 15 * UNIT;
+
+		for delegator in [&delegator_1, &delegator_2] {
+			assert_ok!(Compute::delegate(
+				RuntimeOrigin::signed(delegator.clone()),
+				committer.clone(),
+				delegation_amount,
+				cooldown_period,
+				allow_auto_compound,
+			));
+		}
+
+		// Accrue rewards across a couple of epochs.
+		roll_to_block(302);
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+		roll_to_block(402);
+		{
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)],
+			);
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]);
+		}
+
+		// delegator_1 claims via the known-correct single-transfer path.
+		let d1_before = Balances::free_balance(&delegator_1);
+		assert_ok!(Compute::withdraw_delegation(
+			RuntimeOrigin::signed(delegator_1.clone()),
+			committer.clone()
+		));
+		let reward_via_withdraw = Balances::free_balance(&delegator_1) - d1_before;
+		assert!(reward_via_withdraw > 0, "test setup must accrue a non-zero reward");
+
+		// delegator_2 claims the same accrued reward as a side effect of `delegate_more` (extra = 0).
+		let d2_before = Balances::free_balance(&delegator_2);
+		assert_ok!(Compute::delegate_more(
+			RuntimeOrigin::signed(delegator_2.clone()),
+			committer.clone(),
+			0,
+			None,
+			None
+		));
+		let reward_via_delegate_more = Balances::free_balance(&delegator_2) - d2_before;
+
+		// The reward must be paid exactly once, matching the withdraw path.
+		assert_eq!(
+			reward_via_delegate_more, reward_via_withdraw,
+			"delegate_more must pay the accrued reward exactly once (double transfer regression)"
+		);
+	});
+}
+
 #[test]
 fn test_delegate_more() {
 	ExtBuilder.build().execute_with(|| {

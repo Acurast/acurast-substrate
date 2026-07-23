@@ -205,36 +205,6 @@ pub mod pallet {
 			action: IncomingAction,
 			payer: &T::AccountId,
 		) -> Result<(), DispatchError> {
-			let next_message_number = Self::next_message_number();
-			NextMessageNumber::<T, I>::put(next_message_number + 1);
-
-			let message = Message { id: next_message_number, action };
-			let encoded = <SubstrateMessageEncoder as MessageEncoder>::encode(&message)
-				.map_err(|e| -> Error<T, I> { e.into() })?;
-
-			let recipient = match chain {
-				ProxyChain::AlephZero => {
-					Subject::AlephZero(Layer::Contract(Self::aleph_zero_contract()))
-				},
-				ProxyChain::Vara => Subject::Vara(Layer::Contract(ContractCall {
-					contract: Self::vara_contract(),
-					selector: None,
-				})),
-			};
-			let message_nonce = T::MessageIdHasher::hash_of(&next_message_number);
-			_ = T::MessageSender::send_message(
-				&T::Sender::get(),
-				// payer
-				payer,
-				message_nonce.clone(),
-				recipient,
-				encoded,
-				30u8.into(),
-				T::MessageFee::get(),
-			)?;
-
-			Self::deposit_event(Event::SentToProxyV2(message_nonce));
-
 			Ok(())
 		}
 	}
@@ -254,36 +224,6 @@ pub mod pallet {
 		fn process(
 			message: impl MessageBody<T::AccountId, T::AccountId>,
 		) -> DispatchResultWithPostInfo {
-			match message.sender() {
-				SubjectFor::<T>::AlephZero(Layer::Contract(c))
-					if c == &Self::aleph_zero_contract() =>
-				{
-					let action =
-						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
-							&message.payload(),
-                            ProxyChain::AlephZero,
-						)
-						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
-					T::ActionExecutor::execute(action)?;
-
-					Ok(())
-				},
-				SubjectFor::<T>::Vara(Layer::Contract(c))
-					if c == &ContractCall { contract: Self::vara_contract(), selector: None } =>
-				{
-					let action =
-						<SubstrateMessageDecoder::<I, T::ParsableAccountId, T::AccountId> as types::MessageDecoder<T>>::decode(
-							&message.payload(),
-                            ProxyChain::Vara,
-						)
-						.map_err(|e| Error::<T, I>::SubstrateMessageDecoderError(e as u8))?;
-					T::ActionExecutor::execute(action)?;
-
-					Ok(())
-				},
-				_ => Err(Error::<T, I>::InvalidSender),
-			}?;
-
 			Ok(().into())
 		}
 	}

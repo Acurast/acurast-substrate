@@ -480,6 +480,9 @@ pub mod pallet {
 		CannotAcknowledgeAfterStartTime,
 		/// Cannot get a price for a processor
 		CannotGetProcessorPrice,
+		/// Match is invalid because the job's assignment strategy does not match the matching extrinsic used
+		/// (`propose_matching` requires [`AssignmentStrategy::Single`], `propose_execution_matching` requires [`AssignmentStrategy::Competing`]).
+		WrongAssignmentStrategyInMatch,
 	}
 
 	#[pallet::hooks]

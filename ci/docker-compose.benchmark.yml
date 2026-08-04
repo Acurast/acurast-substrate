@@ -1,0 +1,55 @@
+# Runs the `runtime-benchmarks` node on the bare-metal benchmarking box.
+#
+# The image is NOT built here: the box does not build, it pulls the tag that the
+# `*-benchmarks-build` job pushed to the GitLab registry. `BENCH_IMAGE` is the
+# fully-qualified tag, injected by the `*-benchmarks-run` job over SSH.
+#
+# The limits below fix the hardware the weights describe:
+#
+#   BENCH_CPUSET  whole physical cores, both SMT threads of each
+#   BENCH_MEM     memory limit, with swap disabled (memswap_limit equal to it)
+#   /bench        bind mount, which must live on an NVMe filesystem
+#   serialisation resource_group in .gitlab-ci.yml, one bench run at a time
+#
+# The cpuset is NOT self-validating: which ids share a physical core depends on
+# how the kernel enumerated the threads, which differs between boxes. So both
+# values are also passed in as BENCH_*_REQUESTED env, and ci/benchmark.sh checks
+# the cgroup actually granted them and that the cpuset owns no half of a core —
+# a half-owned core lets host work compete inside it and skew the measurement.
+# The real sibling mapping is printed into hardware.txt on every run.
+#
+# Manual use on the box:
+#   export BENCH_IMAGE=registry.gitlab.papers.tech/papers/acurast/acurast-substrate/acurast-node-bench:<sha>-kusama
+#   export BENCH_CHAIN=acurast-kusama BENCH_HOST_OUT=$PWD/out
+#   export BENCH_UID=$(id -u) BENCH_GID=$(id -g)
+#   docker compose -f docker-compose.benchmark.yml run --rm bench
+services:
+  bench:
+    image: ${BENCH_IMAGE:?set BENCH_IMAGE to the registry tag to benchmark}
+    pull_policy: always
+    # Runs as the host user that owns the bind-mounted output directory, not the
+    # image's `app` (uid 1000) and not root. Root would write root-owned dirs into
+    # the run directory, which the deploying user then cannot clean up.
+    user: "${BENCH_UID:?set BENCH_UID to the owner of BENCH_HOST_OUT}:${BENCH_GID:?set BENCH_GID}"
+    cpuset: ${BENCH_CPUSET:-0-7}
+    mem_limit: ${BENCH_MEM:-32g}
+    # Equal to mem_limit => no swap. Swapping mid-run would inflate timings.
+    memswap_limit: ${BENCH_MEM:-32g}
+    # The same values again, as env: benchmark.sh compares what was requested
+    # against what the cgroup actually granted. Docker rejects a cpuset naming
+    # CPUs the box lacks, but nothing otherwise proves the limits took effect.
+    environment:
+      BENCH_CPUSET_REQUESTED: ${BENCH_CPUSET:-0-7}
+      BENCH_MEM_REQUESTED: ${BENCH_MEM:-32g}
+    # The image entrypoint is the node itself; benchmark.sh drives it instead.
+    # The script is bind-mounted rather than baked in, so it is not shipped in
+    # the production node image.
+    entrypoint: ["/bin/bash", "/ci/benchmark.sh"]
+    command:
+      - ${BENCH_CHAIN:?set BENCH_CHAIN (acurast-mainnet|acurast-kusama|acurast-rococo)}
+      - ${BENCH_STEPS:-50}
+      - ${BENCH_REPEAT:-20}
+    working_dir: /bench
+    volumes:
+      - ./benchmark.sh:/ci/benchmark.sh:ro
+      - ${BENCH_HOST_OUT:-./out}:/bench

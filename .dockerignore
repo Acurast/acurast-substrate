@@ -7,3 +7,8 @@
 
 # dotfiles in the repo root
 /.*
+# ...except the cargo config: it carries WASM_BUILD_RUSTFLAGS (--import-undefined),
+# without which the runtime blob fails to link every sp-io/cumulus `ext_*` host
+# function. Excluding it makes the image build fail while local builds pass.
+!/.cargo
+!/.cargo/**

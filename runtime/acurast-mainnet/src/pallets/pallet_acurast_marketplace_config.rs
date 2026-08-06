@@ -23,7 +23,7 @@ use crate::{
 
 parameter_types! {
 	pub const MinPrice: Balance = 2_000_000_000;
-	pub const PriceMultiplier: FixedU128 = FixedU128::from_rational(11, 10);
+	pub const PriceMultiplier: FixedU128 = FixedU128::from_rational(143, 100);
 }
 
 /// Runtime configuration for pallet_acurast_marketplace.

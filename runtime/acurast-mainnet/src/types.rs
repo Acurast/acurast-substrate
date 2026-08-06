@@ -69,53 +69,70 @@ pub type TransactionExtensionV0 = cumulus_pallet_weight_reclaim::StorageWeightRe
 /// Backwards-compatible alias for the version 0 transaction extension pipeline.
 pub type TxExtension = TransactionExtensionV0;
 
-/// The transaction extension pipeline at version 1.
-///
-/// Identical to [`TransactionExtensionV0`] with [`frame_metadata_hash_extension::CheckMetadataHash`]
-/// appended. The Ledger Polkadot Generic app requires this extension (RFC-0078) to verify and
-/// display transactions offline. Clients opt in by building a v5 general transaction with extension
-/// version 1; clients that do not know about it keep using version 0 and are unaffected.
-pub type TransactionExtensionV1 = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
-	Runtime,
-	(
-		// Must come first: it requires an as-yet unauthorized origin and rejects with
-		// `BadSigner` otherwise, and it verifies the signature over the call plus the data of
-		// every extension that FOLLOWS it. Anything placed before it is excluded from the
-		// signed payload.
-		pallet_verify_signature::VerifySignature<Runtime>,
-		frame_system::AuthorizeCall<Runtime>,
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		Onboarding<Runtime, AcurastProcessorManager>,
-		CheckNonce<Runtime, AcurastProcessorManager>,
-		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	),
->;
-
-/// The transaction extension versions supported by this runtime in addition to version 0.
-///
-/// New versions can be appended here as `PipelineAtVers<N, ..>` entries without disturbing the
-/// encoding of existing versions.
-pub type OtherVersions =
-	sp_runtime::traits::MultiVersion<sp_runtime::traits::PipelineAtVers<1, TransactionExtensionV1>>;
+// ---------------------------------------------------------------------------------------------
+// Versioned transaction extensions — DISABLED, kept for reference.
+//
+// The intent was to add `CheckMetadataHash` (RFC-0078, required by the Ledger Polkadot Generic app)
+// in a *second* extension version, so the ~30k processors — which build their signed payload from a
+// hardcoded extension list — could keep using version 0 untouched.
+//
+// It works on-chain: a v5 general transaction selecting extension version 1 was built, signed and
+// applied against a local node, and unsigned attempts were correctly rejected with `UnknownOrigin`.
+// The blocker is client tooling, and it breaks both libraries we depend on, in opposite ways:
+//
+//   * @polkadot/api 16.5.6 keeps a single registry-wide extension list. From metadata v16 it
+//     flattens every version into that one list, so it encoded v1's `CheckMetadataHash` byte into
+//     v4 transactions and every extrinsic failed to decode. It also cannot decode a block that
+//     contains a v1 extrinsic. Per-version support is only an open RFC (polkadot-js/api#6213).
+//   * subxt picks the *highest* advertised version, so it would select v1 and fail on the
+//     extensions it does not know (paritytech/subxt#1998, #2265 — both open).
+//
+// Re-enabling this needs those upstream gaps closed. The alternative path, which needs none of
+// this, is to teach the processor client to pick its layout from `spec_version` and then move
+// `CheckMetadataHash` into the single pipeline in a coordinated runtime upgrade.
+// ---------------------------------------------------------------------------------------------
+// /// The transaction extension pipeline at version 1.
+// ///
+// /// Identical to [`TransactionExtensionV0`] with [`frame_metadata_hash_extension::CheckMetadataHash`]
+// /// appended. The Ledger Polkadot Generic app requires this extension (RFC-0078) to verify and
+// /// display transactions offline. Clients opt in by building a v5 general transaction with extension
+// /// version 1; clients that do not know about it keep using version 0 and are unaffected.
+// pub type TransactionExtensionV1 = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+// 	Runtime,
+// 	(
+// 		// Must come first: it requires an as-yet unauthorized origin and rejects with
+// 		// `BadSigner` otherwise, and it verifies the signature over the call plus the data of
+// 		// every extension that FOLLOWS it. Anything placed before it is excluded from the
+// 		// signed payload.
+// 		pallet_verify_signature::VerifySignature<Runtime>,
+// 		frame_system::AuthorizeCall<Runtime>,
+// 		frame_system::CheckNonZeroSender<Runtime>,
+// 		frame_system::CheckSpecVersion<Runtime>,
+// 		frame_system::CheckTxVersion<Runtime>,
+// 		frame_system::CheckGenesis<Runtime>,
+// 		frame_system::CheckEra<Runtime>,
+// 		Onboarding<Runtime, AcurastProcessorManager>,
+// 		CheckNonce<Runtime, AcurastProcessorManager>,
+// 		frame_system::CheckWeight<Runtime>,
+// 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+// 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+// 	),
+// >;
+//
+// /// The transaction extension versions supported by this runtime in addition to version 0.
+// ///
+// /// New versions can be appended here as `PipelineAtVers<N, ..>` entries without disturbing the
+// /// encoding of existing versions.
+// pub type OtherVersions =
+// 	sp_runtime::traits::MultiVersion<sp_runtime::traits::PipelineAtVers<1, TransactionExtensionV1>>;
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<
-	Address,
-	RuntimeCall,
-	Signature,
-	TransactionExtensionV0,
-	OtherVersions,
->;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensionV0>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
-	generic::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensionV0, OtherVersions>;
+	generic::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensionV0>;
 
 parameter_types! {
 	/// Storage prefix of the decommissioned `pallet_acurast_hyperdrive` (`AcurastHyperdrive`) instance.

@@ -135,9 +135,10 @@ mod runtime {
 	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
 	#[runtime::pallet_index(55)]
 	pub type AcurastTokenClaim = pallet_acurast_token_claim;
-	// Declared only for its `VerifySignature` transaction extension; the pallet has no calls.
-	#[runtime::pallet_index(56)]
-	pub type VerifySignature = pallet_verify_signature;
+	// Declared only for its `VerifySignature` transaction extension (see `types.rs`); disabled
+	// together with the versioned transaction extensions.
+	// #[runtime::pallet_index(56)]
+	// pub type VerifySignature = pallet_verify_signature;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

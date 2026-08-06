@@ -75,7 +75,6 @@ impl pallet_timestamp::Config for Test {
 impl parachain_info::Config for Test {}
 
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorRegistration = ValReg<Self>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;

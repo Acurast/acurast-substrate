@@ -351,6 +351,8 @@ where
 		let weights = commitment.weights.get_latest(epoch).unwrap_or_default();
 		let commitment_total_weight = weights.total_reward_weight();
 
+		let current_weights = commitment.weights.get_current().1;
+
 		let mut total_delegations_reward: BalanceFor<T, I> = Zero::zero();
 		let mut total_committer_bonus: BalanceFor<T, I> = Zero::zero();
 		for pool_id in pool_ids {
@@ -439,12 +441,13 @@ where
 			})?;
 		}
 
-		// reward_delegation_pool
-		if !weights.delegations_reward_weight.is_zero() && !total_delegations_reward.is_zero() {
+		if !current_weights.delegations_reward_weight.is_zero()
+			&& !total_delegations_reward.is_zero()
+		{
 			let extra = U256::from(total_delegations_reward.saturated_into::<u128>())
 				.checked_mul(U256::from(PER_TOKEN_DECIMALS))
 				.ok_or(Error::<T, I>::CalculationOverflow)?
-				.checked_div(weights.delegations_reward_weight)
+				.checked_div(current_weights.delegations_reward_weight)
 				.ok_or(Error::<T, I>::CalculationOverflow)?;
 			// TODO add try_mutate to MemoryBuffer to make this not saturating
 			commitment
@@ -722,12 +725,23 @@ where
 		Ok(())
 	}
 
+	/// Creates a delegation of `amount` by `who` to `commitment_id`.
+	///
+	/// `created` is the block stamped as the delegation's `stake.created`, which doubles as the start
+	/// of the [`T::RedelegationBlockingPeriod`]: pass `None` to start it now (the normal case, since
+	/// stake that just arrived from another committer must not leave again immediately), or
+	/// `Some(block)` to carry a running period over for stake that did not change committer, as
+	/// [`Self::delegate_more_for`] does.
+	///
+	/// A carried-over `created` must still satisfy `created >= commitment.stake.created`, otherwise the
+	/// delegation would count as stale. All callers that pass `Some` have asserted that beforehand.
 	pub fn delegate_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
 		amount: BalanceFor<T, I>,
 		cooldown_period: BlockNumberFor<T>,
 		allow_auto_compound: bool,
+		created: Option<BlockNumberFor<T>>,
 	) -> Result<(), Error<T, I>> {
 		ensure!(
 			!amount.is_zero() && amount >= T::MinDelegation::get(),
@@ -743,7 +757,7 @@ where
 		);
 
 		let epoch = Self::current_cycle().epoch;
-		let created = <frame_system::Pallet<T>>::block_number();
+		let created = created.unwrap_or_else(<frame_system::Pallet<T>>::block_number);
 		<Commitments<T, I>>::try_mutate(commitment_id, |c_| -> Result<(), Error<T, I>> {
 			let commitment = c_.as_mut().ok_or(Error::<T, I>::CommitmentNotFound)?;
 			let committer_stake =
@@ -833,6 +847,11 @@ where
 		})
 	}
 
+	/// Grows an existing delegation of `who` to `commitment_id` by `extra_amount`.
+	///
+	/// The running [`T::RedelegationBlockingPeriod`] is carried over rather than restarted: the added
+	/// stake could as well have been delegated elsewhere, so it must not lengthen the wait for the
+	/// delegation it joins — least of all through auto-compounding, which a third party can trigger.
 	pub fn delegate_more_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
@@ -880,10 +899,21 @@ where
 		let allow_auto_compound =
 			allow_auto_compound.unwrap_or(old_delegation.stake.allow_auto_compound);
 
+		// Carry the running blocking period over by keeping `created`.
+		let created = Some(old_delegation.stake.created);
+
 		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
 		// `end_delegation_for` already transfers the accrued reward to `who`, so we must not transfer again here.
 		Self::end_delegation_for(who, commitment_id, false, false)?;
-		Self::delegate_for(who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
+		Self::delegate_for(
+			who,
+			commitment_id,
+			amount,
+			cooldown_period,
+			allow_auto_compound,
+			created,
+		)?;
+
 		Ok(())
 	}
 
@@ -1093,7 +1123,10 @@ where
 		commitment_id: T::CommitmentId,
 	) -> Result<BalanceFor<T, I>, Error<T, I>> {
 		let compound_amount = Self::withdraw_delegation_for(who, commitment_id)?;
-		// delegate_more_for will fail the compounding if delegator is in cooldown
+		// `delegate_more_for` fails the compounding if the delegator is in cooldown, and carries the
+		// running blocking period over rather than restarting it. Both matter because compounding can be
+		// triggered by a third party (`allow_auto_compound`), which must be able neither to cancel the
+		// delegator's cooldown nor to block them from redelegating.
 		Self::delegate_more_for(who, commitment_id, compound_amount, None, None)?;
 
 		Ok(compound_amount)
@@ -1469,19 +1502,21 @@ where
 		})
 	}
 
-	pub fn redelegate_for(
+	/// Shared validation of the *source* of a redelegation. Ensures `who` delegates to the old
+	/// commitment, the source commitment is live and not stale, and the
+	/// [`T::RedelegationBlockingPeriod`] has elapsed (unless the source committer is in cooldown).
+	/// Returns the loaded source delegation.
+	///
+	/// The targets need no validation of their own: since a redelegation never merges, every target is a
+	/// fresh [`Self::delegate_for`], whose `AlreadyDelegating` check rejects both a target the delegator
+	/// already delegates to and a target listed twice (the second leg finds what the first created).
+	fn ensure_can_redelegate(
 		who: &T::AccountId,
 		old_commitment_id: T::CommitmentId,
-		new_commitment_id: T::CommitmentId,
-	) -> Result<(), DispatchError> {
+	) -> Result<DelegationFor<T, I>, DispatchError> {
 		// Check if the caller is a delegator to the old commitment
 		let old_delegation =
 			<Delegations<T, I>>::get(who, old_commitment_id).ok_or(Error::<T, I>::NotDelegating)?;
-		// Check that the caller is not already delegating to new commitment (nice for specific error but it would fail below in delegate_for otherwise)
-		ensure!(
-			Self::delegations(who, new_commitment_id).is_none(),
-			Error::<T, I>::AlreadyDelegatingToRedelegationCommitter
-		);
 
 		// Check if the old commitment is in cooldown (if it ended we error out since it's rational to end delegation and decide fresh whom and with what parameters to delegate)
 		let old_commitment_stake = Self::commitments(old_commitment_id)
@@ -1499,7 +1534,10 @@ where
 		// Only check RedelegationBlockingPeriod is respected if current committer is not in cooldown, otherwise allow immediate redelegation always
 		if old_commitment_stake.cooldown_started.is_none() {
 			let current_block = <frame_system::Pallet<T>>::block_number();
-			// check if enough epochs have passed since last update (which lead to `created` field being reset)
+			// `created` doubles as the start of the blocking period: it is stamped when a delegation is
+			// created and restarted by every redelegation — for the targets stake moved to as well as for
+			// a remainder left on the source. Growing a delegation or compounding into it leaves it alone
+			// (see `delegate_for`).
 			let blocks_since_created = current_block.saturating_sub(old_delegation.stake.created);
 			ensure!(
 				blocks_since_created
@@ -1508,16 +1546,100 @@ where
 			);
 		}
 
-		// TODO: improve this two calls to not unlock and lock the amount unnecessarily
+		Ok(old_delegation)
+	}
+
+	/// **DEPRECATED:** use [`Self::redelegate_v2_for`] instead.
+	///
+	/// Moves a delegation in full to another commitment. A thin wrapper over
+	/// [`Self::redelegate_v2_for`] with a single target taking the whole delegated amount.
+	#[deprecated(
+		note = "use `redelegate_v2_for`, which also supports partial and multi-target moves"
+	)]
+	pub fn redelegate_for(
+		who: &T::AccountId,
+		old_commitment_id: T::CommitmentId,
+		new_commitment_id: T::CommitmentId,
+	) -> Result<(), DispatchError> {
+		let amount = <Delegations<T, I>>::get(who, old_commitment_id)
+			.ok_or(Error::<T, I>::NotDelegating)?
+			.stake
+			.amount;
+
+		Self::redelegate_v2_for(who, old_commitment_id, &[(new_commitment_id, amount)])
+	}
+
+	/// Splits an existing delegation over up to [`MAX_REDELEGATIONS`] commitments.
+	///
+	/// `targets` states the full split, not just what leaves: the amounts must sum to the delegated
+	/// amount exactly, so a share that should stay with the source committer has to be listed as a
+	/// target of its own. That makes the call idempotent in its amounts — the resulting delegations
+	/// are exactly the ones given, independent of what was delegated where before.
+	///
+	/// Every share must be at least [`T::MinDelegation`]. A target the delegator already delegates to is
+	/// rejected: a redelegation never merges, so it can neither lengthen a cooldown period implicitly nor
+	/// cancel a cooldown running on the target delegation.
+	///
+	/// The [`T::RedelegationBlockingPeriod`] restarts for every target, including a remainder left on
+	/// the source. One redelegation therefore blocks the delegation as a whole for the full period,
+	/// rather than letting a delegator keep moving stake away from the source in slices while every
+	/// share that arrived elsewhere is held.
+	///
+	/// `targets` are pre-resolved commitment ids; the caller is responsible for emitting events.
+	pub fn redelegate_v2_for(
+		who: &T::AccountId,
+		old_commitment_id: T::CommitmentId,
+		targets: &[(T::CommitmentId, BalanceFor<T, I>)],
+	) -> Result<(), DispatchError> {
+		let old_delegation = Self::ensure_can_redelegate(who, old_commitment_id)?;
+
+		// Every share must satisfy the minimum delegation (`delegate_for` re-checks, but fail early
+		// with a clean error) and the shares must account for the delegated amount exactly.
+		let mut targets_total = BalanceFor::<T, I>::zero();
+		for (_, amount) in targets {
+			ensure!(*amount >= T::MinDelegation::get(), Error::<T, I>::BelowMinDelegation);
+			targets_total =
+				targets_total.checked_add(amount).ok_or(Error::<T, I>::CalculationOverflow)?;
+		}
+		ensure!(
+			targets_total == old_delegation.stake.amount,
+			Error::<T, I>::RedelegationAmountMismatch
+		);
+
+		// A share staying with the source is re-created by `delegate_for`, which cannot carry
+		// `cooldown_started` over and would silently cancel the delegator's cooldown. Only a full move
+		// away from the source is allowed in cooldown.
+		let stays_with_source = targets.iter().any(|(id, _)| *id == old_commitment_id);
+		ensure!(
+			!stays_with_source || old_delegation.stake.cooldown_started.is_none(),
+			Error::<T, I>::DelegationInCooldown
+		);
+
 		// `end_delegation_for` already transfers the accrued reward to `who`, so we must not transfer again here.
 		Self::end_delegation_for(who, old_commitment_id, false, false)?;
-		Self::delegate_for(
-			who,
-			new_commitment_id,
-			old_delegation.stake.amount,
-			old_delegation.stake.cooldown_period,
-			old_delegation.stake.allow_auto_compound,
-		)?;
+
+		// Every target is a delegation created from scratch: a redelegation never merges, so `delegate_for`
+		// rejecting an existing delegation with `AlreadyDelegating` is exactly the wanted behaviour — it
+		// covers both a target the delegator already delegates to and a target listed twice, the second leg
+		// finding what the first created. Only the source can be delegated to again, its delegation having
+		// just been ended.
+		//
+		// Each target carries the source delegation's cooldown period and `allow_auto_compound` over
+		// unchanged, so no target can come out with a period the delegator never agreed to.
+		//
+		// Re-delegating to the source requires the old committer not to be in cooldown, else this fails
+		// with `CommitmentInCooldown`. `created` is left to default to the current block so the blocking
+		// period restarts for every target — including for a remainder left on the source.
+		for (new_commitment_id, amount) in targets {
+			Self::delegate_for(
+				who,
+				*new_commitment_id,
+				*amount,
+				old_delegation.stake.cooldown_period,
+				old_delegation.stake.allow_auto_compound,
+				None,
+			)?;
+		}
 
 		Ok(())
 	}
@@ -1770,6 +1892,13 @@ where
 		let weights = commitment.weights.get_latest(last_epoch).unwrap_or_default();
 		let total_slash_weight = weights.total_slash_weight();
 
+		// See the note in `distribute`: the committer/delegator split below is settled with the
+		// `last_epoch` weights, but the `slash_per_weight` accumulator must be divided by the weight that
+		// exists now, since that is the set of delegations that will actually absorb this increment.
+		// A slash for `last_epoch` can be triggered at any block of the current epoch, so the window
+		// here is a whole epoch wide.
+		let current_weights = commitment.weights.get_current().1;
+
 		// If no slash weight, nothing to slash; technically never happens but avoids division-by-zero below
 		if total_slash_weight.is_zero() {
 			return Ok(());
@@ -1793,18 +1922,19 @@ where
 			delegations_share_u256.saturated_into::<u128>().into();
 
 		// Calculate slash increase on delegation pool slash_per_weight
-		let slash_per_weight_increase =
-			if !weights.delegations_slash_weight.is_zero() && !delegations_slash_amount.is_zero() {
-				Some(
-					delegations_share_u256
-						.checked_mul(U256::from(PER_TOKEN_DECIMALS))
-						.ok_or(Error::<T, I>::CalculationOverflow)?
-						.checked_div(weights.delegations_slash_weight)
-						.ok_or(Error::<T, I>::CalculationOverflow)?,
-				)
-			} else {
-				None
-			};
+		let slash_per_weight_increase = if !current_weights.delegations_slash_weight.is_zero()
+			&& !delegations_slash_amount.is_zero()
+		{
+			Some(
+				delegations_share_u256
+					.checked_mul(U256::from(PER_TOKEN_DECIMALS))
+					.ok_or(Error::<T, I>::CalculationOverflow)?
+					.checked_div(current_weights.delegations_slash_weight)
+					.ok_or(Error::<T, I>::CalculationOverflow)?,
+			)
+		} else {
+			None
+		};
 
 		let committer = T::CommitmentIdProvider::owner_for(commitment_id)
 			.map_err(|_| Error::<T, I>::NoOwnerOfCommitmentId)?;

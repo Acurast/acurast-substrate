@@ -272,12 +272,6 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
-	fn set_migration_data() -> Weight {
-		Weight::from_parts(18_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 4990))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-
 	fn heartbeat_with_version_no_claim() -> Weight {
 		Weight::from_parts(49_914_873, 0)
 			.saturating_add(Weight::from_parts(0, 15088))

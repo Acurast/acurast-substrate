@@ -10,7 +10,7 @@ chain = "rococo-local"
 #name = "alice"
 #validator = true
 #command = "polkadot"
-#ws_port = 9944
+#rpc_port = 9944
 #
 #[[relaychain.nodes]]
 #name = "bob"
@@ -35,7 +35,6 @@ cumulus_based = true
 [[parachains.collators]]
 name = "Alice"
 command = "acurast-node"
-ws_port = 8802
 rpc_port = 8082
 args = [
 	"-lparachain=debug,runtime=debug",
@@ -48,7 +47,6 @@ args = [
 [[parachains.collators]]
 name = "Bob"
 command = "acurast-node"
-ws_port = 8803
 rpc_port = 8083
 args = [
 	"-lparachain=debug,runtime=debug",

@@ -22,7 +22,7 @@ use crate::{
 	constants::CommitmentCollectionId,
 	pallets::pallet_acurast_processor_manager_config::AcurastManagerIdProvider, Acurast,
 	AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances, EnsureCouncilOrRoot,
-	RootAccountId, Runtime, RuntimeEvent, Treasury, Uniques,
+	RootAccountId, Runtime, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -54,7 +54,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_compute::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;

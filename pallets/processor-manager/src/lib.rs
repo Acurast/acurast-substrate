@@ -72,7 +72,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type Proof: Parameter + Member + Verify + MaxEncodedLen;
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
@@ -263,6 +262,7 @@ pub mod pallet {
 		PairingProofExpired,
 		UnknownProcessorVersion,
 		OnboardingSettingsNotSet,
+		MigrationDisabled,
 	}
 
 	#[pallet::hooks]
@@ -658,18 +658,13 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(16)]
-		#[pallet::weight(T::WeightInfo::set_migration_data())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
 		pub fn set_migration_data(
 			origin: OriginFor<T>,
-			data: Proof<T::Proof>,
+			_data: Proof<T::Proof>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-
-			<ProcessorMigrationData<T>>::insert(&who, data);
-
-			Self::deposit_event(Event::<T>::ProcessorMigrationDataSet(who));
-
-			Ok(().into())
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::MigrationDisabled.into())
 		}
 	}
 }

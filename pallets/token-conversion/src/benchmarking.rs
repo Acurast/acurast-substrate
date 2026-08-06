@@ -1,22 +1,18 @@
 use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
-	sp_runtime::traits::AccountIdConversion,
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
-	},
+	traits::fungible::{Mutate, MutateHold},
 };
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_std::prelude::*;
 
-use crate::{BalanceFor, Call, Config, ConversionMessageFor, Pallet};
+use crate::{BalanceFor, Call, Config, Conversion, HoldReason, LockedConversion, Pallet};
 
 #[benchmarks(
 	where BalanceFor<T>: IsType<u128> + From<u64>,
 )]
 mod benches {
-	use super::{Pallet as TokenConversion, *};
+	use super::*;
 	use sp_runtime::Saturating;
 
 	// helper inside the benchmark module so `T` is injected by the macro
@@ -24,177 +20,41 @@ mod benches {
 		let _ = <<T as crate::Config>::Currency as Mutate<T::AccountId>>::mint_into(who, amount);
 	}
 
-	fn burn_all_from<T: Config>(who: &T::AccountId) {
-		let balance = <<T as crate::Config>::Currency as Inspect<T::AccountId>>::balance(who);
-		let _ = <<T as crate::Config>::Currency as Mutate<T::AccountId>>::burn_from(
+	/// Establishes a locked conversion for `who` directly.
+	///
+	/// The on-chain conversion-processing path has been removed; this mirrors the
+	/// state the former `process_conversion` produced so `unlock` can be measured.
+	fn setup_lock<T: Config>(who: &T::AccountId) -> BlockNumberFor<T>
+	where
+		BalanceFor<T>: IsType<u128>,
+	{
+		// mint enough to keep a free buffer above the held amount
+		mint_to::<T>(who, 1_000_000_000_000u128.into());
+		let hold_amount: BalanceFor<T> = 900_000_000_000u128.into();
+		let _ = <<T as crate::Config>::Currency as MutateHold<T::AccountId>>::hold(
+			&HoldReason::Conversion.into(),
 			who,
-			balance,
-			Preservation::Expendable,
-			Precision::Exact,
-			Fortitude::Force,
+			hold_amount,
 		);
-	}
-
-	/// convert
-	#[benchmark]
-	fn convert() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = account("origin", 0, 0);
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-
-		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
-
-		mint_to::<T>(&caller, initial_balance);
-		mint_to::<T>(&pallet_account, initial_balance);
-
-		// Ensure enabled
-		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
-
-		let fee: BalanceFor<T> = 100_000_000_000u128.into();
-
-		// measured extrinsic call — **bare** call expression, first arg must be origin
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), fee);
-
-		Ok(())
+		let lock_start = frame_system::Pallet::<T>::block_number();
+		<LockedConversion<T>>::insert(who, Conversion { amount: hold_amount, lock_start });
+		lock_start
 	}
 
 	/// unlock (single benchmark that prepares state so unlock succeeds)
 	#[benchmark]
 	fn unlock() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
 
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
-		mint_to::<T>(&pallet_account, initial_balance);
+		let lock_start = setup_lock::<T>(&caller);
 
-		// create and process conversion
-		let msg = ConversionMessageFor::<T> {
-			account: caller.clone(),
-			amount: 1_000_000_000_000u128.into(),
-		};
-		TokenConversion::<T>::process_conversion(msg)?;
-
-		// compute unlock block from stored lock
-		let lock = TokenConversion::<T>::locked_conversion(&caller)
-			.ok_or(BenchmarkError::Stop("locked conversion must exist after processing"))?;
-		let unlock_after = lock
-			.lock_start
-			.saturating_add(T::MaxLockDuration::get().saturating_sub(1000u32.into()));
-
+		let unlock_after =
+			lock_start.saturating_add(T::MaxLockDuration::get().saturating_sub(1000u32.into()));
 		frame_system::Pallet::<T>::set_block_number(unlock_after);
 
 		// measured extrinsic (bare call)
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
-
-		Ok(())
-	}
-
-	/// retry_convert
-	#[benchmark]
-	fn retry_convert() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-
-		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
-		mint_to::<T>(&caller, initial_balance);
-		mint_to::<T>(&pallet_account, initial_balance);
-
-		// enable pallet
-		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
-
-		let fee: BalanceFor<T> = 100_000_000_000u128.into();
-
-		// create conversion
-		_ = TokenConversion::<T>::convert(RawOrigin::Signed(caller.clone()).into(), fee);
-
-		frame_system::Pallet::<T>::set_block_number(
-			T::ConvertTTL::get().saturating_add(100u32.into()),
-		);
-
-		// measured extrinsic
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), fee);
-
-		Ok(())
-	}
-
-	/// retry_convert
-	#[benchmark]
-	fn retry_convert_for() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let account: T::AccountId = account("target", 0, 0);
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-
-		let initial_balance: BalanceFor<T> = 205_000_000_000_000u128.into();
-		mint_to::<T>(&caller, initial_balance);
-		mint_to::<T>(&account, initial_balance);
-		mint_to::<T>(&pallet_account, initial_balance);
-
-		// enable pallet
-		let _ = TokenConversion::<T>::set_enabled(RawOrigin::Root.into(), true);
-
-		let fee: BalanceFor<T> = 100_000_000_000u128.into();
-
-		// create conversion
-		_ = TokenConversion::<T>::convert(RawOrigin::Signed(account.clone()).into(), fee);
-
-		frame_system::Pallet::<T>::set_block_number(
-			T::ConvertTTL::get().saturating_add(100u32.into()),
-		);
-
-		// measured extrinsic
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account, fee);
-
-		Ok(())
-	}
-
-	/// retry_process_conversion
-	#[benchmark]
-	fn retry_process_conversion() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-		burn_all_from::<T>(&pallet_account);
-
-		// insert an unprocessed conversion for `target`
-		let msg = ConversionMessageFor::<T> {
-			account: caller.clone(),
-			amount: 1_000_000_000_000u128.into(),
-		};
-		_ = TokenConversion::<T>::process_conversion(msg);
-
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
-		mint_to::<T>(&pallet_account, initial_balance);
-
-		// measured extrinsic
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()));
-
-		Ok(())
-	}
-
-	/// retry_process_conversion_for
-	#[benchmark]
-	fn retry_process_conversion_for() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let target: T::AccountId = account("target", 0, 0);
-		let pallet_account: T::AccountId = T::PalletId::get().into_account_truncating();
-		burn_all_from::<T>(&pallet_account);
-
-		// insert an unprocessed conversion for `target`
-		let msg = ConversionMessageFor::<T> {
-			account: target.clone(),
-			amount: 1_000_000_000_000u128.into(),
-		};
-		_ = TokenConversion::<T>::process_conversion(msg);
-
-		let initial_balance: BalanceFor<T> = 10_000_000_000_000u128.into();
-		mint_to::<T>(&pallet_account, initial_balance);
-
-		// measured extrinsic
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), target.clone());
 
 		Ok(())
 	}
@@ -205,6 +65,24 @@ mod benches {
 		// measured extrinsic
 		#[extrinsic_call]
 		_(RawOrigin::Root, true);
+
+		Ok(())
+	}
+
+	/// deny_source
+	///
+	/// Previously unbenchmarked while its `#[pallet::weight]` borrowed
+	/// `retry_process_conversion_for()` — one of the disabled stubs, which does no storage work at
+	/// all. This call writes to `DeniedSource`, so it was charged less than it costs.
+	#[benchmark]
+	fn deny_source() -> Result<(), BenchmarkError> {
+		let account: T::AccountId = whitelisted_caller();
+
+		// measured extrinsic
+		#[extrinsic_call]
+		_(RawOrigin::Root, account.clone(), true);
+
+		assert_eq!(crate::DeniedSource::<T>::get(&account), Some(true));
 
 		Ok(())
 	}

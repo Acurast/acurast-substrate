@@ -28,7 +28,7 @@ mod v0 {
 	use frame_support::pallet_prelude::*;
 	use parity_scale_codec::{Decode, Encode};
 
-	#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+	#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 	pub struct ClaimTypeConfig<AccountId, BlockNumber> {
 		pub signer: AccountId,
 		pub funder: AccountId,

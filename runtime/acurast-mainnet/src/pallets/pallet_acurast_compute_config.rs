@@ -21,7 +21,7 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 use crate::{
 	constants::{CommitmentCollectionId, ComputePalletId, RootAccountId},
 	Acurast, AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances,
-	EnsureCouncilOrRoot, Runtime, RuntimeEvent, Treasury, Uniques,
+	EnsureCouncilOrRoot, Runtime, Treasury, Uniques,
 };
 
 parameter_types! {
@@ -52,7 +52,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_compute::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;

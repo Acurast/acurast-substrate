@@ -55,8 +55,6 @@ pub mod pallet {
 	/// Configures the pallet.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type MinTTL: Get<BlockNumberFor<Self>>;
 		#[pallet::constant]
@@ -455,8 +453,10 @@ pub mod pallet {
 							if activity_window.start_block <= current_block
 								&& activity_window
 									.end_block
-									.map_or(true, |end_block| current_block < end_block)
+									.is_none_or(|end_block| current_block < end_block)
 							{
+								// Only consumed by the `ensure!` below, which benchmark builds skip.
+								#[cfg_attr(feature = "runtime-benchmarks", allow(unused_variables))]
 								let is_valid = signature.verify(full_message.as_slice(), &public);
 								#[cfg(not(feature = "runtime-benchmarks"))]
 								ensure!(is_valid, Error::<T, I>::SignatureInvalid);
@@ -572,7 +572,7 @@ pub mod pallet {
 			T::Currency::hold(&HoldReason::OutgoingMessageFee.into(), payer, fee)
 				.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;
 
-			log::info!("Hyperdrive-IBC message is ready to send: {:?}", &message_with_meta);
+			// log::info!("Hyperdrive-IBC message is ready to send: {:?}", message_with_meta);
 			Self::deposit_event(Event::MessageReadyToSend { message: message_with_meta.clone() });
 
 			Ok((message_with_meta, replaced_message))

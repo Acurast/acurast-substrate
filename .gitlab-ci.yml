@@ -30,9 +30,9 @@ stages:
   - publish
 
 .prepare_rust:
-  image: rust:1.86.0
+  image: rust:1.93.0
   before_script:
-    - apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+    - apt update && apt install --assume-yes git clang libclang-dev curl libssl-dev llvm libudev-dev make protobuf-compiler
 
 format-check:
   stage: checks
@@ -62,6 +62,7 @@ build-mainnet:
 
 build-canary:
   stage: build
+  when: manual
   variables:
     LOCAL_ACURAST: "acurast-$CI_PIPELINE_ID"
   script:

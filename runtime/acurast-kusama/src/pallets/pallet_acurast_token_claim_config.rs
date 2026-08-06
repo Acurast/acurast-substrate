@@ -9,7 +9,7 @@ use acurast_runtime_common::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::AcurastBenchmarkHelper;
-use crate::{Balances, EnsureCouncilOrRoot, Runtime, RuntimeEvent};
+use crate::{Balances, EnsureCouncilOrRoot, Runtime};
 
 const MONTH: BlockNumber = 30 * DAYS;
 
@@ -20,7 +20,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_token_claim::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type Signature = Signature;
 	type Signer = Signer;

@@ -10,7 +10,6 @@ pub use sp_core::ecdsa::{
 	Public, Signature, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 };
 use sp_core::{ConstU32, H256};
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 pub const SIGNATURES_MAX_LENGTH: u32 = 32;
@@ -56,7 +55,7 @@ pub type Payload = BoundedVec<u8, ConstU32<PAYLOAD_MAX_LENGTH>>;
 
 /// Defines the transmitter activity window.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct ActivityWindow<BlockNumber> {
 	/// From this block on, the transmitter is permitted to submit Merkle roots.
@@ -71,7 +70,7 @@ impl<BlockNumber: From<u8>> Default for ActivityWindow<BlockNumber> {
 	}
 }
 
-#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
 pub enum OracleUpdate<BlockNumber> {
 	Add(Public, ActivityWindow<BlockNumber>),
 	Remove(Public),
@@ -80,7 +79,7 @@ pub enum OracleUpdate<BlockNumber> {
 
 /// The message (without metadata) that gets signed by oracle and verified by recipient.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct Message<AccountId, Contract> {
 	pub id: MessageId,
@@ -94,7 +93,7 @@ pub struct Message<AccountId, Contract> {
 
 /// A wrapper around an outgoing message containing metadata related to fee handling and TTL.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct OutgoingMessageWithMeta<AccountId, Balance, BlockNumber, Contract> {
 	pub message: Message<AccountId, Contract>,
@@ -115,7 +114,7 @@ impl<AccountId, Balance: Copy, BlockNumber, Contract> MessageFeeProvider<Balance
 
 /// A wrapper around an outgoing message containing metadata related to TTL.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct IncomingMessageWithMeta<AccountId, BlockNumber, Contract> {
 	pub message: Message<AccountId, Contract>,
@@ -125,7 +124,7 @@ pub struct IncomingMessageWithMeta<AccountId, BlockNumber, Contract> {
 
 /// The part of the message that is passed on to final recipient, controlled by
 /// [`MessageProcessor`].
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 pub struct MessageBody<AccountId, Contract> {
 	pub sender: Subject<AccountId, Contract>,
 	pub recipient: Subject<AccountId, Contract>,
@@ -159,7 +158,7 @@ pub type MessageId = H256;
 pub type MessageNonce = H256;
 
 /// Tracks the progress during `submit_message`, intended to be included in events.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 pub enum ProcessMessageResult {
 	TTLExceeded,
 	ProcessingFailed(DispatchError),

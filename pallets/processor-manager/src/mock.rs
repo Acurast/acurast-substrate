@@ -124,7 +124,6 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl pallet_acurast::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = ();
 	type MaxAllowedSources = CU32<4>;
 	type MaxCertificateRevocationListUpdates = ConstU32<10>;
@@ -145,7 +144,6 @@ impl pallet_acurast::Config for Test {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Proof = MultiSignature;
 	type ManagerId = AssetId;
 	type ManagerIdProvider = AcurastManagerIdProvider;

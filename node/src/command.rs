@@ -312,7 +312,7 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) => {
+		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
 				let chain_spec = &config.chain_spec;
@@ -425,7 +425,8 @@ pub fn run() -> Result<()> {
 							new_partial::<acurast_rococo_runtime::apis::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
-						cmd.run(config, partials.client.clone(), db, storage)
+						let shared_trie_cache = partials.backend.expose_shared_trie_cache();
+						cmd.run(config, partials.client.clone(), db, storage, shared_trie_cache)
 					},
 					#[cfg(feature = "acurast-kusama")]
 					NetworkVariant::Canary => {
@@ -433,7 +434,8 @@ pub fn run() -> Result<()> {
 							new_partial::<acurast_kusama_runtime::apis::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
-						cmd.run(config, partials.client.clone(), db, storage)
+						let shared_trie_cache = partials.backend.expose_shared_trie_cache();
+						cmd.run(config, partials.client.clone(), db, storage, shared_trie_cache)
 					},
 					#[cfg(feature = "acurast-mainnet")]
 					NetworkVariant::Mainnet => {
@@ -441,7 +443,8 @@ pub fn run() -> Result<()> {
 							new_partial::<acurast_mainnet_runtime::apis::RuntimeApi>(&config)?;
 						let db = partials.backend.expose_db();
 						let storage = partials.backend.expose_storage();
-						cmd.run(config, partials.client.clone(), db, storage)
+						let shared_trie_cache = partials.backend.expose_shared_trie_cache();
+						cmd.run(config, partials.client.clone(), db, storage, shared_trie_cache)
 					},
 				}),
 				BenchmarkCmd::Machine(cmd) => {

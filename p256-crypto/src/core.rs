@@ -11,15 +11,13 @@ pub mod p256 {
 	use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 	#[cfg(feature = "std")]
 	use sp_core::crypto::Ss58Codec;
-	use sp_core::{
-		crypto::{
-			ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
-			Pair as TraitPair, Public as TraitPublic, SecretStringError, UncheckedFrom,
-		},
-		hashing::blake2_256,
+	use sp_core::crypto::{
+		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
+		Pair as TraitPair, Public as TraitPublic, SecretStringError, UncheckedFrom,
 	};
+	use sp_core::proof_of_possession::NonAggregatable;
+	use sp_io::hashing::blake2_256;
 	use sp_runtime::traits::{IdentifyAccount, Lazy, Verify};
-	use sp_runtime_interface::pass_by::PassByInner;
 	use sp_std::prelude::*;
 
 	/// An identifier used to match public keys against ecdsa keys
@@ -32,7 +30,6 @@ pub mod p256 {
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
-		PassByInner,
 		MaxEncodedLen,
 		TypeInfo,
 		Eq,
@@ -158,17 +155,13 @@ pub mod p256 {
 
 	/// A signature (a 512-bit value, plus 8 bits for recovery ID).
 	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		PassByInner,
-		TypeInfo,
-		PartialEq,
-		Eq,
-		Hash,
+		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Hash,
 	)]
 	pub struct Signature(pub [u8; SIGNATURE_LENGTH]);
+
+	/// Proof of possession type for P-256 keys. As a non-aggregatable scheme, this is
+	/// simply a signature over the ownership statement (see [`NonAggregatable`]).
+	pub type ProofOfPossession = Signature;
 
 	impl sp_application_crypto::Signature for Signature {}
 
@@ -343,6 +336,7 @@ pub mod p256 {
 		type Public = Public;
 		type Seed = Seed;
 		type Signature = Signature;
+		type ProofOfPossession = ProofOfPossession;
 
 		/// Make a new key pair from secret seed material.
 		///
@@ -404,6 +398,10 @@ pub mod p256 {
 		}
 	}
 
+	/// P-256 is a non-aggregatable scheme, so proof-of-possession is generated/verified
+	/// via the default signature-based implementation provided by [`NonAggregatable`].
+	impl NonAggregatable for Pair {}
+
 	impl Pair {
 		/// Get the seed for this key.
 		pub fn seed(&self) -> Seed {
@@ -429,10 +427,8 @@ mod test {
 	use crate::application_crypto::p256::Pair;
 	use hex_literal::hex;
 	use sp_application_crypto::DeriveJunction;
-	use sp_core::{
-		crypto::{Pair as TraitPair, DEV_PHRASE},
-		hashing::blake2_256,
-	};
+	use sp_core::crypto::{Pair as TraitPair, DEV_PHRASE};
+	use sp_io::hashing::blake2_256;
 	use sp_runtime::AccountId32;
 
 	fn build_dummy_pair() -> Pair {

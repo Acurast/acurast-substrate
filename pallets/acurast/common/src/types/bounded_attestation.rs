@@ -43,7 +43,7 @@ pub type SignatureDigestSet = BoundedVec<Digest, ConstU32<SIGNATURE_DIGEST_SET_M
 pub type PackageInfoSet = BoundedVec<BoundedAttestationPackageInfo, ConstU32<16>>;
 
 /// Structure representing a submitted attestation chain.
-#[derive(RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
 pub struct AttestationChain {
 	/// An ordered array of [CertificateInput]s describing a valid chain from known root certificate to attestation certificate.
 	pub certificate_chain: CertificateChainInput,
@@ -51,7 +51,7 @@ pub struct AttestationChain {
 
 /// Structure representing a stored attestation.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -69,7 +69,7 @@ pub struct Attestation {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -88,7 +88,7 @@ pub struct AttestationValidity {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -121,7 +121,7 @@ impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -151,7 +151,7 @@ impl TryFrom<DeviceAttestation<'_>> for BoundedDeviceAttestation {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -201,7 +201,7 @@ impl TryFrom<DeviceAttestationKeyUsageProperties<'_>>
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -239,7 +239,7 @@ impl TryFrom<DeviceAttestationDeviceOSInformation<'_>>
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -263,7 +263,7 @@ impl TryFrom<DeviceAttestationNonce<'_>> for BoundedDeviceAttestationNonce {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -295,7 +295,7 @@ impl TryFrom<KeyDescription<'_>> for BoundedKeyDescription {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -326,7 +326,7 @@ impl From<asn::SecurityLevel> for AttestationSecurityLevel {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -498,7 +498,7 @@ impl TryFrom<asn::AuthorizationList<'_>> for BoundedAuthorizationList {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -536,7 +536,7 @@ impl TryFrom<asn::RootOfTrust<'_>> for BoundedRootOfTrust {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -567,7 +567,7 @@ impl From<asn::VerifiedBootState> for VerifiedBootState {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -607,7 +607,7 @@ impl<'a> TryFrom<asn::AttestationApplicationId<'a>> for BoundedAttestationApplic
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

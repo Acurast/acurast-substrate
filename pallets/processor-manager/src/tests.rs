@@ -1,9 +1,11 @@
 use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
-	ProcessorPairingFor, ProcessorPairingUpdateFor, Proof, UpdateInfo,
+	ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
 use acurast_common::{ListUpdateOperation, ManagerLookup, Version};
-use frame_support::{assert_err, assert_ok, error::BadOrigin, traits::fungible::Inspect};
+use frame_support::{
+	assert_err, assert_ok, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
+};
 use hex_literal::hex;
 
 fn paired_manager_processor() -> (AccountId, AccountId) {
@@ -829,32 +831,6 @@ fn test_update_onboarding_settings() {
 		assert_eq!(
 			last_events.last(),
 			Some(RuntimeEvent::AcurastProcessorManager(Event::OnboardingSettingsUpdated)).as_ref()
-		);
-	});
-}
-
-#[test]
-fn set_migration_data() {
-	ExtBuilder.build().execute_with(|| {
-		let (signer, manager_account) = generate_pair_account();
-		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
-		let timestamp = 1657363915002u128;
-		let signature = generate_signature(&signer, &manager_account, timestamp, 1);
-		let proof = Proof { timestamp, signature };
-
-		assert_ok!(AcurastProcessorManager::set_migration_data(
-			RuntimeOrigin::signed(manager_account.clone()),
-			proof
-		));
-
-		let last_events = events();
-
-		assert_eq!(
-			last_events.last(),
-			Some(RuntimeEvent::AcurastProcessorManager(Event::ProcessorMigrationDataSet(
-				manager_account
-			)))
-			.as_ref()
 		);
 	});
 }

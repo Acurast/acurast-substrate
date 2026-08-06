@@ -40,7 +40,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_core::crypto::AccountId32;
 	use sp_runtime::traits::{Hash, Zero};
-	use sp_std::{prelude::*, vec};
+	use sp_std::prelude::*;
 
 	use pallet_acurast::{
 		AccountId20, ContractCall, Layer, MessageBody, MessageFeeProvider, MessageProcessor,
@@ -60,9 +60,6 @@ pub mod pallet {
 	/// Configures the pallet.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		type PalletAccount: Get<Self::AccountId>;
 		type ParsableAccountId: Into<Self::AccountId> + TryFrom<Vec<u8>>;
 		type Balance: Member
@@ -295,8 +292,8 @@ pub mod pallet {
 			transfer_nonce: TransferNonce,
 			fee: T::Balance,
 		) -> DispatchResult {
-			Self::ensure_enabled()?;
 			let source = ensure_signed(origin)?;
+			Self::ensure_enabled()?;
 			let (prev_source, prev_recipient, prev_amount) =
 				OutgoingTransfers::<T, I>::get(proxy, transfer_nonce)
 					.ok_or(Error::<T, I>::UnknownTransferRetry)?;

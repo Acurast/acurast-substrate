@@ -6,13 +6,9 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	traits::{AccountIdConversion, IdentityLookup},
 	AccountId32, BuildStorage,
 };
-
-use acurast_common::{Layer, Subject};
-
-use crate::SubjectFor;
 
 pub type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -59,14 +55,8 @@ parameter_types! {
 	pub const MaxLocks: u32 = 50;
 	pub const ConversionPallelId: PalletId = PalletId(*b"cnvrspid");
 	pub ConversionPalletAccountId: AccountId = ConversionPallelId::get().into_account_truncating();
-	pub const TokenConversionPalletId: PalletId = PalletId(*b"cvrsnpid");
-	pub SendTo: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
-	pub ReceiveFrom: Option<SubjectFor<Test>> = Some(Subject::Acurast(Layer::Extrinsic(TokenConversionPalletId::get().into_account_truncating())));
-	pub const Liquidity: Balance = UNIT / 100;
-	pub const MinTransferAmount: Balance = 202 * UNIT;
 	pub const MinLockDuration: BlockNumber = 3 * 28 * DAYS;
 	pub const MaxLockDuration: BlockNumber = 48 * 28 * DAYS;
-	pub OutgoingTransferTTL: BlockNumber = 15;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
@@ -114,20 +104,12 @@ impl pallet_balances::Config for Test {
 }
 
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ConversionPallelId;
-	type SendTo = SendTo;
-	type ReceiveFrom = ReceiveFrom;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Liquidity = Liquidity;
-	type MinTransferAmount = MinTransferAmount;
 	type MinLockDuration = MinLockDuration;
 	type MaxLockDuration = MaxLockDuration;
-	type MessageSender = ();
-	type MessageIdHasher = BlakeTwo256;
 	type OnSlash = ResolveTo<ConversionPalletAccountId, Balances>;
-	type ConvertTTL = OutgoingTransferTTL;
 	type EnableOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = crate::weights::WeightInfo<Self>;
 }

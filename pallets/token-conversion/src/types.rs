@@ -5,7 +5,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parity_scale_codec::{Decode, Encode};
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 use crate::Config;
@@ -19,20 +18,20 @@ pub type ImbalanceFor<T> = Imbalance<
 	<<T as Config>::Currency as Balanced<<T as frame_system::Config>::AccountId>>::OnDropDebt,
 >;
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub struct InitiatedConversionMessage<AccountId, Balance, BlockNumber> {
 	pub burned: Balance,
 	pub fee_payer: AccountId,
 	pub started_at: BlockNumber,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub struct Conversion<Balance, BlockNumber> {
 	pub amount: Balance,
 	pub lock_start: BlockNumber,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub struct ConversionMessage<AccountId, Balance> {
 	pub account: AccountId,
 	pub amount: Balance,

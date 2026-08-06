@@ -113,7 +113,9 @@ impl Time {
 			.map(|t| t.and_utc().timestamp_millis())
 			.unwrap_or(0);
 
-		milliseconds.try_into().unwrap()
+		// A certificate validity date before the unix epoch yields a negative timestamp; saturate to 0
+		// instead of panicking on the i64 -> u64 conversion.
+		milliseconds.try_into().unwrap_or(0)
 	}
 }
 
@@ -164,6 +166,42 @@ fn read_lenient_boolean(tlv: &Tlv<'_>) -> ParseResult<bool> {
 		return Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue));
 	}
 	Ok(data[0] != 0) // accept 0xFF (DER) or 0x01 (non-canonical BER)
+}
+
+/// The `BasicConstraints` X.509v3 extension (OID 2.5.29.19).
+/// [See RFC](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.9)
+///
+/// ```text
+/// BasicConstraints ::= SEQUENCE {
+///     cA                      BOOLEAN DEFAULT FALSE,
+///     pathLenConstraint       INTEGER (0..MAX) OPTIONAL }
+/// ```
+#[derive(Clone)]
+pub struct BasicConstraints {
+	pub ca: bool,
+	pub path_len_constraint: Option<u64>,
+}
+
+impl<'a> SimpleAsn1Readable<'a> for BasicConstraints {
+	const TAG: Tag = <asn1::Sequence as SimpleAsn1Readable>::TAG;
+
+	fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+		asn1::parse(data, |p| {
+			let mut ca = false;
+			let mut path_len_constraint = None;
+			// Both fields are optional; read whatever is present, being lenient about
+			// the (occasionally non-canonical) BOOLEAN encoding as elsewhere.
+			while !p.is_empty() {
+				let tlv = p.read_element::<Tlv>()?;
+				if tlv.tag() == <bool as SimpleAsn1Readable>::TAG {
+					ca = read_lenient_boolean(&tlv)?;
+				} else if tlv.tag() == <u64 as SimpleAsn1Readable>::TAG {
+					path_len_constraint = Some(tlv.parse::<u64>()?);
+				}
+			}
+			Ok(Self { ca, path_len_constraint })
+		})
+	}
 }
 
 /// Android KeyDescription. Outer layout is identical across all schema versions

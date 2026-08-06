@@ -49,7 +49,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Extra structure to include in the registration of a job.
 		type RegistrationExtra: Parameter + Member + MaxEncodedLen;
 		/// The max length of the allowed sources list for a registration.

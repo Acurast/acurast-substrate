@@ -33,28 +33,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_acurast_token_conversion`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_acurast_token_conversion::WeightInfo for WeightInfo<T> {
-	/// Storage: `AcurastTokenConversion::Enabled` (r:1 w:0)
-	/// Proof: `AcurastTokenConversion::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastTokenConversion::InitiatedConversion` (r:1 w:1)
-	/// Proof: `AcurastTokenConversion::InitiatedConversion` (`max_values`: None, `max_size`: Some(100), added: 2575, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessages` (r:1 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessages` (`max_values`: None, `max_size`: Some(1256), added: 3731, mode: `MaxEncodedLen`)
-	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (r:0 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (`max_values`: None, `max_size`: Some(135), added: 2610, mode: `MaxEncodedLen`)
-	fn convert() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `352`
-		//  Estimated: `6196`
-		// Minimum execution time: 159_320_000 picoseconds.
-		Weight::from_parts(165_890_000, 0)
-			.saturating_add(Weight::from_parts(0, 6196))
-			.saturating_add(T::DbWeight::get().reads(6))
-			.saturating_add(T::DbWeight::get().writes(6))
-	}
 	/// Storage: `AcurastTokenConversion::LockedConversion` (r:1 w:1)
 	/// Proof: `AcurastTokenConversion::LockedConversion` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:1)
@@ -70,62 +48,6 @@ impl<T: frame_system::Config> pallet_acurast_token_conversion::WeightInfo for We
 			.saturating_add(Weight::from_parts(0, 4764))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// Storage: `AcurastTokenConversion::InitiatedConversion` (r:1 w:1)
-	/// Proof: `AcurastTokenConversion::InitiatedConversion` (`max_values`: None, `max_size`: Some(100), added: 2575, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessages` (r:1 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessages` (`max_values`: None, `max_size`: Some(1256), added: 3731, mode: `MaxEncodedLen`)
-	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (r:0 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (`max_values`: None, `max_size`: Some(135), added: 2610, mode: `MaxEncodedLen`)
-	fn retry_convert() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `725`
-		//  Estimated: `4721`
-		// Minimum execution time: 211_110_000 picoseconds.
-		Weight::from_parts(217_670_000, 0)
-			.saturating_add(Weight::from_parts(0, 4721))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(5))
-	}
-	/// Storage: `AcurastTokenConversion::InitiatedConversion` (r:1 w:1)
-	/// Proof: `AcurastTokenConversion::InitiatedConversion` (`max_values`: None, `max_size`: Some(100), added: 2575, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessages` (r:1 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessages` (`max_values`: None, `max_size`: Some(1256), added: 3731, mode: `MaxEncodedLen`)
-	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (r:0 w:1)
-	/// Proof: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (`max_values`: None, `max_size`: Some(135), added: 2610, mode: `MaxEncodedLen`)
-	fn retry_convert_for() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `903`
-		//  Estimated: `6196`
-		// Minimum execution time: 217_780_000 picoseconds.
-		Weight::from_parts(224_050_000, 0)
-			.saturating_add(Weight::from_parts(0, 6196))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(6))
-	}
-	fn retry_process_conversion() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_890_000 picoseconds.
-		Weight::from_parts(4_040_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-	}
-	fn retry_process_conversion_for() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_790_000 picoseconds.
-		Weight::from_parts(4_110_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// Storage: `AcurastTokenConversion::Enabled` (r:0 w:1)
 	/// Proof: `AcurastTokenConversion::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)

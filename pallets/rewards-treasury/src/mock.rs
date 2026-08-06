@@ -79,7 +79,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Epoch = Epoch;
 	type PalletId = RTPalletId;
 }

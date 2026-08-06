@@ -32,7 +32,7 @@ define_benchmarks!(
 	[pallet_balances, Balances]
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_timestamp, Timestamp]
-	[pallet_verify_signature, VerifySignature]
+	// [pallet_verify_signature, VerifySignature]
 	//[pallet_collator_selection, CollatorSelection]
 	[pallet_message_queue, MessageQueue]
 	[pallet_acurast, Acurast]

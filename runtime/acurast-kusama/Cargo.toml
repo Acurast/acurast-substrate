@@ -57,7 +57,7 @@ pallet-sudo = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-timestamp = { workspace = true }
-pallet-verify-signature = { workspace = true }
+# pallet-verify-signature = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -142,7 +142,7 @@ std = [
 	"pallet-referenda/std",
 	"pallet-conviction-voting/std",
 	"pallet-timestamp/std",
-	"pallet-verify-signature/std",
+	# "pallet-verify-signature/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
@@ -212,7 +212,7 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-verify-signature/runtime-benchmarks",
+	# "pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

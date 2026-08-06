@@ -16,7 +16,7 @@ use acurast_runtime_common::{
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
-	types::{AccountId, Address, Balance, CouncilThreeSeventh, Signature},
+	types::{AccountId, Address, Balance, CouncilFourSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
 };
 
@@ -116,7 +116,7 @@ pub struct LiquidityInfo {
 	pub fee_payer: Option<<Runtime as frame_system::Config>::AccountId>,
 }
 
-pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
+pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilFourSeventh>;
 
 pub type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,

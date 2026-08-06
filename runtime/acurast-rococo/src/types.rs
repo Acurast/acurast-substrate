@@ -15,7 +15,7 @@ use acurast_runtime_common::{
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
-	types::{AccountId, Address, Balance, CouncilThreeSeventh, Signature},
+	types::{AccountId, Address, Balance, CouncilFourSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
 };
 use pallet_acurast_processor_manager::onboarding::Onboarding;
@@ -107,7 +107,7 @@ impl_opaque_keys! {
 	}
 }
 
-pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
+pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilFourSeventh>;
 
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;

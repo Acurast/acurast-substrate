@@ -5,7 +5,7 @@ use sp_runtime::{Perbill, Weight};
 
 use acurast_runtime_common::{
 	constants::DAYS,
-	types::{AccountId, BlockNumber, CouncilInstance, CouncilThreeSeventh},
+	types::{AccountId, BlockNumber, CouncilFourSeventh, CouncilInstance},
 };
 
 use crate::{
@@ -31,8 +31,8 @@ impl pallet_collective::Config<CouncilInstance> for Runtime {
 	type MaxMembers = MaxMembers;
 	type DefaultVote = MoreThanMajorityThenPrimeDefaultVote;
 	type SetMembersOrigin = EnsureRoot<AccountId>;
-	type DisapproveOrigin = CouncilThreeSeventh;
-	type KillOrigin = CouncilThreeSeventh;
+	type DisapproveOrigin = CouncilFourSeventh;
+	type KillOrigin = CouncilFourSeventh;
 	type Consideration = ();
 	type MaxProposalWeight = MaxCouncilProposalWeight;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;

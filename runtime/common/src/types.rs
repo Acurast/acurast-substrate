@@ -56,8 +56,8 @@ pub type ExtraFor<T> = RegistrationExtra<
 >;
 pub type CouncilInstance = pallet_collective::Instance1;
 pub type CouncilMembershipInstance = pallet_membership::Instance1;
-pub type CouncilThreeSeventh =
-	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilInstance, 3, 7>;
+pub type CouncilFourSeventh =
+	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilInstance, 4, 7>;
 pub type CouncilMajority =
 	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilInstance, 1, 2>;
 pub type CouncilTwoThirds =

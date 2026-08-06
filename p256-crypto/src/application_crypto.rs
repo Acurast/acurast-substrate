@@ -20,6 +20,7 @@ pub mod p256 {
 
 	impl RuntimePublic for Public {
 		type Signature = Signature;
+		type ProofOfPossession = Signature;
 
 		fn all(_key_type: KeyTypeId) -> Vec<Self> {
 			vec![]
@@ -40,6 +41,25 @@ pub mod p256 {
 
 		fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 			signature.verify(msg.as_ref(), self)
+		}
+
+		fn generate_proof_of_possession(
+			&mut self,
+			_key_type: KeyTypeId,
+			_owner: &[u8],
+		) -> Option<Self::ProofOfPossession> {
+			// NOTE: cannot be implemented for the same reason as `sign`: we do not have access
+			// to the private key (P256 private keys never leave the processor device).
+			None
+		}
+
+		fn verify_proof_of_possession(
+			&self,
+			owner: &[u8],
+			proof_of_possession: &Self::ProofOfPossession,
+		) -> bool {
+			use sp_core::proof_of_possession::ProofOfPossessionVerifier;
+			Pair::verify_proof_of_possession(owner, proof_of_possession, self)
 		}
 
 		fn to_raw_vec(&self) -> Vec<u8> {

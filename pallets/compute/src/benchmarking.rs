@@ -2,8 +2,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::RawOrigin,
 	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
+		fungible::{Inspect, Mutate, MutateHold},
 		Get, Hooks, IsType,
 	},
 };
@@ -19,9 +18,7 @@ use pallet_acurast_processor_manager::{
 	generate_account, BenchmarkHelper, Config as ProcessorManagerConfig,
 	Pallet as ProcessorManager, ProcessorPairingFor, ProcessorPairingUpdateFor,
 };
-use pallet_acurast_token_conversion::{
-	Config as TokenConversionConfig, ConversionMessageFor, Pallet as TokenConversion,
-};
+use pallet_acurast_token_conversion::Config as TokenConversionConfig;
 
 use crate::{
 	stub::{MILLIUNIT, UNIT},
@@ -71,20 +68,28 @@ fn mint_to<T: Config<I> + TokenConversionConfig, I: 'static>(
 	BalanceFor<T, I>: IsType<u128>,
 	<<T as TokenConversionConfig>::Currency as Inspect<T::AccountId>>::Balance: IsType<u128>,
 {
-	let liquidity: u128 = <T as TokenConversionConfig>::Liquidity::get().into();
-	let conversion_amount: u128 = amount.into() + liquidity;
-	TokenConversion::<T>::process_conversion(ConversionMessageFor::<T> {
-		account: who.clone(),
-		amount: conversion_amount.into(),
-	})
-	.expect("Conversion works");
-	let to_burn: u128 = liquidity - MILLIUNIT;
-	let _ = <<T as Config<I>>::Currency as Mutate<T::AccountId>>::burn_from(
+	let hold_amount: u128 = amount.into();
+	// leave a small free buffer above the held amount
+	let mint_amount: u128 = hold_amount + MILLIUNIT;
+
+	// The token-conversion processing path has been removed; establish the same
+	// resulting state directly: fund the account, place a `HoldReason::Conversion`
+	// hold on `amount` and record the lock (mirroring the former `process_conversion`).
+	let _ = <<T as TokenConversionConfig>::Currency as Mutate<T::AccountId>>::mint_into(
 		who,
-		to_burn.into(),
-		Preservation::Preserve,
-		Precision::BestEffort,
-		Fortitude::Polite,
+		mint_amount.into(),
+	);
+	let _ = <<T as TokenConversionConfig>::Currency as MutateHold<T::AccountId>>::hold(
+		&pallet_acurast_token_conversion::HoldReason::Conversion.into(),
+		who,
+		hold_amount.into(),
+	);
+	pallet_acurast_token_conversion::LockedConversion::<T>::insert(
+		who,
+		pallet_acurast_token_conversion::Conversion {
+			amount: hold_amount.into(),
+			lock_start: System::<T>::block_number(),
+		},
 	);
 }
 
@@ -201,6 +206,102 @@ fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 	}
 
 	Ok(commitments)
+}
+
+/// Rolls out the [`Config::RedelegationBlockingPeriod`] so a redelegation is allowed right away.
+///
+/// The period is anchored on the delegation's `stake.created`, which cannot simply be backdated: it
+/// would have to stay `>= commitment.stake.created` to not count as stale, and the commitment is far
+/// younger than the blocking period. So the blocks really have to be rolled — `16 * 900` on the kusama
+/// config the weights are generated with.
+fn expire_redelegation_blocking_period<T: Config<I>, I: 'static>()
+where
+	BlockNumberFor<T>: IsType<u32>,
+	BalanceFor<T, I>: From<u128>,
+{
+	let current_block = System::<T>::current_block_number();
+	roll_to_block::<T, I>(
+		current_block + T::RedelegationBlockingPeriod::get().saturating_mul(T::Epoch::get()),
+	);
+}
+
+/// Like [`setup_stake`], but for many manager/processor pairs at once.
+///
+/// [`setup_stake`] rolls ~2700 blocks *per call*, which makes setting up a dozen committers
+/// prohibitively slow. Here the two heartbeat rounds are batched so the whole setup rolls ~2700 blocks
+/// in total.
+fn setup_stakes_many<T: Config<I> + ProcessorManagerConfig, I: 'static>(
+	pairs: &[(T::AccountId, T::AccountId)],
+	commitments_count: u32,
+) -> Result<(), BenchmarkError> where
+	<T as frame_system::Config>::AccountId: frame_support::traits::IsType<<<<T as pallet_acurast_processor_manager::Config>::Proof as sp_runtime::traits::Verify>::Signer as sp_runtime::traits::IdentifyAccount>::AccountId>,
+	<T as Config<I>>::Currency: Mutate<T::AccountId>,
+	BalanceFor<T, I>: IsType<u128>,
+	BlockNumberFor<T>: IsType<u32> + One,
+	pallet_acurast_processor_manager::BalanceFor<T>: IsType<u128>,
+{
+	let current_block = System::<T>::current_block_number();
+	for (manager, processor) in pairs {
+		<T as ProcessorManagerConfig>::BenchmarkHelper::attest_account(processor);
+		<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
+			manager, processor,
+		);
+	}
+
+	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
+	for _ in 0..commitments_count.saturating_sub(current_pools_count) {
+		_ = create_compute_pool::<T, I>();
+	}
+
+	let mut metrics = Vec::<MetricInput>::new();
+	let current_pools_count = Pallet::<T, I>::last_metric_pool_id() as u32;
+	for index in 0..current_pools_count {
+		metrics.push(((index + 1) as u8, 10u128, 1u128));
+	}
+
+	let version = Version { platform: 0, build_number: 1 };
+	for (_, processor) in pairs {
+		ProcessorManager::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(processor.clone()).into(),
+			version,
+			metrics.clone().try_into().unwrap(),
+		)?;
+	}
+
+	roll_to_block::<T, I>(current_block + 1901u32.into());
+	for (_, processor) in pairs {
+		ProcessorManager::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(processor.clone()).into(),
+			version,
+			metrics.clone().try_into().unwrap(),
+		)?;
+	}
+
+	let pool_ids = (1..=Pallet::<T, I>::last_metric_pool_id()).collect::<Vec<_>>();
+	let commitments = pool_ids
+		.into_iter()
+		.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
+		.collect::<Vec<_>>();
+
+	roll_to_block::<T, I>(current_block + 2701u32.into());
+
+	for (manager, _) in pairs {
+		Pallet::<T, I>::offer_backing(RawOrigin::Signed(manager.clone()).into(), manager.clone())?;
+		Pallet::<T, I>::accept_backing_offer(
+			RawOrigin::Signed(manager.clone()).into(),
+			manager.clone(),
+		)?;
+		Pallet::<T, I>::commit_compute(
+			RawOrigin::Signed(manager.clone()).into(),
+			T::MinStake::get(),
+			T::MinCooldownPeriod::get(),
+			commitments.clone().try_into().unwrap(),
+			Perbill::from_percent(1),
+			false,
+		)?;
+	}
+
+	Ok(())
 }
 
 #[instance_benchmarks(
@@ -600,17 +701,24 @@ mod benches {
 	}
 
 	#[benchmark]
+	#[allow(deprecated)] // benchmarks the still-dispatchable, deprecated `redelegate` full move
 	fn redelegate() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
 		roll_to_block::<T, I>(100u32.into());
 		let manager: T::AccountId = account("manager", 0, 0);
 		let processor: T::AccountId = account("processor", 1, 1);
+		let manager_2: T::AccountId = account("manager", 3, 3);
+		let processor_2: T::AccountId = account("processor", 4, 4);
 		let delegator: T::AccountId = account("delegator", 2, 2);
 		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&manager_2, (200 * UNIT).into());
 		mint_to::<T, I>(&delegator, (100 * UNIT).into());
 
-		_ = setup_stake::<T, I>(&manager, &processor, CONFIG_VALUES_MAX_LENGTH, true)?;
+		setup_stakes_many::<T, I>(
+			&[(manager.clone(), processor), (manager_2.clone(), processor_2)],
+			CONFIG_VALUES_MAX_LENGTH,
+		)?;
 
 		Compute::<T, I>::delegate(
 			RawOrigin::Signed(delegator.clone()).into(),
@@ -620,20 +728,65 @@ mod benches {
 			false,
 		)?;
 
-		let manager_2: T::AccountId = account("manager", 3, 3);
-		let processor_2: T::AccountId = account("processor", 4, 4);
-		mint_to::<T, I>(&manager_2, (200 * UNIT).into());
-
-		_ = setup_stake::<T, I>(&manager_2, &processor_2, CONFIG_VALUES_MAX_LENGTH, true)?;
-
-		let current_block = System::<T>::current_block_number();
-
-		roll_to_block::<T, I>(
-			current_block + T::RedelegationBlockingPeriod::get().saturating_mul(T::Epoch::get()),
-		);
+		expire_redelegation_blocking_period::<T, I>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(delegator.clone()), manager, manager_2);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn redelegate_v2(n: Linear<1, MAX_REDELEGATIONS>) -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		Compute::<T, I>::enable_inflation(RawOrigin::Root.into())?;
+		roll_to_block::<T, I>(100u32.into());
+		let manager: T::AccountId = account("manager", 0, 0);
+		let processor: T::AccountId = account("processor", 1, 1);
+		let delegator: T::AccountId = account("delegator", 2, 2);
+		mint_to::<T, I>(&manager, (200 * UNIT).into());
+		mint_to::<T, I>(&delegator, (100 * UNIT).into());
+
+		let mut pairs = vec![(manager.clone(), processor)];
+		let target_managers = (0..MAX_REDELEGATIONS)
+			.map(|i| {
+				let target_manager: T::AccountId = account("target_manager", i, i);
+				let target_processor: T::AccountId = account("target_processor", i, i);
+				mint_to::<T, I>(&target_manager, (200 * UNIT).into());
+				pairs.push((target_manager.clone(), target_processor));
+				target_manager
+			})
+			.collect::<Vec<_>>();
+
+		setup_stakes_many::<T, I>(&pairs, CONFIG_VALUES_MAX_LENGTH)?;
+
+		let min_delegation = T::MinDelegation::get();
+		// No target is delegated to yet — a redelegation rejects a target the delegator already delegates
+		// to, so all `n` legs are a fresh `delegate_for`, which is also what a leg keeping stake with the
+		// old committer costs.
+		//
+		// Exactly one minimum delegation per target, since the targets must account for the whole
+		// delegated amount.
+		Compute::<T, I>::delegate(
+			RawOrigin::Signed(delegator.clone()).into(),
+			manager.clone(),
+			min_delegation.saturating_mul((n as u128).into()),
+			T::MinCooldownPeriod::get(),
+			false,
+		)?;
+
+		expire_redelegation_blocking_period::<T, I>();
+
+		let targets: RedelegationTargetsFor<T, I> = target_managers
+			.into_iter()
+			.take(n as usize)
+			.map(|target_manager| (target_manager, min_delegation))
+			.collect::<Vec<_>>()
+			.try_into()
+			.unwrap();
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(delegator.clone()), manager, targets);
 
 		Ok(())
 	}

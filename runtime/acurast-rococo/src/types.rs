@@ -1,5 +1,7 @@
 use derive_more::{From, Into};
 use frame_support::{
+	migrations::RemovePallet,
+	parameter_types,
 	traits::{Currency, EitherOfDiverse},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
@@ -15,7 +17,7 @@ use acurast_runtime_common::{
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	opaque,
-	types::{AccountId, Address, Balance, CouncilThreeSeventh, Signature},
+	types::{AccountId, Address, Balance, CouncilFourSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
 };
 use pallet_acurast_processor_manager::onboarding::Onboarding;
@@ -43,9 +45,15 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+/// The transaction extension pipeline at version 0.
+///
+/// This is byte-for-byte identical to the extension line used before the versioned-extrinsic
+/// upgrade. It is the pipeline applied to legacy (v4) signed transactions and to v5 "general"
+/// transactions that declare extension version 0, so existing clients keep working unchanged.
+pub type TransactionExtensionV0 = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		frame_system::AuthorizeCall<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
@@ -58,12 +66,67 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	),
 >;
 
+/// Backwards-compatible alias for the version 0 transaction extension pipeline.
+pub type TxExtension = TransactionExtensionV0;
+
+/// The transaction extension pipeline at version 1.
+///
+/// Identical to [`TransactionExtensionV0`] with [`frame_metadata_hash_extension::CheckMetadataHash`]
+/// appended. The Ledger Polkadot Generic app requires this extension (RFC-0078) to verify and
+/// display transactions offline. Clients opt in by building a v5 general transaction with extension
+/// version 1; clients that do not know about it keep using version 0 and are unaffected.
+pub type TransactionExtensionV1 = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		// Must come first: it requires an as-yet unauthorized origin and rejects with
+		// `BadSigner` otherwise, and it verifies the signature over the call plus the data of
+		// every extension that FOLLOWS it. Anything placed before it is excluded from the
+		// signed payload.
+		pallet_verify_signature::VerifySignature<Runtime>,
+		frame_system::AuthorizeCall<Runtime>,
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		Onboarding<Runtime, AcurastProcessorManager>,
+		CheckNonce<Runtime, AcurastProcessorManager>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	),
+>;
+
+/// The transaction extension versions supported by this runtime in addition to version 0.
+///
+/// New versions can be appended here as `PipelineAtVers<N, ..>` entries without disturbing the
+/// encoding of existing versions.
+pub type OtherVersions =
+	sp_runtime::traits::MultiVersion<sp_runtime::traits::PipelineAtVers<1, TransactionExtensionV1>>;
+
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<
+	Address,
+	RuntimeCall,
+	Signature,
+	TransactionExtensionV0,
+	OtherVersions,
+>;
 
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, TxExtension>;
+pub type CheckedExtrinsic =
+	generic::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensionV0, OtherVersions>;
+
+parameter_types! {
+	/// Storage prefix of the decommissioned `pallet_acurast_hyperdrive` (`AcurastHyperdrive`) instance.
+	pub const AcurastHyperdrivePalletName: &'static str = "AcurastHyperdrive";
+}
+
+/// Runtime migrations executed once on the next runtime upgrade.
+///
+/// Purges all remaining storage of the removed `AcurastHyperdrive` pallet.
+pub type Migrations =
+	(RemovePallet<AcurastHyperdrivePalletName, <Runtime as frame_system::Config>::DbWeight>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -72,6 +135,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	Migrations,
 >;
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -107,7 +171,7 @@ impl_opaque_keys! {
 	}
 }
 
-pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilThreeSeventh>;
+pub type EnsureCouncilOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, CouncilFourSeventh>;
 
 pub type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;

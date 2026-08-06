@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 pub mod ethereum;
 
 /// Errors returned by decoders.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
 pub enum ActionDecoderError {
 	InvalidAction,
 	UnsupportedAction,
@@ -14,7 +14,7 @@ pub enum ActionDecoderError {
 	CouldNotConvertAccountId,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq, Display)]
 pub enum ActionEncoderError {
 	UnsupportedProxy,
 }

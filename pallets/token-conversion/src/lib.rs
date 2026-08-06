@@ -31,16 +31,13 @@ pub mod pallet {
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
-	use parity_scale_codec::Encode;
 	use sp_runtime::{
-		traits::{AccountIdConversion, Hash, Saturating, Zero},
-		DispatchError, Perquintill, SaturatedConversion,
+		traits::{AccountIdConversion, Saturating, Zero},
+		Perquintill, SaturatedConversion,
 	};
-	use sp_std::{prelude::*, vec};
+	use sp_std::prelude::*;
 
-	use acurast_common::{
-		MessageBody, MessageFeeProvider, MessageProcessor, MessageSender, Slashable,
-	};
+	use acurast_common::Slashable;
 
 	use super::*;
 
@@ -51,38 +48,16 @@ pub mod pallet {
 	/// Configures the pallet.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		type PalletId: Get<PalletId>;
-		type SendTo: Get<Option<SubjectFor<Self>>>;
-		type ReceiveFrom: Get<Option<SubjectFor<Self>>>;
 		type Currency: Inspect<Self::AccountId>
 			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ Mutate<Self::AccountId>
 			+ BalancedHold<Self::AccountId>;
 		type RuntimeHoldReason: From<HoldReason>;
-		type Liquidity: Get<BalanceFor<Self>>;
 		type MinLockDuration: Get<BlockNumberFor<Self>>;
 		type MaxLockDuration: Get<BlockNumberFor<Self>>;
-		type MessageSender: MessageSender<
-			Self::AccountId,
-			Self::AccountId,
-			BalanceFor<Self>,
-			BlockNumberFor<Self>,
-		>;
-		type MessageIdHasher: Hash<
-				Output = <Self::MessageSender as MessageSender<
-					Self::AccountId,
-					Self::AccountId,
-					BalanceFor<Self>,
-					BlockNumberFor<Self>,
-				>>::MessageNonce,
-			> + TypeInfo;
-		type MinTransferAmount: Get<BalanceFor<Self>>;
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
-		#[pallet::constant]
-		type ConvertTTL: Get<BlockNumberFor<Self>>;
 		type EnableOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type WeightInfo: WeightInfo;
@@ -160,66 +135,15 @@ pub mod pallet {
 	where
 		BalanceFor<T>: IsType<u128> + From<u64>,
 	{
+		/// DISABLED: cross-chain token conversion/migration has been removed.
+		///
+		/// The extrinsic is retained (with its original `call_index`) to keep the pallet's
+		/// call metadata stable, but always fails.
 		#[pallet::call_index(0)]
-		#[pallet::weight(< T as Config>::WeightInfo::convert())]
-		pub fn convert(origin: OriginFor<T>, fee: BalanceFor<T>) -> DispatchResult {
-			Self::ensure_enabled()?;
-			let who = ensure_signed(origin)?;
-			Self::ensure_not_denied(&who)?;
-			let Some(destination) = T::SendTo::get() else {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertToNotEnabled)?;
-					} else {
-						return Ok(())
-					}
-				}
-			};
-			if Self::initiated_conversion(&who).is_some() {
-				return Err(Error::<T>::AlreadyConverted)?;
-			}
-			let total_balance = T::Currency::balance(&who);
-			let reducible_balance =
-				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
-			let frozen_balance = total_balance
-				.saturating_sub(reducible_balance.saturating_add(T::Currency::minimum_balance()));
-			if !frozen_balance.is_zero() {
-				return Err(Error::<T>::LockedBalance)?;
-			}
-			if reducible_balance < fee {
-				return Err(Error::<T>::CannotPayFee)?;
-			}
-			if reducible_balance - fee < T::MinTransferAmount::get() {
-				return Err(Error::<T>::BalanceTooLow)?;
-			}
-
-			let burnable_balance = reducible_balance - fee - T::Liquidity::get();
-			let burned = T::Currency::burn_from(
-				&who,
-				burnable_balance,
-				Preservation::Preserve,
-				Precision::Exact,
-				Fortitude::Polite,
-			)?;
-
-			if burnable_balance != burned {
-				return Err(Error::<T>::BalanceTooLow)?;
-			}
-
-			let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-			<InitiatedConversion<T>>::insert(
-				&who,
-				InitiatedConversionMessageFor::<T> {
-					burned,
-					fee_payer: who.clone(),
-					started_at: current_block_number,
-				},
-			);
-			Self::send_convert_message(&who, None, None, burned, fee, destination)?;
-			Self::deposit_event(Event::<T>::ConversionInitiated { account: who, amount: burned });
-
-			Ok(())
+		#[pallet::weight(T::DbWeight::get().reads(1))]
+		pub fn convert(origin: OriginFor<T>, _fee: BalanceFor<T>) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::NotEnabled.into())
 		}
 
 		#[pallet::call_index(1)]
@@ -284,105 +208,47 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// DISABLED: cross-chain token conversion/migration has been removed. Retained for
+		/// stable call metadata; always fails.
 		#[pallet::call_index(2)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_convert())]
-		pub fn retry_convert(origin: OriginFor<T>, fee: BalanceFor<T>) -> DispatchResult {
-			Self::ensure_enabled()?;
-			let who = ensure_signed(origin)?;
-			let Some(destination) = T::SendTo::get() else {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertToNotEnabled)?;
-					} else {
-						return Ok(())
-					}
-				}
-			};
-			let Some((burned, prev_payer)) = Self::update_initiated_conversion(&who, who.clone())
-			else {
-				return Err(Error::<T>::ConversionLockNotFound)?;
-			};
-			Self::send_convert_message(&who, None, Some(&prev_payer), burned, fee, destination)?;
-			Self::deposit_event(Event::ConversionRetried { account: who });
-			Ok(())
+		#[pallet::weight(T::DbWeight::get().reads(1))]
+		pub fn retry_convert(origin: OriginFor<T>, _fee: BalanceFor<T>) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::NotEnabled.into())
 		}
 
+		/// DISABLED: cross-chain token conversion/migration has been removed. Retained for
+		/// stable call metadata; always fails.
 		#[pallet::call_index(3)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_convert_for())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
 		pub fn retry_convert_for(
 			origin: OriginFor<T>,
-			account: T::AccountId,
-			fee: BalanceFor<T>,
+			_account: T::AccountId,
+			_fee: BalanceFor<T>,
 		) -> DispatchResult {
-			Self::ensure_enabled()?;
-			let who = ensure_signed(origin)?;
-			let Some(destination) = T::SendTo::get() else {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertToNotEnabled)?;
-					} else {
-						return Ok(())
-					}
-				}
-			};
-			let Some((burned, prev_payer)) =
-				Self::update_initiated_conversion(&account, who.clone())
-			else {
-				return Err(Error::<T>::ConversionLockNotFound)?;
-			};
-			Self::send_convert_message(
-				&account,
-				Some(&who),
-				Some(&prev_payer),
-				burned,
-				fee,
-				destination,
-			)?;
-			Self::deposit_event(Event::ConversionRetried { account });
-			Ok(())
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::NotEnabled.into())
 		}
 
+		/// DISABLED: cross-chain token conversion/migration has been removed. Retained for
+		/// stable call metadata; always fails.
 		#[pallet::call_index(4)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
 		pub fn retry_process_conversion(origin: OriginFor<T>) -> DispatchResult {
-			Self::ensure_enabled()?;
-			let who = ensure_signed(origin)?;
-			if T::ReceiveFrom::get().is_none() {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertFromNotEnabled)?;
-					} else {
-						return Ok(())
-					}
-				}
-			};
-			let Some(conversion_message) = <UnprocessedConversion<T>>::take(&who) else {
-				return Err(Error::<T>::ConversionLockNotFound)?;
-			};
-			Self::process_conversion(conversion_message)
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::NotEnabled.into())
 		}
 
+		/// DISABLED: cross-chain token conversion/migration has been removed. Retained for
+		/// stable call metadata; always fails.
 		#[pallet::call_index(5)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion_for())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
 		pub fn retry_process_conversion_for(
 			origin: OriginFor<T>,
-			account: T::AccountId,
+			_account: T::AccountId,
 		) -> DispatchResult {
-			Self::ensure_enabled()?;
-			_ = ensure_signed(origin)?;
-			if T::ReceiveFrom::get().is_none() {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertFromNotEnabled)?;
-					} else {
-						return Ok(())
-					}
-				}
-			};
-			let Some(conversion_message) = <UnprocessedConversion<T>>::take(&account) else {
-				return Err(Error::<T>::ConversionLockNotFound)?;
-			};
-			Self::process_conversion(conversion_message)
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::NotEnabled.into())
 		}
 
 		#[pallet::call_index(6)]
@@ -394,7 +260,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		#[pallet::weight(< T as Config>::WeightInfo::retry_process_conversion_for())]
+		#[pallet::weight(< T as Config>::WeightInfo::deny_source())]
 		pub fn deny_source(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -409,203 +275,6 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn account_id() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
-		}
-
-		fn ensure_enabled() -> Result<(), Error<T>> {
-			if !Self::enabled() {
-				return Err(Error::<T>::NotEnabled);
-			}
-			Ok(())
-		}
-
-		fn ensure_not_denied(account: &T::AccountId) -> Result<(), Error<T>> {
-			let is_denied = Self::denied_source(account).unwrap_or_default();
-			if is_denied {
-				return Err(Error::<T>::ConversionDenied);
-			}
-			Ok(())
-		}
-
-		fn update_initiated_conversion(
-			account: &T::AccountId,
-			new_fee_payer: T::AccountId,
-		) -> Option<(BalanceFor<T>, T::AccountId)> {
-			<InitiatedConversion<T>>::mutate::<_, Option<(BalanceFor<T>, T::AccountId)>, _>(
-				account,
-				|value| {
-					let Some(initiated_conversion) = value else {
-						return None;
-					};
-					let prev_payer =
-						core::mem::replace(&mut initiated_conversion.fee_payer, new_fee_payer);
-					Some((initiated_conversion.burned, prev_payer))
-				},
-			)
-		}
-
-		fn send_convert_message(
-			account: &T::AccountId,
-			fee_payer: Option<&T::AccountId>,
-			prev_fee_payer: Option<&T::AccountId>,
-			amount: BalanceFor<T>,
-			fee: BalanceFor<T>,
-			destination: SubjectFor<T>,
-		) -> DispatchResult {
-			let pallet_account = Self::account_id();
-			let payer = fee_payer.unwrap_or(account);
-			let prev_payer = prev_fee_payer.unwrap_or(account);
-			if !fee.is_zero() {
-				let transferred =
-					T::Currency::transfer(payer, &pallet_account, fee, Preservation::Preserve)?;
-				if transferred != fee {
-					return Err(Error::<T>::CannotPayFee)?;
-				}
-			}
-			let nonce = [pallet_account.encode().as_slice(), account.encode().as_slice()].concat();
-			let message = ConversionMessageFor::<T> { account: account.clone(), amount };
-			let payload = message.encode();
-			let (_, maybe_replaced_message) = T::MessageSender::send_message(
-				&pallet_account,
-				&pallet_account,
-				T::MessageIdHasher::hash(nonce.as_slice()),
-				destination,
-				payload,
-				T::ConvertTTL::get(),
-				fee,
-			)?;
-
-			if let Some(replaced_message) = maybe_replaced_message {
-				let fee = replaced_message.get_fee();
-				if !fee.is_zero() {
-					_ = T::Currency::transfer(
-						&pallet_account,
-						prev_payer,
-						fee,
-						Preservation::Preserve,
-					)?;
-				}
-			}
-
-			Ok(())
-		}
-
-		pub fn process_conversion(conversion_message: ConversionMessageFor<T>) -> DispatchResult {
-			Self::ensure_enabled()?;
-			if Self::locked_conversion(&conversion_message.account).is_some() {
-				// we just silently ignore multiple conversion messages for the same account
-				return Ok(());
-			}
-			// if there is an unprocessed message for the same account, we process that one instead (first message wins).
-			let conversion_message = <UnprocessedConversion<T>>::take(&conversion_message.account)
-				.unwrap_or(conversion_message);
-			let fund_result = Self::fund(&conversion_message);
-			match fund_result {
-				Ok(balance) => {
-					let hold_result = Self::hold(balance, &conversion_message);
-					match hold_result {
-						Ok(_) => {
-							Self::deposit_event(Event::<T>::ConversionProcessed {
-								account: conversion_message.account,
-								amount: conversion_message.amount,
-							});
-						},
-						Err(_) => {
-							_ = Self::undo_fund(&conversion_message);
-							<UnprocessedConversion<T>>::insert(
-								&conversion_message.account,
-								&conversion_message,
-							);
-							Self::deposit_event(Event::ConversionNotProcessed {
-								account: conversion_message.account,
-								amount: conversion_message.amount,
-							});
-						},
-					}
-				},
-				Err(_) => {
-					<UnprocessedConversion<T>>::insert(
-						&conversion_message.account,
-						&conversion_message,
-					);
-					Self::deposit_event(Event::ConversionNotProcessed {
-						account: conversion_message.account,
-						amount: conversion_message.amount,
-					});
-				},
-			}
-			Ok(())
-		}
-
-		fn fund(
-			conversion_message: &ConversionMessageFor<T>,
-		) -> Result<BalanceFor<T>, DispatchError> {
-			let pallet_account = Self::account_id();
-			T::Currency::transfer(
-				&pallet_account,
-				&conversion_message.account,
-				conversion_message.amount,
-				Preservation::Protect,
-			)
-		}
-
-		fn undo_fund(
-			conversion_message: &ConversionMessageFor<T>,
-		) -> Result<BalanceFor<T>, DispatchError> {
-			let pallet_account = Self::account_id();
-			T::Currency::transfer(
-				&conversion_message.account,
-				&pallet_account,
-				conversion_message.amount,
-				Preservation::Expendable,
-			)
-		}
-
-		fn hold(
-			transferred_balance: BalanceFor<T>,
-			conversion_message: &ConversionMessageFor<T>,
-		) -> DispatchResult {
-			let mut hold_amount = transferred_balance.saturating_sub(T::Liquidity::get());
-			if hold_amount.is_zero() {
-				// in case there is not enough to leave Liquidity as free balance, we hold the max we can
-				hold_amount = transferred_balance.min(T::Currency::reducible_balance(
-					&conversion_message.account,
-					Preservation::Protect,
-					Fortitude::Polite,
-				));
-			}
-			T::Currency::hold(
-				&HoldReason::Conversion.into(),
-				&conversion_message.account,
-				hold_amount,
-			)?;
-			let current_block_number = <frame_system::Pallet<T>>::block_number();
-			let conversion = Conversion { amount: hold_amount, lock_start: current_block_number };
-			<LockedConversion<T>>::insert(&conversion_message.account, conversion);
-			Ok(())
-		}
-	}
-
-	impl<T: Config> MessageProcessor<T::AccountId, T::AccountId> for Pallet<T> {
-		fn process(
-			message: impl MessageBody<T::AccountId, T::AccountId>,
-		) -> DispatchResultWithPostInfo {
-			let Some(expected_sender) = T::ReceiveFrom::get() else {
-				cfg_if::cfg_if! {
-					if #[cfg(not(feature = "runtime-benchmarks"))] {
-						return Err(Error::<T>::ConvertFromNotEnabled)?;
-					} else {
-						return Ok(().into())
-					}
-				}
-			};
-			if &expected_sender != message.sender() {
-				return Err(Error::<T>::InvalidSender)?;
-			}
-			let decoded_message =
-				ConversionMessageFor::<T>::decode(&mut message.payload().as_slice())
-					.map_err(|_| Error::<T>::DecodingFailure)?;
-			Self::process_conversion(decoded_message)?;
-			Ok(().into())
 		}
 	}
 

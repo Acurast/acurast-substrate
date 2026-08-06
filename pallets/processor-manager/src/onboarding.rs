@@ -11,7 +11,7 @@ use frame_support::{
 	},
 	traits::IsType,
 	weights::Weight,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 };
 
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
@@ -44,11 +44,15 @@ impl<T: Config, OP: OnboardingProvider<T>> Debug for Onboarding<T, OP> {
 	}
 }
 
+// Only referenced on the `not(runtime-benchmarks)` path below, where the corresponding
+// validation actually rejects; benchmark builds skip those checks.
+#[cfg_attr(feature = "runtime-benchmarks", allow(dead_code))]
 const PAIRING_VALIDATION_ERROR: u8 = 1;
+#[cfg_attr(feature = "runtime-benchmarks", allow(dead_code))]
 const ATTESTATION_VALIDATION_ERROR: u8 = 2;
 const FUNDING_ERROR: u8 = 3;
 
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Fund(T::AccountId, T::AccountId, BalanceFor<T>),
 	NoFund,

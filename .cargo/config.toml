@@ -1,0 +1,8 @@
+# Since polkadot-stable2606 the runtime is built for the bare `wasm32v1-none` target.
+# With current Rust toolchains, `rust-lld` no longer implicitly turns undefined wasm
+# symbols into imports, so the runtime's Substrate host-function references
+# (`ext_*` from sp-io / cumulus host functions) fail to link. `--import-undefined`
+# restores the expected behaviour (host functions are imported, not defined).
+# `WASM_BUILD_RUSTFLAGS` is consumed by substrate-wasm-builder for the runtime blob.
+[env]
+WASM_BUILD_RUSTFLAGS = "-Clink-arg=--import-undefined"

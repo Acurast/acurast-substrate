@@ -19,6 +19,13 @@
 
 zombienet/bin
 !zombienet/bin/acurast-node
+# Locally built/downloaded zombienet artifacts (relay binaries, generated run configs)
+zombienet/relay/
+zombienet/config.local.toml
+# Zombienet run data (the `-d` spawn directory) and example script deps
+zombienet-run/
+zombienet/examples/node_modules/
+zombienet/examples/package*.json
 
 # Don't commit ink lock file since we want to use latest and greatest when compiling the contracts
 ink/Cargo.lock

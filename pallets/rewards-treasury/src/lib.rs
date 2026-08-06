@@ -25,14 +25,10 @@ pub mod pallet {
 	use pallet_balances;
 	use sp_std::prelude::*;
 
-	use crate::*;
-
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_balances::Config<I> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The epoch length in blocks. At each epoch's end the penultimate (last but one) balance is burnt.
 		#[pallet::constant]
 		type Epoch: Get<BlockNumberFor<Self>>;

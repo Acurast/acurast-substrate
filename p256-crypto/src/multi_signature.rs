@@ -4,7 +4,7 @@ use crate::application_crypto::p256::{Public, Signature};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_core::{crypto::UncheckedFrom, ecdsa, ed25519, sr25519, ConstU32, RuntimeDebug, H256};
+use sp_core::{crypto::UncheckedFrom, ecdsa, ed25519, sr25519, ConstU32, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, Lazy, Verify},
 	AccountId32, BoundedVec, MultiSignature as SPMultiSignature, MultiSigner as SPMultiSigner,
@@ -19,15 +19,7 @@ const ACURAST_SIGNATURE_PREFIX: &[u8] = b"ACURAST TRANSACTION:\n";
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
-	Eq,
-	PartialEq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+	Eq, PartialEq, Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Debug, TypeInfo,
 )]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
@@ -116,7 +108,7 @@ impl TryFrom<MultiSignature> for Signature {
 	}
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
 	/// An Ed25519 identity.

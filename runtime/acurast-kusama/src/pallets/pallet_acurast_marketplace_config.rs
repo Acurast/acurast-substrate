@@ -1,40 +1,39 @@
 use acurast_runtime_common::{
-	types::{AccountId, Balance, ExtraFor, ProcessorPriceProvider},
+	types::{Balance, ExtraFor, ProcessorPriceProvider},
 	weight,
 };
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, parameter_types, PalletId};
-use pallet_acurast::{JobId, MultiOrigin, CU32};
-use pallet_acurast_hyperdrive::{IncomingAction, ProxyChain};
-use pallet_acurast_marketplace::{MarketplaceHooks, PubKey, PubKeys};
+use frame_support::{parameter_types, PalletId};
+use pallet_acurast::CU32;
 use sp_core::{ConstU32, ConstU64};
-use sp_runtime::{traits::BlakeTwo256, AccountId32, DispatchError, FixedU128};
-use sp_std::prelude::*;
+use sp_runtime::{traits::BlakeTwo256, FixedU128};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastCompute, AcurastHyperdrive, AcurastMarketplace, AcurastPalletId,
-	AcurastProcessorManager, Balances, DefaultFeePercentage, DefaultMatcherFeePercentage,
-	EnsureCouncilOrRoot, FeeManagerPalletId, HyperdriveIbcFeePalletAccount, HyperdrivePalletId,
-	ReportTolerance, Runtime, RuntimeEvent,
+	AcurastCompute, AcurastMarketplace, AcurastPalletId, AcurastProcessorManager, Balances,
+	DefaultFeePercentage, DefaultMatcherFeePercentage, EnsureCouncilOrRoot, FeeManagerPalletId,
+	HyperdrivePalletId, ReportTolerance, Runtime,
 };
 
 parameter_types! {
 	pub const MinPrice: Balance = 2_000_000_000;
-	pub const PriceMultiplier: FixedU128 = FixedU128::from_rational(11, 10);
+	pub const PriceMultiplier: FixedU128 = FixedU128::from_rational(143, 100);
 }
 
 /// Runtime configuration for pallet_acurast_marketplace.
 impl pallet_acurast_marketplace::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = CU32<100>;
 	type Competing = CU32<4>;
 	type MatchingCompetingMinInterval = ConstU64<300_000>; // 5 min
 	type MatchingCompetingDueDelta = ConstU64<300_000>; // 5 min
-	type MaxProposedMatches = ConstU32<10>;
-	type MaxProposedExecutionMatches = ConstU32<10>;
+	type MaxProposedMatches = ConstU32<3>;
+	type MaxProposedExecutionMatches = ConstU32<3>;
 	type MaxFinalizeJobs = ConstU32<10>;
 	type MaxJobCleanups = ConstU32<100>;
+	type MaxMatchesPerProcessor = ConstU32<5>;
+	type MinDuration = ConstU64<60_000>; // 1 min
+	type MaxStartWindow = ConstU64<86_400_000>; // 24 h
+	type MaxStartDelay = ConstU64<3_600_000>; // 1 h
 	type RegistrationExtra = ExtraFor<Self>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;
@@ -47,7 +46,8 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		(),
 	>;
 	type ProcessorInfoProvider = ProcessorLastSeenProvider;
-	type MarketplaceHooks = HyperdriveOutgoingMarketplaceHooks;
+	// Cross-chain (Hyperdrive) job-operation hooks removed; no-op hooks.
+	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;
 	type DefaultMinPrice = MinPrice;
@@ -96,77 +96,5 @@ impl pallet_acurast_marketplace::traits::ProcessorInfoProvider<Runtime>
 	) -> Option<sp_runtime::FixedU128> {
 		let metric = AcurastCompute::metrics(&processor, pool_id)?;
 		Some(metric.metric)
-	}
-}
-
-pub struct HyperdriveOutgoingMarketplaceHooks;
-impl MarketplaceHooks<Runtime> for HyperdriveOutgoingMarketplaceHooks {
-	fn assign_job(job_id: &JobId<AccountId32>, pub_keys: &PubKeys) -> DispatchResultWithPostInfo {
-		// inspect which hyperdrive proxy chain to send action to
-		let (origin, job_id_seq) = job_id;
-
-		// depending on the origin=target chain to send message to, we search for a supported
-		// processor public key supported on the target
-		match origin {
-			MultiOrigin::AlephZero(_) => {
-				let key = pub_keys
-					.iter()
-					.find(|key| matches!(key, PubKey::SECP256k1(_)))
-					.ok_or(DispatchError::Other("k256 public key does not exist"))?;
-
-				AcurastHyperdrive::send_to_proxy(
-					ProxyChain::AlephZero,
-					IncomingAction::AssignJob(*job_id_seq, key.clone()),
-					&HyperdriveIbcFeePalletAccount::get(),
-				)?;
-
-				Ok(().into())
-			},
-			MultiOrigin::Vara(_) => {
-				let key = pub_keys
-					.iter()
-					.find(|key| matches!(key, PubKey::SECP256k1(_)))
-					.ok_or(DispatchError::Other("k256 public key does not exist"))?;
-
-				AcurastHyperdrive::send_to_proxy(
-					ProxyChain::Vara,
-					IncomingAction::AssignJob(*job_id_seq, key.clone()),
-					&HyperdriveIbcFeePalletAccount::get(),
-				)?;
-
-				Ok(().into())
-			},
-			_ => Ok(().into()),
-		}
-	}
-
-	fn finalize_job(
-		job_id: &JobId<AccountId>,
-		refund: <Runtime as pallet_acurast_marketplace::Config>::Balance,
-	) -> DispatchResultWithPostInfo {
-		// inspect which hyperdrive proxy chain to send action to
-		let (origin, job_id_seq) = job_id;
-
-		match origin {
-			MultiOrigin::AlephZero(_) => {
-				AcurastHyperdrive::send_to_proxy(
-					ProxyChain::AlephZero,
-					IncomingAction::FinalizeJob(*job_id_seq, refund),
-					&HyperdriveIbcFeePalletAccount::get(),
-				)?;
-
-				Ok(().into())
-			},
-			MultiOrigin::Vara(_) => {
-				AcurastHyperdrive::send_to_proxy(
-					ProxyChain::Vara,
-					IncomingAction::FinalizeJob(*job_id_seq, refund),
-					&HyperdriveIbcFeePalletAccount::get(),
-				)?;
-
-				Ok(().into())
-			},
-			_ => Ok(().into()),
-		}
 	}
 }

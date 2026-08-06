@@ -1,4 +1,5 @@
 use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	ensure,
 	pallet_prelude::*,
 	sp_runtime::{
@@ -20,6 +21,22 @@ use crate::{
 };
 
 impl<T: Config> Pallet<T> {
+	/// Wraps a [`DispatchResult`] into a [`DispatchResultWithPostInfo`] reporting `actual_weight`,
+	/// so that unused weight is refunded on both the success and the error path.
+	pub(crate) fn apply_actual_weight(
+		result: DispatchResult,
+		actual_weight: Weight,
+	) -> DispatchResultWithPostInfo {
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes };
+		match result {
+			Ok(()) => Ok(post_info),
+			Err(error) => {
+				Err(frame_support::dispatch::DispatchErrorWithPostInfo { post_info, error })
+			},
+		}
+	}
+
 	/// Checks if a Processor - Job match is possible and returns the remaining job rewards by `job_id`.
 	///
 	/// If the job is no longer in status [`JobStatus::Open`], the matching is skipped without returning an error.
@@ -29,6 +46,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn process_matching<'a>(
 		matching: impl IntoIterator<Item = &'a MatchFor<T>>,
 		matcher_account: Option<&T::AccountId>,
+		meter: &mut MatchingWeightMeter,
 	) -> DispatchResult {
 		for m in matching {
 			let job_status = <StoredJobStatus<T>>::get(&m.job_id.0, m.job_id.1)
@@ -38,6 +56,9 @@ impl<T: Config> Pallet<T> {
 				// skip but don't fail this match (another matcher was quicker)
 				continue;
 			}
+
+			// this match is actually processed (not skipped); count it for weight refunding
+			meter.processed = meter.processed.saturating_add(1);
 
 			let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, m.job_id.1)
 				.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
@@ -131,6 +152,7 @@ impl<T: Config> Pallet<T> {
 				// CHECK schedule
 				Self::fits_schedule(
 					&planned_execution.source,
+					&m.job_id,
 					ExecutionSpecifier::All,
 					&registration.schedule,
 					planned_execution.start_delay,
@@ -228,6 +250,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn process_execution_matching<'a>(
 		matching: impl IntoIterator<Item = &'a ExecutionMatchFor<T>>,
 		matcher_account: Option<&T::AccountId>,
+		meter: &mut MatchingWeightMeter,
 	) -> DispatchResult {
 		for m in matching {
 			// if the job_execution_status was never set, the default `Open` is returned
@@ -235,6 +258,9 @@ impl<T: Config> Pallet<T> {
 				// skip but don't fail this match (another matcher was quicker)
 				continue;
 			}
+
+			// this match is actually processed (not skipped); count it for weight refunding
+			meter.processed = meter.processed.saturating_add(1);
 
 			let registration = <StoredJobRegistration<T>>::get(&m.job_id.0, m.job_id.1)
 				.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
@@ -340,6 +366,7 @@ impl<T: Config> Pallet<T> {
 				// CHECK schedule
 				Self::fits_schedule(
 					&planned_execution.source,
+					&m.job_id,
 					ExecutionSpecifier::Index(m.execution_index),
 					&registration.schedule,
 					planned_execution.start_delay,
@@ -467,6 +494,8 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// `unwrap_or(0)` below is deliberate, not a missed `saturating_mul` — see the comment inside.
+	#[allow(clippy::manual_saturating_arithmetic)]
 	fn check_network_request_quota_sufficient(
 		ad: &AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
 		schedule: &Schedule,
@@ -479,6 +508,10 @@ impl<T: Config> Pallet<T> {
 			// duration (ms) / 1000 * network_request_quota >= network_requests (per second)
 			// <=>
 			// duration (ms) * network_request_quota >= network_requests (per second) * 1000
+			//
+			// NOT `saturating_mul`: on overflow this side must collapse to 0 so the `ensure!` fails
+			// and the match is rejected. `saturating_mul` would yield `u64::MAX` and accept it
+			// instead, turning a fail-closed check into a fail-open one.
 			schedule.duration.checked_mul(ad.network_request_quota.into()).unwrap_or(0u64)
 				>= network_requests
 					.saturated_into::<u64>()
@@ -562,15 +595,31 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Checks of a new job schedule fits with the existing schedule for a processor.
+	///
+	/// `target_job_id` is the job about to be matched to `source`. It is used to bound the number of
+	/// concurrent matches a processor can hold: this function iterates over the processor's entire
+	/// `StoredMatches` prefix, so an unbounded number of matches would make the matching extrinsics'
+	/// execution cost (and thus required weight) unbounded. We therefore reject a match that would
+	/// grow the prefix beyond [`Config::MaxMatchesPerProcessor`], keeping the worst-case iteration
+	/// length fixed and benchmarkable.
 	fn fits_schedule(
 		source: &T::AccountId,
+		target_job_id: &JobId<T::AccountId>,
 		execution_specifier: ExecutionSpecifier,
 		schedule: &Schedule,
 		start_delay: u64,
 	) -> Result<(), Error<T>> {
 		let now = Self::now()?;
 		let report_tolerance = T::ReportTolerance::get();
+		let mut match_count: u32 = 0;
+		let mut is_existing_match = false;
 		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(source) {
+			// Count every entry in the prefix (including stale ones) since all of them are iterated
+			// here and on every future matching call for this processor.
+			match_count = match_count.saturating_add(1);
+			if &job_id == target_job_id {
+				is_existing_match = true;
+			}
 			// ignore job registrations not found (shouldn't happen if invariant is kept that assignments are cleared whenever a job is removed)
 			// TODO decide tradeoff: we could save this lookup at the cost of storing the schedule along with the match or even completely move it from StoredJobRegistration into StoredMatches
 			if let Some(other) = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1) {
@@ -671,6 +720,13 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		}
+
+		// A match for an already-matched job only mutates an existing entry, so it does not grow the
+		// prefix. A match for a new job adds one entry: reject it if the processor is already at the cap.
+		ensure!(
+			is_existing_match || match_count < T::MaxMatchesPerProcessor::get(),
+			Error::<T>::TooManyMatchesForProcessor
+		);
 
 		Ok(())
 	}

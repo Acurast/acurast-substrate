@@ -1,7 +1,7 @@
 use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
 use pallet_acurast::{
-	Attestation, BoundedAttestationContent, BoundedDeviceAttestation, BoundedKeyDescription,
-	VerifiedBootState,
+	Attestation, AttestationSecurityLevel, BoundedAttestationContent, BoundedDeviceAttestation,
+	BoundedKeyDescription, VerifiedBootState,
 };
 use sp_std::prelude::*;
 
@@ -48,6 +48,14 @@ pub fn check_key_description(
 	} else {
 		return false;
 	}
+
+	if !matches!(
+		key_description.attestation_security_level,
+		AttestationSecurityLevel::StrongBox | AttestationSecurityLevel::TrustedEnvironemnt,
+	) {
+		return false;
+	}
+
 	let mut result = false;
 	let attestation_application_id = key_description
 		.tee_enforced

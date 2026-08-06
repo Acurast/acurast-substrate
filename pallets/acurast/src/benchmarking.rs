@@ -24,7 +24,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn funded_account(index: u32) -> T::AccountId;
 }
 
-pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+pub fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
@@ -34,10 +34,15 @@ pub fn job_registration<T: Config>(extra: T::RegistrationExtra) -> JobRegistrati
 		allowed_sources: None,
 		allow_only_verified_sources: false,
 		schedule: Schedule {
-			duration: 500,
-			start_time: 1_671_800_400_000, // 23.12.2022 13:00
-			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
-			interval: 1_800_000,           // 30min
+			// must be >= the marketplace's `MinDuration` (60_000 in the runtimes) for the
+			// `register_hook` to accept the registration
+			duration: 60_000,
+			// relative to the benchmark clock (set to 1000 by `set_timestamp`): the marketplace
+			// `register_hook` bounds `start_time` to `MaxStartWindow` (24h) into the future, so the
+			// schedule cannot use wall-clock timestamps here.
+			start_time: 1_800_000, // 30min after the benchmark clock starts
+			end_time: 5_400_000,   // one hour of schedule
+			interval: 1_800_000,   // 30min
 			max_start_delay: 5000,
 		},
 		memory: 5_000u32,

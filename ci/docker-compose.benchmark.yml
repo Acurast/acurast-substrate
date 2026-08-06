@@ -1,0 +1,20 @@
+services:
+  bench:
+    image: ${BENCH_IMAGE:?set BENCH_IMAGE to the registry tag to benchmark}
+    pull_policy: always
+    user: "${BENCH_UID:?set BENCH_UID to the owner of BENCH_HOST_OUT}:${BENCH_GID:?set BENCH_GID}"
+    cpuset: ${BENCH_CPUSET:-0-7}
+    mem_limit: ${BENCH_MEM:-32g}
+    memswap_limit: ${BENCH_MEM:-32g}
+    environment:
+      BENCH_CPUSET_REQUESTED: ${BENCH_CPUSET:-0-7}
+      BENCH_MEM_REQUESTED: ${BENCH_MEM:-32g}
+    entrypoint: ["/bin/bash", "/ci/benchmark.sh"]
+    command:
+      - ${BENCH_CHAIN:?set BENCH_CHAIN (acurast-mainnet|acurast-kusama|acurast-rococo)}
+      - ${BENCH_STEPS:-50}
+      - ${BENCH_REPEAT:-20}
+    working_dir: /bench
+    volumes:
+      - ./benchmark.sh:/ci/benchmark.sh:ro
+      - ${BENCH_HOST_OUT:-./out}:/bench

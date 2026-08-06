@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(is_valid_script(&registration.script), Error::<T>::InvalidScriptValue);
 		if let Some(allowed_sources) = &registration.allowed_sources {
 			let max_allowed_sources_len = T::MaxAllowedSources::get() as usize;
-			ensure!(allowed_sources.len() > 0, Error::<T>::TooFewAllowedSources);
+			ensure!(!allowed_sources.is_empty(), Error::<T>::TooFewAllowedSources);
 			ensure!(
 				allowed_sources.len() <= max_allowed_sources_len,
 				Error::<T>::TooManyAllowedSources

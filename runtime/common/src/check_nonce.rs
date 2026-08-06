@@ -13,7 +13,7 @@ use frame_support::{
 		DispatchResult, Saturating,
 	},
 	weights::Weight,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 };
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
@@ -57,7 +57,7 @@ impl<T: ProcessorManagerConfig, OP: OnboardingProvider<T> + Eq + Clone + Send + 
 }
 
 /// Operation to perform from `validate` to `prepare` in [`CheckNonce`] transaction extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: frame_system::Config> {
 	/// Account and its nonce to check for.
 	CheckNonce((T::AccountId, T::Nonce)),
@@ -67,7 +67,7 @@ pub enum Val<T: frame_system::Config> {
 
 /// Operation to perform from `prepare` to `post_dispatch_details` in [`CheckNonce`] transaction
 /// extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Pre {
 	/// The transaction extension weight should not be refunded.
 	NonceChecked,

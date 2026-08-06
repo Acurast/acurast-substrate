@@ -7,3 +7,6 @@
 
 # dotfiles in the repo root
 /.*
+
+!/.cargo
+!/.cargo/**

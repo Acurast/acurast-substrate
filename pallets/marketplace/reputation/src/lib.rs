@@ -8,7 +8,6 @@ use sp_arithmetic::{
 	traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating},
 	FixedPointNumber, FixedPointOperand, Permill,
 };
-use sp_core::RuntimeDebug;
 
 #[cfg(test)]
 mod tests;
@@ -34,9 +33,7 @@ pub trait ReputationEngine<T, P> {
 	) -> Option<BetaParameters<FixedU128>>;
 }
 
-#[derive(
-	RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Default, Copy, Eq, PartialEq,
-)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Default, Copy, Eq, PartialEq)]
 pub struct BetaParameters<T> {
 	pub r: T,
 	pub s: T,

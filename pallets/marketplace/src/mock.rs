@@ -154,7 +154,6 @@ impl pallet_balances::Config for Test {
 impl parachain_info::Config for Test {}
 
 impl pallet_acurast::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = ExtraFor<Self>;
 	type MaxAllowedSources = CU32<4>;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;
@@ -227,7 +226,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_compute::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;
@@ -452,7 +450,6 @@ pub type ExtraFor<T> = RegistrationExtra<
 >;
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxAllowedConsumers = pallet_acurast::CU32<4>;
 	type Competing = pallet_acurast::CU32<2>;
 	type MatchingCompetingMinInterval = frame_support::traits::ConstU64<300_000>;
@@ -461,6 +458,10 @@ impl Config for Test {
 	type MaxProposedExecutionMatches = frame_support::traits::ConstU32<10>;
 	type MaxFinalizeJobs = frame_support::traits::ConstU32<10>;
 	type MaxJobCleanups = frame_support::traits::ConstU32<100>;
+	type MaxMatchesPerProcessor = frame_support::traits::ConstU32<10>;
+	type MinDuration = frame_support::traits::ConstU64<1000>;
+	type MaxStartWindow = frame_support::traits::ConstU64<86_400_000>; // 24 h
+	type MaxStartDelay = frame_support::traits::ConstU64<3_600_000>; // 1 h
 	type RegistrationExtra = ExtraFor<Test>;
 	type PalletId = AcurastPalletId;
 	type HyperdrivePalletId = HyperdrivePalletId;

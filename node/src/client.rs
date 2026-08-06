@@ -49,6 +49,7 @@ pub trait RuntimeApiCollection:
 	+ sp_consensus_aura::AuraApi<Block, AuraId>
 	+ cumulus_primitives_core::CollectCollationInfo<Block>
 	+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
+	+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>
 {
 }
 
@@ -64,11 +65,15 @@ impl<Api> RuntimeApiCollection for Api where
 		+ sp_consensus_aura::AuraApi<Block, AuraId>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
+		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>
 {
 }
 
 /// The exhaustive enum of client for each [`service::NetworkVariant`].
 #[derive(Clone)]
+// Kept as the per-chain client abstraction (see the `From` and `UsageProvider` impls below);
+// nothing constructs it yet.
+#[allow(dead_code)]
 pub enum ClientVariant {
 	#[cfg(any(feature = "acurast-local", feature = "acurast-dev", feature = "acurast-rococo"))]
 	Testnet(Arc<ParachainClient<acurast_rococo_runtime::apis::RuntimeApi>>),
@@ -131,6 +136,13 @@ impl sc_client_api::BlockBackend<Block> for ClientVariant {
 		hash: <Block as BlockT>::Hash,
 	) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
 		match_client!(self, block_indexed_body(hash))
+	}
+
+	fn block_indexed_hashes(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<Vec<sp_core::H256>>> {
+		match_client!(self, block_indexed_hashes(hash))
 	}
 
 	fn block(

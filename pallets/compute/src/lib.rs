@@ -57,8 +57,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		type ManagerId: Member
 			+ Parameter
@@ -480,6 +478,7 @@ pub mod pallet {
 		NotDelegating,
 		CommitmentNotFound,
 		CommitmentScoreNotFound,
+		/// DEPRECATED
 		NewCommitmentNotFound,
 		AlreadyCommitted,
 		NoManagerBackingCommitment,
@@ -489,8 +488,13 @@ pub mod pallet {
 		MaxStakeMetricRatioExceeded,
 		CommitmentInCooldown,
 		RedelegateBlocked,
+		/// DEPRECATED: unused. A [`Pallet::redelegate_v2`] target the delegator already delegates to is
+		/// rejected with [`Self::AlreadyDelegating`] instead, raised where the target delegation is
+		/// created. Kept to not shift the indices of the errors below.
 		AlreadyDelegatingToRedelegationCommitter,
+		/// DEPRECATED: unused, never constructed.
 		RedelegationCommitterCooldownCannotBeShorter,
+		/// DEPRECATED: unused, never constructed.
 		RedelegationCommitmentMetricsCannotBeLess,
 		AutoCompoundNotAllowed,
 		CannotCommit,
@@ -505,6 +509,10 @@ pub mod pallet {
 		CannotCreatePool,
 		InvalidTotalPoolRewards,
 		CannotEndBacking,
+		/// The [`Pallet::redelegate_v2`] target amounts do not sum up to the delegated amount. The
+		/// targets state the full split, so a share that should stay with the old committer has to be
+		/// listed as a target of its own.
+		RedelegationAmountMismatch,
 	}
 
 	#[pallet::hooks]
@@ -646,7 +654,7 @@ pub mod pallet {
 							.add
 							.clone()
 							.into_iter()
-							.map(|(config_name, _, _)| (config_name))
+							.map(|(config_name, _, _)| config_name)
 							.collect();
 						p.config = BoundedVec::truncate_from(
 							p.config
@@ -853,7 +861,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
 
-			Self::delegate_for(&who, commitment_id, amount, cooldown_period, allow_auto_compound)?;
+			Self::delegate_for(
+				&who,
+				commitment_id,
+				amount,
+				cooldown_period,
+				allow_auto_compound,
+				None,
+			)?;
 
 			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
 			Self::validate_max_stake_metric_ratio(commitment_id)?;
@@ -876,13 +891,15 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Redelegates from one commitment to another if allowed.
+		/// DEPRECATED: use [`Self::redelegate_v2`] instead, which additionally supports partial and
+		/// multi-target moves. This call remains dispatchable and behaves like a `redelegate_v2` with a
+		/// single target taking the whole delegated amount.
 		///
-		/// This are the rules that make a redelegation valid:
-		/// - The new commitment must have higher own stake than the current one.
-		/// - The new commitment must have higher cooldown than the current one.
+		/// Redelegates a delegation in full from one commitment to another if allowed:
+		/// - The new commitment must not be in cooldown (since delegators cannot initially delegate to a commitment in cooldown either).
 		/// - The new commitment must have the required free capacity to accommodate the redelegated stake.
-		/// - The new commitment is not in cooldown (since delegators cannot initially delegate to a commitment in cooldown too).
+		/// - If the delegator already delegates to the new commitment, both delegations are merged and
+		///   the longer of the two cooldown periods applies.
 		///
 		/// After each redelegation, the same blocking period as for initial delegation restarts, not allowing another immediate redelegation for [`T::RedelegationBlockingPeriod`] epochs.
 		/// - The blocking period is waved if the delegator redelegates from a commitment that is in cooldown, in this case an immediate switch is always possible.
@@ -890,6 +907,9 @@ pub mod pallet {
 		/// Note that it is not mandatory but possible that the delegator is in cooldown when redelegating.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::redelegate())]
+		#[deprecated(
+			note = "use `redelegate_v2`, which also supports partial and multi-target moves"
+		)]
 		pub fn redelegate(
 			origin: OriginFor<T>,
 			old_committer: T::AccountId,
@@ -906,6 +926,69 @@ pub mod pallet {
 				old_commitment_id,
 				new_commitment_id,
 			));
+
+			Ok(().into())
+		}
+
+		/// Splits the delegation to `old_committer` over up to [`MAX_REDELEGATIONS`] committers, moving
+		/// the given `amount` to each of them.
+		///
+		/// `targets` states the full split, not just what leaves: the amounts must sum to the delegated
+		/// amount exactly, so a share that should stay with `old_committer` has to be listed as a target
+		/// of its own. That makes the call idempotent in its amounts — the resulting delegations are
+		/// exactly the ones given, whatever the delegator's `targets` held before.
+		///
+		/// The rules that make a redelegation valid:
+		/// - Every share must be at least [`T::MinDelegation`] and the shares must sum to the delegated
+		///   amount exactly. Leave `old_committer` out of the targets to move everything away.
+		/// - A target commitment must not be in cooldown (since delegators cannot initially delegate to a
+		///   commitment in cooldown either), and must have the required free capacity to accommodate the
+		///   redelegated stake.
+		/// - The delegator must not already delegate to a target, and no committer may appear twice among
+		///   the targets (`old_committer` excepted on both counts, holding the share that stays): a
+		///   redelegation never merges into an existing delegation, so every target is created from
+		///   scratch and a collision is rejected with [`Error::AlreadyDelegating`]. Merging would have to
+		///   reconcile the two cooldown periods, implicitly lengthening one of them, and would cancel a
+		///   cooldown running on the target delegation. To add to an existing delegation, end this one
+		///   first and use [`Pallet::delegate_more`].
+		/// - Every target delegation is created fresh with `old_committer`'s cooldown period and
+		///   `allow_auto_compound`, so no share ends up committed longer than it already was.
+		/// - Leaving a share with `old_committer` requires neither the delegation nor `old_committer` to
+		///   be in cooldown. A delegator leaving a committer in cooldown therefore has to move the whole
+		///   amount.
+		///
+		/// After each redelegation, the same blocking period as for initial delegation restarts for every
+		/// target, not allowing another immediate redelegation for [`T::RedelegationBlockingPeriod`]
+		/// epochs. This includes a remainder left with `old_committer`.
+		/// - The blocking period is waved if the delegator redelegates from a commitment that is in cooldown, in this case an immediate switch is always possible.
+		#[pallet::call_index(24)]
+		#[pallet::weight(T::WeightInfo::redelegate_v2(targets.len() as u32))]
+		pub fn redelegate_v2(
+			origin: OriginFor<T>,
+			old_committer: T::AccountId,
+			targets: RedelegationTargetsFor<T, I>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let old_commitment_id = T::CommitmentIdProvider::commitment_id_for(&old_committer)?;
+			let resolved = targets
+				.iter()
+				.map(|(new_committer, amount)| {
+					Ok((T::CommitmentIdProvider::commitment_id_for(new_committer)?, *amount))
+				})
+				.collect::<Result<Vec<_>, DispatchError>>()?;
+
+			Self::redelegate_v2_for(&who, old_commitment_id, &resolved)?;
+
+			// One event per target stake actually moved to; the share staying with `old_committer` did not
+			// move and gets none.
+			for (new_commitment_id, _) in resolved.iter().filter(|(id, _)| *id != old_commitment_id)
+			{
+				Self::deposit_event(Event::<T, I>::Redelegated(
+					who.clone(),
+					old_commitment_id,
+					*new_commitment_id,
+				));
+			}
 
 			Ok(().into())
 		}
@@ -1001,6 +1084,10 @@ pub mod pallet {
 		/// Delegate more stake for the caller's commitment.
 		///
 		/// The caller must be the owner of a commitment.
+		///
+		/// Growing a delegation neither restarts the [`T::RedelegationBlockingPeriod`] nor is blocked by
+		/// a running one: the added stake could as well have been delegated to any other committer, so
+		/// it has no reason to lengthen the wait for the delegation it joins.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::delegate_more())]
 		pub fn delegate_more(

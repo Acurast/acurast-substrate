@@ -58,9 +58,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_acurast::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as pallet_acurast::Config>::RuntimeEvent>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The max length of the allowed sources list for a registration.
 		#[pallet::constant]
 		type MaxAllowedConsumers: Get<u32> + ParameterBound;
@@ -106,6 +103,31 @@ pub mod pallet {
 		type MarketplaceHooks: MarketplaceHooks<Self>;
 		#[pallet::constant]
 		type MaxJobCleanups: Get<u32>;
+		/// The maximum number of concurrent matches a single processor can hold. This bounds the
+		/// per-processor iteration in schedule-fit checking so the matching extrinsics have a fixed
+		/// worst-case execution cost.
+		#[pallet::constant]
+		type MaxMatchesPerProcessor: Get<u32>;
+		/// The minimum `duration` (in milliseconds) that a single job execution must specify.
+		///
+		/// This lower-bounds the length of one execution and, combined with the `duration < interval`
+		/// invariant, lower-bounds the `interval` between executions. For a given schedule window this
+		/// therefore upper-bounds the number of executions (together with [`MAX_EXECUTIONS_PER_JOB`]).
+		#[pallet::constant]
+		type MinDuration: Get<u64>;
+		/// The maximum time (in milliseconds) a job's `start_time` may lie in the future, relative to
+		/// the time of registration.
+		///
+		/// Bounds for how long a registration occupies storage and keeps its reward locked before
+		/// doing any work.
+		#[pallet::constant]
+		type MaxStartWindow: Get<u64>;
+		/// The maximum `max_start_delay` (in milliseconds) a job's schedule may specify.
+		///
+		/// Without this, `max_start_delay` would be an unbounded way to push the actual first
+		/// execution beyond [`Config::MaxStartWindow`].
+		#[pallet::constant]
+		type MaxStartDelay: Get<u64>;
 		/// The hashing system (algorithm) being used to hash deployments (owner + script) (e.g. Blake2).
 		type DeploymentHashing: Hash<Output = DeploymentHash> + TypeInfo;
 		/// The hashing system (algorithm) being used to generate key ids for deployments (e.g. Blake2).
@@ -483,6 +505,15 @@ pub mod pallet {
 		/// Match is invalid because the job's assignment strategy does not match the matching extrinsic used
 		/// (`propose_matching` requires [`AssignmentStrategy::Single`], `propose_execution_matching` requires [`AssignmentStrategy::Competing`]).
 		WrongAssignmentStrategyInMatch,
+		/// Match would exceed the maximum number of concurrent matches allowed per processor
+		/// ([`Config::MaxMatchesPerProcessor`]).
+		TooManyMatchesForProcessor,
+		/// The job registration must specify a `duration` of at least [`Config::MinDuration`].
+		JobRegistrationDurationBelowMinimum,
+		/// The job registration's `start_time` lies further than [`Config::MaxStartWindow`] in the future.
+		JobRegistrationStartTooFarInFuture,
+		/// The job registration's `max_start_delay` exceeds [`Config::MaxStartDelay`].
+		JobRegistrationMaxStartDelayExceeded,
 	}
 
 	#[pallet::hooks]
@@ -540,6 +571,10 @@ pub mod pallet {
 		}
 
 		/// Proposes processors to match with a job. The match fails if it conflicts with the processor's schedule.
+		///
+		/// Declares the worst case for all submitted matches but refunds — via `actual_weight` — the
+		/// matches that were skipped because their job was no longer `Open` (another matcher was
+		/// quicker); each such match only costs a single storage read.
 		#[pallet::call_index(2)]
 		#[pallet::weight(< T as Config >::WeightInfo::propose_matching(matches.len() as u32))]
 		pub fn propose_matching(
@@ -548,9 +583,17 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::process_matching(&matches, Some(&who))?;
+			let total = matches.len() as u32;
+			let mut meter = MatchingWeightMeter::default();
+			let result = Self::process_matching(&matches, Some(&who), &mut meter);
 
-			Ok(().into())
+			// Refund matches that were skipped (not processed) down to a single storage read each.
+			let actual = <T as Config>::WeightInfo::propose_matching(meter.processed)
+				.saturating_add(
+					T::DbWeight::get().reads(total.saturating_sub(meter.processed) as u64),
+				);
+
+			Self::apply_actual_weight(result, actual)
 		}
 
 		/// Acknowledges a matched job. It fails if the origin is not the account that was matched for the job.
@@ -649,6 +692,10 @@ pub mod pallet {
 		}
 
 		/// Proposes processors to match with a job's execution.
+		///
+		/// Per-execution matches are resolved analytically (no schedule-overlap merge), so the only
+		/// refundable variability is the matches skipped because another matcher was quicker; those
+		/// are refunded to a cheap per-skip storage read via `actual_weight`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(< T as Config >::WeightInfo::propose_execution_matching(matches.len() as u32))]
 		pub fn propose_execution_matching(
@@ -657,9 +704,17 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::process_execution_matching(&matches, Some(&who))?;
+			let total = matches.len() as u32;
+			let mut meter = MatchingWeightMeter::default();
+			let result = Self::process_execution_matching(&matches, Some(&who), &mut meter);
 
-			Ok(().into())
+			// Refund matches that were skipped (not processed) down to a single storage read each.
+			let actual = <T as Config>::WeightInfo::propose_execution_matching(meter.processed)
+				.saturating_add(
+					T::DbWeight::get().reads(total.saturating_sub(meter.processed) as u64),
+				);
+
+			Self::apply_actual_weight(result, actual)
 		}
 
 		#[pallet::call_index(9)]

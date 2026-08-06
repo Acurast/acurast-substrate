@@ -17,7 +17,7 @@ use frame_support::traits::ValidatorRegistration;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{EnsureOrigin, IsType, StorageVersion, ValidatorRegistration},
+		traits::{EnsureOrigin, StorageVersion, ValidatorRegistration},
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
@@ -26,7 +26,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member
 			+ Parameter
 			+ MaybeSerializeDeserialize

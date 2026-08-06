@@ -1,3 +1,5 @@
+// `1 * UNIT` is kept for column alignment in the expectation tables below.
+#![allow(clippy::identity_op)]
 use frame_support::{assert_ok, traits::Hooks};
 use sp_core::bounded_vec;
 use sp_runtime::{traits::AccountIdConversion, AccountId32, FixedU128, Perbill, Perquintill};
@@ -37,6 +39,9 @@ pub fn compute_test_flow(
 }
 
 #[derive(Debug, Clone)]
+// `StakeMore`, `WithdrawDelegation` and `WithdrawCommitment` are declared and rendered by the
+// `Display` impl but no test constructs them yet — a coverage gap, not unused code.
+#[allow(dead_code)]
 pub enum Action {
 	CommitCompute {
 		committer: String,
@@ -88,6 +93,12 @@ pub enum Action {
 		processor: String,
 		metrics: Vec<(u8, u128, u128)>,
 	}, // (pool_id, numerator, denominator)
+	RedelegateV2 {
+		delegator: String,
+		old_committer: String,
+		// (new_committer, part of the delegation to move to that committer)
+		targets: Vec<(String, Balance)>,
+	},
 }
 
 impl Display for Action {
@@ -141,6 +152,13 @@ impl Display for Action {
 			},
 			Action::ProcessorCommit { processor, metrics } => {
 				write!(f, "ProcessorCommit(processor={}, metrics={:?})", processor, metrics)
+			},
+			Action::RedelegateV2 { delegator, old_committer, targets } => {
+				write!(
+					f,
+					"RedelegateV2(delegator={}, old_committer={}, targets={:?})",
+					delegator, old_committer, targets
+				)
 			},
 		}
 	}
@@ -401,6 +419,21 @@ impl ComputeTestFlow {
 					let account = Self::name_to_account(processor);
 					Self::execute_processor_commit(&account, metrics);
 				},
+				Action::RedelegateV2 { delegator, old_committer, targets } => {
+					let delegator_account = Self::name_to_account(delegator);
+					let old_account = Self::name_to_account(old_committer);
+					let resolved_targets = targets
+						.iter()
+						.map(|(new_committer, amount)| {
+							(Self::name_to_account(new_committer), *amount)
+						})
+						.collect::<Vec<_>>();
+					Self::execute_redelegate_v2(
+						&delegator_account,
+						&old_account,
+						&resolved_targets,
+					);
+				},
 			}
 
 			Self::print_storage_state();
@@ -446,7 +479,7 @@ impl ComputeTestFlow {
 				// Generate a unique manager ID using thread-local counter
 				use std::cell::RefCell;
 				thread_local! {
-					static MANAGER_COUNTER: RefCell<u128> = RefCell::new(1);
+					static MANAGER_COUNTER: RefCell<u128> = const { RefCell::new(1) };
 				}
 
 				let id = MANAGER_COUNTER.with(|counter| {
@@ -468,7 +501,7 @@ impl ComputeTestFlow {
 		who: &AccountId32,
 		stake: u128,
 		cooldown: u64,
-		metrics: &Vec<(u8, u128, u128)>,
+		metrics: &[(u8, u128, u128)],
 		commission: Perbill,
 	) -> Vec<u8> {
 		let mut pool_ids = vec![];
@@ -542,9 +575,20 @@ impl ComputeTestFlow {
 		));
 	}
 
+	fn execute_redelegate_v2(
+		delegator: &AccountId32,
+		old_committer: &AccountId32,
+		targets: &[(AccountId32, Balance)],
+	) {
+		assert_ok!(Compute::redelegate_v2(
+			RuntimeOrigin::signed(delegator.clone()),
+			old_committer.clone(),
+			targets.to_vec().try_into().unwrap(),
+		));
+	}
+
 	fn execute_cooldown_compute_commitment(who: &AccountId32) {
-		let commitment_id =
-			<Test as Config>::CommitmentIdProvider::commitment_id_for(&who).unwrap();
+		let commitment_id = <Test as Config>::CommitmentIdProvider::commitment_id_for(who).unwrap();
 
 		// TODO: Update after refactoring - stakes() and self_delegation() storage no longer exists
 		// let prev_stake = Compute::stakes(commitment_id).unwrap();
@@ -634,7 +678,7 @@ impl ComputeTestFlow {
 		}
 	}
 
-	fn execute_processor_commit(processor: &AccountId32, metrics: &Vec<(u8, u128, u128)>) {
+	fn execute_processor_commit(processor: &AccountId32, metrics: &[(u8, u128, u128)]) {
 		let commit_data: Vec<(u8, u128, u128)> = metrics.to_vec();
 		let manager =
 			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(processor).unwrap();

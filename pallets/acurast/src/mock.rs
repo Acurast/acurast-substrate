@@ -132,7 +132,6 @@ impl parachain_info::Config for Test {}
 pub type MaxAllowedSources = CU32<4>;
 
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = ();
 	type MaxAllowedSources = MaxAllowedSources;
 	type MaxCertificateRevocationListUpdates = ConstU32<10>;

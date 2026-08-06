@@ -158,32 +158,6 @@ pub fn migrate_to_v11<T: Config<I>, I: 'static>() -> (Weight, bool) {
 	(weight, migration_completed)
 }
 
-pub mod v9 {
-	use core::ops::Add;
-
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use parity_scale_codec::{Decode, Encode};
-	use sp_runtime::{
-		traits::{Debug, One},
-		FixedU128,
-	};
-
-	/// Old MetricPool struct without total_with_bonus field
-	#[derive(
-		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
-	)]
-	pub struct MetricPool<
-		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
-		Value: Copy + Default + Debug,
-	> {
-		pub config: MetricPoolConfigValues,
-		pub name: MetricPoolName,
-		pub reward: ProvisionalBuffer<Epoch, Value>,
-		pub total: SlidingBuffer<Epoch, FixedU128>,
-	}
-}
-
 pub mod v8 {
 	use core::ops::Add;
 
@@ -196,9 +170,7 @@ pub mod v8 {
 	};
 
 	/// Old Commitment struct without last_slashing_epoch field
-	#[derive(
-		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
-	)]
+	#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 	pub struct Commitment<
 		Balance: Debug,
 		BlockNumber: Debug + Ord + Copy,
@@ -228,7 +200,7 @@ pub mod v5 {
 	};
 
 	#[derive(
-		RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Copy, Clone, PartialEq, Eq, Default,
+		Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Copy, Clone, PartialEq, Eq, Default,
 	)]
 	pub struct Cycle<Epoch, Era, BlockNumber> {
 		pub epoch: Epoch,
@@ -239,9 +211,7 @@ pub mod v5 {
 
 	pub type CycleFor<T> = Cycle<EpochOf<T>, EraOf<T>, BlockNumberFor<T>>;
 
-	#[derive(
-		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
-	)]
+	#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 	pub struct MetricPool<
 		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
 		Value: Copy + Default + Debug,
@@ -254,40 +224,4 @@ pub mod v5 {
 	}
 
 	pub type MetricPoolFor<T> = MetricPool<EpochOf<T>, Perquintill>;
-}
-
-pub mod v2 {
-	use frame_support::pallet_prelude::*;
-	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-
-	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct RewardSettings<Balance, AccountId> {
-		pub total_reward_per_distribution: Balance,
-		pub distribution_account: AccountId,
-	}
-}
-
-pub mod v1 {
-	use core::ops::Add;
-
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-	use sp_runtime::{
-		traits::{Debug, One},
-		FixedU128,
-	};
-
-	#[derive(
-		RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
-	)]
-	pub struct MetricPool<
-		Epoch: Copy + Ord + One + Add<Output = Epoch> + Debug,
-		Value: Copy + Default + Debug,
-	> {
-		pub config: MetricPoolConfigValues,
-		pub name: MetricPoolName,
-		pub reward: ProvisionalBuffer<Epoch, Value>,
-		pub total: SlidingBuffer<Epoch, FixedU128>,
-	}
 }

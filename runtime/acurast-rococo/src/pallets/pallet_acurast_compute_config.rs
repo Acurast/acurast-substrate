@@ -21,8 +21,7 @@ use sp_runtime::{FixedU128, Perbill, Perquintill};
 
 use crate::{
 	Acurast, AcurastProcessorManager, AcurastTokenConversion, Authorship, Balances,
-	CommitmentCollectionId, EnsureCouncilOrRoot, RootAccountId, Runtime, RuntimeEvent, Treasury,
-	Uniques,
+	CommitmentCollectionId, EnsureCouncilOrRoot, RootAccountId, Runtime, Treasury, Uniques,
 };
 use pallet_acurast::ManagerProviderForEligibleProcessor;
 
@@ -55,7 +54,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_compute::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;

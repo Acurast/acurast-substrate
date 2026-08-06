@@ -378,6 +378,22 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(76))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	/// Hand-written placeholder until benchmarks are regenerated.
+	///
+	/// The base is `redelegate` plus one extra `delegate_for` for the remainder staying with the source
+	/// committer. Each of the `n` targets costs at most one merge, i.e. a `delegate_more` plus one read
+	/// to resolve the committer's commitment id.
+	/// The range of component `n` is `[1, 10]`.
+	fn redelegate_v2(n: u32, ) -> Weight {
+		Weight::from_parts(605_940_000, 0)
+			.saturating_add(Weight::from_parts(0, 159489))
+			.saturating_add(Weight::from_parts(509_380_000, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 75270).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(114))
+			.saturating_add(T::DbWeight::get().writes(12))
+			.saturating_add(T::DbWeight::get().reads((93_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(n.into())))
+	}
 	/// Storage: `Uniques::Account` (r:1 w:0)
 	/// Proof: `Uniques::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastCompute::CurrentCycle` (r:1 w:0)

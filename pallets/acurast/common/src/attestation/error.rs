@@ -1,9 +1,8 @@
 use asn1::ParseError;
-use frame_support::pallet_prelude::RuntimeDebug;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 
 pub enum ValidationError {
 	/// Error occured while parsing the key description
@@ -50,6 +49,16 @@ pub enum ValidationError {
 	/// field in the sequence
 	/// [Certificate](https://www.rfc-editor.org/rfc/rfc5280#section-4.1.1.2).
 	SignatureMismatch,
+	/// A non-leaf certificate is missing the BasicConstraints extension.
+	BasicConstraintsMissing,
+	/// A non-leaf certificate is not marked as a certificate authority (cA = FALSE).
+	NotACertificateAuthority,
+	/// The pathLenConstraint of a CA certificate is exceeded by the chain.
+	PathLenConstraintViolated,
+	/// A non-leaf certificate is missing the KeyUsage extension.
+	KeyUsageMissing,
+	/// A non-leaf certificate is not allowed to sign certificates (keyCertSign not set).
+	KeyCertSignNotAllowed,
 }
 
 impl From<ParseError> for ValidationError {

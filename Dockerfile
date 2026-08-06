@@ -1,5 +1,5 @@
-FROM rust:1.86.0 AS builder
-RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
+FROM rust:1.93.0 AS builder
+RUN apt update && apt install --assume-yes git clang libclang-dev curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
 
 WORKDIR /code
 COPY . .
@@ -9,21 +9,20 @@ ARG benchmarks=""
 
 RUN \
 	if [ "${benchmarks}" = "kusama" ] ; then \
-	cargo build --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-kusama,std,runtime-benchmarks' --release ; \
 	elif [ "${benchmarks}" = "mainnet" ] ; then \
-	cargo build --no-default-features --features 'acurast-mainnet,std,runtime-benchmarks' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-mainnet,std,runtime-benchmarks' --release ; \
 	elif [ "${benchmarks}" = "dev" ] ; then \
-	cargo build --features 'runtime-benchmarks' --release ; \
+	cargo build --locked --features 'runtime-benchmarks' --release ; \
 	elif [ "${chain}" = "kusama" ] ; then \
-	cargo build --no-default-features --features 'acurast-kusama,std' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-kusama,std' --release ; \
 	elif [ "${chain}" = "mainnet" ] ; then \
-	cargo build --no-default-features --features 'acurast-mainnet,std' --release ; \
+	cargo build --locked --no-default-features --features 'acurast-mainnet,std' --release ; \
 	else \
-	cargo build --release ; \
+	cargo build --locked --release ; \
 	fi
 
-# adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
-FROM docker.io/library/ubuntu:22.04
+FROM docker.io/library/debian:trixie-slim
 
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
 COPY --from=builder /code/target/release/wbuild/acurast-mainnet-runtime/acurast_mainnet_runtime.compact.compressed.wasm /runtimes/

@@ -34,11 +34,6 @@ sp-runtime = { workspace = true }
 
 # for RPC
 sp-blockchain = { workspace = true, optional = true }
-jsonrpsee = { version = "0.16.2", features = [
-	"client-core",
-	"server",
-	"macros",
-], optional = true }
 serde = { version = "1.0.188", features = [
 	"derive",
 ], default-features = false, optional = true }
@@ -70,7 +65,6 @@ std = [
 	"acurast-common/std",
 	"sp-core/std",
 	"pallet-uniques/std",
-	"jsonrpsee",
 	"log/std",
 	"serde",
 	"thiserror",

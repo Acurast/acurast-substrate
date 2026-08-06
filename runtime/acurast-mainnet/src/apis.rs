@@ -20,27 +20,6 @@ use super::{
 	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment, VERSION,
 };
 
-/// Metadata v16 is deliberately not served.
-///
-/// v16 is the first version to describe transaction extensions per version, via
-/// `extensions_by_version`. @polkadot/api 16.5.6 reads v16 but ignores that map: it flattens
-/// `extensions_in_versions` into a single list and encodes all of them, including the ones that only
-/// exist in extension version 1. Since a v4 signed transaction is always extension version 0 (see
-/// `Preamble::Signed`), the runtime then fails to decode the extrinsic, and every extrinsic submitted
-/// from polkadot.js panics `validate_transaction`/`query_info` with a codec error.
-///
-/// Measured against a local node: with v16 the client produced 140 bytes and the runtime rejected it;
-/// restricted to the version-0 list it produced 139 and decoded fine. The single byte is
-/// `CheckMetadataHash`'s mode.
-///
-/// Withholding v16 makes such clients fall back to v15, whose `signed_extensions` field is built from
-/// `extensions_v0()` and therefore describes exactly the version-0 pipeline.
-///
-/// Trade-off: v16 is also how a client would *discover* extension version 1, so this hides the v1
-/// pipeline from clients that would handle it correctly. Remove this once @polkadot/api honours
-/// `extensions_by_version`.
-const WITHHELD_METADATA_VERSION: u32 = 16;
-
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -97,17 +76,11 @@ impl_runtime_apis! {
 		}
 
 		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
-			if version == WITHHELD_METADATA_VERSION {
-				return None;
-			}
 			Runtime::metadata_at_version(version)
 		}
 
 		fn metadata_versions() -> sp_std::vec::Vec<u32> {
 			Runtime::metadata_versions()
-				.into_iter()
-				.filter(|version| *version != WITHHELD_METADATA_VERSION)
-				.collect()
 		}
 	}
 

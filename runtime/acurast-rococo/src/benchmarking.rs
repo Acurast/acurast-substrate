@@ -27,7 +27,7 @@ define_benchmarks!(
 	[frame_system, SystemBench::<Runtime>]
 	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_timestamp, Timestamp]
-	[pallet_verify_signature, VerifySignature]
+	// [pallet_verify_signature, VerifySignature]
 	[pallet_multisig, Multisig]
 	[pallet_balances, Balances]
 	//[pallet_collator_selection, CollatorSelection]

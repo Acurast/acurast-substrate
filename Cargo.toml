@@ -110,7 +110,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", default
 # transaction from a signature carried inside the extension. Required to make transaction extension
 # version 1 usable at all: `Preamble::Signed` (v4) is hardcoded to extension version 0, so only
 # general transactions can select another version, and those have no signature of their own.
-pallet-verify-signature = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
+# pallet-verify-signature = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 # This 2 pallets provide the basic logic needed to pay the absolute minimum amount needed for a transaction to be included in a block.
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }

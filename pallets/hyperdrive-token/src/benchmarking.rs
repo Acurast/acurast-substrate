@@ -11,16 +11,25 @@ use pallet_acurast::{AccountId20, MultiOrigin, ProxyChain};
 use pallet_balances::Pallet as Balances;
 use sp_core::crypto::AccountId32;
 use sp_core::*;
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::traits::{SaturatedConversion, StaticLookup};
 use sp_std::prelude::*;
 
 use super::*;
+
+fn min_ibc_fee<T, I: 'static>() -> u128
+where
+	T: Config<I> + pallet_acurast_hyperdrive_ibc::Config<I>,
+{
+	<T as pallet_acurast_hyperdrive_ibc::Config<I>>::MinFee::get().saturated_into::<u128>()
+}
 
 fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
 	frame_system::Pallet::<T>::set_block_number(new_block);
 }
 
-pub fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
+pub fn assert_last_event<T: Config<I>, I: 'static>(
+	generic_event: <T as frame_system::Config>::RuntimeEvent,
+) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
@@ -35,9 +44,9 @@ benchmarks_instance_pallet! {
 	}
 
 	transfer_native {
-		let initial_balance = 1000 * UNIT;
 		let amount_to_transfer = UNIT;
-		let fee_amount = UNIT / 10;
+		let fee_amount = min_ibc_fee::<T, I>().max(UNIT / 10);
+		let initial_balance = (1000 * UNIT).max(fee_amount.saturating_mul(100));
 
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
@@ -56,19 +65,16 @@ benchmarks_instance_pallet! {
 		));
 		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
 
-		let amount_to_transfer = UNIT;
-		let fee_amount = UNIT / 10;
-
 		run_to_block::<T, I>(100u32.into());
 	}: {
 		assert_ok!(AcurastHyperdriveToken::<T, I>::transfer_native(RawOrigin::Signed(caller).into(), ethereum_dest().into(), amount_to_transfer.into(), fee_amount.into()));
 	}
 
 	retry_transfer_native {
-		let initial_balance = 1000 * UNIT;
 		let amount_to_transfer = UNIT;
-		let fee_amount = UNIT / 10;
+		let fee_amount = min_ibc_fee::<T, I>().max(UNIT / 10);
 		let retry_fee_amount = 2 * fee_amount;
+		let initial_balance = (1000 * UNIT).max(retry_fee_amount.saturating_mul(100));
 
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
@@ -129,8 +135,8 @@ benchmarks_instance_pallet! {
 	}
 
 	enable_proxy_chain {
-		let initial_balance = 1000 * UNIT;
-		let fee_amount = UNIT / 10;
+		let fee_amount = min_ibc_fee::<T, I>().max(UNIT / 10);
+		let initial_balance = (1000 * UNIT).max(fee_amount.saturating_mul(100));
 
 		let fee_payer: T::AccountId = T::OperationalFeeAccount::get();
 

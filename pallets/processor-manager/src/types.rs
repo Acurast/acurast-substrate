@@ -12,15 +12,7 @@ use sp_core::{
 use crate::Config;
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct ProcessorPairing<AccountId, Signature>
 where
@@ -98,15 +90,7 @@ where
 }
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct Proof<Signature>
 where
@@ -124,28 +108,20 @@ pub(crate) const MAX_LOCATION_LENGTH: u32 = 200;
 pub type BinaryLocation = BoundedVec<u8, ConstU32<MAX_LOCATION_LENGTH>>;
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct UpdateInfo {
 	pub version: Version,
 	pub binary_location: BinaryLocation,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
 pub struct UpdateInfos {
 	pub udpate_info: UpdateInfo,
 	pub binary_hash: BinaryHash,
 }
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq)]
 pub struct RewardDistributionWindow {
 	pub start: u32,
 	pub heartbeats: u32,
@@ -180,7 +156,7 @@ impl RewardDistributionWindow {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct RewardDistributionSettings<Balance, AccountId> {
 	pub window_length: u32,
@@ -194,7 +170,7 @@ pub const MAX_ENDPOINT_LENGTH: u32 = 200;
 pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

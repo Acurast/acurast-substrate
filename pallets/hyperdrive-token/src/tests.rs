@@ -1,4 +1,4 @@
-use frame_support::{assert_err, assert_ok, error::BadOrigin};
+use frame_support::{assert_err, assert_ok, sp_runtime::traits::BadOrigin};
 use hex_literal::hex;
 use pallet_acurast::{AccountId20, ProxyChain};
 use sp_runtime::AccountId32;

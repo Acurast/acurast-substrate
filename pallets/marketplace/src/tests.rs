@@ -1,5 +1,5 @@
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err, assert_err_ignore_postinfo, assert_ok,
 	sp_runtime::{
 		bounded_vec,
 		traits::{Hash, Scale},
@@ -58,6 +58,9 @@ fn test_valid_deregister() {
 	};
 
 	ExtBuilder.build().execute_with(|| {
+		// the schedule's `start_time` must be within `MaxStartWindow` of the current time
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), 1_671_800_100_000));
+
 		let initial_job_id = Acurast::job_id_sequence();
 
 		assert_ok!(AcurastMarketplace::advertise(
@@ -409,6 +412,9 @@ fn test_deregister_on_assigned_job() {
 					who: pallet_acurast_acount(),
 					amount: assignment.fee_per_execution
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt {
+					amount: assignment.fee_per_execution
+				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 					from: pallet_acurast_acount(),
 					to: alice_account_id(),
@@ -563,10 +569,10 @@ fn test_deregister_on_assigned_job_for_competing() {
 
 		let matcher_payout_fee_1 = fee_percentage.mul_floor(matcher_payout_1);
 		let matcher_payout_fee_2 = fee_percentage.mul_floor(matcher_payout_2);
-		let matcher_payout_fee = matcher_payout_fee_1 + matcher_payout_fee_2;
+		let _matcher_payout_fee = matcher_payout_fee_1 + matcher_payout_fee_2;
 		let matcher_pauout_after_fee_1 = matcher_payout_1 - matcher_payout_fee_1;
 		let matcher_pauout_after_fee_2 = matcher_payout_2 - matcher_payout_fee_2;
-		let matcher_pauout_after_fee = matcher_pauout_after_fee_1 + matcher_pauout_after_fee_2;
+		let _matcher_pauout_after_fee = matcher_pauout_after_fee_1 + matcher_pauout_after_fee_2;
 
 		assert_eq!(
 			Balances::free_balance(alice_account_id()),
@@ -638,8 +644,14 @@ fn test_deregister_on_assigned_job_for_competing() {
 					who: pallet_acurast_acount(),
 					amount: assignment1.fee_per_execution
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt {
+					amount: assignment1.fee_per_execution
+				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
 					who: pallet_acurast_acount(),
+					amount: assignment2.fee_per_execution
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt {
 					amount: assignment2.fee_per_execution
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -879,6 +891,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 					who: pallet_acurast_acount(),
 					amount: assignment1.fee_per_execution
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt {
+					amount: assignment1.fee_per_execution
+				}),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
 					b"JOB_EXECUTED".to_vec().try_into().unwrap()
@@ -906,6 +921,9 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 				)),
 				RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
 					who: pallet_acurast_acount(),
+					amount: assignment2.fee_per_execution
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt {
 					amount: assignment2.fee_per_execution
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -1239,6 +1257,7 @@ fn test_match() {
 					who: pallet_acurast_acount(),
 					amount: 5000
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 5000 }),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
 					operation_hash()
@@ -1251,6 +1270,7 @@ fn test_match() {
 					who: pallet_acurast_acount(),
 					amount: 5000
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 5000 }),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id1.clone(),
 					operation_hash()
@@ -1314,7 +1334,7 @@ fn test_multi_assignments() {
 		// pretend current time
 		later(now);
 
-		let processors = vec![
+		let processors = [
 			(processor_account_id(), attestation_chain()),
 			(processor_2_account_id(), attestation_chain_processor_2()),
 			(processor_3_account_id(), attestation_chain_processor_3()),
@@ -1611,7 +1631,7 @@ fn test_no_match_schedule_overlap() {
 				start_delay: 0,
 			}],
 		};
-		assert_err!(
+		assert_err_ignore_postinfo!(
 			AcurastMarketplace::propose_matching(
 				RuntimeOrigin::signed(charlie_account_id()),
 				vec![m2.clone()].try_into().unwrap(),
@@ -1712,7 +1732,7 @@ fn test_no_match_insufficient_reputation() {
 				start_delay: 0,
 			}],
 		};
-		assert_err!(
+		assert_err_ignore_postinfo!(
 			AcurastMarketplace::propose_matching(
 				RuntimeOrigin::signed(charlie_account_id()),
 				vec![m.clone()].try_into().unwrap(),
@@ -1883,6 +1903,7 @@ fn test_report_afer_last_report() {
 					who: pallet_acurast_acount(),
 					amount: 5000
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 5000 }),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id.clone(),
 					operation_hash()
@@ -1895,6 +1916,7 @@ fn test_report_afer_last_report() {
 					who: pallet_acurast_acount(),
 					amount: 5000
 				}),
+				RuntimeEvent::Balances(pallet_balances::Event::BurnedDebt { amount: 5000 }),
 				RuntimeEvent::AcurastMarketplace(crate::Event::ExecutionSuccess(
 					job_id.clone(),
 					operation_hash()
@@ -2270,6 +2292,135 @@ fn test_deploy_reuse_keys_different_editor_script_edit_fails() {
 			),
 			Error::<Test>::OnlyEditorCanEditScript
 		);
+	});
+}
+
+/// Registration is rejected when `duration` is below `Config::MinDuration` and accepted at the bound.
+#[test]
+fn test_register_rejects_duration_below_minimum() {
+	let now: u64 = 1_671_800_100_000;
+	let make = |duration: u64| JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration,
+			start_time: 1_671_800_400_000,
+			end_time: 1_671_804_000_000,
+			interval: 1_800_000,
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+
+		// below the configured minimum (mock `MinDuration` == 1000) -> rejected
+		assert_err!(
+			Acurast::register(RuntimeOrigin::signed(alice_account_id()), make(999)),
+			Error::<Test>::JobRegistrationDurationBelowMinimum
+		);
+
+		// exactly at the minimum -> accepted
+		assert_ok!(Acurast::register(RuntimeOrigin::signed(alice_account_id()), make(1000)));
+	});
+}
+
+/// Builds a minimal single-execution registration with a configurable `start_time` /
+/// `max_start_delay`, used by the start-window tests below.
+fn registration_starting_at(start_time: u64, max_start_delay: u64) -> JobRegistrationFor<Test> {
+	JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 1000,
+			start_time,
+			end_time: start_time + 1_800_000,
+			interval: 1_800_000,
+			max_start_delay,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	}
+}
+
+/// Registration is rejected when `start_time` lies further than `Config::MaxStartWindow` in the
+/// future, and accepted exactly at the bound.
+#[test]
+fn test_register_rejects_start_too_far_in_future() {
+	let now: u64 = 1_671_800_100_000;
+	let window = <Test as Config>::MaxStartWindow::get();
+
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+
+		// one millisecond beyond the window -> rejected
+		assert_err!(
+			Acurast::register(
+				RuntimeOrigin::signed(alice_account_id()),
+				registration_starting_at(now + window + 1, 5000)
+			),
+			Error::<Test>::JobRegistrationStartTooFarInFuture
+		);
+
+		// exactly at the window -> accepted
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration_starting_at(now + window, 5000)
+		));
+	});
+}
+
+/// Registration is rejected when `max_start_delay` exceeds `Config::MaxStartDelay`, and accepted
+/// exactly at the bound. Without this, `max_start_delay` would be an unbounded way to push the
+/// actual first execution past the start window.
+#[test]
+fn test_register_rejects_max_start_delay_above_maximum() {
+	let now: u64 = 1_671_800_100_000;
+	let max_start_delay = <Test as Config>::MaxStartDelay::get();
+
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+
+		assert_err!(
+			Acurast::register(
+				RuntimeOrigin::signed(alice_account_id()),
+				registration_starting_at(now + 300_000, max_start_delay + 1)
+			),
+			Error::<Test>::JobRegistrationMaxStartDelayExceeded
+		);
+
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration_starting_at(now + 300_000, max_start_delay)
+		));
 	});
 }
 

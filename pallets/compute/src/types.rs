@@ -29,6 +29,11 @@ pub type ProcessorStatusFor<T> = ProcessorStatus<BlockNumberFor<T>>;
 pub type MetricCommitFor<T> = MetricCommit<BlockNumberFor<T>>;
 
 pub const CONFIG_VALUES_MAX_LENGTH: u32 = 20;
+/// The maximum number of shares a single [`crate::Pallet::redelegate_v2`] can split a delegation
+/// into, counting the share that stays with the old committer.
+///
+/// A plain `const` (and not a [`Config`] item) so it can bound the benchmark's linear component.
+pub const MAX_REDELEGATIONS: u32 = 10;
 /// Precision constant for U256 calculations (10^30)
 pub const PER_TOKEN_DECIMALS: u128 = 1_000_000_000_000_000_000_000_000_000_000;
 pub const FIXEDU128_DECIMALS: u128 = 1_000_000_000_000_000_000;
@@ -50,8 +55,15 @@ pub type CommitmentFor<T, I> = Commitment<BalanceFor<T, I>, BlockNumberFor<T>, E
 pub type DelegationFor<T, I> = Delegation<BalanceFor<T, I>, BlockNumberFor<T>>;
 pub type RewardBudgetFor<T, I> = RewardBudget<BalanceFor<T, I>>;
 
+/// The `(committer, amount)` pairs a [`crate::Pallet::redelegate_v2`] splits a delegation into. The
+/// old committer may appear among them, holding the share that stays with him.
+pub type RedelegationTargetsFor<T, I> = BoundedVec<
+	(<T as frame_system::Config>::AccountId, BalanceFor<T, I>),
+	ConstU32<MAX_REDELEGATIONS>,
+>;
+
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -86,7 +98,7 @@ impl<Balance: Debug + Zero + Copy> RewardBudget<Balance> {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -109,7 +121,7 @@ pub struct Cycle<Epoch, BlockNumber> {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Clone,
 	PartialEq,
 	Eq,
@@ -120,7 +132,7 @@ pub enum ModifyMetricPoolConfig {
 }
 
 #[derive(
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -142,7 +154,7 @@ pub struct MetricPoolUpdateOperations {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 	Clone,
 	Copy,
 	PartialEq,
@@ -158,7 +170,7 @@ pub enum ProcessorStatus<BlockNumber> {
 }
 
 #[derive(
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -210,7 +222,7 @@ impl<
 }
 
 /// Stores a processor's metric commitment.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq)]
 pub struct MetricCommit<Epoch> {
 	/// The processor epoch number the metric got committed for.
 	pub epoch: Epoch,
@@ -218,7 +230,7 @@ pub struct MetricCommit<Epoch> {
 	pub metric: Metric,
 }
 
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	/// The offset in blocks this processor's epoch has from current global epoch.
 	///
@@ -237,7 +249,7 @@ pub struct ProcessorState<BlockNumber: Debug, Epoch: Debug, Balance: Debug> {
 	pub paid: Balance,
 }
 
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct MetricsRewardState<Epoch: Debug, Balance: Debug> {
 	/// The total amount paid out. There can be additional amounts waiting in [`Self.accrued`] to be paid out.
 	pub paid: Balance,
@@ -295,7 +307,7 @@ pub type RewardDistributionSettingsFor<T, I> =
 ///
 /// The maximum commitment possible to state is `min(commitment, 0.8 * latest-completed-era-average)`.
 #[derive(
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -313,7 +325,7 @@ pub struct ComputeCommitment {
 }
 
 /// The stake details, both for compute provider staking and any account delegating.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct Stake<Balance: Debug, BlockNumber: Debug> {
 	/// The amount.
 	pub amount: Balance,
@@ -370,7 +382,7 @@ impl<Balance: Debug + Zero + Copy, BlockNumber: Debug> Stake<Balance, BlockNumbe
 }
 
 /// The commitment state of a committer including his stake details.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct Commitment<
 	Balance: Debug,
 	BlockNumber: Debug + Ord + Copy,
@@ -402,16 +414,7 @@ pub struct Commitment<
 }
 
 #[derive(
-	RuntimeDebugNoBound,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Default,
+	DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq, Default,
 )]
 pub struct CommitmentWeights {
 	pub self_reward_weight: U256,
@@ -422,16 +425,7 @@ pub struct CommitmentWeights {
 }
 
 #[derive(
-	RuntimeDebugNoBound,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	Default,
+	DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq, Default,
 )]
 pub struct PoolReward {
 	pub reward_per_weight: U256,
@@ -449,7 +443,7 @@ impl CommitmentWeights {
 }
 
 /// The state of a delegator including his stake details.
-#[derive(RuntimeDebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq)]
 pub struct Delegation<Balance: Debug, BlockNumber: Debug> {
 	pub stake: Stake<Balance, BlockNumber>,
 
@@ -469,7 +463,7 @@ pub enum LockReason<ManagerId> {
 	Delegation(ManagerId),
 }
 
-#[derive(RuntimeDebug, Default)]
+#[derive(Debug, Default)]
 pub struct InflationInfo<Balance, Credit> {
 	pub metrics_reward: Balance,
 	pub staked_compute_reward: Balance,
@@ -482,7 +476,7 @@ pub type InflationInfoFor<T, I> = InflationInfo<
 	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>,
 >;
 
-#[derive(RuntimeDebug, Default)]
+#[derive(Debug, Default)]
 pub struct MetricPoolUpdateInfo {
 	pub pool_id: PoolId,
 	pub epoch_sum: Option<(Metric, Metric)>,
@@ -499,7 +493,7 @@ impl MetricPoolUpdateInfo {
 	}
 }
 
-#[derive(RuntimeDebug, Default)]
+#[derive(Debug, Default)]
 pub struct CommitMetricsInfo {
 	pub previous_metrics: Option<Vec<(PoolId, Metric)>>,
 	pub previous_pool_totals: Option<Vec<(PoolId, (Metric, Perquintill))>>,
@@ -548,7 +542,7 @@ impl CommitMetricsInfo {
 	}
 }
 
-#[derive(RuntimeDebug, Default)]
+#[derive(Debug, Default)]
 pub struct RewardInfo<Balance> {
 	pub reward: Balance,
 	pub metrics_reward_claimed: bool,

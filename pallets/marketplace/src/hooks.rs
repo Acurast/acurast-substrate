@@ -14,7 +14,10 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
 		let requirements: JobRequirementsFor<T> = e.into();
 
-		ensure!(registration.schedule.duration > 0, Error::<T>::JobRegistrationZeroDuration);
+		ensure!(
+			registration.schedule.duration >= T::MinDuration::get(),
+			Error::<T>::JobRegistrationDurationBelowMinimum
+		);
 		let execution_count = registration.schedule.execution_count();
 		ensure!(
 			execution_count <= MAX_EXECUTIONS_PER_JOB,
@@ -25,9 +28,15 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 			registration.schedule.duration < registration.schedule.interval,
 			Error::<T>::JobRegistrationDurationExceedsInterval
 		);
+		let now = Self::now()?;
+		ensure!(registration.schedule.start_time >= now, Error::<T>::JobRegistrationStartInPast);
 		ensure!(
-			registration.schedule.start_time >= Self::now()?,
-			Error::<T>::JobRegistrationStartInPast
+			registration.schedule.start_time <= now.saturating_add(T::MaxStartWindow::get()),
+			Error::<T>::JobRegistrationStartTooFarInFuture
+		);
+		ensure!(
+			registration.schedule.max_start_delay <= T::MaxStartDelay::get(),
+			Error::<T>::JobRegistrationMaxStartDelayExceeded
 		);
 		ensure!(
 			registration.schedule.start_time <= registration.schedule.end_time,
@@ -48,9 +57,12 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		match requirements.assignment_strategy {
 			AssignmentStrategy::Single(instant_match) => {
 				if let Some(sources) = instant_match {
+					// the instant match is accounted for in the (fixed) registration weight, so the
+					// variable work meter is discarded here
 					Self::process_matching(
 						once(&crate::types::Match { job_id: job_id.clone(), sources }),
 						None,
+						&mut crate::types::MatchingWeightMeter::default(),
 					)?;
 				}
 			},

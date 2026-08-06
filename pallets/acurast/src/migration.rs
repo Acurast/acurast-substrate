@@ -12,7 +12,7 @@ mod v4 {
 	use frame_support::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+	#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
 	pub struct Attestation {
 		pub cert_ids: ValidatingCertIds,
 		pub key_description: BoundedKeyDescription,

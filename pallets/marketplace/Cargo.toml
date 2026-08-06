@@ -27,11 +27,6 @@ pallet-timestamp = { workspace = true }
 
 # for RPC
 sp-blockchain = { workspace = true, optional = true }
-jsonrpsee = { version = "0.16.2", features = [
-	"client-core",
-	"server",
-	"macros",
-], optional = true }
 sp-api = { workspace = true }
 serde = { workspace = true }
 thiserror = { version = "1.0", optional = true }
@@ -78,6 +73,7 @@ runtime-benchmarks = [
 	"parachain-info",
 	"pallet-balances/runtime-benchmarks",
 	"parachains-common",
+	"parachains-common/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-acurast/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
@@ -101,10 +97,14 @@ std = [
 	"sp-version/std",
 	"pallet-acurast/std",
 	"acurast-reputation/std",
-	"jsonrpsee",
 	"sp-blockchain",
 	"log/std",
 	"thiserror",
 	"sp-blockchain",
+	# Propagate std to the optional benchmark-only pallet deps only when they are enabled
+	# (via runtime-benchmarks); otherwise their no_std benchmarking code fails to compile.
+	"pallet-balances?/std",
+	"pallet-acurast-processor-manager?/std",
+	"pallet-acurast-compute?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

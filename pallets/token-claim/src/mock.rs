@@ -120,7 +120,6 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureRootOrigin {
 }
 
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type Signature = MultiSignature;
 	type Signer = Signer;

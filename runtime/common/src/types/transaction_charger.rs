@@ -14,7 +14,9 @@ use sp_runtime::{
 
 use pallet_acurast::IsFundableCall;
 use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
-use pallet_transaction_payment::{Config as TransactionPaymentConfig, OnChargeTransaction};
+use pallet_transaction_payment::{
+	Config as TransactionPaymentConfig, OnChargeTransaction, TxCreditHold,
+};
 
 pub struct LiquidityInfo<Runtime: TransactionPaymentConfig, F: Balanced<Runtime::AccountId>> {
 	pub imbalance: Option<Credit<Runtime::AccountId, F>>,
@@ -22,6 +24,18 @@ pub struct LiquidityInfo<Runtime: TransactionPaymentConfig, F: Balanced<Runtime:
 }
 
 pub struct TransactionCharger<F, OU, P, OP>(PhantomData<(F, OU, P, OP)>);
+
+// `OnChargeTransaction` gained `TxCreditHold` as a supertrait (polkadot-stable2603): the pallet
+// can stash a withdrawn-fee credit in temporary storage for other pallets to consume during tx
+// application. This charger manages its fee credit inside its own `LiquidityInfo` instead, so it
+// does not participate in that mechanism — hence `Credit = ()`.
+impl<Runtime, F, OU, P, OP> TxCreditHold<Runtime> for TransactionCharger<F, OU, P, OP>
+where
+	Runtime: TransactionPaymentConfig,
+{
+	type Credit = ();
+}
+
 impl<Runtime, F, OU, P, OP> OnChargeTransaction<Runtime>
 	for TransactionCharger<F, OU, P, OP>
 where

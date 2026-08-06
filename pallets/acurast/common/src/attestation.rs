@@ -17,7 +17,7 @@ pub const CERT_MAX_LENGTH: u32 = 3000;
 pub type CertificateInput = BoundedVec<u8, ConstU32<CERT_MAX_LENGTH>>;
 pub type CertificateChainInput = BoundedVec<CertificateInput, ConstU32<CHAIN_MAX_LENGTH>>;
 
-fn parse_cert(serialized: &[u8]) -> Result<Certificate, ParseError> {
+fn parse_cert(serialized: &[u8]) -> Result<Certificate<'_>, ParseError> {
 	let data = asn1::parse_single::<Certificate>(serialized)?;
 	Ok(data)
 }
@@ -143,8 +143,15 @@ impl PublicKey {
 						Ok(PublicKey::ECDSA(ECDSACurve::CurveP256(verifying_key)))
 					},
 					CURVE_P384 => {
-						// the first byte tells us if compressed or not, we always assume uncompressed and ignore it.
-						let encoded = &info.subject_public_key.as_bytes()[1..];
+						// The first byte tells us if compressed or not, we always assume uncompressed and ignore it.
+						// Guard against a truncated/odd-length key to avoid an out-of-bounds slice panic on
+						// attacker-supplied certificates; `from_be_slice` below rejects wrong-sized halves.
+						let encoded = info
+							.subject_public_key
+							.as_bytes()
+							.get(1..)
+							.filter(|encoded| !encoded.is_empty() && encoded.len() % 2 == 0)
+							.ok_or(ValidationError::ParseP384PublicKey)?;
 						let middle = encoded.len() / 2;
 						let point = p384::AffinePoint {
 							x: p384::FieldElement::from_be_slice(&encoded[..middle])?,
@@ -163,6 +170,61 @@ impl PublicKey {
 
 const CURVE_P256: ObjectIdentifier = oid!(1, 2, 840, 10045, 3, 1, 7);
 const CURVE_P384: ObjectIdentifier = oid!(1, 3, 132, 0, 34);
+
+/// OID of the X.509v3 BasicConstraints extension.
+const BASIC_CONSTRAINTS_OID: ObjectIdentifier = oid!(2, 5, 29, 19);
+/// OID of the X.509v3 KeyUsage extension.
+const KEY_USAGE_OID: ObjectIdentifier = oid!(2, 5, 29, 15);
+/// Bit position of `keyCertSign` in the KeyUsage bit string.
+/// [See RFC](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.3)
+const KEY_CERT_SIGN_BIT: usize = 5;
+
+/// Enforces that a certificate used to sign another certificate in the chain is a
+/// legitimate CA, as required by [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280):
+///
+/// - the BasicConstraints extension is present with `cA = TRUE`,
+/// - the pathLenConstraint (if present) is not exceeded by the number of intermediate
+///   CA certificates that still follow this one in the chain, and
+/// - the KeyUsage extension is present with the `keyCertSign` bit set.
+///
+/// Without these checks any leaf certificate (e.g. an attestation key) could be used to
+/// mint a forged sub-certificate that the chain validation would otherwise accept.
+fn ensure_ca_certificate(
+	cert: &Certificate<'_>,
+	following_intermediate_ca_count: u64,
+) -> Result<(), ValidationError> {
+	let extensions = cert
+		.tbs_certificate
+		.extensions
+		.clone()
+		.ok_or(ValidationError::ExtensionMissing)?
+		.collect::<Vec<_>>();
+
+	let basic_constraints = extensions
+		.iter()
+		.find(|e| e.extn_id == BASIC_CONSTRAINTS_OID)
+		.ok_or(ValidationError::BasicConstraintsMissing)?;
+	let basic_constraints = asn1::parse_single::<BasicConstraints>(basic_constraints.extn_value)?;
+	if !basic_constraints.ca {
+		return Err(ValidationError::NotACertificateAuthority);
+	}
+	if let Some(max) = basic_constraints.path_len_constraint {
+		if following_intermediate_ca_count > max {
+			return Err(ValidationError::PathLenConstraintViolated);
+		}
+	}
+
+	let key_usage = extensions
+		.iter()
+		.find(|e| e.extn_id == KEY_USAGE_OID)
+		.ok_or(ValidationError::KeyUsageMissing)?;
+	let key_usage = asn1::parse_single::<BitString>(key_usage.extn_value)?;
+	if !key_usage.has_bit_set(KEY_CERT_SIGN_BIT) {
+		return Err(ValidationError::KeyCertSignNotAllowed);
+	}
+
+	Ok(())
+}
 
 fn validate(
 	cert: &Certificate<'_>,
@@ -236,10 +298,12 @@ where
 
 			let hashed = &D::digest(payload);
 			let mut padded: [u8; 48] = [0; 48];
-			if hashed.len() == 32 {
-				padded[16..].copy_from_slice(hashed);
-			} else {
-				padded.copy_from_slice(hashed);
+			// Left-pad shorter digests (e.g. SHA-256) into the 48-byte P-384 field width.
+			// Reject unexpected digest sizes instead of panicking in `copy_from_slice`.
+			match hashed.len() {
+				32 => padded[16..].copy_from_slice(hashed),
+				48 => padded.copy_from_slice(hashed),
+				_ => return Err(ValidationError::InvalidSignatureEncoding),
 			}
 			let payload = p384::FieldBytes::from_slice(&padded);
 
@@ -276,9 +340,10 @@ pub fn validate_certificate_chain(
 		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(APPLE_ROOT_PUB_KEY)?)?;
 	let trusted_roots = &[google_root_pub_key, google_p384_root_pub_key, apple_root_pub_key];
 	let mut cert_ids = Vec::<CertificateId>::new();
-	let fold_result = chain.iter().try_fold::<_, _, Result<_, ValidationError>>(
+	let chain_len = chain.len();
+	let fold_result = chain.iter().enumerate().try_fold::<_, _, Result<_, ValidationError>>(
 		(Option::<PublicKey>::None, Option::<Certificate>::None),
-		|(prev_pbk, _), cert_data| {
+		|(prev_pbk, _), (index, cert_data)| {
 			let cert = parse_cert(cert_data)?;
 			let payload = parse_cert_payload(cert_data)?;
 			let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
@@ -311,6 +376,17 @@ pub fn validate_certificate_chain(
 				if !accepted {
 					return Err(ValidationError::InvalidSignature);
 				}
+			}
+
+			// Every certificate except the last (the end-entity/leaf, e.g. the attestation
+			// key) signs the next certificate in the chain, so it must be a valid CA.
+			// Skipping this lets a leaf certificate forge a sub-certificate.
+			let is_leaf = index + 1 == chain_len;
+			if !is_leaf {
+				// number of intermediate CA certificates that still follow this one,
+				// excluding the leaf, used to enforce the pathLenConstraint.
+				let following_intermediate_ca_count = (chain_len - 2 - index) as u64;
+				ensure_ca_certificate(&cert, following_intermediate_ca_count)?;
 			}
 
 			let unique_id =
@@ -358,6 +434,21 @@ mod tests {
 		CertificateChainInput::truncate_from(decoded)
 	}
 
+	/// Regression test for the P-384 public-key parser: a `SubjectPublicKeyInfo` carrying the
+	/// secp384r1 OID but an empty public key must be rejected with an error instead of triggering an
+	/// out-of-bounds slice panic (`as_bytes()[1..]`) inside [`super::PublicKey::parse`].
+	#[test]
+	fn parse_p384_public_key_rejects_empty_key() {
+		// DER of SEQUENCE {
+		//   AlgorithmIdentifier { ecPublicKey (1.2.840.10045.2.1), secp384r1 (1.3.132.0.34) },
+		//   BIT STRING (empty)
+		// }
+		let der = hex_literal::hex!("3015301006072a8648ce3d020106052b81040022030100");
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
+	}
+
 	const SAMSUNG_ROOT_CERT: &str = r"MIIFHDCCAwSgAwIBAgIJANUP8luj8tazMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTkxMTIyMjAzNzU4WhcNMzQxMTE4MjAzNzU4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaNjMGEwHQYDVR0OBBYEFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMB8GA1UdIwQYMBaAFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgIEMA0GCSqGSIb3DQEBCwUAA4ICAQBOMaBc8oumXb2voc7XCWnuXKhBBK3e2KMGz39t7lA3XXRe2ZLLAkLM5y3J7tURkf5a1SutfdOyXAmeE6SRo83Uh6WszodmMkxK5GM4JGrnt4pBisu5igXEydaW7qq2CdC6DOGjG+mEkN8/TA6p3cnoL/sPyz6evdjLlSeJ8rFBH6xWyIZCbrcpYEJzXaUOEaxxXxgYz5/cTiVKN2M1G2okQBUIYSY6bjEL4aUN5cfo7ogP3UvliEo3Eo0YgwuzR2v0KR6C1cZqZJSTnghIC/vAD32KdNQ+c3N+vl2OTsUVMC1GiWkngNx1OO1+kXW+YTnnTUOtOIswUP/Vqd5SYgAImMAfY8U9/iIgkQj6T2W6FsScy94IN9fFhE1UtzmLoBIuUFsVXJMTz+Jucth+IqoWFua9v1R93/k98p41pjtFX+H8DslVgfP097vju4KDlqN64xV1grw3ZLl4CiOe/A91oeLm2UHOq6wn3esB4r2EIQKb6jTVGu5sYCcdWpXr0AUVqcABPdgL+H7qJguBw09ojm6xNIrw2OocrDKsudk/okr/AwqEyPKw9WnMlQgLIKw1rODG2NvU9oR3GVGdMkUBZutL8VuFkERQGt6vQ2OCw0sV47VMkuYbacK/xyZFiRcrPJPb41zgbQj9XAEyLKCHex0SdDrx+tWUDqG8At2JHA==";
 	const SAMSUNG_KEY_CERT: &str = r"MIIClzCCAj2gAwIBAgIBATAKBggqhkjOPQQDAjA5MQwwCgYDVQQMDANURUUxKTAnBgNVBAUTIGIyYzM3ZTM4MzI4ZDZhY2RmM2I2MDA2ZThhNzdmMDY0MB4XDTIxMTExNzIyNDcxMloXDTMxMTExNTIyNDcxMlowHzEdMBsGA1UEAxMUQW5kcm9pZCBLZXlzdG9yZSBLZXkwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASDWA5xIavYEzjbcZneQy8gxkAo7nzJrSIqHbmPDy1kOFNWidIZLaKf86qLp73/n2VzK8qo5XsHexoC8wPaIcj8o4IBTjCCAUowggE2BgorBgEEAdZ5AgERBIIBJjCCASICAWQKAQECAWQKAQEEAAQAMGy/hT0IAgYBgddgKwm/hUVcBFowWDEyMDAEK2NvbS51YmluZXRpYy5hdHRlc3RlZC5leGVjdXRvci50ZXN0LnRlc3RuZXQCAQ4xIgQgvctFYPazxB2tkgZoFpwovh756knyPZjNjrLzeuRIj/kwgaGhBTEDAgECogMCAQOjBAICAQClBTEDAgEAqgMCAQG/g3cCBQC/hT4DAgEAv4VATDBKBCDnyVk+0qoHM1jC6eS+ScTwsvI1J6mtlFgzf0F3HTIMawEB/woBAAQgowcEEJQaU4V58HU/EPyCMBydcLlh8pR+qgnfWnuur+W/hUEFAgMB1MC/hUIFAgMDFdy/hU4GAgQBNInxv4VPBgIEATSJ8TAOBgNVHQ8BAf8EBAMCB4AwCgYIKoZIzj0EAwIDSAAwRQIgOQNrjHRHg9gcN6gFJFZHSjpIG1Gx1061FAEq3E9yUsgCIQD1FvhmjYsTWeQMQsj22ms/8dw9O3WsvE0y2AtrN0KWuw==";
 	const SAMSUNG_INTERMEDIATE_1_CERT: &str = r"MIIB8zCCAXmgAwIBAgIQcH2ewbAt6vTdz/WwWLWu6zAKBggqhkjOPQQDAjA5MQwwCgYDVQQMDANURUUxKTAnBgNVBAUTIDgxYjU3ZmZmYjM3OTUxMjljZjNmYzUwZWNhMGNkMzljMB4XDTIxMTExNzIyNDcxMloXDTMxMTExNTIyNDcxMlowOTEMMAoGA1UEDAwDVEVFMSkwJwYDVQQFEyBiMmMzN2UzODMyOGQ2YWNkZjNiNjAwNmU4YTc3ZjA2NDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABE3rCk6dqUilYhf1gsiVMFkOrEze/Ar318VMXFXDlOXDajQORIGWYVVtbcHYPNrews45k2CgHZg6ofN4lpONImyjYzBhMB0GA1UdDgQWBBRt1zXt/O233wIFRiNawaRD3KQPpTAfBgNVHSMEGDAWgBQNE845gvrI02p2mda2mk3SWwhGYjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwICBDAKBggqhkjOPQQDAgNoADBlAjEA0dNMiUn0+ftvhsFJP1byGMZkaWWOQbIOTItcQTrw29YV5FSjwZW7Ofrj8kR8WC4nAjB0yDVyt86uFrvWWzaa1EJmqR4L7PMUWf8yVey6KLrhQYMSGGhgief4pj3Hx6Eck6o=";
@@ -395,6 +486,31 @@ mod tests {
 			return Err(());
 		}
 		Ok(())
+	}
+
+	/// A leaf certificate (the attestation key: `cA = FALSE` / no BasicConstraints,
+	/// no `keyCertSign`) must be rejected when it appears in a signing position,
+	/// otherwise it could be used to forge a sub-certificate that the chain
+	/// validation would accept. Regression test for the finding "attestation
+	/// certificate-chain verification skips CA/basicConstraints".
+	#[test]
+	fn test_reject_leaf_cert_used_as_ca() {
+		// Valid Samsung chain with the leaf key cert additionally placed in a signing
+		// position. The leaf's signature still verifies (it is signed by
+		// SAMSUNG_INTERMEDIATE_1_CERT), so the chain can only be rejected by the CA
+		// constraint checks, not by signature validation.
+		let chain = vec![
+			SAMSUNG_ROOT_CERT,
+			SAMSUNG_INTERMEDIATE_2_CERT,
+			SAMSUNG_INTERMEDIATE_1_CERT,
+			SAMSUNG_KEY_CERT,
+			SAMSUNG_KEY_CERT,
+		];
+		let decoded_chain = decode_certificate_chain(&chain);
+		assert_eq!(
+			validate_certificate_chain(&decoded_chain).map(|_| ()),
+			Err(ValidationError::BasicConstraintsMissing),
+		);
 	}
 
 	#[test]

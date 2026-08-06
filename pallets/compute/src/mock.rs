@@ -126,7 +126,9 @@ parameter_types! {
 	pub const MaxCooldownPeriod: BlockNumber = 108;
 	pub const TargetWeightPerComputeMultiplier: FixedU128 = FixedU128::from_u32(1); // 1.0 = 100%
 	pub const TargetStakedTokenSupply: Perquintill = Perquintill::from_percent(50); // Target 50% of total supply staked
-	pub const MinDelegation: Balance = 1;
+	// Deliberately above 1 so that a "dust" amount (below the minimum but non-zero) exists and the
+	// below-minimum share path of `redelegate_v2` is reachable in tests.
+	pub const MinDelegation: Balance = 2;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
 	pub const CooldownRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const RedelegationBlockingPeriod: BlockNumber = 3; // can redelegate once per 3 epochs
@@ -144,7 +146,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = ComputePalletId;
 	type ManagerId = u128;
 	type CommitmentId = u128;

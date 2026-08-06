@@ -69,7 +69,8 @@ fn seed_outgoing_message<T: Config<I>, I: 'static>(
 	};
 	OutgoingMessages::<T, I>::insert(id, &msg);
 	OutgoingMessagesLookup::<T, I>::insert(&sender, nonce, id);
-	let _ = T::Currency::hold(&HoldReason::<I>::OutgoingMessageFee.into(), &payer, fee);
+	T::Currency::hold(&HoldReason::<I>::OutgoingMessageFee.into(), &payer, fee)
+		.expect("bench setup: payer must be funded for the message fee; qed");
 	msg
 }
 
@@ -114,6 +115,10 @@ fn mint_to<T: Config<I>, I: 'static>(who: &T::AccountId, amount: BalanceOf<T, I>
 	_ = <<T as crate::Config<I>>::Currency as Mutate<T::AccountId>>::mint_into(who, amount);
 }
 
+fn fund_for_fee<T: Config<I>, I: 'static>(who: &T::AccountId, fee: BalanceOf<T, I>) {
+	mint_to::<T, I>(who, fee.saturating_mul(1_000u32.into()).saturating_add(u32::MAX.into()));
+}
+
 #[instance_benchmarks(
 	where
 		BlockNumberFor<T>: IsType<u32>,
@@ -145,11 +150,11 @@ mod benches {
 	fn send_test_message() {
 		let caller: T::AccountId = whitelisted_caller();
 
-		mint_to::<T, I>(&caller, 1_000_000_000_000u128.into());
-
 		let (_sender, recipient) = default_subjects::<T, I>();
 		let ttl = T::MinTTL::get();
 		let fee = T::MinFee::get();
+
+		fund_for_fee::<T, I>(&caller, fee);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), recipient, ttl, fee);
@@ -160,16 +165,11 @@ mod benches {
 		let relayer: T::AccountId = whitelisted_caller();
 		let payer: T::AccountId = account("payer", 0, 0);
 
-		mint_to::<T, I>(&payer, 10_000_000_000_000u128.into());
-		T::Currency::hold(
-			&HoldReason::OutgoingMessageFee.into(),
-			&payer,
-			5_000_000_000_000u128.into(),
-		)?;
-
 		let (sender, recipient) = default_subjects::<T, I>();
 		let ttl = T::MinTTL::get().saturating_add(10u32.into());
 		let fee = T::MinFee::get();
+
+		fund_for_fee::<T, I>(&payer, fee);
 		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());
 		let payload = b"bench-msg".to_vec();
 
@@ -198,6 +198,8 @@ mod benches {
 		let ttl = T::MinTTL::get();
 		let fee = T::MinFee::get();
 		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());
+
+		fund_for_fee::<T, I>(&caller, fee);
 
 		set_block::<T, I>(1u32.into());
 		let msg = seed_outgoing_message::<T, I>(

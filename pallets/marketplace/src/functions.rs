@@ -21,7 +21,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		if let Some(allowed_consumers) = &advertisement.allowed_consumers {
 			let max_allowed_consumers_len = T::MaxAllowedConsumers::get() as usize;
-			ensure!(allowed_consumers.len() > 0, Error::<T>::TooFewAllowedConsumers);
+			ensure!(!allowed_consumers.is_empty(), Error::<T>::TooFewAllowedConsumers);
 			ensure!(
 				allowed_consumers.len() <= max_allowed_consumers_len,
 				Error::<T>::TooManyAllowedConsumers

@@ -5,21 +5,13 @@ use frame_support::{
 };
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{crypto::AccountId32, ConstU32, RuntimeDebug, H256};
+use sp_core::{crypto::AccountId32, ConstU32, H256};
 use sp_std::prelude::*;
 
 use crate::AccountId20;
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq,
 )]
 pub enum Subject<AccountId, Contract> {
 	Acurast(Layer<AccountId, Contract>),
@@ -31,15 +23,7 @@ pub enum Subject<AccountId, Contract> {
 }
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq,
 )]
 pub enum Layer<AccountId, C> {
 	/// A sender/recipient extrinsic. In case of a sender, it should hold the pallet_account of either this pallet
@@ -52,15 +36,7 @@ pub enum Layer<AccountId, C> {
 ///
 /// See how to invoke another contract: https://use.ink/4.x/basics/cross-contract-calling#callbuilder
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq,
 )]
 pub struct ContractCall<C> {
 	pub contract: C,

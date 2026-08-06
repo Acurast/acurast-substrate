@@ -191,23 +191,100 @@ echo "=== benchmark machine ==="
 	--allow-fail \
 	2>&1 | tee "$OUT/machine.txt"
 
-# --heap-pages=4096 matches the heap allocation the runtime is executed with in
-# production; without it the benchmark runs under different memory conditions
-# than the weights are meant to describe.
+# --heap-pages=2048 is the executor's own default (DEFAULT_HEAP_ALLOC_PAGES in
+# substrate/client/executor/common/src/wasm_runtime.rs), so the benchmark runs under the same
+# memory conditions as production. It is pinned rather than omitted so that a future change to
+# that default cannot silently shift every weight.
 #
-# --execution=wasm is deliberately absent: native execution was removed from
-# the SDK, so the flag is rejected by the polkadot-v1.18.5 CLI.
+# This said 4096 until 2026-08-05, on the incorrect claim that 4096 was the production value.
+# That made the run differ from production and from the previous weight set, muddying the
+# comparison between them.
+#
+# --execution=wasm is deliberately absent: it no longer selects anything. The stable2606 CLI
+# accepts it and ignores it, warning "Argument `--execution` is deprecated. Its value of `wasm`
+# has on effect." Passing it only adds noise to the log and to the generated file headers.
 echo "=== benchmark pallet ==="
 "$NODE" benchmark pallet \
 	--chain="$CHAIN" \
 	--wasm-execution=compiled \
-	--heap-pages=4096 \
+	--heap-pages=2048 \
 	--pallet '*' \
 	--extrinsic '*' \
 	--steps="$STEPS" \
 	--repeat="$REPEAT" \
 	--output="$OUT/" \
 	2>&1 | tee "$OUT/pallet.log"
+
+# Scale ref_time up, because this box is faster than the hardware the weights must protect.
+#
+# `benchmark machine` (machine.txt) puts it at 150% of the reference BLAKE2-256 minimum, 171% of
+# SR25519-Verify and 150% of Memory Copy. Taken at face value, weights measured here understate
+# execution cost for a validator sitting at the reference floor, and a block built to fit them could
+# overrun on that validator. SCALE_NUM/SCALE_DEN compensates; 3/2 keys on the two metrics that agree
+# at 1.50x, and lands close to the previous weight set, which was generated on a box that happened to
+# be ~1.5x slower than this one.
+#
+# Only ref_time is scaled:
+#   * proof_size is a byte count, independent of how fast the machine is, so the second argument of
+#     `from_parts` and its per-component slopes are left alone. Inflating PoV would waste block
+#     space and misstate what the extrinsic actually writes.
+#   * `T::DbWeight` contributions are left alone: RocksDbWeight is itself a constant derived from
+#     reference hardware, so scaling it here would apply the correction twice.
+#
+# The raw measurements stay visible in the "Minimum execution time" comments and in pallet.log, so
+# the transformation can always be checked against the unscaled source.
+SCALE_NUM="${SCALE_NUM:-3}"
+SCALE_DEN="${SCALE_DEN:-2}"
+
+if [ "$SCALE_NUM" != "$SCALE_DEN" ]; then
+	echo "=== scaling ref_time by $SCALE_NUM/$SCALE_DEN ==="
+	for f in "$OUT"/*.rs; do
+		[ -e "$f" ] || continue
+		# Scaling twice would silently square the factor, so the note this script inserts also acts
+		# as the marker that a file has already been processed.
+		if grep -q "were scaled by" "$f"; then
+			echo "  already scaled, skipping $(basename "$f")"
+			continue
+		fi
+		SCALE_NUM="$SCALE_NUM" SCALE_DEN="$SCALE_DEN" perl -i -pe '
+			BEGIN {
+				$num = $ENV{SCALE_NUM};
+				$den = $ENV{SCALE_DEN};
+				# Groups digits with "_" the way the generated files already write large numbers.
+				sub group {
+					my $n = reverse shift;
+					$n =~ s/(\d{3})(?=\d)/$1_/g;
+					return scalar reverse $n;
+				}
+			}
+			# First argument of from_parts is ref_time, second is proof_size. A zero ref_time marks a
+			# proof-size-only term, which must stay untouched.
+			s{Weight::from_parts\((\d[\d_]*),\s*(\d[\d_]*)\)}{
+				my ($ref, $proof) = ($1, $2);
+				my $plain = $ref;
+				$plain =~ s/_//g;
+				if ($plain eq "0") {
+					"Weight::from_parts($ref, $proof)";
+				} else {
+					# Round up: never scale a weight down through integer truncation.
+					my $scaled = int(($plain * $num + $den - 1) / $den);
+					"Weight::from_parts(" . group($scaled) . ", $proof)";
+				}
+			}gex;
+			# Record the transformation in the file itself, so a reader of the committed weights sees
+			# that these numbers are not verbatim CLI output.
+			if (/^#!\[cfg_attr\(rustfmt, rustfmt_skip\)\]/ && !$done) {
+				$done = 1;
+				$_ = "// NOTE: `ref_time` values below were scaled by $num/$den after generation by\n"
+				   . "// ci/benchmark.sh, to compensate for benchmarking hardware measuring ~1.5x the\n"
+				   . "// Polkadot validator reference minimums. `proof_size` and DbWeight are unscaled.\n"
+				   . "// The unscaled measurements remain in the \"Minimum execution time\" comments.\n"
+				   . $_;
+			}
+		' "$f"
+		echo "  scaled $(basename "$f")"
+	done
+fi
 
 echo "=== Done. Artifacts in $OUT ==="
 ls -la "$OUT"

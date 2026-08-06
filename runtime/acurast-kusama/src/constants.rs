@@ -21,7 +21,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	impl_name: sp_std::borrow::Cow::Borrowed("acurast-parachain"),
 	authoring_version: 1,
-	spec_version: 58,
+	spec_version: 59,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -50,6 +50,9 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
+/// The maximum length (in bytes) of a block, before the per-class ratios are applied.
+pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 
@@ -57,8 +60,19 @@ parameter_types! {
 	//  The `RuntimeBlockLength` and `RuntimeBlockWeights` exist here because the
 	// `DeletionWeightLimit` and `DeletionQueueDepth` depend on those to parameterize
 	// the lazy contract deletion.
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	// Equivalent to the deprecated `BlockLength::max_with_normal_ratio(MAX_BLOCK_LENGTH,
+	// NORMAL_DISPATCH_RATIO)`: every class gets `MAX_BLOCK_LENGTH`, then `Normal` is reduced to
+	// `NORMAL_DISPATCH_RATIO` of it. `max_header_size` stays unset in both, so it keeps deriving as
+	// max/5.
+	//
+	// The deprecation note suggests `builder().normal_ratio(value, ratio)`, but that method does not
+	// exist in polkadot-stable2606 — only `max_length` and `modify_max_length_for_class` do.
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(MAX_BLOCK_LENGTH)
+		.modify_max_length_for_class(DispatchClass::Normal, |max| {
+			*max = NORMAL_DISPATCH_RATIO * MAX_BLOCK_LENGTH
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -135,10 +149,6 @@ parameter_types! {
 	pub const ManagerCollectionId: u128 = 0;
 	pub const CommitmentCollectionId: u128 = 1;
 
-	/// The acurast contract on the aleph zero network
-	pub AlephZeroContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into();
-	pub AlephZeroContractSelector: [u8; 4] = hex_literal::hex!("7cd99c82");
-	pub VaraContract: AccountId = hex_literal::hex!("e2ab38a7567ec7e9cb208ffff65ea5b5a610a6f1cc7560a27d61b47223d6baa3").into(); // TODO(vara)
 	pub AcurastPalletAccount: AccountId = AcurastPalletId::get().into_account_truncating();
 	pub HyperdriveIbcFeePalletAccount: AccountId = HyperdriveIbcFeePalletId::get().into_account_truncating();
 

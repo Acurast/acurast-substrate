@@ -64,7 +64,6 @@ parameter_types! {
 }
 
 impl pallet_acurast_hyperdrive_ibc::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type MinTTL = MinTTL;
 	type IncomingTTL = IncomingTTL;
 	type MinDeliveryConfirmationSignatures = MinDeliveryConfirmationSignatures;
@@ -92,8 +91,6 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-
 	type PalletAccount = HyperdriveTokenPalletAccount;
 	type ParsableAccountId = AcurastAccountId;
 	type Balance = Balance;

@@ -121,8 +121,6 @@ mod runtime {
 	pub type AcurastProcessorManager = pallet_acurast_processor_manager;
 	#[runtime::pallet_index(43)]
 	pub type AcurastMarketplace = pallet_acurast_marketplace;
-	#[runtime::pallet_index(45)]
-	pub type AcurastHyperdrive = pallet_acurast_hyperdrive<Instance1>;
 	#[runtime::pallet_index(47)]
 	pub type AcurastRewardsTreasury = pallet_acurast_rewards_treasury;
 	#[runtime::pallet_index(48)]
@@ -137,9 +135,36 @@ mod runtime {
 	pub type AcurastTokenConversion = pallet_acurast_token_conversion;
 	#[runtime::pallet_index(55)]
 	pub type AcurastTokenClaim = pallet_acurast_token_claim;
+	// Declared only for its `VerifySignature` transaction extension; the pallet has no calls.
+	#[runtime::pallet_index(56)]
+	pub type VerifySignature = pallet_verify_signature;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use acurast_runtime_common::{
+		constants::DAYS,
+		types::{Balance, BlockNumber},
+	};
+	use pallet_vesting::Config as VestingConfig;
+	use sp_runtime::traits::Convert;
+
+	const MONTH: BlockNumber = DAYS * 30;
+
+	#[test]
+	fn test_vesting() {
+		let amount: Balance = 89_506_172_750_000_000;
+		let length_as_balance: Balance =
+			<Runtime as VestingConfig>::BlockNumberToBalance::convert(29 * MONTH);
+		let per_block = amount / length_as_balance.max(sp_runtime::traits::One::one());
+		println!("AMOUNT: {amount}");
+		println!("PER_BLOCK: {per_block}");
+	}
 }

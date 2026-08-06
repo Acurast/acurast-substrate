@@ -18,7 +18,7 @@ use sp_runtime::traits::{Debug, One};
 /// Whenever a slot is reset, the default of `Value` is used. You can provide `Option<V>` as `Value` if you like to distinguish between `0` and no value.
 /// ```
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

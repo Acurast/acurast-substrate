@@ -15,7 +15,7 @@ repository = "https://github.com/acurast/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true }
+substrate-wasm-builder = { workspace = true, features = ["metadata-hash"] }
 
 [dependencies]
 parity-scale-codec = { workspace = true }
@@ -31,7 +31,6 @@ pallet-acurast-marketplace = { workspace = true }
 acurast-p256-crypto = { workspace = true }
 pallet-acurast-processor-manager = { workspace = true }
 pallet-acurast-compute = { workspace = true }
-pallet-acurast-hyperdrive = { workspace = true }
 pallet-acurast-hyperdrive-ibc = { workspace = true }
 pallet-acurast-hyperdrive-token = { workspace = true }
 pallet-acurast-rewards-treasury = { workspace = true }
@@ -44,6 +43,7 @@ acurast-runtime-common = { workspace = true }
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { workspace = true, optional = true }
@@ -57,6 +57,7 @@ pallet-sudo = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-verify-signature = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -128,6 +129,7 @@ std = [
 	"cumulus-primitives-timestamp/std",
 	"cumulus-primitives-utility/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
@@ -140,6 +142,7 @@ std = [
 	"pallet-referenda/std",
 	"pallet-conviction-voting/std",
 	"pallet-timestamp/std",
+	"pallet-verify-signature/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
@@ -151,7 +154,6 @@ std = [
 	"pallet-acurast-marketplace/std",
 	"pallet-acurast-processor-manager/std",
 	"pallet-acurast-compute/std",
-	"pallet-acurast-hyperdrive/std",
 	"pallet-acurast-hyperdrive-ibc/std",
 	"pallet-acurast-hyperdrive-token/std",
 	"pallet-acurast-candidate-preselection/std",
@@ -199,7 +201,6 @@ runtime-benchmarks = [
 	"pallet-acurast-marketplace/runtime-benchmarks",
 	"pallet-acurast-processor-manager/runtime-benchmarks",
 	"pallet-acurast-compute/runtime-benchmarks",
-	"pallet-acurast-hyperdrive/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-ibc/runtime-benchmarks",
 	"pallet-acurast-hyperdrive-token/runtime-benchmarks",
 	"pallet-acurast-candidate-preselection/runtime-benchmarks",
@@ -211,6 +212,7 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -219,6 +221,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"acurast-runtime-common/runtime-benchmarks",
 ]
 

@@ -11,12 +11,11 @@ use acurast_runtime_common::{
 use crate::benchmarking;
 use crate::{
 	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, EnsureCouncilOrRoot,
-	LitePackageNames, LiteSignatureDigests, PackageNames, Runtime, RuntimeEvent, SignatureDigests,
+	LitePackageNames, LiteSignatureDigests, PackageNames, Runtime, SignatureDigests,
 };
 
 /// Runtime configuration for pallet_acurast.
 impl pallet_acurast::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RegistrationExtra = ExtraFor<Self>;
 	type MaxAllowedSources = MaxAllowedSources;
 	type MaxCertificateRevocationListUpdates = frame_support::traits::ConstU32<10>;

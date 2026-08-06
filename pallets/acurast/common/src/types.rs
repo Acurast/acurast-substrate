@@ -66,7 +66,7 @@ pub type SerialNumber = BoundedVec<u8, ConstU32<SERIAL_NUMBER_MAX_LENGTH>>;
 
 /// A multi origin identifies a given address from a given origin chain.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -93,7 +93,7 @@ pub enum MultiOrigin<AcurastAccountId> {
 
 /// The proxy describes the chain where there is a counter part to this pallet, processing messages we send and also sending messages back. This mostly will be a custom _Hyperdrive Token_ contract on the proxy chain.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -115,7 +115,7 @@ pub enum ProxyChain {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -178,15 +178,7 @@ pub type JobId<AcurastAccountId> = (MultiOrigin<AcurastAccountId>, JobIdSequence
 
 /// The allowed sources update operation.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Copy,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Copy,
 )]
 pub enum ListUpdateOperation {
 	Add,
@@ -194,7 +186,7 @@ pub enum ListUpdateOperation {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub struct ListUpdate<T>
 where
@@ -213,7 +205,7 @@ pub type CertificateRevocationListUpdate = ListUpdate<SerialNumber>;
 
 /// Structure representing a job registration.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -240,7 +232,7 @@ pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
 
 /// Types of script mutability to choose from during registration of a job.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -269,7 +261,7 @@ pub type EnvVarValue<ValueMaxSize> = BoundedVec<u8, ValueMaxSize>;
 
 /// Structure representing execution environment variables encrypted for a specific processor.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -287,7 +279,7 @@ pub struct Environment<
 pub const MAX_JOB_MODULES: u32 = 3;
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -335,7 +327,7 @@ pub type JobModules = BoundedVec<JobModule, ConstU32<MAX_JOB_MODULES>>;
 ///   SLOT 3: □□■■■□□□□□__________□□■■■□□□□□__________□□■■■□□□□□
 ///   ```
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -520,7 +512,7 @@ impl Iterator for ScheduleIter {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -568,7 +560,7 @@ pub const METRICS_MAX_LENGTH: u32 = 20;
 pub type Metrics = BoundedVec<MetricInput, ConstU32<METRICS_MAX_LENGTH>>;
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -597,7 +589,7 @@ impl MinMetric {
 
 pub type MinMetrics = BoundedVec<MinMetric, ConstU32<METRICS_MAX_LENGTH>>;
 
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq)]
 pub struct CU32<const T: u32>;
 impl<const T: u32> Get<u32> for CU32<T> {
 	fn get() -> u32 {

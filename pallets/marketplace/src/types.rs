@@ -12,7 +12,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::Config;
 
-pub(crate) const MAX_EXECUTIONS_PER_JOB: u64 = 6_308_000; // run a job every 5 seconds for a year
+pub(crate) const MAX_EXECUTIONS_PER_JOB: u64 = 525_600; // run a job every minute for a year
+
+/// Accumulates the variable work performed while processing a matching extrinsic so that unused
+/// weight can be refunded to the caller via `actual_weight`.
+///
+/// The refundable quantity is the number of matches actually processed: a matching call declares the
+/// worst-case weight for all submitted matches, but matches whose job is no longer `Open` (another
+/// matcher was quicker) are skipped after a single storage read. The consumed weight is therefore
+/// `WeightInfo::<extrinsic>(processed) + one read per skipped match`.
+#[derive(Default)]
+pub(crate) struct MatchingWeightMeter {
+	/// Number of matches that were actually processed (i.e. passed the "still `Open`" skip check and
+	/// ran the per-source checks); matches skipped because another matcher was quicker are excluded.
+	pub processed: u32,
+}
 
 pub(crate) const EXECUTION_OPERATION_HASH_MAX_LENGTH: u32 = 256;
 pub(crate) const EXECUTION_FAILURE_MESSAGE_MAX_LENGTH: u32 = 1024;
@@ -44,7 +58,7 @@ pub type ExecutionMatchFor<T> =
 
 /// Struct defining the extra fields for a `JobRegistration`.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -86,15 +100,7 @@ impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: Paramete
 
 /// The resource advertisement by a source containing pricing and capacity announcements.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct Advertisement<AccountId, Reward, MaxAllowedConsumers: Get<u32>> {
 	/// The reward token accepted. Understood as one-of per job assigned.
@@ -118,7 +124,7 @@ pub type AdvertisementFor<T> = Advertisement<
 >;
 
 /// The resource advertisement by a source containing the base restrictions.
-#[derive(RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
 pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBound> {
 	/// Maximum memory in bytes not to be exceeded during any job's execution.
 	pub max_memory: u32,
@@ -136,7 +142,7 @@ pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBou
 /// either as an absolute end time (in milliseconds since Unix Epoch)
 /// or as a time delta (in milliseconds) added to the current time.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -159,15 +165,7 @@ pub enum SchedulingWindow {
 /// Pricing listing cost per resource unit and slash on SLA violation.
 /// Specified in specific asset that is payed out or deducted from stake on complete fulfillment.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct Pricing<Reward> {
 	/// Fee per millisecond in [reward_asset].
@@ -186,7 +184,7 @@ pub type PricingFor<T> = Pricing<<T as Config>::Balance>;
 ///
 /// It is probable that this is further extended with a `Range` variant to save on the number of matching proposals required.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -213,7 +211,7 @@ pub enum ExecutionSpecifier {
 ///
 /// The pricing agreed at the time of matching is stored along with an assignment.
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -282,7 +280,7 @@ impl<Reward> Assignment<Reward> {
 	}
 }
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct JobAssignment<Reward, AccountId, MaxAllowedSources: Get<u32>, Extra> {
@@ -301,15 +299,7 @@ pub type PubKeys = BoundedVec<PubKey, ConstU32<NUMBER_OF_PUB_KEYS>>;
 
 /// The public key revealed by a processor.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -332,7 +322,7 @@ pub type JobAssignmentFor<T> = JobAssignment<
 
 /// The allowed sources update operation.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -359,15 +349,7 @@ pub enum JobStatus {
 ///
 /// Also used to ensure that Acurast does not accept more than the expected number of reports (and pays out no more rewards).
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Copy,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Copy,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -386,7 +368,7 @@ pub type JobRequirementsFor<T> = JobRequirements<
 
 /// Structure representing a job registration.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -438,7 +420,7 @@ impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: Paramete
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -456,7 +438,7 @@ pub enum ProcessorVersionRequirements<Version, MaxVersions: ParameterBound> {
 }
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -477,7 +459,7 @@ pub enum Runtime {
 
 /// Strategies for matching/assigning a job to single or multiple competing processors.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -507,15 +489,7 @@ pub enum AssignmentStrategy<AccountId, MaxSlots: ParameterBound> {
 
 /// A (one-sided) matching of a job to sources such that the requirements of both sides, consumer and source, are met.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	Eq,
-	PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, Eq, PartialEq,
 )]
 pub struct Match<AccountId, MaxSlots: ParameterBound> {
 	/// The job to match.
@@ -526,7 +500,7 @@ pub struct Match<AccountId, MaxSlots: ParameterBound> {
 
 /// A (one-sided) matching of a single job execution to competing sources such that the requirements of both sides, consumer and source, are met.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -554,7 +528,7 @@ pub struct ExecutionMatch<AccountId, MaxSlots: ParameterBound> {
 /// Structure representing a job registration partially specified.
 ///
 /// Useful for frontend to filter for processors that would match.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartialJobRegistration<Reward, AccountId, MaxAllowedSources: Get<u32>> {
 	/// An optional array of the [AccountId]s allowed to fulfill the job. If the array is [None], then all sources are allowed.
@@ -581,7 +555,7 @@ pub struct PartialJobRegistration<Reward, AccountId, MaxAllowedSources: Get<u32>
 
 /// The details for a single planned slot execution with the delay.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -601,7 +575,7 @@ pub struct PlannedExecution<AccountId> {
 }
 
 #[derive(
-	RuntimeDebug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
 pub enum ExecutionResult {
 	/// Success with operation hash.
@@ -641,7 +615,7 @@ impl<T: Config> MarketplaceHooks<T> for () {
 
 /// The details for a single planned slot execution with the delay.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

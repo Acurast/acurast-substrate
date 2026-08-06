@@ -1,7 +1,6 @@
 use frame_support::{parameter_types, traits::InstanceFilter};
 use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::BlakeTwo256;
-use sp_core::RuntimeDebug;
 
 use acurast_runtime_common::types::Balance;
 
@@ -46,12 +45,14 @@ impl pallet_proxy::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
+	Default,
 )]
 pub enum ProxyType {
 	/// Fully permissioned proxy. Can execute any call on behalf of _proxied_.
+	#[default]
 	Any,
 	/// Can execute any call that does not transfer funds or assets.
 	NonTransfer,
@@ -63,12 +64,6 @@ pub enum ProxyType {
 	ProcessorManager,
 	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
 	Collator,
-}
-
-impl Default for ProxyType {
-	fn default() -> Self {
-		Self::Any
-	}
 }
 
 impl InstanceFilter<RuntimeCall> for ProxyType {

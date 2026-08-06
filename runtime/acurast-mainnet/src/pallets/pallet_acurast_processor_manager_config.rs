@@ -13,12 +13,10 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 use crate::benchmarking;
 use crate::{
 	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balances,
-	EnsureCouncilOrRoot, ManagerCollectionId, RootAccountId, Runtime, RuntimeEvent,
-	RuntimeHoldReason, Uniques,
+	EnsureCouncilOrRoot, ManagerCollectionId, RootAccountId, Runtime, RuntimeHoldReason, Uniques,
 };
 
 impl pallet_acurast_processor_manager::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Proof = Signature;
 	type ManagerId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;

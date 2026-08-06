@@ -19,6 +19,7 @@ pub trait WeightInfo {
 	fn delegate() -> Weight;
 	fn cooldown_delegation() -> Weight;
 	fn redelegate() -> Weight;
+	fn redelegate_v2(n: u32) -> Weight;
 	fn end_delegation() -> Weight;
 	fn commit_compute(x: u32) -> Weight;
 	fn stake_more(x: u32) -> Weight;
@@ -72,6 +73,10 @@ impl WeightInfo for () {
 	}
 
 	fn redelegate() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+
+	fn redelegate_v2(_n: u32) -> Weight {
 		Weight::from_parts(10_000, 0)
 	}
 

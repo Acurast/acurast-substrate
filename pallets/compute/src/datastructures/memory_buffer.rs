@@ -4,7 +4,7 @@ use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Debug;
 
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,

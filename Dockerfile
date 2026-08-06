@@ -1,5 +1,5 @@
-FROM rust:1.86.0 AS builder
-RUN apt update && apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
+FROM rust:1.93.0 AS builder
+RUN apt update && apt install --assume-yes git clang libclang-dev curl libssl-dev llvm libudev-dev make protobuf-compiler build-essential
 
 WORKDIR /code
 COPY . .
@@ -22,8 +22,7 @@ RUN \
 	cargo build --locked --release ; \
 	fi
 
-# adapted from https://github.com/paritytech/polkadot/blob/master/scripts/ci/dockerfiles/polkadot/polkadot_builder.Dockerfile
-FROM docker.io/library/ubuntu:22.04
+FROM docker.io/library/debian:trixie-slim
 
 COPY --from=builder /code/target/release/acurast-node /usr/local/bin/
 COPY --from=builder /code/target/release/wbuild/acurast-mainnet-runtime/acurast_mainnet_runtime.compact.compressed.wasm /runtimes/

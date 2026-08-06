@@ -2,7 +2,7 @@ use frame_support::{pallet_prelude::*, traits::Currency};
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, Convert, IdentifyAccount, Verify},
-	RuntimeDebug,
+	Debug,
 };
 use sp_std::prelude::*;
 
@@ -31,22 +31,14 @@ pub type VestingInfoFor<T> = VestingInfo<
 	<T as frame_system::Config>::AccountId,
 >;
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub struct ProcesssedClaim<AccountId, Signature, Balance> {
 	pub proof: ClaimProof<Signature, Balance, AccountId>,
 	pub destination: AccountId,
 }
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct ClaimProof<Signature, Balance, AccountId> {
 	pub amount: Balance,
@@ -92,15 +84,7 @@ where
 }
 
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct ClaimTypeConfig<AccountId, BlockNumber> {
 	pub funder: AccountId,
@@ -109,15 +93,7 @@ pub struct ClaimTypeConfig<AccountId, BlockNumber> {
 
 /// Struct to encode the vesting schedule of an individual account.
 #[derive(
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
 pub struct VestingInfo<Balance, BlockNumber, AccountId> {
 	/// Initial claimer (could be different from destination).

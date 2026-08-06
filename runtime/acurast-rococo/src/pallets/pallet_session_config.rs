@@ -1,6 +1,6 @@
 use acurast_runtime_common::weight;
 
-use crate::{CollatorSelection, Offset, Period, Runtime, RuntimeEvent, SessionKeys};
+use crate::{Balances, CollatorSelection, Offset, Period, Runtime, RuntimeEvent, SessionKeys};
 
 /// Runtime configuration for pallet_session.
 impl pallet_session::Config for Runtime {
@@ -16,4 +16,6 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weight::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }

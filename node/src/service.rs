@@ -8,11 +8,10 @@ use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
-use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
-	StartRelayChainTasksParams,
+	ParachainTracingExecuteBlock, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
@@ -25,7 +24,7 @@ use sc_chain_spec::ChainSpec;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::NetworkBlock;
+use sc_network::{NetworkBackend, NetworkBlock, PeerId};
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -132,6 +131,7 @@ where
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 			true,
+			Default::default(),
 		)?;
 	let client = Arc::new(client);
 
@@ -210,12 +210,12 @@ fn blake2_double_map_storage_key(
 	key2_encoded: &[u8],
 ) -> sp_storage::StorageKey {
 	let mut key = Vec::with_capacity(16 + 16 + 16 + key1_encoded.len() + 16 + key2_encoded.len());
-	key.extend_from_slice(&sp_core::twox_128(pallet));
-	key.extend_from_slice(&sp_core::twox_128(storage));
+	key.extend_from_slice(&sp_io::hashing::twox_128(pallet));
+	key.extend_from_slice(&sp_io::hashing::twox_128(storage));
 	// Blake2_128Concat = blake2_128(data) ++ data
-	key.extend_from_slice(&sp_core::blake2_128(key1_encoded));
+	key.extend_from_slice(&sp_io::hashing::blake2_128(key1_encoded));
 	key.extend_from_slice(key1_encoded);
-	key.extend_from_slice(&sp_core::blake2_128(key2_encoded));
+	key.extend_from_slice(&sp_io::hashing::blake2_128(key2_encoded));
 	key.extend_from_slice(key2_encoded);
 	sp_storage::StorageKey(key)
 }
@@ -408,16 +408,17 @@ where
 	let backend = params.backend.clone();
 	let mut task_manager = params.task_manager;
 
-	let (relay_chain_interface, collator_key) = build_relay_chain_interface(
-		polkadot_config,
-		&parachain_config,
-		telemetry_worker_handle,
-		&mut task_manager,
-		collator_options.clone(),
-		hwbench.clone(),
-	)
-	.await
-	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+	let (relay_chain_interface, collator_key, _relay_chain_network, _paranode_rx) =
+		build_relay_chain_interface(
+			polkadot_config,
+			&parachain_config,
+			telemetry_worker_handle,
+			&mut task_manager,
+			collator_options.clone(),
+			hwbench.clone(),
+		)
+		.await
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	let validator = parachain_config.role.is_authority();
 	let transaction_pool = params.transaction_pool.clone();
@@ -435,8 +436,14 @@ where
 			import_queue: params.import_queue,
 			// because of Aura, according to polkadot-sdk node template
 			sybil_resistance_level: CollatorSybilResistance::Resistant,
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
+			metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			),
 		})
 		.await?;
+
+	let collator_peer_id = network.local_peer_id();
 
 	if parachain_config.offchain_worker.enabled {
 		use futures::FutureExt;
@@ -486,6 +493,7 @@ where
 		system_rpc_tx,
 		tx_handler_controller,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
 	})?;
 
 	if let Some(hwbench) = hwbench {
@@ -539,6 +547,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle: Box::new(overseer_handle.clone()),
 		sync_service: sync_service.clone(),
+		prometheus_registry: prometheus_registry.as_ref(),
 	})?;
 
 	if validator {
@@ -556,6 +565,7 @@ where
 			para_id,
 			block_authoring_duration,
 			collator_key.expect("Command line arguments do not allow this. qed"),
+			collator_peer_id,
 			overseer_handle,
 			announce_block,
 		)?;
@@ -621,6 +631,7 @@ fn start_consensus<RuntimeApi>(
 	para_id: ParaId,
 	block_authoring_duration: Duration,
 	collator_key: CollatorPair,
+	collator_peer_id: PeerId,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error>
@@ -628,15 +639,13 @@ where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: RuntimeApiCollection,
 {
-	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
 		prometheus_registry,
 		telemetry.clone(),
 	);
-
-	let proposer = Proposer::new(proposer_factory);
 
 	let collator_service = CollatorService::new(
 		client.clone(),
@@ -656,6 +665,7 @@ where
 		},
 		keystore,
 		collator_key,
+		collator_peer_id,
 		para_id,
 		overseer_handle,
 		relay_chain_slot_duration,

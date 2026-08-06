@@ -5,7 +5,6 @@ use pallet_acurast::{MultiOrigin, Subject};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use strum_macros::{EnumString, IntoStaticStr};
 
@@ -19,7 +18,7 @@ pub const TRANSFER_RECIPIENT_MAX_LENGTH: u32 = 64;
 pub type TransferRecipient = BoundedVec<u8, ConstU32<TRANSFER_RECIPIENT_MAX_LENGTH>>;
 
 /// The action is triggered in target chain (the _Hyperdrive Token_ contract on proxy chain) upon a [`hyperdrive_ibc::Message`].
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
 pub enum Action<AccountId> {
 	/// Transfers (bridges) a token to the target chain.
 	///
@@ -44,9 +43,7 @@ impl<AccountId> From<&Action<AccountId>> for RawAction {
 }
 
 /// The possible actions found in messages to and from proxy chain (the _Hyperdrive Token_ contract on proxy chain).
-#[derive(
-	RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq, EnumString, IntoStaticStr,
-)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq, EnumString, IntoStaticStr)]
 pub enum RawAction {
 	#[strum(serialize = "TRANS")]
 	TransferToken,
@@ -90,7 +87,7 @@ pub trait ActionEncoder<AccountId> {
 }
 
 /// Tracks the progress during `submit_message`, intended to be included in events.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, PartialEq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 pub enum ProcessMessageResult {
 	ParsingValueFailed,
 	ActionFailed(RawAction),

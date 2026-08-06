@@ -9,6 +9,7 @@ use frame_support::{
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_session::OpaqueGeneratedSessionKeys;
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -18,6 +19,27 @@ use super::{
 	AccountId, Balance, Block, ConsensusHook, Executive, InherentDataExt, Nonce, ParachainSystem,
 	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment, VERSION,
 };
+
+/// Metadata v16 is deliberately not served.
+///
+/// v16 is the first version to describe transaction extensions per version, via
+/// `extensions_by_version`. @polkadot/api 16.5.6 reads v16 but ignores that map: it flattens
+/// `extensions_in_versions` into a single list and encodes all of them, including the ones that only
+/// exist in extension version 1. Since a v4 signed transaction is always extension version 0 (see
+/// `Preamble::Signed`), the runtime then fails to decode the extrinsic, and every extrinsic submitted
+/// from polkadot.js panics `validate_transaction`/`query_info` with a codec error.
+///
+/// Measured against a local node: with v16 the client produced 140 bytes and the runtime rejected it;
+/// restricted to the version-0 list it produced 139 and decoded fine. The single byte is
+/// `CheckMetadataHash`'s mode.
+///
+/// Withholding v16 makes such clients fall back to v15, whose `signed_extensions` field is built from
+/// `extensions_v0()` and therefore describes exactly the version-0 pipeline.
+///
+/// Trade-off: v16 is also how a client would *discover* extension version 1, so this hides the v1
+/// pipeline from clients that would handle it correctly. Remove this once @polkadot/api honours
+/// `extensions_by_version`.
+const WITHHELD_METADATA_VERSION: u32 = 16;
 
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
@@ -39,12 +61,28 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			ParachainSystem::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			Default::default()
+		}
+	}
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -59,11 +97,17 @@ impl_runtime_apis! {
 		}
 
 		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+			if version == WITHHELD_METADATA_VERSION {
+				return None;
+			}
 			Runtime::metadata_at_version(version)
 		}
 
 		fn metadata_versions() -> sp_std::vec::Vec<u32> {
 			Runtime::metadata_versions()
+				.into_iter()
+				.filter(|version| *version != WITHHELD_METADATA_VERSION)
+				.collect()
 		}
 	}
 
@@ -87,7 +131,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -111,8 +155,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -233,7 +277,13 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					use parity_scale_codec::Encode;
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist = AllPalletsWithSystem::whitelisted_storage_keys();

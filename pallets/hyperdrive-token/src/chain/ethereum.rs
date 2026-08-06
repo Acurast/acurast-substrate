@@ -2,7 +2,6 @@ use core::{marker::PhantomData, ops};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-use sp_core::RuntimeDebug;
 use sp_std::prelude::*;
 
 use pallet_acurast::MultiOrigin;
@@ -38,7 +37,7 @@ const fn acurast_dest_range() -> ops::Range<usize> {
 	32..64
 }
 
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
 #[scale_info(skip_type_params(AccountConverter))]
 pub struct EthereumActionDecoder<I, AccountConverter, AccountId> {
 	#[cfg(any(test, feature = "runtime-benchmarks"))]

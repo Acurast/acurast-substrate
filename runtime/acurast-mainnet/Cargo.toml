@@ -223,6 +223,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"acurast-runtime-common/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",

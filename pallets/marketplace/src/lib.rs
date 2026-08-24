@@ -514,6 +514,8 @@ pub mod pallet {
 		JobRegistrationStartTooFarInFuture,
 		/// The job registration's `max_start_delay` exceeds [`Config::MaxStartDelay`].
 		JobRegistrationMaxStartDelayExceeded,
+		/// Match is invalid due to a proposed `start_delay` exceeding the schedule's `max_start_delay`.
+		StartDelayExceedsMaxStartDelayInMatch,
 	}
 
 	#[pallet::hooks]

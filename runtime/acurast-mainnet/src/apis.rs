@@ -204,8 +204,14 @@ impl_runtime_apis! {
 			(weight, RuntimeBlockWeights::get().max_block)
 		}
 
-		fn execute_block(block: Block, state_root_check: bool, signature_check: bool, try_state: frame_try_runtime::TryStateSelect) -> Weight {
-			Executive::try_execute_block(block, state_root_check, signature_check, try_state).expect("try_execute_block failed")
+		fn execute_block(
+			block: <Block as BlockT>::LazyBlock,
+			state_root_check: bool,
+			signature_check: bool,
+			try_state: frame_try_runtime::TryStateSelect,
+		) -> Weight {
+			Executive::try_execute_block(block, state_root_check, signature_check, try_state)
+				.expect("try_execute_block failed")
 		}
 	}
 

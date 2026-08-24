@@ -1,7 +1,5 @@
 use derive_more::{From, Into};
 use frame_support::{
-	migrations::RemovePallet,
-	parameter_types,
 	traits::{Currency, EitherOfDiverse},
 	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
@@ -17,6 +15,7 @@ use acurast_runtime_common::{
 		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
+	migrations::storage_versions::StorageVersionBackfill,
 	opaque,
 	types::{AccountId, Address, Balance, CouncilFourSeventh, Signature},
 	weight::ExtrinsicBaseWeight,
@@ -134,16 +133,8 @@ pub type UncheckedExtrinsic =
 pub type CheckedExtrinsic =
 	generic::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensionV0>;
 
-parameter_types! {
-	/// Storage prefix of the decommissioned `pallet_acurast_hyperdrive` (`AcurastHyperdrive`) instance.
-	pub const AcurastHyperdrivePalletName: &'static str = "AcurastHyperdrive";
-}
-
 /// Runtime migrations executed once on the next runtime upgrade.
-///
-/// Purges all remaining storage of the removed `AcurastHyperdrive` pallet.
-pub type Migrations =
-	(RemovePallet<AcurastHyperdrivePalletName, <Runtime as frame_system::Config>::DbWeight>,);
+pub type Migrations = (StorageVersionBackfill<Runtime>,);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<

@@ -317,7 +317,7 @@ where
 
 			let manager_id = manager.1;
 			let commit_metrics_info = if !metrics.is_empty() {
-				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle)
+				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle, pool_ids)
 			} else {
 				Self::reuse_metrics(processor, manager_id, active, cycle)
 			};
@@ -446,6 +446,7 @@ where
 		metrics: &[MetricInput],
 		active: bool,
 		cycle: CycleFor<T>,
+		pool_ids: &[PoolId],
 	) -> CommitMetricsInfo {
 		let epoch = cycle.epoch;
 
@@ -453,6 +454,9 @@ where
 		let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 		let mut prev_pool_totals: Vec<(PoolId, (Metric, Perquintill))> = vec![];
 		for (pool_id, numerator, denominator) in metrics {
+			if !pool_ids.contains(pool_id) {
+				continue;
+			}
 			let Some(metric) = FixedU128::checked_from_rational(
 				*numerator,
 				if denominator.is_zero() { One::one() } else { *denominator },

@@ -81,18 +81,6 @@ impl<T: frame_system::Config> pallet_acurast_token_claim::WeightInfo for WeightI
 	}
 	/// Storage: `AcurastTokenClaim::ClaimTypeConfigs` (r:1 w:1)
 	/// Proof: `AcurastTokenClaim::ClaimTypeConfigs` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
-	fn update_claim_type() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `90`
-		//  Estimated: `3505`
-		// Minimum execution time: 8_546_000 picoseconds.
-		Weight::from_parts(14_022_000, 0)
-			.saturating_add(Weight::from_parts(0, 3505))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `AcurastTokenClaim::ClaimTypeConfigs` (r:1 w:1)
-	/// Proof: `AcurastTokenClaim::ClaimTypeConfigs` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	fn remove_claim_type() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `90`

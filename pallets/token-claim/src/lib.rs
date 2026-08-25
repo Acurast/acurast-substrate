@@ -312,19 +312,14 @@ pub mod pallet {
 
 		/// Update an existing claim type configuration.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::update_claim_type())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
 		pub fn update_claim_type(
 			origin: OriginFor<T>,
-			id: T::ClaimTypeId,
-			config: ClaimTypeConfigFor<T>,
+			_id: T::ClaimTypeId,
+			_config: ClaimTypeConfigFor<T>,
 		) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
-
-			ensure!(ClaimTypeConfigs::<T>::contains_key(id), Error::<T>::ClaimTypeNotFound);
-			ClaimTypeConfigs::<T>::insert(id, config.clone());
-
-			Self::deposit_event(Event::<T>::ClaimTypeUpdated { claim_type_id: id, config });
-			Ok(())
+			Err(Error::<T>::InternalError.into())
 		}
 
 		/// Remove a claim type configuration.

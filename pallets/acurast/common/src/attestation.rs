@@ -8,6 +8,7 @@ use error::ValidationError;
 use frame_support::{traits::ConstU32, BoundedVec};
 use num_bigint::BigUint;
 use p256::ecdsa::{signature::Verifier, VerifyingKey};
+use p384::elliptic_curve::{generic_array::typenum::Unsigned, sec1::ModulusSize};
 
 use sha2::Digest;
 use sp_std::prelude::*;
@@ -143,19 +144,37 @@ impl PublicKey {
 						Ok(PublicKey::ECDSA(ECDSACurve::CurveP256(verifying_key)))
 					},
 					CURVE_P384 => {
-						// The first byte tells us if compressed or not, we always assume uncompressed and ignore it.
-						// Guard against a truncated/odd-length key to avoid an out-of-bounds slice panic on
-						// attacker-supplied certificates; `from_be_slice` below rejects wrong-sized halves.
-						let encoded = info
-							.subject_public_key
-							.as_bytes()
-							.get(1..)
-							.filter(|encoded| !encoded.is_empty() && encoded.len() % 2 == 0)
-							.ok_or(ValidationError::ParseP384PublicKey)?;
-						let middle = encoded.len() / 2;
+						// Only accept the SEC 1 encodings that carry both coordinates: uncompressed
+						// (0x04) and hybrid (0x06/0x07), each followed by a full `x || y` coordinate
+						// pair. Compressed or otherwise malformed points are rejected explicitly
+						// instead of ignoring the leading byte; this also guards against an
+						// out-of-bounds slice on truncated keys.
+						let encoded = info.subject_public_key.as_bytes();
+						let (tag, coordinates) = match encoded.split_first() {
+							Some((
+								tag @ &(SEC1_TAG_UNCOMPRESSED
+								| SEC1_TAG_HYBRID_EVEN_Y
+								| SEC1_TAG_HYBRID_ODD_Y),
+								coordinates,
+							)) if coordinates.len() == P384_UNTAGGED_POINT_SIZE => (*tag, coordinates),
+							_ => return Err(ValidationError::ParseP384PublicKey),
+						};
+						let (x, y) = coordinates.split_at(P384_COORDINATE_SIZE);
+						// A hybrid tag repeats the parity of y; require the two to agree so that a
+						// point keeps a single accepted encoding per form.
+						let y_is_odd = y[P384_COORDINATE_SIZE - 1] & 1 == 1;
+						let tag_agrees_with_y = match tag {
+							SEC1_TAG_HYBRID_EVEN_Y => !y_is_odd,
+							SEC1_TAG_HYBRID_ODD_Y => y_is_odd,
+							// the uncompressed tag carries no parity
+							_ => true,
+						};
+						if !tag_agrees_with_y {
+							return Err(ValidationError::ParseP384PublicKey);
+						}
 						let point = p384::AffinePoint {
-							x: p384::FieldElement::from_be_slice(&encoded[..middle])?,
-							y: p384::FieldElement::from_be_slice(&encoded[middle..])?,
+							x: p384::FieldElement::from_be_slice(x)?,
+							y: p384::FieldElement::from_be_slice(y)?,
 							infinity: 0,
 						};
 						Ok(PublicKey::ECDSA(ECDSACurve::CurveP384(point)))
@@ -170,6 +189,20 @@ impl PublicKey {
 
 const CURVE_P256: ObjectIdentifier = oid!(1, 2, 840, 10045, 3, 1, 7);
 const CURVE_P384: ObjectIdentifier = oid!(1, 3, 132, 0, 34);
+
+/// Size of the P-384 base field, as used for the curve's serialized field elements.
+type P384FieldSize = p384::elliptic_curve::FieldSize<p384::NistP384>;
+/// Length in bytes of one serialized P-384 point coordinate.
+const P384_COORDINATE_SIZE: usize = <P384FieldSize as Unsigned>::USIZE;
+/// Length in bytes of an untagged P-384 point, i.e. the `x || y` coordinates without a SEC 1 tag.
+const P384_UNTAGGED_POINT_SIZE: usize =
+	<<P384FieldSize as ModulusSize>::UntaggedPointSize as Unsigned>::USIZE;
+/// SEC 1 tag of an uncompressed point, followed by `x || y`.
+const SEC1_TAG_UNCOMPRESSED: u8 = 0x04;
+/// SEC 1 tag of a hybrid point with an even y coordinate, followed by `x || y`.
+const SEC1_TAG_HYBRID_EVEN_Y: u8 = 0x06;
+/// SEC 1 tag of a hybrid point with an odd y coordinate, followed by `x || y`.
+const SEC1_TAG_HYBRID_ODD_Y: u8 = 0x07;
 
 /// OID of the X.509v3 BasicConstraints extension.
 const BASIC_CONSTRAINTS_OID: ObjectIdentifier = oid!(2, 5, 29, 19);
@@ -420,7 +453,10 @@ mod tests {
 		BoundedKeyDescription,
 	};
 
-	use super::{validate_certificate_chain, CertificateChainInput, CertificateInput};
+	use super::{
+		validate_certificate_chain, CertificateChainInput, CertificateInput, P384_COORDINATE_SIZE,
+		P384_UNTAGGED_POINT_SIZE,
+	};
 
 	pub fn decode_certificate_chain(chain: &[&str]) -> CertificateChainInput {
 		let decoded = chain
@@ -447,6 +483,131 @@ mod tests {
 		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
 			.expect("crafted SubjectPublicKeyInfo should parse");
 		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
+	}
+
+	/// Builds the DER of a `SubjectPublicKeyInfo` carrying the secp384r1 OID with the given raw
+	/// bytes as the public key BIT STRING content.
+	fn p384_spki_der(public_key: &[u8]) -> Vec<u8> {
+		// AlgorithmIdentifier { ecPublicKey (1.2.840.10045.2.1), secp384r1 (1.3.132.0.34) }
+		let algorithm = hex_literal::hex!("301006072a8648ce3d020106052b81040022");
+		let mut bit_string = vec![0x03, (public_key.len() + 1) as u8, 0x00];
+		bit_string.extend_from_slice(public_key);
+		let mut der = vec![0x30, (algorithm.len() + bit_string.len()) as u8];
+		der.extend_from_slice(&algorithm);
+		der.extend_from_slice(&bit_string);
+		der
+	}
+
+	/// Regression test for the P-384 public-key parser: a compressed point encoding (0x02/0x03
+	/// prefix) must be rejected instead of being silently reinterpreted as uncompressed.
+	#[test]
+	fn parse_p384_public_key_rejects_compressed_key() {
+		// compressed point: 0x03 prefix followed by a single x coordinate
+		let mut compressed = vec![0x03u8];
+		compressed.extend_from_slice(&[0u8; P384_COORDINATE_SIZE]);
+		let der = p384_spki_der(&compressed);
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
+	}
+
+	/// Regression test for the P-384 public-key parser: an uncompressed point whose coordinates
+	/// are not exactly 96 bytes must be rejected.
+	#[test]
+	fn parse_p384_public_key_rejects_truncated_key() {
+		// uncompressed prefix but one byte short of a full pair of coordinates
+		let mut truncated = vec![0x04u8];
+		truncated.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE - 1]);
+		let der = p384_spki_der(&truncated);
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
+	}
+
+	/// Regression test for the P-384 public-key parser: a point encoding whose leading byte is
+	/// neither the uncompressed (0x04) nor a hybrid (0x06/0x07) tag must be rejected. Before the
+	/// leading byte was checked, any prefix followed by a full coordinate pair parsed as an
+	/// uncompressed point,
+	/// so the same key had 256 accepted encodings.
+	#[test]
+	fn parse_p384_public_key_rejects_bogus_prefix() {
+		// 0x03 is the compressed tag, but with a full pair of coordinates behind it
+		let mut bogus = vec![0x03u8];
+		bogus.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE]);
+		let der = p384_spki_der(&bogus);
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
+	}
+
+	/// A well-formed hybrid point (0x06/0x07 prefix, a full coordinate pair) is accepted as long
+	/// as the low bit of the tag matches the parity of y.
+	#[test]
+	fn parse_p384_public_key_accepts_hybrid_key() {
+		for (tag, y_last) in [(0x06u8, 0x00u8), (0x07u8, 0x01u8)] {
+			let mut hybrid = vec![tag];
+			hybrid.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE - 1]);
+			hybrid.push(y_last);
+			let der = p384_spki_der(&hybrid);
+			let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+				.expect("crafted SubjectPublicKeyInfo should parse");
+			assert!(matches!(
+				super::PublicKey::parse(&spki),
+				Ok(super::PublicKey::ECDSA(super::ECDSACurve::CurveP384(_)))
+			));
+		}
+	}
+
+	/// A hybrid point whose tag contradicts the parity of y is rejected, so a point keeps a single
+	/// accepted hybrid encoding.
+	#[test]
+	fn parse_p384_public_key_rejects_hybrid_key_with_wrong_parity() {
+		for (tag, y_last) in [(0x06u8, 0x01u8), (0x07u8, 0x00u8)] {
+			let mut hybrid = vec![tag];
+			hybrid.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE - 1]);
+			hybrid.push(y_last);
+			let der = p384_spki_der(&hybrid);
+			let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+				.expect("crafted SubjectPublicKeyInfo should parse");
+			assert!(matches!(
+				super::PublicKey::parse(&spki),
+				Err(ValidationError::ParseP384PublicKey)
+			));
+		}
+	}
+
+	/// A well-formed uncompressed point (0x04 prefix, a full coordinate pair) is accepted.
+	#[test]
+	fn parse_p384_public_key_accepts_uncompressed_key() {
+		let mut uncompressed = vec![0x04u8];
+		uncompressed.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE]);
+		let der = p384_spki_der(&uncompressed);
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		assert!(matches!(
+			super::PublicKey::parse(&spki),
+			Ok(super::PublicKey::ECDSA(super::ECDSACurve::CurveP384(_)))
+		));
+	}
+
+	/// Regression test for certificate validity dates before the unix epoch (e.g. a UtcTime with
+	/// YY >= 50, mapped to 19YY): the conversion must fail with an error instead of panicking on
+	/// the i64 -> u64 conversion or clamping to 0 (a `not_before` of 0 would make an expired
+	/// certificate look valid).
+	#[test]
+	fn time_before_unix_epoch_is_rejected() {
+		// UtcTime "500101000000Z" = 1950-01-01T00:00:00Z
+		let der = hex_literal::hex!("170d3530303130313030303030305a");
+		let time = asn1::parse_single::<super::Time>(&der).expect("UtcTime should parse");
+		assert_eq!(time.timestamp_millis(), Err(ValidationError::InvalidCertificateDate));
+	}
+
+	#[test]
+	fn time_after_unix_epoch_is_accepted() {
+		// UtcTime "240101000000Z" = 2024-01-01T00:00:00Z
+		let der = hex_literal::hex!("170d3234303130313030303030305a");
+		let time = asn1::parse_single::<super::Time>(&der).expect("UtcTime should parse");
+		assert_eq!(time.timestamp_millis(), Ok(1_704_067_200_000));
 	}
 
 	const SAMSUNG_ROOT_CERT: &str = r"MIIFHDCCAwSgAwIBAgIJANUP8luj8tazMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTkxMTIyMjAzNzU4WhcNMzQxMTE4MjAzNzU4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaNjMGEwHQYDVR0OBBYEFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMB8GA1UdIwQYMBaAFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgIEMA0GCSqGSIb3DQEBCwUAA4ICAQBOMaBc8oumXb2voc7XCWnuXKhBBK3e2KMGz39t7lA3XXRe2ZLLAkLM5y3J7tURkf5a1SutfdOyXAmeE6SRo83Uh6WszodmMkxK5GM4JGrnt4pBisu5igXEydaW7qq2CdC6DOGjG+mEkN8/TA6p3cnoL/sPyz6evdjLlSeJ8rFBH6xWyIZCbrcpYEJzXaUOEaxxXxgYz5/cTiVKN2M1G2okQBUIYSY6bjEL4aUN5cfo7ogP3UvliEo3Eo0YgwuzR2v0KR6C1cZqZJSTnghIC/vAD32KdNQ+c3N+vl2OTsUVMC1GiWkngNx1OO1+kXW+YTnnTUOtOIswUP/Vqd5SYgAImMAfY8U9/iIgkQj6T2W6FsScy94IN9fFhE1UtzmLoBIuUFsVXJMTz+Jucth+IqoWFua9v1R93/k98p41pjtFX+H8DslVgfP097vju4KDlqN64xV1grw3ZLl4CiOe/A91oeLm2UHOq6wn3esB4r2EIQKb6jTVGu5sYCcdWpXr0AUVqcABPdgL+H7qJguBw09ojm6xNIrw2OocrDKsudk/okr/AwqEyPKw9WnMlQgLIKw1rODG2NvU9oR3GVGdMkUBZutL8VuFkERQGt6vQ2OCw0sV47VMkuYbacK/xyZFiRcrPJPb41zgbQj9XAEyLKCHex0SdDrx+tWUDqG8At2JHA==";

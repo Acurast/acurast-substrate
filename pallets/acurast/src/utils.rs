@@ -24,8 +24,16 @@ pub fn validate_and_extract_attestation<T: Config>(
 	ensure_valid_public_key_for_source(source, &public_key)?;
 
 	let attestation_validity = AttestationValidity {
-		not_before: cert.validity.not_before.timestamp_millis(),
-		not_after: cert.validity.not_after.timestamp_millis(),
+		not_before: cert
+			.validity
+			.not_before
+			.timestamp_millis()
+			.map_err(|_| Error::<T>::FailedTimestampConversion)?,
+		not_after: cert
+			.validity
+			.not_after
+			.timestamp_millis()
+			.map_err(|_| Error::<T>::FailedTimestampConversion)?,
 	};
 
 	let parsed_attestation = extract_attestation(cert.extensions)

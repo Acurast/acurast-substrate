@@ -59,6 +59,8 @@ pub enum ValidationError {
 	KeyUsageMissing,
 	/// A non-leaf certificate is not allowed to sign certificates (keyCertSign not set).
 	KeyCertSignNotAllowed,
+	/// A certificate validity date is invalid or before the unix epoch.
+	InvalidCertificateDate,
 }
 
 impl From<ParseError> for ValidationError {

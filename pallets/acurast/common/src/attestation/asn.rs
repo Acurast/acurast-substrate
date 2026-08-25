@@ -11,6 +11,8 @@ use asn1::{
 use chrono::{self, Datelike, Timelike};
 use sp_std::prelude::*;
 
+use super::error::ValidationError;
+
 #[derive(Asn1Read, Asn1Write, Clone)]
 /// Represents the root structure of a [X.509 v3 certificate](https://www.rfc-editor.org/rfc/rfc5280#section-4.1)
 /// See how to map these to [asn1 structs](https://docs.rs/asn1/0.11.0/asn1/#structs)
@@ -92,7 +94,7 @@ pub enum Time {
 }
 
 impl Time {
-	pub fn timestamp_millis(&self) -> u64 {
+	pub fn timestamp_millis(&self) -> Result<u64, ValidationError> {
 		let date_time = match self {
 			Time::UTCTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
 			Time::GeneralizedTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
@@ -111,11 +113,12 @@ impl Time {
 				})
 			})
 			.map(|t| t.and_utc().timestamp_millis())
-			.unwrap_or(0);
+			.ok_or(ValidationError::InvalidCertificateDate)?;
 
-		// A certificate validity date before the unix epoch yields a negative timestamp; saturate to 0
-		// instead of panicking on the i64 -> u64 conversion.
-		milliseconds.try_into().unwrap_or(0)
+		// A certificate validity date before the unix epoch yields a negative timestamp;
+		// reject it instead of panicking on the i64 -> u64 conversion or clamping to 0
+		// (a `not_before` of 0 would make an expired certificate look valid).
+		milliseconds.try_into().map_err(|_| ValidationError::InvalidCertificateDate)
 	}
 }
 

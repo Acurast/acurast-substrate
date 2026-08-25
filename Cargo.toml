@@ -132,6 +132,7 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features =
 sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-session = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
+sp-staking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-storage = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }

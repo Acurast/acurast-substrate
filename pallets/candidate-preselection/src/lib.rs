@@ -12,6 +12,9 @@ pub use pallet::*;
 pub use traits::*;
 
 use frame_support::traits::ValidatorRegistration;
+use pallet_session::SessionManager;
+use sp_staking::SessionIndex;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -87,5 +90,40 @@ impl<T: Config> ValidatorRegistration<T::ValidatorId> for Pallet<T> {
 	fn is_registered(id: &T::ValidatorId) -> bool {
 		<CandidatePreselectionList<T>>::get(id).is_some()
 			&& T::ValidatorRegistration::is_registered(id)
+	}
+}
+
+/// A [`SessionManager`] wrapper that filters accounts whose preselection was
+/// removed out of the collator set produced by the inner session manager.
+///
+/// `pallet_collator_selection` only consults `ValidatorRegistration` when a
+/// candidate registers or takes a slot, so without this filter a candidate
+/// removed via `remove_candidate` would keep authoring blocks indefinitely.
+pub struct PreselectionSessionManager<T, Inner>(PhantomData<(T, Inner)>);
+
+impl<T: Config, Inner: SessionManager<T::ValidatorId>> SessionManager<T::ValidatorId>
+	for PreselectionSessionManager<T, Inner>
+{
+	fn new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
+		Inner::new_session(new_index).map(|collators| {
+			collators
+				.into_iter()
+				.filter(|id| <CandidatePreselectionList<T>>::contains_key(id))
+				.collect()
+		})
+	}
+
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
+		// The preselection list is empty at genesis, so the initial collator set
+		// must be passed through unfiltered.
+		Inner::new_session_genesis(new_index)
+	}
+
+	fn end_session(end_index: SessionIndex) {
+		Inner::end_session(end_index)
+	}
+
+	fn start_session(start_index: SessionIndex) {
+		Inner::start_session(start_index)
 	}
 }

@@ -1,4 +1,5 @@
 use acurast_runtime_common::weight;
+use pallet_acurast_candidate_preselection::PreselectionSessionManager;
 
 use crate::{Balances, CollatorSelection, Offset, Period, Runtime, RuntimeEvent, SessionKeys};
 
@@ -10,7 +11,8 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = CollatorSelection;
+	// Filters collators whose preselection was revoked out of the session validator set.
+	type SessionManager = PreselectionSessionManager<Runtime, CollatorSelection>;
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;

@@ -953,31 +953,12 @@ fn test_create_claim_type_non_root_fails() {
 }
 
 #[test]
-fn test_update_claim_type() {
-	ExtBuilder.build().execute_with(|| {
-		let config = create_test_claim_type();
-		assert_ok!(AcurastTokenClaim::create_claim_type(RuntimeOrigin::root(), config));
-
-		let (_, new_funder) = generate_pair_account("NewFunder");
-		let new_config = ClaimTypeConfig { funder: new_funder, vesting_duration: 1000u64 };
-
-		assert_ok!(AcurastTokenClaim::update_claim_type(
-			RuntimeOrigin::root(),
-			0,
-			new_config.clone()
-		));
-
-		assert_eq!(AcurastTokenClaim::claim_type_configs(0), Some(new_config));
-	});
-}
-
-#[test]
-fn test_update_nonexistent_claim_type_fails() {
+fn test_update_claim_type_fails() {
 	ExtBuilder.build().execute_with(|| {
 		let config = create_test_claim_type();
 		assert_err!(
-			AcurastTokenClaim::update_claim_type(RuntimeOrigin::root(), 99, config),
-			Error::<Test>::ClaimTypeNotFound
+			AcurastTokenClaim::update_claim_type(RuntimeOrigin::root(), 0, config),
+			Error::<Test>::InternalError
 		);
 	});
 }

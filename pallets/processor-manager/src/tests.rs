@@ -11,17 +11,24 @@ use hex_literal::hex;
 fn paired_manager_processor() -> (AccountId, AccountId) {
 	let (signer, manager_account) = generate_pair_account();
 	let (_, processor_account) = generate_pair_account();
-	let initial_timestamp = 1657363915010u64;
-	if Timestamp::get() != initial_timestamp {
-		Timestamp::set_timestamp(initial_timestamp);
+	let timestamp = 1657363915002u64;
+	if Timestamp::get() < timestamp {
+		let _ = Timestamp::set(RuntimeOrigin::none(), timestamp);
 	}
-	let timestamp = 1657363915002u128;
-	let signature = generate_signature(&signer, &manager_account, timestamp, 1);
-	let update =
-		ProcessorPairingFor::<Test>::new_with_proof(manager_account.clone(), timestamp, signature);
-	assert_ok!(AcurastProcessorManager::pair_with_manager(
+	let signature = generate_signature(&signer, &manager_account, timestamp as u128, 1);
+	let pairing = ProcessorPairingFor::<Test>::new_with_proof(
+		manager_account.clone(),
+		timestamp as u128,
+		signature,
+	);
+
+	let attestation_chain = attestation_chain();
+
+	assert_ok!(AcurastProcessorManager::onboard(
 		RuntimeOrigin::signed(processor_account.clone()),
-		update,
+		pairing.clone(),
+		false,
+		attestation_chain
 	));
 
 	(manager_account, processor_account)
@@ -34,118 +41,25 @@ pub fn processor_account_id() -> AccountId {
 #[test]
 fn test_update_processor_pairings_succeed_1() {
 	ExtBuilder.build().execute_with(|| {
-		let (signer, processor_account) = generate_pair_account();
-		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
-		let timestamp = 1657363915002u128;
-		let signature = generate_signature(&signer, &alice_account_id(), timestamp, 1);
-		let updates = vec![ProcessorPairingUpdateFor::<Test> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Test>::new_with_proof(
-				processor_account.clone(),
-				timestamp,
-				signature,
-			),
-		}];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(alice_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_ok!(call);
-		assert_eq!(Some(1), AcurastProcessorManager::last_manager_id());
-		assert_eq!(Some(1), AcurastProcessorManager::manager_id_for_processor(&processor_account));
-		assert_eq!(
-			Some(alice_account_id()),
-			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
-		);
-		assert!(AcurastProcessorManager::managed_processors(1, &processor_account).is_some());
-		let last_events = events();
-		assert_eq!(
-			last_events[(last_events.len() - 2)..],
-			vec![
-				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(alice_account_id(), 1)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(
-					alice_account_id(),
-					updates.try_into().unwrap()
-				)),
-			]
-		);
+		let (manager_account, processor_account) = paired_manager_processor();
 
 		let updates = vec![ProcessorPairingUpdateFor::<Test> {
 			operation: ListUpdateOperation::Remove,
 			item: ProcessorPairingFor::<Test>::new(processor_account.clone()),
 		}];
 		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(alice_account_id()),
+			RuntimeOrigin::signed(manager_account.clone()),
 			updates.clone().try_into().unwrap(),
 		);
 		assert_ok!(call);
 		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
 		assert_eq!(None, AcurastProcessorManager::lookup(&processor_account));
 		assert_eq!(
-			events(),
-			vec![RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(
-				alice_account_id(),
+			events().into_iter().last().unwrap(),
+			RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(
+				manager_account,
 				updates.try_into().unwrap()
-			)),]
-		);
-	});
-}
-
-#[test]
-fn test_update_processor_pairings_succeed_2() {
-	ExtBuilder.build().execute_with(|| {
-		let (signer, processor_account) = generate_pair_account();
-		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
-		let timestamp = 1657363915002u128;
-		let signature = generate_signature(&signer, &alice_account_id(), timestamp, 1);
-		let updates = vec![ProcessorPairingUpdateFor::<Test> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Test>::new_with_proof(
-				processor_account.clone(),
-				timestamp,
-				signature,
-			),
-		}];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(alice_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_ok!(call);
-		_ = events();
-
-		let (signer, processor_account) = generate_pair_account();
-		let signature = generate_signature(&signer, &bob_account_id(), timestamp, 1);
-		let updates = vec![ProcessorPairingUpdateFor::<Test> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Test>::new_with_proof(
-				processor_account.clone(),
-				timestamp,
-				signature,
-			),
-		}];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(bob_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_ok!(call);
-
-		assert_eq!(Some(2), AcurastProcessorManager::last_manager_id());
-		assert_eq!(Some(2), AcurastProcessorManager::manager_id_for_processor(&processor_account));
-		assert_eq!(
-			Some(bob_account_id()),
-			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
-		);
-		assert!(AcurastProcessorManager::managed_processors(2, &processor_account).is_some());
-		let last_events = events();
-		assert_eq!(
-			last_events[(last_events.len() - 2)..],
-			vec![
-				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(bob_account_id(), 2)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(
-					bob_account_id(),
-					updates.try_into().unwrap()
-				)),
-			]
+			))
 		);
 	});
 }
@@ -169,79 +83,7 @@ fn test_update_processor_pairings_failure_1() {
 			RuntimeOrigin::signed(alice_account_id()),
 			updates.clone().try_into().unwrap(),
 		);
-		assert_err!(call, Error::<Test>::InvalidPairingProof);
-	});
-}
-
-#[test]
-fn test_update_processor_pairings_failure_2() {
-	ExtBuilder.build().execute_with(|| {
-		let (signer, processor_account) = generate_pair_account();
-		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
-		let timestamp = 1657363915002u128;
-		let signature_1 = generate_signature(&signer, &alice_account_id(), timestamp, 1);
-		let signature_2 = generate_signature(&signer, &alice_account_id(), timestamp, 2);
-		let updates = vec![
-			ProcessorPairingUpdateFor::<Test> {
-				operation: ListUpdateOperation::Add,
-				item: ProcessorPairingFor::<Test>::new_with_proof(
-					processor_account.clone(),
-					timestamp,
-					signature_1,
-				),
-			},
-			ProcessorPairingUpdateFor::<Test> {
-				operation: ListUpdateOperation::Add,
-				item: ProcessorPairingFor::<Test>::new_with_proof(
-					processor_account.clone(),
-					timestamp,
-					signature_2,
-				),
-			},
-		];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(alice_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_err!(call, Error::<Test>::ProcessorAlreadyPaired);
-	});
-}
-
-#[test]
-fn test_update_processor_pairings_failure_3() {
-	ExtBuilder.build().execute_with(|| {
-		let (signer, processor_account) = generate_pair_account();
-		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
-		let timestamp = 1657363915002u128;
-		let signature_1 = generate_signature(&signer, &alice_account_id(), timestamp, 1);
-		let signature_2 = generate_signature(&signer, &bob_account_id(), timestamp, 1);
-		let updates = vec![ProcessorPairingUpdateFor::<Test> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Test>::new_with_proof(
-				processor_account.clone(),
-				timestamp,
-				signature_1,
-			),
-		}];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(alice_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_ok!(call);
-
-		let updates = vec![ProcessorPairingUpdateFor::<Test> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Test>::new_with_proof(
-				processor_account.clone(),
-				timestamp,
-				signature_2,
-			),
-		}];
-		let call = AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(bob_account_id()),
-			updates.clone().try_into().unwrap(),
-		);
-		assert_err!(call, Error::<Test>::ProcessorPairedWithAnotherManager);
+		assert_err!(call, Error::<Test>::CallDeprecated);
 	});
 }
 
@@ -328,7 +170,7 @@ fn test_recover_funds_failure_2() {
 }
 
 #[test]
-fn test_pair_with_manager() {
+fn test_pair_with_manager_is_deprecated() {
 	ExtBuilder.build().execute_with(|| {
 		let (signer, manager_account) = generate_pair_account();
 		let (_, processor_account) = generate_pair_account();
@@ -340,38 +182,25 @@ fn test_pair_with_manager() {
 			timestamp,
 			signature,
 		);
-		assert_ok!(AcurastProcessorManager::pair_with_manager(
-			RuntimeOrigin::signed(processor_account.clone()),
-			update.clone(),
-		));
-
-		assert_eq!(Some(1), AcurastProcessorManager::last_manager_id());
-		assert_eq!(Some(1), AcurastProcessorManager::manager_id_for_processor(&processor_account));
-		assert_eq!(
-			Some(manager_account.clone()),
-			AcurastProcessorManager::lookup(&processor_account).map(|(account_id, _)| account_id)
+		// The extrinsic is a permanently-disabled skeleton: it must reject any (even otherwise
+		// valid) call and must not create a manager or a pairing.
+		assert_err!(
+			AcurastProcessorManager::pair_with_manager(
+				RuntimeOrigin::signed(processor_account.clone()),
+				update.clone(),
+			),
+			Error::<Test>::CallDeprecated
 		);
-		assert!(AcurastProcessorManager::managed_processors(1, &processor_account).is_some());
-		let last_events = events();
-		assert_eq!(
-			last_events[(last_events.len() - 2)..],
-			vec![
-				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(manager_account, 1)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
-					processor_account,
-					update.account
-				)),
-			]
-		);
+		assert_eq!(None, AcurastProcessorManager::last_manager_id());
+		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
 	});
 }
 
 #[test]
-fn test_multi_pair_with_manager() {
+fn test_multi_pair_with_manager_is_deprecated() {
 	ExtBuilder.build().execute_with(|| {
 		let (signer, manager_account) = generate_pair_account();
-		let (_, processor_account_1) = generate_pair_account();
-		let (_, processor_account_2) = generate_pair_account();
+		let (_, processor_account) = generate_pair_account();
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
 		let timestamp = 1657363915002u128;
 		let signature = generate_multi_signature(&signer, &manager_account, timestamp);
@@ -380,45 +209,17 @@ fn test_multi_pair_with_manager() {
 			timestamp,
 			signature,
 		);
-		assert_ok!(AcurastProcessorManager::multi_pair_with_manager(
-			RuntimeOrigin::signed(processor_account_1.clone()),
-			update.clone(),
-		));
-
-		assert_ok!(AcurastProcessorManager::multi_pair_with_manager(
-			RuntimeOrigin::signed(processor_account_2.clone()),
-			update.clone(),
-		));
-
-		assert_eq!(Some(1), AcurastProcessorManager::last_manager_id());
-		assert_eq!(
-			Some(1),
-			AcurastProcessorManager::manager_id_for_processor(&processor_account_1)
+		// The extrinsic is a permanently-disabled skeleton: it must reject any (even otherwise
+		// valid) call and must not create a manager or a pairing.
+		assert_err!(
+			AcurastProcessorManager::multi_pair_with_manager(
+				RuntimeOrigin::signed(processor_account.clone()),
+				update.clone(),
+			),
+			Error::<Test>::CallDeprecated
 		);
-		assert_eq!(
-			Some(1),
-			AcurastProcessorManager::manager_id_for_processor(&processor_account_2)
-		);
-		assert_eq!(
-			Some(manager_account.clone()),
-			AcurastProcessorManager::lookup(&processor_account_1).map(|(account_id, _)| account_id)
-		);
-		assert!(AcurastProcessorManager::managed_processors(1, &processor_account_1).is_some());
-		let last_events = events();
-		assert_eq!(
-			last_events[(last_events.len() - 3)..],
-			vec![
-				RuntimeEvent::AcurastProcessorManager(Event::ManagerCreated(manager_account, 1)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
-					processor_account_1,
-					update.account.clone()
-				)),
-				RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairedV2(
-					processor_account_2,
-					update.account
-				)),
-			]
-		);
+		assert_eq!(None, AcurastProcessorManager::last_manager_id());
+		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
 	});
 }
 

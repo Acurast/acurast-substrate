@@ -18,7 +18,7 @@ pub const CERT_MAX_LENGTH: u32 = 3000;
 pub type CertificateInput = BoundedVec<u8, ConstU32<CERT_MAX_LENGTH>>;
 pub type CertificateChainInput = BoundedVec<CertificateInput, ConstU32<CHAIN_MAX_LENGTH>>;
 
-fn parse_cert(serialized: &[u8]) -> Result<Certificate<'_>, ParseError> {
+pub fn parse_cert(serialized: &[u8]) -> Result<Certificate<'_>, ParseError> {
 	let data = asn1::parse_single::<Certificate>(serialized)?;
 	Ok(data)
 }

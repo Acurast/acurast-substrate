@@ -89,7 +89,18 @@ pub trait AttestationValidator<AccountId> {
 }
 
 pub trait IsFundableCall<Call> {
+	/// Whether `call` is eligible to be paid out of a manager's protocol-funded onboarding
+	/// reserve (i.e. via `release_fee_funds`). This is the narrower "protocol funding" gate.
 	fn is_fundable_call(call: &Call) -> bool;
+
+	/// Whether `call` may be paid by the processor's manager at all (from the onboarding reserve
+	/// first, then the manager's free balance). This is the wider "manager funding" gate and must
+	/// be a superset of [`Self::is_fundable_call`]: every reserve-eligible call is also
+	/// manager-fundable, but a manager may additionally sponsor calls that are not reserve-funded.
+	///
+	/// Any call that is not manager-fundable is paid by the submitting account itself, which is
+	/// what prevents a paired processor from charging arbitrary runtime calls to its manager.
+	fn is_manager_fundable_call(call: &Call) -> bool;
 }
 
 pub trait Slashable<AccountId> {
@@ -108,3 +119,8 @@ pub type ImbalanceFor<Currency, AccountId> = Imbalance<
 	<Currency as Balanced<AccountId>>::OnDropCredit,
 	<Currency as Balanced<AccountId>>::OnDropDebt,
 >;
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+pub trait OnProcessorUnpaired<AccountId> {
+	fn processor_unpaired(processor: &AccountId, former_manager: &AccountId);
+}

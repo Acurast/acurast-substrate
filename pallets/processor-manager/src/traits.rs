@@ -50,8 +50,6 @@ pub trait OnboardingProvider<T: Config> {
 /// Weight functions needed for pallet_acurast_processor_manager.
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;
-	fn pair_with_manager() -> Weight;
-	fn multi_pair_with_manager() -> Weight;
 	fn recover_funds() -> Weight;
 	fn heartbeat() -> Weight;
 	fn heartbeat_with_version() -> Weight;
@@ -72,6 +70,5 @@ pub trait WeightInfo {
 }
 
 pub trait ExtensionWeightInfo {
-	fn pairing() -> Weight;
 	fn onboarding() -> Weight;
 }

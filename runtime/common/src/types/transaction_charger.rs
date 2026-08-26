@@ -61,7 +61,12 @@ where
 			return Ok(None);
 		}
 
-		let fee_payer = OP::fee_payer(who, call);
+		// The manager only pays for calls on the manager-funding whitelist; anything else is
+		// charged to the submitting account itself. This stops a paired processor (including one
+		// that was paired without the manager's authorization) from billing arbitrary runtime
+		// calls to its manager.
+		let fee_payer =
+			if P::is_manager_fundable_call(call) { OP::fee_payer(who, call) } else { who.clone() };
 		if &fee_payer != who && P::is_fundable_call(call) {
 			OP::release_fee_funds(&fee_payer, fee.into());
 		}
@@ -124,7 +129,8 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		let fee_payer = OP::fee_payer(who, call);
+		let fee_payer =
+			if P::is_manager_fundable_call(call) { OP::fee_payer(who, call) } else { who.clone() };
 		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who, &fee_payer).is_some()) {
 			return Ok(())
 		}
@@ -164,5 +170,9 @@ impl<
 {
 	fn is_fundable_call(call: &T::RuntimeCall) -> bool {
 		A::is_fundable_call(call) || B::is_fundable_call(call)
+	}
+
+	fn is_manager_fundable_call(call: &T::RuntimeCall) -> bool {
+		A::is_manager_fundable_call(call) || B::is_manager_fundable_call(call)
 	}
 }

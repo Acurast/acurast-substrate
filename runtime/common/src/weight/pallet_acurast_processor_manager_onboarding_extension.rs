@@ -59,17 +59,4 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::onboarding::exte
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `Timestamp::Now` (r:1 w:0)
-	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastProcessorManager::ManagerCounter` (r:1 w:0)
-	/// Proof: `AcurastProcessorManager::ManagerCounter` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	fn pairing() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `159`
-		//  Estimated: `3489`
-		// Minimum execution time: 7_033_000 picoseconds.
-		Weight::from_parts(11_451_000, 0)
-			.saturating_add(Weight::from_parts(0, 3489))
-			.saturating_add(T::DbWeight::get().reads(2))
-	}
 }

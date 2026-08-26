@@ -7,7 +7,7 @@ use super::*;
 use acurast_common::{
 	AttestationChain, ListUpdateOperation, MetricInput, PoolId, Version, METRICS_MAX_LENGTH,
 };
-use frame_benchmarking::{benchmarks, whitelist_account};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	sp_runtime::{
 		traits::{IdentifyAccount, StaticLookup, Verify},
@@ -29,35 +29,34 @@ pub trait BenchmarkHelper<T: Config> {
 	fn commit(manager: &T::AccountId);
 	fn pair_manager_and_processor(manager: &T::AccountId, processor: &T::AccountId);
 	fn on_initialize(block_number: BlockNumberFor<T>);
+	/// Fills all storage that `T::OnProcessorUnpaired` removes for `processor`, so that removing a
+	/// pairing measures the worst case of the cleanup hooks configured for the runtime.
+	fn setup_unpaired_cleanup(processor: &T::AccountId);
 }
 
-fn generate_pairing_update_add<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
+fn generate_pairing_update_remove<T: Config>(index: u32) -> ProcessorPairingUpdateFor<T>
 where
 	T::AccountId: From<AccountId32>,
 {
 	let processor_account_id = generate_account(index).into();
 	let timestamp = 1657363915002u128;
-	// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
 	let signature = T::BenchmarkHelper::dummy_proof();
 	ProcessorPairingUpdateFor::<T> {
-		operation: ListUpdateOperation::Add,
+		operation: ListUpdateOperation::Remove,
 		item: ProcessorPairingFor::<T>::new_with_proof(processor_account_id, timestamp, signature),
 	}
 }
 
-fn generate_pairing_update_add_for_processor_manager<T: Config>(
-	processor: &T::AccountId,
-) -> ProcessorPairingUpdateFor<T>
-where
-	T::AccountId: From<AccountId32>,
-{
-	let timestamp = 1657363915002u128;
-	// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
-	let signature = T::BenchmarkHelper::dummy_proof();
-	ProcessorPairingUpdateFor::<T> {
-		operation: ListUpdateOperation::Add,
-		item: ProcessorPairingFor::<T>::new_with_proof(processor.clone(), timestamp, signature),
-	}
+/// Creates a pairing between `manager` and `processor` directly through the pallet internals.
+///
+/// `update_processor_pairings` can only remove pairings, so benchmark setups that need an existing
+/// pairing cannot go through an extrinsic (`onboard` is the only pairing call and it validates an
+/// attestation chain for a fixed processor account).
+fn pair<T: Config>(manager: &T::AccountId, processor: &T::AccountId) -> Result<(), BenchmarkError> {
+	let (manager_id, _) = Pallet::<T>::do_get_or_create_manager_id(manager)?;
+	Pallet::<T>::do_add_processor_manager_pairing(processor, manager_id)?;
+
+	Ok(())
 }
 
 pub fn roll_to_block<T: Config>(block_number: BlockNumberFor<T>)
@@ -108,67 +107,86 @@ where
 	hex!("b8bc25a2b4c0386b8892b43e435b71fe11fa50533935f027949caf04bcce4694").into()
 }
 
-benchmarks! {
-	where_clause { where
+#[benchmarks(
+	where
 		T: Config + pallet_timestamp::Config<Moment = u64>,
 		T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
 		T::AccountId: From<AccountId32> + From<[u8; 32]>,
 		BalanceFor<T>: IsType<u128>,
 		BlockNumberFor<T>: IsType<u32>,
 		<<T as frame_system::Config>::Lookup as StaticLookup>::Source: From<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
-	}
+)]
+mod benchmarks {
+	use super::*;
 
-	update_processor_pairings {
-		let x in 1 .. T::MaxPairingUpdates::get();
+	#[benchmark]
+	fn update_processor_pairings(
+		x: Linear<1, { T::MaxPairingUpdates::get() }>,
+	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let mut updates = Vec::<ProcessorPairingUpdateFor<T>>::new();
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		for i in 0..x {
-			updates.push(generate_pairing_update_add::<T>(i));
+			// the call only supports removals, so every pairing to remove has to exist upfront
+			let update = generate_pairing_update_remove::<T>(i + 1);
+			pair::<T>(&caller, &update.item.account)?;
+			// every removal triggers `T::OnProcessorUnpaired`; give it the maximum to clean up
+			T::BenchmarkHelper::setup_unpaired_cleanup(&update.item.account);
+			updates.push(update);
 		}
-	}: _(RawOrigin::Signed(caller), updates.try_into().unwrap())
 
-	pair_with_manager {
-		set_timestamp::<T>(1000);
-		let manager_account = generate_account(0).into();
-		let processor_account = generate_account(1).into();
-		let item = processor_pairing::<T>(manager_account);
-	}: _(RawOrigin::Signed(processor_account), item)
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), updates.try_into().unwrap());
 
-	multi_pair_with_manager {
-		set_timestamp::<T>(1000);
-		let manager_account = generate_account(0).into();
-		let processor_account = generate_account(1).into();
-		let item = processor_pairing::<T>(manager_account);
-	}: _(RawOrigin::Signed(processor_account), item)
+		Ok(())
+	}
 
-	recover_funds {
+	#[benchmark]
+	fn recover_funds() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
-		let update = generate_pairing_update_add::<T>(0);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
-	}: _(RawOrigin::Signed(caller.clone()), update.item.account.into().into(), caller.clone().into().into())
+		let processor: T::AccountId = generate_account(1).into();
+		pair::<T>(&caller, &processor)?;
 
-	heartbeat {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), processor.into().into(), caller.clone().into().into());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		let manager: T::AccountId = alice_account_id().into();
+		let processor: T::AccountId = generate_account(1).into();
+		whitelist_account!(processor);
+		pair::<T>(&manager, &processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(processor));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn advertise_for() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
-		let update = generate_pairing_update_add::<T>(0);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
-	}: _(RawOrigin::Signed(caller))
-
-	advertise_for {
-		set_timestamp::<T>(1000);
-		let caller: T::AccountId = alice_account_id().into();
-		whitelist_account!(caller);
-		let update = generate_pairing_update_add::<T>(0);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		let processor: T::AccountId = generate_account(1).into();
+		pair::<T>(&caller, &processor)?;
 		let ad = T::BenchmarkHelper::advertisement();
-	}: _(RawOrigin::Signed(caller), update.item.account.into().into(), ad)
 
-	heartbeat_with_version {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), processor.into().into(), ad);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_version() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -176,36 +194,50 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..6u32 {
+		for _ in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		roll_to_block::<T>(2701u32.into());
 		T::BenchmarkHelper::commit(&manager);
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(3601u32.into());
-	}: _(RawOrigin::Signed(caller), version)
 
-	heartbeat_with_version_no_claim {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), version);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_version_no_claim() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -213,28 +245,34 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..6u32 {
+		for _ in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-	}: heartbeat_with_version(RawOrigin::Signed(caller), version)
 
-	heartbeat_with_version_metrics_claim {
+		#[extrinsic_call]
+		heartbeat_with_version(RawOrigin::Signed(caller), version);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_version_metrics_claim() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -242,33 +280,41 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..6u32 {
+		for _ in 0..6u32 {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		roll_to_block::<T>(2701u32.into());
-	}: heartbeat_with_version(RawOrigin::Signed(caller), version)
 
-	heartbeat_with_metrics {
-		let x in 1 .. METRICS_MAX_LENGTH;
+		#[extrinsic_call]
+		heartbeat_with_version(RawOrigin::Signed(caller), version);
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_metrics(x: Linear<1, METRICS_MAX_LENGTH>) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -276,37 +322,51 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..x {
+		for _ in 0..x {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		roll_to_block::<T>(2701u32.into());
 		T::BenchmarkHelper::commit(&manager);
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(3601u32.into());
-	}: _(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
-	heartbeat_with_metrics_no_claim {
-		let x in 1 .. METRICS_MAX_LENGTH;
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), version, values.try_into().unwrap());
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_metrics_no_claim(
+		x: Linear<1, METRICS_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -314,29 +374,35 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..x {
+		for _ in 0..x {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-	}: heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
-	heartbeat_with_metrics_claim {
-		let x in 1 .. METRICS_MAX_LENGTH;
+		#[extrinsic_call]
+		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn heartbeat_with_metrics_claim(
+		x: Linear<1, METRICS_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		T::BenchmarkHelper::setup_compute_settings();
 		let caller: T::AccountId = alice_account_id().into();
@@ -344,113 +410,157 @@ benchmarks! {
 		whitelist_account!(caller);
 		T::BenchmarkHelper::attest_account(&caller);
 		roll_to_block::<T>(100u32.into());
-		let update = generate_pairing_update_add_for_processor_manager::<T>(&caller);
-		Pallet::<T>::update_processor_pairings(RawOrigin::Signed(manager.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 		let mut values = Vec::<MetricInput>::new();
-		for i in 0..x {
+		for _ in 0..x {
 			let pool_id = T::BenchmarkHelper::create_compute_pool();
 			values.push((pool_id, 10u128, 1u128));
 		}
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		// make sure warmup of 1800 block passed
 		roll_to_block::<T>(1901u32.into());
-		Pallet::<T>::heartbeat_with_metrics(RawOrigin::Signed(caller.clone()).into(), version, values.clone().try_into().unwrap())?;
+		Pallet::<T>::heartbeat_with_metrics(
+			RawOrigin::Signed(caller.clone()).into(),
+			version,
+			values.clone().try_into().unwrap(),
+		)?;
 
 		roll_to_block::<T>(2701u32.into());
-	}: heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap())
 
-	update_binary_hash {
+		#[extrinsic_call]
+		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_binary_hash() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 		let hash: BinaryHash = [1; 32].into();
-	}: _(RawOrigin::Root, version, Some(hash))
 
-	update_api_version {
+		#[extrinsic_call]
+		_(RawOrigin::Root, version, Some(hash));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_api_version() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let version = 1;
-	}: _(RawOrigin::Root, version)
 
-	set_processor_update_info {
-		let x in 1 .. T::MaxProcessorsInSetUpdateInfo::get();
+		#[extrinsic_call]
+		_(RawOrigin::Root, version);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_processor_update_info(
+		x: Linear<1, { T::MaxProcessorsInSetUpdateInfo::get() }>,
+	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let mut processors = Vec::<T::AccountId>::new();
 		for i in 0..x {
-			let update = generate_pairing_update_add::<T>(i);
-			processors.push(update.item.account.clone());
-			Pallet::<T>::update_processor_pairings(RawOrigin::Signed(caller.clone()).into(), vec![update.clone()].try_into().unwrap())?;
+			let processor: T::AccountId = generate_account(i + 1).into();
+			pair::<T>(&caller, &processor)?;
+			processors.push(processor);
 		}
-		let version = Version {
-			platform: 0,
-			build_number: 1,
-		};
+		let version = Version { platform: 0, build_number: 1 };
 		let hash: BinaryHash = [1; 32].into();
 		Pallet::<T>::update_binary_hash(RawOrigin::Root.into(), version, Some(hash))?;
 		let binary_location: BinaryLocation = b"https://github.com/Acurast/acurast-processor-update/releases/download/processor-1.3.31/processor-1.3.31-devnet.apk".to_vec().try_into().unwrap();
-		let update_info = UpdateInfo {
-			version,
-			binary_location,
-		};
-	}: _(RawOrigin::Signed(caller), update_info, processors.try_into().unwrap())
+		let update_info = UpdateInfo { version, binary_location };
 
-	update_reward_distribution_settings {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), update_info, processors.try_into().unwrap());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_reward_distribution_settings() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
-		let settings = RewardDistributionSettings::<
-			BalanceFor<T>,
-			<T as frame_system::Config>::AccountId,
-		> {
-			window_length: 300,
-			tollerance: 25,
-			min_heartbeats: 3,
-			reward_per_distribution: 300_000_000_000u128.into(),
-			distributor_account: alice_account_id().into(),
-		};
-	}: _(RawOrigin::Root, Some(settings))
+		let settings =
+			RewardDistributionSettings::<BalanceFor<T>, <T as frame_system::Config>::AccountId> {
+				window_length: 300,
+				tollerance: 25,
+				min_heartbeats: 3,
+				reward_per_distribution: 300_000_000_000u128.into(),
+				distributor_account: alice_account_id().into(),
+			};
 
-	update_min_processor_version_for_reward {
+		#[extrinsic_call]
+		_(RawOrigin::Root, Some(settings));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_min_processor_version_for_reward() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let version = Version { platform: 0, build_number: 100 };
-	}: _(RawOrigin::Root, version)
 
-	set_management_endpoint {
+		#[extrinsic_call]
+		_(RawOrigin::Root, version);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_management_endpoint() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let endpoint: Endpoint = b"https://my-management-endpoint.io".to_vec().try_into().unwrap();
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), Some(endpoint))
 
-	onboard {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), Some(endpoint));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn onboard() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1657363915001);
 		let manager_account = generate_account(0).into();
 		let processor_account = processor_account_id::<T>();
 		let timestamp = 1657363915000u128;
 		let signature = T::BenchmarkHelper::dummy_proof();
 		let item = ProcessorPairingFor::<T>::new_with_proof(manager_account, timestamp, signature);
-	}: _(RawOrigin::Signed(processor_account), item, false, attestation_chain())
 
-	update_onboarding_settings {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(processor_account), item, false, attestation_chain());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_onboarding_settings() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
-		let settings = OnboardingSettings::<
-			BalanceFor<T>,
-			<T as frame_system::Config>::AccountId,
-		> {
+		let settings = OnboardingSettings::<BalanceFor<T>, <T as frame_system::Config>::AccountId> {
 			funds: 100_000_000_000u128.into(),
 			max_funds: 1_000_000_000_000u128.into(),
 			funds_account: alice_account_id().into(),
 		};
-	}: _(RawOrigin::Root, Some(settings))
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Some(settings));
+
+		Ok(())
+	}
 
 	//impl_benchmark_test_suite!(Pallet, mock::ExtBuilder.build(), mock::Test);
 }

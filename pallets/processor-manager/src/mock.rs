@@ -1,12 +1,15 @@
 use core::marker::PhantomData;
 
 use crate::{stub::*, *};
-use acurast_common::{AttestationChain, ManagerIdProvider, ManagerLookup, CU32};
+use acurast_common::{
+	extract_attestation, parse_cert, Attestation, AttestationChain, AttestationValidator,
+	AttestationValidity, ManagerIdProvider, ManagerLookup, CU32,
+};
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
 		traits::{ConstU128, ConstU32, IdentityLookup},
-		BuildStorage, MultiSignature,
+		BuildStorage, DispatchError, MultiSignature,
 	},
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -17,6 +20,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use hex_literal::hex;
+use pallet_acurast::StoredAttestation;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_core::crypto::UncheckedFrom;
 use sp_core::H256;
@@ -163,8 +167,41 @@ impl Config for Test {
 	type ManagerProviderForEligibleProcessor = MockManagerProvider<Self::AccountId>;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type AttestationHandler = Acurast;
+	type AttestationHandler = MockAttestationValidator;
+	type OnProcessorUnpaired = Acurast;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+}
+
+pub struct MockAttestationValidator;
+impl AttestationValidator<AccountId> for MockAttestationValidator {
+	fn validate(
+		attestation_chain: &AttestationChain,
+		_account: &AccountId,
+	) -> Result<Attestation, DispatchError> {
+		let leaf = attestation_chain.certificate_chain.iter().last().unwrap();
+		let cert = parse_cert(leaf).unwrap();
+		let attestation = extract_attestation(cert.tbs_certificate.extensions).unwrap();
+
+		let attestation_validity = AttestationValidity {
+			not_before: cert.tbs_certificate.validity.not_before.timestamp_millis(),
+			not_after: cert.tbs_certificate.validity.not_after.timestamp_millis(),
+		};
+
+		Ok(Attestation {
+			cert_ids: vec![].try_into().unwrap(),
+			content: attestation.try_into().unwrap(),
+			validity: attestation_validity,
+		})
+	}
+
+	fn validate_and_store(
+		attestation_chain: AttestationChain,
+		account: AccountId,
+	) -> frame_support::sp_runtime::DispatchResult {
+		let attestation = Self::validate(&attestation_chain, &account)?;
+		<StoredAttestation<Test>>::insert(account, attestation);
+		Ok(())
+	}
 }
 
 pub struct MockManagerProvider<AccountId>(PhantomData<AccountId>);
@@ -213,6 +250,8 @@ impl crate::BenchmarkHelper<Test> for () {
 		_processor: &<Test as frame_system::Config>::AccountId,
 	) {
 	}
+
+	fn setup_unpaired_cleanup(_processor: &<Test as frame_system::Config>::AccountId) {}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

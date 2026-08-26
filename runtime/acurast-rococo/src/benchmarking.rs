@@ -1,7 +1,7 @@
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{
 	assert_ok,
-	traits::{tokens::currency::Currency, Hooks},
+	traits::{tokens::currency::Currency, Get, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
@@ -12,11 +12,12 @@ use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobId, JobModules, PoolId, StoredAttestation,
+	BoundedDeviceAttestationNonce, JobId, JobModules, MultiOrigin, PoolId, StoredAttestation,
 	StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
-	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
+	Advertisement, Assignment, AssignmentStrategy, ExecutionSpecifier, JobRequirements,
+	PlannedExecution, Pricing, SchedulingWindow, StoredMatches, SLA,
 };
 
 use crate::{
@@ -250,5 +251,38 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		_manager: &<Runtime as frame_system::Config>::AccountId,
 		_processor: &<Runtime as frame_system::Config>::AccountId,
 	) {
+	}
+	fn setup_unpaired_cleanup(processor: &<Runtime as frame_system::Config>::AccountId) {
+		// `Config::OnProcessorUnpaired` is `(Acurast, AcurastCompute, AcurastMarketplace)`: fill
+		// everything the three hooks remove, so unpairing measures their worst case.
+		Self::attest_account(processor);
+
+		pallet_acurast_compute::Processors::<Runtime>::insert(
+			processor,
+			pallet_acurast_compute::ProcessorState::initial(0, 0),
+		);
+
+		AcurastMarketplace::do_advertise(processor, &Self::advertisement())
+			.expect("advertisement storage success");
+		// the marketplace hook clears up to `MaxMatchesPerProcessor` matches
+		let max_matches =
+			<Runtime as pallet_acurast_marketplace::Config>::MaxMatchesPerProcessor::get();
+		for i in 0..max_matches {
+			let job_id: JobId<<Runtime as frame_system::Config>::AccountId> =
+				(MultiOrigin::Acurast(processor.clone()), i as u128);
+			StoredMatches::<Runtime>::insert(
+				processor,
+				job_id,
+				Assignment {
+					slot: 0,
+					start_delay: 0,
+					fee_per_execution: 0u64.into(),
+					acknowledged: true,
+					sla: SLA { total: 1, met: 0 },
+					pub_keys: Default::default(),
+					execution: ExecutionSpecifier::All,
+				},
+			);
+		}
 	}
 }

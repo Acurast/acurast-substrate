@@ -78,8 +78,9 @@ where
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		match OP::pairing_for_call(call) {
+			// Only `onboard` remains in `pairing_for_call`, and it always carries an attestation
+			// chain; the non-attestation pairing path no longer exists.
 			Some((_, _, Some(_))) => T::ExtensionWeightInfo::onboarding(),
-			Some((_, _, None)) => T::ExtensionWeightInfo::pairing(),
 			_ => Weight::zero(),
 		}
 	}
@@ -201,44 +202,6 @@ pub mod extension {
 					attestation_chain: attestation_chain(),
 				}
 				.into();
-				frame_benchmarking::benchmarking::add_to_whitelist(
-					frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero())
-						.into(),
-				);
-
-				let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
-					funds: 100_000_000_000u128.into(),
-					max_funds: 1_000_000_000_000u128.into(),
-					funds_account: T::BenchmarkHelper::funded_account(0),
-				};
-
-				assert_ok!(ProcessorManager::<T>::update_onboarding_settings(
-					RawOrigin::<T::AccountId>::Root.into(),
-					Some(settings)
-				));
-
-				#[block]
-				{
-					Onboarding::<T, ProcessorManager<T>>::new()
-						.test_run(RawOrigin::Signed(processor).into(), &call, &info, len, 0, |_| {
-							Ok(().into())
-						})
-						.unwrap()
-						.unwrap();
-				}
-
-				Ok(())
-			}
-
-			#[benchmark]
-			fn pairing() -> Result<(), BenchmarkError> {
-				set_timestamp::<T>(1000);
-				let len = 0_usize;
-				let processor = account::<T::AccountId>("processor", 0, 0);
-				let manager = account::<T::AccountId>("manager", 0, 0);
-				let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
-				let call: T::RuntimeCall =
-					Call::pair_with_manager { pairing: processor_pairing::<T>(manager) }.into();
 				frame_benchmarking::benchmarking::add_to_whitelist(
 					frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero())
 						.into(),

@@ -183,8 +183,8 @@ impl AttestationValidator<AccountId> for MockAttestationValidator {
 		let attestation = extract_attestation(cert.tbs_certificate.extensions).unwrap();
 
 		let attestation_validity = AttestationValidity {
-			not_before: cert.tbs_certificate.validity.not_before.timestamp_millis(),
-			not_after: cert.tbs_certificate.validity.not_after.timestamp_millis(),
+			not_before: cert.tbs_certificate.validity.not_before.timestamp_millis().unwrap(),
+			not_after: cert.tbs_certificate.validity.not_after.timestamp_millis().unwrap(),
 		};
 
 		Ok(Attestation {

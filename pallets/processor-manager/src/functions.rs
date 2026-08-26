@@ -1,5 +1,5 @@
 use acurast_common::{
-	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup,
+	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup, OnProcessorUnpaired,
 	ProcessorVersionProvider, Version,
 };
 use frame_support::{
@@ -67,6 +67,7 @@ impl<T: Config> Pallet<T> {
 		let id = Self::ensure_managed(manager, processor_account)?;
 		<ManagedProcessors<T>>::remove(id, processor_account);
 		<ProcessorToManagerIdIndex<T>>::remove(processor_account);
+		<T as Config>::OnProcessorUnpaired::processor_unpaired(processor_account, manager);
 		Ok(())
 	}
 
@@ -282,8 +283,6 @@ where
 	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&acurast_common::AttestationChain>)> {
 		let call = T::RuntimeCall::is_sub_type(call)?;
 		match call {
-			Call::pair_with_manager { pairing } => Some((pairing, false, None)),
-			Call::multi_pair_with_manager { pairing } => Some((pairing, true, None)),
 			Call::onboard { pairing, multi, attestation_chain } => {
 				Some((pairing, *multi, Some(attestation_chain)))
 			},
@@ -326,8 +325,22 @@ where
 			Call::heartbeat_with_metrics { .. }
 				| Call::heartbeat_with_version { .. }
 				| Call::onboard { .. }
-				| Call::multi_pair_with_manager { .. }
-				| Call::pair_with_manager { .. }
+		)
+	}
+
+	fn is_manager_fundable_call(call: &T::RuntimeCall) -> bool {
+		let Some(call) = T::RuntimeCall::is_sub_type(call) else {
+			return false;
+		};
+		// Superset of `is_fundable_call`: additionally the bare `heartbeat` (sibling of the
+		// versioned heartbeats, which are reserve-funded) is sponsored by the manager but not
+		// from the protocol reserve.
+		matches!(
+			call,
+			Call::heartbeat { .. }
+				| Call::heartbeat_with_metrics { .. }
+				| Call::heartbeat_with_version { .. }
+				| Call::onboard { .. }
 		)
 	}
 }

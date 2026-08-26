@@ -1,3 +1,4 @@
+use acurast_common::OnProcessorUnpaired;
 use frame_support::{
 	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
 };
@@ -252,5 +253,20 @@ where
 				| Call::report { .. }
 				| Call::cleanup_assignments { .. }
 		)
+	}
+
+	fn is_manager_fundable_call(call: &T::RuntimeCall) -> bool {
+		// The marketplace processor-lifecycle calls a manager sponsors are exactly the
+		// reserve-fundable ones; there are no additional manager-only marketplace calls.
+		Self::is_fundable_call(call)
+	}
+}
+
+impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		<StoredAdvertisementPricing<T>>::remove(processor);
+		<StoredAdvertisementRestriction<T>>::remove(processor);
+		<StoredReputation<T>>::remove(processor);
+		_ = <StoredMatches<T>>::clear_prefix(processor, T::MaxMatchesPerProcessor::get(), None);
 	}
 }

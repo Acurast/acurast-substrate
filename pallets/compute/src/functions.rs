@@ -1,4 +1,4 @@
-use acurast_common::{CommitmentIdProvider, MetricInput, PoolId};
+use acurast_common::{CommitmentIdProvider, MetricInput, OnProcessorUnpaired, PoolId};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{fungible::Balanced, Currency, ExistenceRequirement, Get, Imbalance, IsType},
@@ -585,5 +585,11 @@ where
 				.saturating_div(epoch_length)
 				.into(),
 		)
+	}
+}
+
+impl<T: Config<I>, I: 'static> OnProcessorUnpaired<T::AccountId> for Pallet<T, I> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		<Processors<T, I>>::remove(processor);
 	}
 }

@@ -24,6 +24,7 @@ dependencies = [
  "frame-support",
  "hex-literal 0.4.1",
  "impl-serde",
+ "impl-trait-for-tuples",
  "num-bigint",
  "p256 0.12.0-pre (git+https://github.com/Acurast/elliptic-curves)",
  "p384_vendored",

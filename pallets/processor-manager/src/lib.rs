@@ -49,7 +49,7 @@ pub mod pallet {
 
 	use acurast_common::{
 		AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
-		ManagerIdProvider, ManagerLookup, Metrics, Version,
+		ManagerIdProvider, ManagerLookup, Metrics, OnProcessorUnpaired, Version,
 	};
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -101,6 +101,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 		type AttestationHandler: AttestationValidator<Self::AccountId>;
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type OnProcessorUnpaired: OnProcessorUnpaired<Self::AccountId>;
 		type WeightInfo: WeightInfo;
 		type ExtensionWeightInfo: ExtensionWeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
@@ -263,6 +264,8 @@ pub mod pallet {
 		UnknownProcessorVersion,
 		OnboardingSettingsNotSet,
 		MigrationDisabled,
+		/// The called extrinsic has been deprecated and permanently disabled.
+		CallDeprecated,
 	}
 
 	#[pallet::hooks]
@@ -294,20 +297,7 @@ pub mod pallet {
 			for update in &pairing_updates {
 				match update.operation {
 					ListUpdateOperation::Add => {
-						if !update.item.validate_timestamp::<T>() {
-							#[cfg(not(feature = "runtime-benchmarks"))]
-							return Err(Error::<T>::PairingProofExpired)?;
-						}
-						let counter = Self::counter_for_manager(&who)
-							.unwrap_or(0u8.into())
-							.checked_add(&1u8.into())
-							.ok_or(Error::<T>::CounterOverflow)?;
-						if !update.item.validate_signature::<T>(&who, counter) {
-							#[cfg(not(feature = "runtime-benchmarks"))]
-							return Err(Error::<T>::InvalidPairingProof)?;
-						}
-						Self::do_add_processor_manager_pairing(&update.item.account, manager_id)?;
-						<ManagerCounter<T>>::insert(&who, counter);
+						return Err(Error::<T>::CallDeprecated.into());
 					},
 					ListUpdateOperation::Remove => {
 						Self::do_remove_processor_manager_pairing(&update.item.account, &who)?
@@ -320,55 +310,28 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// DEPRECATED and permanently disabled.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::pair_with_manager())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
+		#[allow(unused_variables)]
 		pub fn pair_with_manager(
 			origin: OriginFor<T>,
 			pairing: ProcessorPairingFor<T>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-
-			let maybe_new_counter = Self::do_validate_pairing(&pairing, false)?;
-			if let Some(counter) = maybe_new_counter {
-				<ManagerCounter<T>>::insert(&pairing.account, counter);
-			}
-
-			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
-			if created {
-				Self::deposit_event(Event::<T>::ManagerCreated(
-					pairing.account.clone(),
-					manager_id,
-				));
-			}
-
-			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-			Self::deposit_event(Event::<T>::ProcessorPairedV2(who, pairing.account));
-
-			Ok(().into())
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::CallDeprecated.into())
 		}
 
+		/// DEPRECATED and permanently disabled.
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::multi_pair_with_manager())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
+		#[allow(unused_variables)]
 		pub fn multi_pair_with_manager(
 			origin: OriginFor<T>,
 			pairing: ProcessorPairingFor<T>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-
-			_ = Self::do_validate_pairing(&pairing, true)?;
-
-			let (manager_id, created) = Self::do_get_or_create_manager_id(&pairing.account)?;
-			if created {
-				Self::deposit_event(Event::<T>::ManagerCreated(
-					pairing.account.clone(),
-					manager_id,
-				));
-			}
-
-			Self::do_add_processor_manager_pairing(&who, manager_id)?;
-			Self::deposit_event(Event::<T>::ProcessorPairedV2(who, pairing.account));
-
-			Ok(().into())
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::CallDeprecated.into())
 		}
 
 		#[pallet::call_index(2)]

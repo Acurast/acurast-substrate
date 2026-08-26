@@ -39,6 +39,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 		AcurastProcessorManager,
 	>;
 	type AttestationHandler = Acurast;
+	type OnProcessorUnpaired = (Acurast, AcurastCompute, AcurastMarketplace);
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	type ExtensionWeightInfo =

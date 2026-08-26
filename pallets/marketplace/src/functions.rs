@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
 					};
 				},
 				ExecutionSpecifier::Index(index) => {
-					*value = if expected_report_index != index { Some(index) } else { None };
+					*value = if expected_report_index < index { Some(index) } else { None };
 				},
 			}
 

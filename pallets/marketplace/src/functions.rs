@@ -267,6 +267,15 @@ impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
 		<StoredAdvertisementPricing<T>>::remove(processor);
 		<StoredAdvertisementRestriction<T>>::remove(processor);
 		<StoredReputation<T>>::remove(processor);
-		_ = <StoredMatches<T>>::clear_prefix(processor, T::MaxMatchesPerProcessor::get(), None);
+		let limit = T::MaxMatchesPerProcessor::get();
+		let mut removed: u32 = 0;
+		for (job_id, _) in <StoredMatches<T>>::drain_prefix(processor) {
+			<AssignedProcessors<T>>::remove(&job_id, processor);
+			<NextReportIndex<T>>::remove(&job_id, processor);
+			removed = removed.saturating_add(1);
+			if removed >= limit {
+				break;
+			}
+		}
 	}
 }

@@ -1,11 +1,29 @@
 use frame_support::weights::constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND};
 use pallet_acurast::{
 	Attestation, AttestationSecurityLevel, BoundedAttestationContent, BoundedDeviceAttestation,
-	BoundedKeyDescription, VerifiedBootState,
+	BoundedKeyDescription, IsFundableCall, VerifiedBootState,
 };
+use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
 use sp_std::prelude::*;
 
 use crate::{constants::MILLIUNIT, types::Balance};
+
+/// Resolves the account that pays the fee for `call` submitted by `who`.
+pub fn fee_payer<Runtime, P, OP>(
+	who: &Runtime::AccountId,
+	call: &Runtime::RuntimeCall,
+) -> Runtime::AccountId
+where
+	Runtime: ProcessorManagerConfig,
+	P: IsFundableCall<Runtime::RuntimeCall>,
+	OP: OnboardingProvider<Runtime>,
+{
+	if P::is_manager_fundable_call(call) {
+		OP::fee_payer(who, call)
+	} else {
+		who.clone()
+	}
+}
 
 /// Returns the base transaction fee.
 pub fn base_tx_fee() -> Balance {

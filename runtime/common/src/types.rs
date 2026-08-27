@@ -1,3 +1,4 @@
+mod invulnerable_collators;
 mod price_provider;
 mod tracks_info;
 mod transaction_charger;
@@ -14,6 +15,7 @@ use acurast_p256_crypto::MultiSignature;
 use pallet_acurast::CU32;
 use pallet_acurast_marketplace::RegistrationExtra;
 
+pub use invulnerable_collators::*;
 pub use price_provider::*;
 pub use tracks_info::*;
 pub use transaction_charger::*;

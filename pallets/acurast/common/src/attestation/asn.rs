@@ -8,7 +8,7 @@ use asn1::{
 	ObjectIdentifier, ParseResult, SequenceOf, SetOf, SimpleAsn1Readable, SimpleAsn1Writable, Tag,
 	Tlv, WriteBuf, WriteResult,
 };
-use chrono::{self, Datelike, Timelike};
+use chrono;
 use sp_std::prelude::*;
 
 use super::error::ValidationError;
@@ -99,25 +99,21 @@ impl Time {
 			Time::UTCTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
 			Time::GeneralizedTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
 		};
-		let initial = chrono::NaiveDateTime::default();
-		let milliseconds = initial
-			.with_second(date_time.second().into())
-			.and_then(|t| {
-				t.with_minute(date_time.minute().into()).and_then(|t| {
-					t.with_hour(date_time.hour().into()).and_then(|t| {
-						t.with_day(date_time.day().into()).and_then(|t| {
-							t.with_month(date_time.month().into())
-								.and_then(|t| t.with_year(date_time.year().into()))
-						})
-					})
-				})
-			})
-			.map(|t| t.and_utc().timestamp_millis())
-			.ok_or(ValidationError::InvalidCertificateDate)?;
+		let milliseconds = chrono::NaiveDate::from_ymd_opt(
+			date_time.year().into(),
+			date_time.month().into(),
+			date_time.day().into(),
+		)
+		.and_then(|date| {
+			date.and_hms_opt(
+				date_time.hour().into(),
+				date_time.minute().into(),
+				date_time.second().into(),
+			)
+		})
+		.map(|t| t.and_utc().timestamp_millis())
+		.ok_or(ValidationError::InvalidCertificateDate)?;
 
-		// A certificate validity date before the unix epoch yields a negative timestamp;
-		// reject it instead of panicking on the i64 -> u64 conversion or clamping to 0
-		// (a `not_before` of 0 would make an expired certificate look valid).
 		milliseconds.try_into().map_err(|_| ValidationError::InvalidCertificateDate)
 	}
 }

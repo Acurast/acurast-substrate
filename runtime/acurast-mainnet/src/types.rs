@@ -17,11 +17,14 @@ use acurast_runtime_common::{
 	},
 	migrations::storage_versions::StorageVersionBackfill,
 	opaque,
-	types::{AccountId, Address, Balance, CouncilFourSeventh, Signature},
+	types::{AccountId, Address, Balance, CouncilFourSeventh, IsFundable, Signature},
 	weight::ExtrinsicBaseWeight,
 };
 
-use crate::{AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime, RuntimeCall};
+use crate::{
+	AcurastMarketplace, AcurastProcessorManager, AllPalletsWithSystem, Aura, Balances, Runtime,
+	RuntimeCall,
+};
 
 /// Wrapper around [`AccountId32`] to allow the implementation of [`TryFrom<Vec<u8>>`].
 #[derive(Debug, From, Into, Clone, Eq, PartialEq)]
@@ -59,7 +62,11 @@ pub type TransactionExtensionV0 = cumulus_pallet_weight_reclaim::StorageWeightRe
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
 		Onboarding<Runtime, AcurastProcessorManager>,
-		CheckNonce<Runtime, AcurastProcessorManager>,
+		CheckNonce<
+			Runtime,
+			AcurastProcessorManager,
+			IsFundable<Runtime, AcurastProcessorManager, AcurastMarketplace>,
+		>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
@@ -111,7 +118,11 @@ pub type TxExtension = TransactionExtensionV0;
 // 		frame_system::CheckGenesis<Runtime>,
 // 		frame_system::CheckEra<Runtime>,
 // 		Onboarding<Runtime, AcurastProcessorManager>,
-// 		CheckNonce<Runtime, AcurastProcessorManager>,
+// 		CheckNonce<
+// 			Runtime,
+// 			AcurastProcessorManager,
+// 			IsFundable<Runtime, AcurastProcessorManager, AcurastMarketplace>,
+// 		>,
 // 		frame_system::CheckWeight<Runtime>,
 // 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 // 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,

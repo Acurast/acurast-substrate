@@ -173,10 +173,18 @@ publish-dockerhub-dev-experimental:
   stage: benchmarking
   image: alpine:latest
   resource_group: benchmark-bare-metal
-  timeout: 3h
+  # 3h until the BENCH_PALLETS_HIGH_REPEAT pass was added; that pass reruns a whole pallet at 5x the
+  # repeats, so the headroom went with it.
+  timeout: 4h
   variables:
     BENCH_STEPS: "50"
     BENCH_REPEAT: "20"
+    # Pallets listed here are benchmarked a second time at BENCH_REPEAT_HIGH, overwriting their
+    # weight file from the main pass. For pallets whose components span only a handful of values the
+    # least-squares intercept is noise-dominated at 20 repeats; see the comment in ci/benchmark.sh.
+    # Set BENCH_PALLETS_HIGH_REPEAT to "" to skip the pass.
+    BENCH_REPEAT_HIGH: "100"
+    BENCH_PALLETS_HIGH_REPEAT: "pallet_acurast_marketplace"
     BENCH_CPUSET: "1-5,7-11"
     BENCH_MEM: "32g"
   before_script:
@@ -213,6 +221,8 @@ publish-dockerhub-dev-experimental:
             BENCH_CHAIN='$BENCH_CHAIN' \
             BENCH_STEPS='$BENCH_STEPS' \
             BENCH_REPEAT='$BENCH_REPEAT' \
+            BENCH_REPEAT_HIGH='$BENCH_REPEAT_HIGH' \
+            BENCH_PALLETS_HIGH_REPEAT='$BENCH_PALLETS_HIGH_REPEAT' \
             BENCH_CPUSET='$BENCH_CPUSET' \
             BENCH_MEM='$BENCH_MEM' \
             BENCH_HOST_OUT='$RUN_DIR/out' \

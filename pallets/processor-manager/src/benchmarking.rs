@@ -25,6 +25,7 @@ pub trait BenchmarkHelper<T: Config> {
 	fn funded_account(index: u32) -> T::AccountId;
 	fn attest_account(account: &T::AccountId);
 	fn create_compute_pool() -> PoolId;
+	fn max_compute_pools() -> u32;
 	fn setup_compute_settings();
 	fn commit(manager: &T::AccountId);
 	fn pair_manager_and_processor(manager: &T::AccountId, processor: &T::AccountId);
@@ -73,7 +74,7 @@ where
 }
 
 pub fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
+	pallet_timestamp::Now::<T>::put(timestamp);
 }
 
 pub const ROOT_CERT: [u8; 1380] = hex!("3082056030820348a003020102020900e8fa196314d2fa18300d06092a864886f70d01010b0500301b311930170603550405131066393230303965383533623662303435301e170d3136303532363136323835325a170d3236303532343136323835325a301b31193017060355040513106639323030396538353362366230343530820222300d06092a864886f70d01010105000382020f003082020a0282020100afb6c7822bb1a701ec2bb42e8bcc541663abef982f32c77f7531030c97524b1b5fe809fbc72aa9451f743cbd9a6f1335744aa55e77f6b6ac3535ee17c25e639517dd9c92e6374a53cbfe258f8ffbb6fd129378a22a4ca99c452d47a59f3201f44197ca1ccd7e762fb2f53151b6feb2fffd2b6fe4fe5bc6bd9ec34bfe08239daafceb8eb5a8ed2b3acd9c5e3a7790e1b51442793159859811ad9eb2a96bbdd7a57c93a91c41fccd27d67fd6f671aa0b815261ad384fa37944864604ddb3d8c4f920a19b1656c2f14ad6d03c56ec060899041c1ed1a5fe6d3440b556bad1d0a152589c53e55d370762f0122eef91861b1b0e6c4c80927499c0e9bec0b83e3bc1f93c72c049604bbd2f1345e62c3f8e26dbec06c94766f3c128239d4f4312fad8123887e06becf567583bf8355a81feeabaf99a83c8df3e2a322afc672bf120b135158b6821ceaf309b6eee77f98833b018daa10e451f06a374d50781f359082966bb778b9308942698e74e0bcd24628a01c2cc03e51f0b3e5b4ac1e4df9eaf9ff6a492a77c1483882885015b422ce67b80b88c9b48e13b607ab545c723ff8c44f8f2d368b9f6520d31145ebf9e862ad71df6a3bfd2450959d653740d97a12f368b13ef66d5d0a54a6e2f5d9a6fef446832bc67844725861f093dd0e6f3405da89643ef0f4d69b6420051fdb93049673e36950580d3cdf4fbd08bc58483952600630203010001a381a63081a3301d0603551d0e041604143661e1007c880509518b446c47ff1a4cc9ea4f12301f0603551d230418301680143661e1007c880509518b446c47ff1a4cc9ea4f12300f0603551d130101ff040530030101ff300e0603551d0f0101ff04040302018630400603551d1f043930373035a033a031862f68747470733a2f2f616e64726f69642e676f6f676c65617069732e636f6d2f6174746573746174696f6e2f63726c2f300d06092a864886f70d01010b0500038202010020c8c38d4bdca9571b468c892fff72aac6f844a11d41a8f0736cc37d16d6426d8e7e9407044cea39e68b07c13dbf1503dd5c85bdafb2c02d5f6cdb4efa8127df8b04f182770fc4e7745b7fceaa87129a8801ce8e9bc0cb96379b4d26a82d30fd9c2f8eed6dc1be2f84b689e4d914258b144bbae624a1c70671132e2f0616a884b2a4d6a46ffa89b602bfbad80c1243711f56eb6056f637c8a0141cc54094268b8c3c7db994b35c0dcd6cb2abc2dafee252023d2dea0cd6c368bea3e6414886f6b1e58b5bd7c730b268c4e3c1fb6424b91febbdb80c586e2ae8368c84d5d10917bda2561789d4687393340e2e254f560ef64b2358fcdc0fbfc6700952e708bffcc627500c1f66e81ea17c098d7a2e9b18801b7ab4ac71587d345dcc8309d5b62a50427aa6d03dcb05996c96ba0c5d71e92162c016ca849ff35f0d52c65d05605a47f3ae917acd2df910efd2326688596ef69b3bf5fe3154f7aeb880a0a73ca04d94c2ce8317eeb43d5eff5883e336f5f249daaca4899237bf267e5c43ab02ea44162403723be6aa692c61bdae9ed409d463c4c97c64306577eef2bc7560b75715cc9c7dc67c86082db751a89c30349762b0782385875cf1a3c6166e0ae3c12d374e2d4f1846f318744bd879b587329bf018217a6c0c77241a4878e435c03079cb451289c5776206069a2f8d65f840e1445287bed877abae24e24435168d553ce4");
@@ -105,6 +106,16 @@ where
 	T::AccountId: From<[u8; 32]>,
 {
 	hex!("b8bc25a2b4c0386b8892b43e435b71fe11fa50533935f027949caf04bcce4694").into()
+}
+
+fn metric_inputs<T: Config>(count: u32) -> Vec<MetricInput> {
+	let max_pools = T::BenchmarkHelper::max_compute_pools().max(1);
+	let pool_ids: Vec<PoolId> = (0..count.min(max_pools))
+		.map(|_| T::BenchmarkHelper::create_compute_pool())
+		.collect();
+	(0..count)
+		.map(|i| (pool_ids[(i % pool_ids.len() as u32) as usize], 10u128, 1u128))
+		.collect()
 }
 
 #[benchmarks(
@@ -147,11 +158,16 @@ mod benchmarks {
 		set_timestamp::<T>(1000);
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
-		let processor: T::AccountId = generate_account(1).into();
+		// The processor must hold a reducible balance, otherwise `recover_assets` short-circuits on
+		// `usable_balance > 0` and the burn/mint the extrinsic exists to perform is never measured.
+		let processor: T::AccountId = T::BenchmarkHelper::funded_account(1);
 		pair::<T>(&caller, &processor)?;
+		// Kept distinct from `caller`: the origin's account is whitelisted, so minting into it would
+		// hide the destination write.
+		let destination: T::AccountId = generate_account(2).into();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), processor.into().into(), caller.clone().into().into());
+		_(RawOrigin::Signed(caller), processor.into().into(), destination.into().into());
 
 		Ok(())
 	}
@@ -198,11 +214,7 @@ mod benchmarks {
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
 
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..6u32 {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(6);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(
@@ -249,11 +261,7 @@ mod benchmarks {
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
 
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..6u32 {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(6);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(
@@ -284,11 +292,7 @@ mod benchmarks {
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
 
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..6u32 {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(6);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(
@@ -325,11 +329,7 @@ mod benchmarks {
 		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..x {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(x);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(
@@ -377,11 +377,7 @@ mod benchmarks {
 		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..x {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(x);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(
@@ -413,11 +409,7 @@ mod benchmarks {
 		pair::<T>(&manager, &caller)?;
 		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
 		let version = Version { platform: 0, build_number: 1 };
-		let mut values = Vec::<MetricInput>::new();
-		for _ in 0..x {
-			let pool_id = T::BenchmarkHelper::create_compute_pool();
-			values.push((pool_id, 10u128, 1u128));
-		}
+		let values = metric_inputs::<T>(x);
 
 		// commit initially (starting warmup)
 		Pallet::<T>::heartbeat_with_metrics(

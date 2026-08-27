@@ -8,7 +8,10 @@ use error::ValidationError;
 use frame_support::{traits::ConstU32, BoundedVec};
 use num_bigint::BigUint;
 use p256::ecdsa::{signature::Verifier, VerifyingKey};
-use p384::elliptic_curve::{generic_array::typenum::Unsigned, sec1::ModulusSize};
+use p384::elliptic_curve::{
+	generic_array::{typenum::Unsigned, GenericArray},
+	sec1::{FromEncodedPoint, ModulusSize},
+};
 
 use sha2::Digest;
 use sp_std::prelude::*;
@@ -172,11 +175,15 @@ impl PublicKey {
 						if !tag_agrees_with_y {
 							return Err(ValidationError::ParseP384PublicKey);
 						}
-						let point = p384::AffinePoint {
-							x: p384::FieldElement::from_be_slice(x)?,
-							y: p384::FieldElement::from_be_slice(y)?,
-							infinity: 0,
-						};
+						let encoded_point = p384::EncodedPoint::from_affine_coordinates(
+							GenericArray::from_slice(x),
+							GenericArray::from_slice(y),
+							false,
+						);
+						let point = Option::<p384::AffinePoint>::from(
+							p384::AffinePoint::from_encoded_point(&encoded_point),
+						)
+						.ok_or(ValidationError::ParseP384PublicKey)?;
 						Ok(PublicKey::ECDSA(ECDSACurve::CurveP384(point)))
 					},
 					_ => Result::Err(ValidationError::UnsupportedSignatureAlgorithm)?,
@@ -540,19 +547,51 @@ mod tests {
 		assert!(matches!(super::PublicKey::parse(&spki), Err(ValidationError::ParseP384PublicKey)));
 	}
 
-	/// A well-formed hybrid point (0x06/0x07 prefix, a full coordinate pair) is accepted as long
-	/// as the low bit of the tag matches the parity of y.
+	/// x coordinate of the secp384r1 base point, used as a known on-curve test vector.
+	const P384_GENERATOR_X: [u8; P384_COORDINATE_SIZE] = hex_literal::hex!(
+		"aa87ca22be8b05378eb1c71ef320ad74"
+		"6e1d3b628ba79b9859f741e082542a38"
+		"5502f25dbf55296c3a545e3872760ab7"
+	);
+	/// y coordinate of the secp384r1 base point. It is odd, so it pairs with the 0x07 hybrid tag.
+	const P384_GENERATOR_Y: [u8; P384_COORDINATE_SIZE] = hex_literal::hex!(
+		"3617de4a96262c6f5d9e98bf9292dc29"
+		"f8f41dbd289a147ce9da3113b5f0b8c0"
+		"0a60b1ce1d7e819d7a431d7c90ea0e5f"
+	);
+	/// `p - y` of the base point, i.e. the y coordinate of its negation, which shares the same x
+	/// and is therefore also on the curve. It is even, so it pairs with the 0x06 hybrid tag.
+	const P384_NEGATED_GENERATOR_Y: [u8; P384_COORDINATE_SIZE] = hex_literal::hex!(
+		"c9e821b569d9d390a26167406d6d23d6"
+		"070be242d765eb831625ceec4a0f473e"
+		"f59f4e30e2817e6285bce2846f15f1a0"
+	);
+
+	/// Builds a tagged P-384 point encoding from a tag and a coordinate pair.
+	fn p384_point(tag: u8, x: &[u8], y: &[u8]) -> Vec<u8> {
+		let mut encoded = vec![tag];
+		encoded.extend_from_slice(x);
+		encoded.extend_from_slice(y);
+		encoded
+	}
+
+	/// Parses a raw P-384 point encoding through [`super::PublicKey::parse`].
+	fn parse_p384_point(encoded: &[u8]) -> Result<super::PublicKey, ValidationError> {
+		let der = p384_spki_der(encoded);
+		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
+			.expect("crafted SubjectPublicKeyInfo should parse");
+		super::PublicKey::parse(&spki)
+	}
+
+	/// A well-formed hybrid point (0x06/0x07 prefix, a full coordinate pair) that lies on the
+	/// curve is accepted as long as the low bit of the tag matches the parity of y. The base
+	/// point has an odd y and its negation an even one, so both tags are exercised on real
+	/// points.
 	#[test]
 	fn parse_p384_public_key_accepts_hybrid_key() {
-		for (tag, y_last) in [(0x06u8, 0x00u8), (0x07u8, 0x01u8)] {
-			let mut hybrid = vec![tag];
-			hybrid.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE - 1]);
-			hybrid.push(y_last);
-			let der = p384_spki_der(&hybrid);
-			let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
-				.expect("crafted SubjectPublicKeyInfo should parse");
+		for (tag, y) in [(0x07u8, P384_GENERATOR_Y), (0x06u8, P384_NEGATED_GENERATOR_Y)] {
 			assert!(matches!(
-				super::PublicKey::parse(&spki),
+				parse_p384_point(&p384_point(tag, &P384_GENERATOR_X, &y)),
 				Ok(super::PublicKey::ECDSA(super::ECDSACurve::CurveP384(_)))
 			));
 		}
@@ -562,31 +601,44 @@ mod tests {
 	/// accepted hybrid encoding.
 	#[test]
 	fn parse_p384_public_key_rejects_hybrid_key_with_wrong_parity() {
-		for (tag, y_last) in [(0x06u8, 0x01u8), (0x07u8, 0x00u8)] {
-			let mut hybrid = vec![tag];
-			hybrid.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE - 1]);
-			hybrid.push(y_last);
-			let der = p384_spki_der(&hybrid);
-			let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
-				.expect("crafted SubjectPublicKeyInfo should parse");
+		for (tag, y) in [(0x06u8, P384_GENERATOR_Y), (0x07u8, P384_NEGATED_GENERATOR_Y)] {
 			assert!(matches!(
-				super::PublicKey::parse(&spki),
+				parse_p384_point(&p384_point(tag, &P384_GENERATOR_X, &y)),
 				Err(ValidationError::ParseP384PublicKey)
 			));
 		}
 	}
 
-	/// A well-formed uncompressed point (0x04 prefix, a full coordinate pair) is accepted.
+	/// A well-formed uncompressed point (0x04 prefix, a full coordinate pair) that lies on the
+	/// curve is accepted.
 	#[test]
 	fn parse_p384_public_key_accepts_uncompressed_key() {
-		let mut uncompressed = vec![0x04u8];
-		uncompressed.extend_from_slice(&[0u8; P384_UNTAGGED_POINT_SIZE]);
-		let der = p384_spki_der(&uncompressed);
-		let spki = asn1::parse_single::<super::SubjectPublicKeyInfo>(&der)
-			.expect("crafted SubjectPublicKeyInfo should parse");
 		assert!(matches!(
-			super::PublicKey::parse(&spki),
+			parse_p384_point(&p384_point(0x04, &P384_GENERATOR_X, &P384_GENERATOR_Y)),
 			Ok(super::PublicKey::ECDSA(super::ECDSACurve::CurveP384(_)))
+		));
+	}
+
+	/// Regression test for the P-384 public-key parser: coordinates that do not satisfy
+	/// `y^2 = x^3 - 3x + b` must be rejected. The parser used to build the `AffinePoint` straight
+	/// from the raw coordinates, skipping the curve-equation check that the vendored crate only
+	/// performs in `FromEncodedPoint`, and handed the off-curve point to certificate signature
+	/// verification over a fully caller-supplied chain.
+	#[test]
+	fn parse_p384_public_key_rejects_off_curve_key() {
+		// (0, 0) is not on secp384r1, since `b != 0`
+		let zero = [0u8; P384_COORDINATE_SIZE];
+		assert!(matches!(
+			parse_p384_point(&p384_point(0x04, &zero, &zero)),
+			Err(ValidationError::ParseP384PublicKey)
+		));
+
+		// a valid x paired with a y that is one bit off the real one
+		let mut wrong_y = P384_GENERATOR_Y;
+		wrong_y[P384_COORDINATE_SIZE - 1] ^= 0x02;
+		assert!(matches!(
+			parse_p384_point(&p384_point(0x04, &P384_GENERATOR_X, &wrong_y)),
+			Err(ValidationError::ParseP384PublicKey)
 		));
 	}
 
@@ -608,6 +660,14 @@ mod tests {
 		let der = hex_literal::hex!("170d3234303130313030303030305a");
 		let time = asn1::parse_single::<super::Time>(&der).expect("UtcTime should parse");
 		assert_eq!(time.timestamp_millis(), Ok(1_704_067_200_000));
+	}
+
+	#[test]
+	fn leap_day_is_accepted() {
+		// UtcTime "240229000000Z" = 2024-02-29T00:00:00Z
+		let der = hex_literal::hex!("170d3234303232393030303030305a");
+		let time = asn1::parse_single::<super::Time>(&der).expect("UtcTime should parse");
+		assert_eq!(time.timestamp_millis(), Ok(1_709_164_800_000));
 	}
 
 	const SAMSUNG_ROOT_CERT: &str = r"MIIFHDCCAwSgAwIBAgIJANUP8luj8tazMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTkxMTIyMjAzNzU4WhcNMzQxMTE4MjAzNzU4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaNjMGEwHQYDVR0OBBYEFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMB8GA1UdIwQYMBaAFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgIEMA0GCSqGSIb3DQEBCwUAA4ICAQBOMaBc8oumXb2voc7XCWnuXKhBBK3e2KMGz39t7lA3XXRe2ZLLAkLM5y3J7tURkf5a1SutfdOyXAmeE6SRo83Uh6WszodmMkxK5GM4JGrnt4pBisu5igXEydaW7qq2CdC6DOGjG+mEkN8/TA6p3cnoL/sPyz6evdjLlSeJ8rFBH6xWyIZCbrcpYEJzXaUOEaxxXxgYz5/cTiVKN2M1G2okQBUIYSY6bjEL4aUN5cfo7ogP3UvliEo3Eo0YgwuzR2v0KR6C1cZqZJSTnghIC/vAD32KdNQ+c3N+vl2OTsUVMC1GiWkngNx1OO1+kXW+YTnnTUOtOIswUP/Vqd5SYgAImMAfY8U9/iIgkQj6T2W6FsScy94IN9fFhE1UtzmLoBIuUFsVXJMTz+Jucth+IqoWFua9v1R93/k98p41pjtFX+H8DslVgfP097vju4KDlqN64xV1grw3ZLl4CiOe/A91oeLm2UHOq6wn3esB4r2EIQKb6jTVGu5sYCcdWpXr0AUVqcABPdgL+H7qJguBw09ojm6xNIrw2OocrDKsudk/okr/AwqEyPKw9WnMlQgLIKw1rODG2NvU9oR3GVGdMkUBZutL8VuFkERQGt6vQ2OCw0sV47VMkuYbacK/xyZFiRcrPJPb41zgbQj9XAEyLKCHex0SdDrx+tWUDqG8At2JHA==";

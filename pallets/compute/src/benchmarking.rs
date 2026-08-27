@@ -13,10 +13,9 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use acurast_common::{ListUpdateOperation, MetricInput, PoolId, Version};
+use acurast_common::{MetricInput, PoolId, Version};
 use pallet_acurast_processor_manager::{
-	generate_account, BenchmarkHelper, Config as ProcessorManagerConfig,
-	Pallet as ProcessorManager, ProcessorPairingFor, ProcessorPairingUpdateFor,
+	generate_account, BenchmarkHelper, Config as ProcessorManagerConfig, Pallet as ProcessorManager,
 };
 use pallet_acurast_token_conversion::Config as TokenConversionConfig;
 
@@ -25,22 +24,6 @@ use crate::{
 	types::*,
 	Call, Config, Pallet,
 };
-
-fn generate_pairing_update_add<T: Config<I> + ProcessorManagerConfig, I: 'static>(
-	index: u32,
-) -> ProcessorPairingUpdateFor<T>
-where
-	T::AccountId: From<AccountId32>,
-{
-	let processor_account_id = generate_account(index).into();
-	let timestamp = 1657363915002u128;
-	// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
-	let signature = <T as ProcessorManagerConfig>::BenchmarkHelper::dummy_proof();
-	ProcessorPairingUpdateFor::<T> {
-		operation: ListUpdateOperation::Add,
-		item: ProcessorPairingFor::<T>::new_with_proof(processor_account_id, timestamp, signature),
-	}
-}
 
 pub fn roll_to_block<T: Config<I>, I: 'static>(block_number: BlockNumberFor<T>)
 where
@@ -57,7 +40,7 @@ where
 }
 
 fn set_timestamp<T: pallet_timestamp::Config>(timestamp: u32) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp.into());
+	pallet_timestamp::Now::<T>::put(<T as pallet_timestamp::Config>::Moment::from(timestamp));
 }
 
 fn mint_to<T: Config<I> + TokenConversionConfig, I: 'static>(
@@ -98,8 +81,15 @@ where
 	BlockNumberFor<T>: One,
 	BalanceFor<T, I>: From<u128>,
 {
+	// `setup_pools` may already have filled `MaxPools`, which differs per runtime; reuse an
+	// existing pool rather than failing with `CannotCreatePool`.
+	let last = Pallet::<T, I>::last_metric_pool_id();
+	if last as u32 >= <T as Config<I>>::MaxPools::get() {
+		return last;
+	}
+
 	let mut name = *b"cpu-ops-per-second______";
-	name[23] = Pallet::<T, I>::last_metric_pool_id();
+	name[23] = last;
 
 	Pallet::<T, I>::create_pool(
 		RawOrigin::Root.into(),
@@ -498,11 +488,10 @@ mod benches {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let committer: T::AccountId = account("commiter", 1, 1);
 
-		let update = generate_pairing_update_add::<T, I>(0);
-		ProcessorManager::<T>::update_processor_pairings(
-			RawOrigin::Signed(manager.clone()).into(),
-			vec![update.clone()].try_into().unwrap(),
-		)?;
+		let processor: T::AccountId = generate_account(0).into();
+		<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
+			&manager, &processor,
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(committer), manager);
@@ -520,11 +509,10 @@ mod benches {
 		let committer: T::AccountId = account("commiter", 1, 1);
 
 		whitelist_account!(manager);
-		let update = generate_pairing_update_add::<T, I>(0);
-		ProcessorManager::<T>::update_processor_pairings(
-			RawOrigin::Signed(manager.clone()).into(),
-			vec![update.clone()].try_into().unwrap(),
-		)?;
+		let processor: T::AccountId = generate_account(0).into();
+		<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
+			&manager, &processor,
+		);
 
 		Compute::<T, I>::offer_backing(RawOrigin::Signed(committer.clone()).into(), manager)?;
 
@@ -543,11 +531,10 @@ mod benches {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let committer: T::AccountId = account("commiter", 1, 1);
 
-		let update = generate_pairing_update_add::<T, I>(0);
-		ProcessorManager::<T>::update_processor_pairings(
-			RawOrigin::Signed(manager.clone()).into(),
-			vec![update.clone()].try_into().unwrap(),
-		)?;
+		let processor: T::AccountId = generate_account(0).into();
+		<T as ProcessorManagerConfig>::BenchmarkHelper::pair_manager_and_processor(
+			&manager, &processor,
+		);
 
 		Compute::<T, I>::offer_backing(
 			RawOrigin::Signed(committer.clone()).into(),

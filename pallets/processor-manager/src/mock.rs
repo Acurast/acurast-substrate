@@ -236,6 +236,10 @@ impl crate::BenchmarkHelper<Test> for () {
 
 	fn attest_account(_account: &<Test as frame_system::Config>::AccountId) {}
 
+	fn max_compute_pools() -> u32 {
+		6
+	}
+
 	fn create_compute_pool() -> acurast_common::PoolId {
 		panic!("pallet_acurast_compute not yet installed for this runtime");
 	}
@@ -271,6 +275,14 @@ where
 		<Balances as Mutate<_>>::set_balance(&caller.clone(), u32::MAX.into());
 
 		caller
+	}
+
+	fn min_metrics() -> acurast_common::Metrics {
+		(1..=6)
+			.map(|pool_id| (pool_id, 1, 2))
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
 }
 

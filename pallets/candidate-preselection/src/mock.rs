@@ -6,6 +6,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
+use parity_scale_codec::Encode;
 use sp_core::H256;
 use sp_runtime::{
 	testing::UintAuthorityId,
@@ -22,9 +23,23 @@ pub fn account(id: u8) -> AccountId {
 	[id; 32].into()
 }
 
-pub struct ExtBuilder;
+#[derive(Default)]
+pub struct ExtBuilder {
+	invulnerables: Vec<AccountId>,
+	preselected: Vec<AccountId>,
+}
 
 impl ExtBuilder {
+	pub fn with_invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
+		self.invulnerables = invulnerables;
+		self
+	}
+
+	pub fn with_preselected(mut self, preselected: Vec<AccountId>) -> Self {
+		self.preselected = preselected;
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -38,7 +53,12 @@ impl ExtBuilder {
 		.unwrap();
 
 		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![(account(1), 100), (account(2), 100)],
+			balances: vec![
+				(account(1), 100),
+				(account(2), 100),
+				(account(3), 100),
+				(account(4), 100),
+			],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -46,12 +66,16 @@ impl ExtBuilder {
 
 		// collator selection must be initialized before session.
 		pallet_collator_selection::GenesisConfig::<Test> {
-			invulnerables: vec![],
+			invulnerables: self.invulnerables,
 			candidacy_bond: 10,
 			desired_candidates: 2,
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		crate::GenesisConfig::<Test> { candidates: self.preselected }
+			.assimilate_storage(&mut t)
+			.unwrap();
 
 		pallet_session::GenesisConfig::<Test> { keys: vec![], ..Default::default() }
 			.assimilate_storage(&mut t)
@@ -71,7 +95,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Session: pallet_session::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason},
 		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Config<T>, Event<T>},
-		CandidatePreselection: crate::{Pallet, Call, Storage, Event<T>}
+		CandidatePreselection: crate::{Pallet, Call, Config<T>, Storage, Event<T>}
 	}
 );
 
@@ -177,8 +201,16 @@ impl pallet_collator_selection::Config for Test {
 impl crate::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorRegistration = ValReg<Self>;
+	type ExemptValidators = InvulnerableCollators;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
+}
+
+pub struct InvulnerableCollators;
+impl frame_support::traits::Get<Vec<AccountId>> for InvulnerableCollators {
+	fn get() -> Vec<AccountId> {
+		pallet_collator_selection::Invulnerables::<Test>::get().into_inner()
+	}
 }
 
 pub struct ValReg<T: Config>(PhantomData<T>);
@@ -186,6 +218,15 @@ impl<T: Config> ValidatorRegistration<T::ValidatorId> for ValReg<T> {
 	fn is_registered(_id: &T::ValidatorId) -> bool {
 		true
 	}
+}
+
+pub fn set_keys(who: &AccountId) {
+	let keys = MockSessionKeys::generate(&who.encode(), None);
+	frame_support::assert_ok!(Session::set_keys(
+		RuntimeOrigin::signed(who.clone()),
+		keys.keys,
+		keys.proof.encode(),
+	));
 }
 
 pub fn initialize_to_block(n: u64) {

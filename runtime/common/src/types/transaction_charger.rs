@@ -18,6 +18,8 @@ use pallet_transaction_payment::{
 	Config as TransactionPaymentConfig, OnChargeTransaction, TxCreditHold,
 };
 
+use crate::utils::fee_payer;
+
 pub struct LiquidityInfo<Runtime: TransactionPaymentConfig, F: Balanced<Runtime::AccountId>> {
 	pub imbalance: Option<Credit<Runtime::AccountId, F>>,
 	pub fee_payer: Option<Runtime::AccountId>,
@@ -65,8 +67,7 @@ where
 		// charged to the submitting account itself. This stops a paired processor (including one
 		// that was paired without the manager's authorization) from billing arbitrary runtime
 		// calls to its manager.
-		let fee_payer =
-			if P::is_manager_fundable_call(call) { OP::fee_payer(who, call) } else { who.clone() };
+		let fee_payer = fee_payer::<Runtime, P, OP>(who, call);
 		if &fee_payer != who && P::is_fundable_call(call) {
 			OP::release_fee_funds(&fee_payer, fee.into());
 		}
@@ -129,8 +130,7 @@ where
 		fee: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		let fee_payer =
-			if P::is_manager_fundable_call(call) { OP::fee_payer(who, call) } else { who.clone() };
+		let fee_payer = crate::utils::fee_payer::<Runtime, P, OP>(who, call);
 		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who, &fee_payer).is_some()) {
 			return Ok(())
 		}
@@ -162,6 +162,25 @@ where
 }
 
 pub struct IsFundable<T, A, B>(PhantomData<(T, A, B)>);
+
+// `IsFundable` is a marker with no state, so these are unconditionally true. They are written out
+// rather than derived because `derive` would bound `T`, `A` and `B` on `Clone`/`Eq`, which the
+// runtime types it is instantiated with do not implement. `CheckNonce` needs them to satisfy
+// `TransactionExtension`'s `Clone + Eq` requirement on itself.
+impl<T, A, B> Clone for IsFundable<T, A, B> {
+	fn clone(&self) -> Self {
+		Self(PhantomData)
+	}
+}
+
+impl<T, A, B> PartialEq for IsFundable<T, A, B> {
+	fn eq(&self, _other: &Self) -> bool {
+		true
+	}
+}
+
+impl<T, A, B> Eq for IsFundable<T, A, B> {}
+
 impl<
 		T: frame_system::Config,
 		A: IsFundableCall<T::RuntimeCall>,

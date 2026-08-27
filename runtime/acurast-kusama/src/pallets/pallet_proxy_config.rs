@@ -91,12 +91,16 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => {
 				!matches!(c, RuntimeCall::Balances { .. })
 					&& !matches!(c, RuntimeCall::AcurastHyperdriveToken { .. })
+					&& !matches!(c, RuntimeCall::PolkadotXcm { .. })
 					&& !matches!(
 						c,
-						RuntimeCall::AcurastProcessorManager(
-							pallet_acurast_processor_manager::Call::recover_funds { .. },
-						)
+						RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
+					) && !matches!(
+					c,
+					RuntimeCall::AcurastProcessorManager(
+						pallet_acurast_processor_manager::Call::recover_funds { .. },
 					)
+				)
 			},
 			ProxyType::Balances => {
 				matches!(c, RuntimeCall::Balances { .. } | RuntimeCall::Multisig { .. })

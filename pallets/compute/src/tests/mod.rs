@@ -17,7 +17,9 @@ use crate::{
 	types::*,
 	Config, Cycle, Error, Event,
 };
-use acurast_common::{CommitmentIdProvider, ComputeHooks, ManagerIdProvider, ManagerLookup};
+use acurast_common::{
+	CommitmentIdProvider, ComputeHooks, ManagerIdProvider, ManagerLookup, OnProcessorUnpaired,
+};
 
 fn commit_actions_2_processors() -> Vec<Action> {
 	vec![
@@ -5528,11 +5530,6 @@ fn test_delegating_before_slash_does_not_inflate_absorbed_slash() {
 	});
 }
 
-/// Slash-side mirror of [`test_all_delegations_leaving_in_settlement_gap_distributes_without_error`].
-///
-/// Here the missing-guard consequence is worse than on the reward side: `slash` is an extrinsic, so
-/// the `Err` is not swallowed — it makes the call fail outright, and since epoch 3 can only be
-/// slashed during epoch 4, the slash would be lost for good.
 #[test]
 fn test_all_delegations_leaving_before_slash_slashes_without_error() {
 	ExtBuilder.build().execute_with(|| {
@@ -5561,5 +5558,63 @@ fn test_all_delegations_leaving_before_slash_slashes_without_error() {
 		);
 
 		assert_ok!(Compute::slash(RuntimeOrigin::signed(alice_account_id()), charlie_account_id()));
+	});
+}
+
+#[test]
+fn test_unpair_clears_metrics() {
+	ExtBuilder.build().execute_with(|| {
+		let alice_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob_account_id())
+				.unwrap();
+
+		setup_balances();
+		assert_ok!(Compute::create_pool(
+			RuntimeOrigin::root(),
+			*b"cpu-ops-per-second______",
+			Perquintill::from_percent(50),
+			bounded_vec![],
+		));
+		assert_ok!(Compute::create_pool(
+			RuntimeOrigin::root(),
+			*b"mem-read-count-per-sec--",
+			Perquintill::from_percent(50),
+			bounded_vec![],
+		));
+
+		roll_to_block(10);
+		assert_eq!(
+			Compute::commit(
+				&alice_account_id(),
+				&alice_manager,
+				&[(1u8, 1000u128, 1u128), (2u8, 1000u128, 1u128)]
+			)
+			.0,
+			Zero::zero()
+		);
+		assert_eq!(
+			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).0,
+			Zero::zero()
+		);
+
+		assert!(Compute::metrics(alice_account_id(), 1).is_some());
+		assert!(Compute::metrics(alice_account_id(), 2).is_some());
+		assert!(Compute::processors(alice_account_id()).is_some());
+
+		// the former manager argument is unused by this hook
+		<Compute as OnProcessorUnpaired<AccountId>>::processor_unpaired(
+			&alice_account_id(),
+			&bob_account_id(),
+		);
+
+		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
+		assert_eq!(Compute::metrics(alice_account_id(), 2), None);
+		assert_eq!(Compute::processors(alice_account_id()), None);
+
+		// the processor that is still paired keeps its metrics
+		assert!(Compute::metrics(bob_account_id(), 1).is_some());
 	});
 }

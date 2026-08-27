@@ -19,22 +19,29 @@ use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_std::vec;
 
+use pallet_acurast::IsFundableCall;
 use pallet_acurast_processor_manager::{Config as ProcessorManagerConfig, OnboardingProvider};
 
+use crate::utils::fee_payer;
+
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T, OP))]
+#[scale_info(skip_type_params(T, OP, P))]
 pub struct CheckNonce<
 	T: ProcessorManagerConfig,
 	OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+	P: IsFundableCall<T::RuntimeCall> + Eq + Clone + Send + Sync + 'static,
 > {
 	#[codec(compact)]
 	pub nonce: T::Nonce,
 	#[codec(skip)]
-	_phantom_data: PhantomData<OP>,
+	_phantom_data: PhantomData<(OP, P)>,
 }
 
-impl<T: ProcessorManagerConfig, OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static>
-	CheckNonce<T, OP>
+impl<
+		T: ProcessorManagerConfig,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+		P: IsFundableCall<T::RuntimeCall> + Eq + Clone + Send + Sync + 'static,
+	> CheckNonce<T, OP, P>
 {
 	/// utility constructor. Used only in client/factory code.
 	pub fn from(nonce: T::Nonce) -> Self {
@@ -42,8 +49,11 @@ impl<T: ProcessorManagerConfig, OP: OnboardingProvider<T> + Eq + Clone + Send + 
 	}
 }
 
-impl<T: ProcessorManagerConfig, OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static>
-	core::fmt::Debug for CheckNonce<T, OP>
+impl<
+		T: ProcessorManagerConfig,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+		P: IsFundableCall<T::RuntimeCall> + Eq + Clone + Send + Sync + 'static,
+	> core::fmt::Debug for CheckNonce<T, OP, P>
 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -75,8 +85,11 @@ pub enum Pre {
 	Refund(Weight),
 }
 
-impl<T: ProcessorManagerConfig, OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static>
-	TransactionExtension<T::RuntimeCall> for CheckNonce<T, OP>
+impl<
+		T: ProcessorManagerConfig,
+		OP: OnboardingProvider<T> + Eq + Clone + Send + Sync + 'static,
+		P: IsFundableCall<T::RuntimeCall> + Eq + Clone + Send + Sync + 'static,
+	> TransactionExtension<T::RuntimeCall> for CheckNonce<T, OP, P>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
@@ -103,7 +116,7 @@ where
 		let Some(who) = origin.as_system_origin_signer() else {
 			return Ok((Default::default(), Val::Refund(self.weight(call)), origin));
 		};
-		let fee_payer = OP::fee_payer(who, call);
+		let fee_payer = fee_payer::<T, P, OP>(who, call);
 		let fee_payer_account = frame_system::Account::<T>::get(&fee_payer);
 
 		if (!OP::is_funding_call(call)

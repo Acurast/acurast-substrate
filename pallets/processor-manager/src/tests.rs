@@ -2,7 +2,7 @@ use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
 	ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
-use acurast_common::{ListUpdateOperation, ManagerLookup, Version};
+use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{
 	assert_err, assert_ok, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
 };
@@ -61,6 +61,22 @@ fn test_update_processor_pairings_succeed_1() {
 				updates.try_into().unwrap()
 			))
 		);
+	});
+}
+
+#[test]
+fn test_update_processor_pairings_with_empty_list_creates_no_manager() {
+	ExtBuilder.build().execute_with(|| {
+		let stranger = alice_account_id();
+		assert_eq!(None, AcurastProcessorManager::last_manager_id());
+
+		assert_ok!(AcurastProcessorManager::update_processor_pairings(
+			RuntimeOrigin::signed(stranger.clone()),
+			vec![].try_into().unwrap(),
+		));
+
+		assert_eq!(None, AcurastProcessorManager::last_manager_id());
+		assert!(<Test as crate::Config>::ManagerIdProvider::manager_id_for(&stranger).is_err());
 	});
 }
 

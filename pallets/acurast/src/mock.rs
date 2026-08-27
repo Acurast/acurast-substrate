@@ -167,6 +167,14 @@ where
 
 		caller
 	}
+
+	fn min_metrics() -> acurast_common::Metrics {
+		(1..=6)
+			.map(|pool_id| (pool_id, 1, 2))
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
+	}
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

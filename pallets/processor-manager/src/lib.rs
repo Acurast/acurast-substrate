@@ -288,12 +288,6 @@ pub mod pallet {
 			pairing_updates: ProcessorUpdatesFor<T>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-
-			let (manager_id, created) = Self::do_get_or_create_manager_id(&who)?;
-			if created {
-				Self::deposit_event(Event::<T>::ManagerCreated(who.clone(), manager_id));
-			}
-
 			for update in &pairing_updates {
 				match update.operation {
 					ListUpdateOperation::Add => {

@@ -95,12 +95,18 @@ pub enum Time {
 
 impl Time {
 	pub fn timestamp_millis(&self) -> Result<u64, ValidationError> {
-		let date_time = match self {
-			Time::UTCTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
-			Time::GeneralizedTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
+		let (date_time, century_offset) = match self {
+			// UTCTime encodes the year with two digits and RFC 5280 pivots it at 50, so
+			// Keymaster's "no expiry" leaf date 2069-12-31 decodes as 1969. UTCTime cannot
+			// legitimately carry a pre-1970 attestation date, so undo the wrap.
+			Time::UTCTime(time) => {
+				let date_time = time.as_datetime();
+				(date_time, if date_time.year() < 1970 { 100 } else { 0 })
+			},
+			Time::GeneralizedTime(time) => (time.as_datetime(), 0),
 		};
 		let milliseconds = chrono::NaiveDate::from_ymd_opt(
-			date_time.year().into(),
+			i32::from(date_time.year()) + century_offset,
 			date_time.month().into(),
 			date_time.day().into(),
 		)

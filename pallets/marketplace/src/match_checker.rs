@@ -96,6 +96,11 @@ impl<T: Config> Pallet<T> {
 			// `slot` is used for detecting duplicate source proposed for distinct slots
 			// TODO: add global (configurable) maximum of jobs assigned. This would limit the weight of `propose_matching` to a constant, since it depends on the number of active matches.
 			for (slot, planned_execution) in m.sources.iter().enumerate() {
+				ensure!(
+					planned_execution.start_delay <= registration.schedule.max_start_delay,
+					Error::<T>::StartDelayExceedsMaxStartDelayInMatch
+				);
+
 				// CHECK attestation
 				ensure!(
 					!registration.allow_only_verified_sources
@@ -314,6 +319,10 @@ impl<T: Config> Pallet<T> {
 			// `slot` is used for detecting duplicate source proposed for distinct slots
 			// TODO: add global (configurable) maximum of jobs assigned. This would limit the weight of `propose_execution_matching` to a constant, since it depends on the number of active matches.
 			for (slot, planned_execution) in m.sources.iter().enumerate() {
+				ensure!(
+					planned_execution.start_delay <= registration.schedule.max_start_delay,
+					Error::<T>::StartDelayExceedsMaxStartDelayInMatch
+				);
 				// CHECK attestation
 				ensure!(
 					!registration.allow_only_verified_sources

@@ -76,24 +76,6 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn update_claim_type() -> Result<(), BenchmarkError> {
-		let config = ClaimTypeConfigFor::<T> {
-			funder: T::Funder::get(),
-			vesting_duration: T::VestingDuration::get(),
-		};
-
-		let origin =
-			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		Pallet::<T>::create_claim_type(origin.clone(), config.clone())?;
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, T::ClaimTypeId::default(), config);
-
-		Ok(())
-	}
-
-	#[benchmark]
 	fn remove_claim_type() -> Result<(), BenchmarkError> {
 		let config = ClaimTypeConfigFor::<T> {
 			funder: T::Funder::get(),

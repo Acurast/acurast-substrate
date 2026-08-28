@@ -8,8 +8,10 @@ use asn1::{
 	ObjectIdentifier, ParseResult, SequenceOf, SetOf, SimpleAsn1Readable, SimpleAsn1Writable, Tag,
 	Tlv, WriteBuf, WriteResult,
 };
-use chrono::{self, Datelike, Timelike};
+use chrono;
 use sp_std::prelude::*;
+
+use super::error::ValidationError;
 
 #[derive(Asn1Read, Asn1Write, Clone)]
 /// Represents the root structure of a [X.509 v3 certificate](https://www.rfc-editor.org/rfc/rfc5280#section-4.1)
@@ -92,30 +94,33 @@ pub enum Time {
 }
 
 impl Time {
-	pub fn timestamp_millis(&self) -> u64 {
-		let date_time = match self {
-			Time::UTCTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
-			Time::GeneralizedTime(time) => time.as_datetime(), //time.as_chrono().timestamp_millis().try_into().unwrap(),
+	pub fn timestamp_millis(&self) -> Result<u64, ValidationError> {
+		let (date_time, century_offset) = match self {
+			// UTCTime encodes the year with two digits and RFC 5280 pivots it at 50, so
+			// Keymaster's "no expiry" leaf date 2069-12-31 decodes as 1969. UTCTime cannot
+			// legitimately carry a pre-1970 attestation date, so undo the wrap.
+			Time::UTCTime(time) => {
+				let date_time = time.as_datetime();
+				(date_time, if date_time.year() < 1970 { 100 } else { 0 })
+			},
+			Time::GeneralizedTime(time) => (time.as_datetime(), 0),
 		};
-		let initial = chrono::NaiveDateTime::default();
-		let milliseconds = initial
-			.with_second(date_time.second().into())
-			.and_then(|t| {
-				t.with_minute(date_time.minute().into()).and_then(|t| {
-					t.with_hour(date_time.hour().into()).and_then(|t| {
-						t.with_day(date_time.day().into()).and_then(|t| {
-							t.with_month(date_time.month().into())
-								.and_then(|t| t.with_year(date_time.year().into()))
-						})
-					})
-				})
-			})
-			.map(|t| t.and_utc().timestamp_millis())
-			.unwrap_or(0);
+		let milliseconds = chrono::NaiveDate::from_ymd_opt(
+			i32::from(date_time.year()) + century_offset,
+			date_time.month().into(),
+			date_time.day().into(),
+		)
+		.and_then(|date| {
+			date.and_hms_opt(
+				date_time.hour().into(),
+				date_time.minute().into(),
+				date_time.second().into(),
+			)
+		})
+		.map(|t| t.and_utc().timestamp_millis())
+		.ok_or(ValidationError::InvalidCertificateDate)?;
 
-		// A certificate validity date before the unix epoch yields a negative timestamp; saturate to 0
-		// instead of panicking on the i64 -> u64 conversion.
-		milliseconds.try_into().unwrap_or(0)
+		milliseconds.try_into().map_err(|_| ValidationError::InvalidCertificateDate)
 	}
 }
 

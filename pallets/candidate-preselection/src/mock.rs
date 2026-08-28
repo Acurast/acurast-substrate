@@ -3,19 +3,43 @@ use core::marker::PhantomData;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, ValidatorRegistration},
+	PalletId,
 };
 use frame_system::EnsureRoot;
+use parity_scale_codec::Encode;
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use sp_runtime::{
+	testing::UintAuthorityId,
+	traits::{IdentityLookup, OpaqueKeys},
+	AccountId32, BuildStorage, KeyTypeId, RuntimeAppPublic,
+};
 
 use crate::*;
 
 pub type AccountId = AccountId32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-pub struct ExtBuilder;
+pub fn account(id: u8) -> AccountId {
+	[id; 32].into()
+}
+
+#[derive(Default)]
+pub struct ExtBuilder {
+	invulnerables: Vec<AccountId>,
+	preselected: Vec<AccountId>,
+}
 
 impl ExtBuilder {
+	pub fn with_invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
+		self.invulnerables = invulnerables;
+		self
+	}
+
+	pub fn with_preselected(mut self, preselected: Vec<AccountId>) -> Self {
+		self.preselected = preselected;
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -28,6 +52,35 @@ impl ExtBuilder {
 		)
 		.unwrap();
 
+		pallet_balances::GenesisConfig::<Test> {
+			balances: vec![
+				(account(1), 100),
+				(account(2), 100),
+				(account(3), 100),
+				(account(4), 100),
+			],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		// collator selection must be initialized before session.
+		pallet_collator_selection::GenesisConfig::<Test> {
+			invulnerables: self.invulnerables,
+			candidacy_bond: 10,
+			desired_candidates: 2,
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		crate::GenesisConfig::<Test> { candidates: self.preselected }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		pallet_session::GenesisConfig::<Test> { keys: vec![], ..Default::default() }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
@@ -39,7 +92,10 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>},
-		CandidatePreselection: crate::{Pallet, Call, Storage, Event<T>}
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason},
+		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Config<T>, Event<T>},
+		CandidatePreselection: crate::{Pallet, Call, Config<T>, Storage, Event<T>}
 	}
 );
 
@@ -56,7 +112,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type DbWeight = ();
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -74,17 +130,109 @@ impl pallet_timestamp::Config for Test {
 
 impl parachain_info::Config for Test {}
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+}
+
+sp_runtime::impl_opaque_keys! {
+	pub struct MockSessionKeys {
+		pub aura: UintAuthorityId,
+	}
+}
+
+pub struct TestSessionHandler;
+impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[UintAuthorityId::ID];
+
+	fn on_genesis_session<Ks: OpaqueKeys>(_keys: &[(AccountId, Ks)]) {}
+	fn on_new_session<Ks: OpaqueKeys>(
+		_changed: bool,
+		_keys: &[(AccountId, Ks)],
+		_queued_keys: &[(AccountId, Ks)],
+	) {
+	}
+	fn on_before_session_ending() {}
+	fn on_disabled(_: u32) {}
+}
+
+parameter_types! {
+	pub const Period: u64 = 10;
+	pub const Offset: u64 = 0;
+}
+
+impl pallet_session::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	// we don't have stash and controller, thus we don't need the convert as well.
+	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = PreselectionSessionManager<Test, CollatorSelection>;
+	type SessionHandler = TestSessionHandler;
+	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+parameter_types! {
+	pub const PotId: PalletId = PalletId(*b"PotStake");
+	// large enough so that stale-candidate kicking never triggers in tests
+	pub const KickThreshold: u64 = 1000;
+}
+
+impl pallet_collator_selection::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type UpdateOrigin = EnsureRoot<AccountId>;
+	type PotId = PotId;
+	type MaxCandidates = ConstU32<20>;
+	type MinEligibleCollators = ConstU32<1>;
+	type MaxInvulnerables = ConstU32<20>;
+	type KickThreshold = KickThreshold;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	type ValidatorRegistration = CandidatePreselection;
+	type WeightInfo = ();
+}
+
 impl crate::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorRegistration = ValReg<Self>;
+	type ExemptValidators = InvulnerableCollators;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
+}
+
+pub struct InvulnerableCollators;
+impl frame_support::traits::Get<Vec<AccountId>> for InvulnerableCollators {
+	fn get() -> Vec<AccountId> {
+		pallet_collator_selection::Invulnerables::<Test>::get().into_inner()
+	}
 }
 
 pub struct ValReg<T: Config>(PhantomData<T>);
 impl<T: Config> ValidatorRegistration<T::ValidatorId> for ValReg<T> {
 	fn is_registered(_id: &T::ValidatorId) -> bool {
 		true
+	}
+}
+
+pub fn set_keys(who: &AccountId) {
+	let keys = MockSessionKeys::generate(&who.encode(), None);
+	frame_support::assert_ok!(Session::set_keys(
+		RuntimeOrigin::signed(who.clone()),
+		keys.keys,
+		keys.proof.encode(),
+	));
+}
+
+pub fn initialize_to_block(n: u64) {
+	for i in System::block_number() + 1..=n {
+		System::set_block_number(i);
+		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
 	}
 }
 

@@ -1,11 +1,10 @@
 use frame_benchmarking::{account, define_benchmarks};
 use frame_support::{
 	assert_ok,
-	traits::{tokens::currency::Currency, Hooks},
+	traits::{tokens::currency::Currency, Get, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_acurast_compute::ComputeCommitment;
-use pallet_acurast_processor_manager::{ProcessorPairingFor, ProcessorPairingUpdateFor};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{FixedU128, Perbill, Perquintill};
 use sp_std::{vec, vec::Vec};
@@ -14,11 +13,13 @@ use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, ListUpdateOperation, PoolId,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, MultiOrigin, PoolId,
 	StoredAttestation, StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
-	Advertisement, AssignmentStrategy, JobRequirements, PlannedExecution, Pricing, SchedulingWindow,
+	Advertisement, AssignedProcessors, Assignment, AssignmentStrategy, ExecutionSpecifier,
+	JobRequirements, NextReportIndex, PlannedExecution, Pricing, SchedulingWindow, StoredMatches,
+	SLA,
 };
 
 use crate::{
@@ -77,11 +78,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			available_modules: JobModules::default(),
 		};
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
-		AcurastCompute::commit(
-			&processor,
-			&(processor.clone(), 1),
-			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
-		);
+		AcurastCompute::commit(&processor, &(processor.clone(), 1), &Self::min_metrics());
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
 				slots: 1,
@@ -105,45 +102,41 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn funded_account(index: u32) -> <Runtime as frame_system::Config>::AccountId {
 		create_funded_user("pallet_acurast", index, 1 << 60)
 	}
+
+	fn min_metrics() -> pallet_acurast::Metrics {
+		(1..=AcurastCompute::last_metric_pool_id())
+			.map(|pool_id| (pool_id, 1, 2))
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
+	}
 }
 
 fn setup_pools() {
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
+	// `MaxPools` differs per runtime: 4 on mainnet, 6 on kusama and rococo. Create only as many
+	// of the fixed names as the runtime allows, and skip any that a previous call in the same
+	// setup already created.
+	const POOL_NAMES: [pallet_acurast_compute::MetricPoolName; 6] = [
 		*b"v1_cpu_single_core______",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
+	];
+	let max_pools =
+		<<Runtime as pallet_acurast_compute::Config>::MaxPools as Get<u32>>::get() as usize;
+	for name in POOL_NAMES.iter().take(max_pools) {
+		if AcurastCompute::metric_pool_lookup(name).is_some() {
+			continue;
+		}
+		assert_ok!(AcurastCompute::create_pool(
+			RawOrigin::Root.into(),
+			*name,
+			Perquintill::from_percent(15),
+			vec![].try_into().unwrap(),
+		));
+	}
 }
 
 impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
@@ -223,6 +216,10 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		<StoredAttestation<Runtime>>::insert(account, attestation);
 	}
 
+	fn max_compute_pools() -> u32 {
+		<<Runtime as pallet_acurast_compute::Config>::MaxPools as Get<u32>>::get()
+	}
+
 	fn create_compute_pool() -> PoolId {
 		let c = "abcdefghijklmnopqrstuvwxyz".as_bytes();
 		let mut name = *b"cpu-ops-per-second______";
@@ -271,26 +268,52 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		manager: &<Runtime as frame_system::Config>::AccountId,
 		processor: &<Runtime as frame_system::Config>::AccountId,
 	) {
-		let timestamp = 1657363915002u128;
-		// let message = [caller.encode(), timestamp.encode(), 1u128.encode()].concat();
-		let signature = Self::dummy_proof();
-		let update = ProcessorPairingUpdateFor::<Runtime> {
-			operation: ListUpdateOperation::Add,
-			item: ProcessorPairingFor::<Runtime>::new_with_proof(
-				processor.clone(),
-				timestamp,
-				signature,
-			),
-		};
-		AcurastProcessorManager::update_processor_pairings(
-			RuntimeOrigin::signed(manager.clone()),
-			vec![update].try_into().expect("conversion to BoundedVec works"),
-		)
-		.expect("pairing success");
+		// `update_processor_pairings` only removes pairings, so pair through the pallet internals.
+		let (manager_id, _) = AcurastProcessorManager::do_get_or_create_manager_id(manager)
+			.expect("manager id creation success");
+		AcurastProcessorManager::do_add_processor_manager_pairing(processor, manager_id)
+			.expect("pairing success");
 	}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
+	}
+	fn setup_unpaired_cleanup(processor: &<Runtime as frame_system::Config>::AccountId) {
+		// `Config::OnProcessorUnpaired` is `(Acurast, AcurastCompute, AcurastMarketplace)`: fill
+		// everything the three hooks remove, so unpairing measures their worst case.
+		Self::attest_account(processor);
+
+		pallet_acurast_compute::Processors::<Runtime>::insert(
+			processor,
+			pallet_acurast_compute::ProcessorState::initial(0, 0),
+		);
+		// the compute hook also clears up to `MaxPools` metric rows
+		AcurastCompute::benchmark_fill_metrics(processor);
+
+		AcurastMarketplace::do_advertise(processor, &Self::advertisement())
+			.expect("advertisement storage success");
+		// the marketplace hook clears up to `MaxMatchesPerProcessor` matches
+		let max_matches =
+			<Runtime as pallet_acurast_marketplace::Config>::MaxMatchesPerProcessor::get();
+		for i in 0..max_matches {
+			let job_id: JobId<<Runtime as frame_system::Config>::AccountId> =
+				(MultiOrigin::Acurast(processor.clone()), i as u128);
+			StoredMatches::<Runtime>::insert(
+				processor,
+				job_id.clone(),
+				Assignment {
+					slot: 0,
+					start_delay: 0,
+					fee_per_execution: 0u64.into(),
+					acknowledged: true,
+					sla: SLA { total: 1, met: 0 },
+					pub_keys: Default::default(),
+					execution: ExecutionSpecifier::All,
+				},
+			);
+			AssignedProcessors::<Runtime>::insert(&job_id, processor, ());
+			NextReportIndex::<Runtime>::insert(&job_id, processor, 0);
+		}
 	}
 }
 

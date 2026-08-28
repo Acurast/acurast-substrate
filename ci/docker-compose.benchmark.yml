@@ -9,6 +9,10 @@ services:
     environment:
       BENCH_CPUSET_REQUESTED: ${BENCH_CPUSET:-0-7}
       BENCH_MEM_REQUESTED: ${BENCH_MEM:-32g}
+      # Second, higher --repeat pass over the pallets named here; see benchmark.sh. Passed as env
+      # rather than positional args so the CHAIN/STEPS/REPEAT triple below stays stable.
+      REPEAT_HIGH: ${BENCH_REPEAT_HIGH:-100}
+      PALLETS_HIGH_REPEAT: ${BENCH_PALLETS_HIGH_REPEAT-pallet_acurast_marketplace}
     entrypoint: ["/bin/bash", "/ci/benchmark.sh"]
     command:
       - ${BENCH_CHAIN:?set BENCH_CHAIN (acurast-mainnet|acurast-kusama|acurast-rococo)}

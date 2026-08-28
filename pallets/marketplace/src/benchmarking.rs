@@ -36,7 +36,7 @@ pub trait BenchmarkHelper<T: Config> {
 }
 
 pub fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	frame_system::Pallet::<T>::assert_last_event(generic_event);
 }
 
 pub fn advertisement<T: Config>(
@@ -155,6 +155,12 @@ pub fn competing_job_registration_with_reward<T: Config>(
 	}
 }
 
+fn pool_metrics<T: pallet_acurast_compute::Config>() -> Vec<acurast_common::MetricInput> {
+	(1..=pallet_acurast_compute::Pallet::<T>::last_metric_pool_id())
+		.map(|pool_id| (pool_id, 1, 2))
+		.collect()
+}
+
 fn advertise_helper<T>(account_index: u32, submit: bool) -> (T::AccountId, AdvertisementFor<T>)
 where
 	T: Config + pallet_balances::Config + pallet_acurast_compute::Config,
@@ -172,11 +178,8 @@ where
 			ad.clone(),
 		);
 		assert_ok!(register_call);
-		let _ = AcurastCompute::<T>::commit(
-			&caller,
-			&(caller.clone(), 1.into()),
-			&[(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)],
-		);
+		let _ =
+			AcurastCompute::<T>::commit(&caller, &(caller.clone(), 1.into()), &pool_metrics::<T>());
 	}
 
 	(caller, ad)
@@ -214,42 +217,26 @@ where
 	BlockNumberFor<T>: One,
 	BalanceFor<T>: From<u128>,
 {
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
+	const POOL_NAMES: [pallet_acurast_compute::MetricPoolName; 6] = [
 		*b"v1_cpu_single_core______",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_cpu_multi_core_______",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_ram_total____________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_ram_speed____________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_storage_avail________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
-	assert_ok!(AcurastCompute::<T>::create_pool(
-		RawOrigin::Root.into(),
 		*b"v1_storage_speed________",
-		Perquintill::from_percent(15),
-		vec![].try_into().unwrap(),
-	));
+	];
+	let max_pools = <<T as pallet_acurast_compute::Config>::MaxPools as Get<u32>>::get() as usize;
+	for name in POOL_NAMES.iter().take(max_pools) {
+		if AcurastCompute::<T>::metric_pool_lookup(name).is_some() {
+			continue;
+		}
+		assert_ok!(AcurastCompute::<T>::create_pool(
+			RawOrigin::Root.into(),
+			*name,
+			Perquintill::from_percent(15),
+			vec![].try_into().unwrap(),
+		));
+	}
 }
 
 fn register_submit_helper<T>(
@@ -265,9 +252,7 @@ where
 	let register_call = Acurast::<T>::register_with_min_metrics(
 		RawOrigin::Signed(caller.clone()).into(),
 		job.clone(),
-		vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)]
-			.try_into()
-			.unwrap(),
+		pool_metrics::<T>().try_into().unwrap(),
 	);
 	assert_ok!(register_call);
 	let job_id_seq = Acurast::<T>::job_id_sequence();
@@ -357,13 +342,13 @@ where
 		500_000_000_000,
 	);
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
+	set_now::<T>(job.schedule.start_time - 310_000);
 
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 	let job_id: JobId<T::AccountId> =
 		(MultiOrigin::Acurast(consumer.clone()), Acurast::<T>::job_id_sequence());
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 120_000).into());
+	set_now::<T>(job.schedule.start_time - 120_000);
 
 	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
 		RawOrigin::Signed(consumer.clone()).into(),
@@ -378,9 +363,7 @@ where
 		.unwrap()
 	));
 
-	pallet_timestamp::Pallet::<T>::set_timestamp(
-		(job.schedule.start_time + job.schedule.interval - 120_000).into(),
-	);
+	set_now::<T>(job.schedule.start_time + job.schedule.interval - 120_000);
 
 	assert_ok!(AcurastMarketplace::<T>::propose_execution_matching(
 		RawOrigin::Signed(consumer.clone()).into(),
@@ -421,7 +404,7 @@ where
 		500_000_000_000,
 	);
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
+	set_now::<T>(job.schedule.start_time - 310_000);
 
 	assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 
@@ -433,9 +416,7 @@ where
 	let mut processor_counter: u32 = 0;
 
 	for i in 0..needed_matches {
-		pallet_timestamp::Pallet::<T>::set_timestamp(
-			(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000).into(),
-		);
+		set_now::<T>(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000);
 
 		let mut planned_executions: Vec<PlannedExecution<T::AccountId>> = vec![];
 		for _ in 0..max_slots {
@@ -483,14 +464,12 @@ where
 		500_000_000_000,
 	);
 
-	pallet_timestamp::Pallet::<T>::set_timestamp((job.schedule.start_time - 310_000).into());
+	set_now::<T>(job.schedule.start_time - 310_000);
 
 	assert_ok!(Acurast::<T>::register_with_min_metrics(
 		RawOrigin::Signed(consumer.clone()).into(),
 		job.clone(),
-		vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)]
-			.try_into()
-			.unwrap(),
+		pool_metrics::<T>().try_into().unwrap(),
 	));
 
 	let job_id: JobId<T::AccountId> =
@@ -499,9 +478,7 @@ where
 	let mut processor_counter: u32 = processor_counter.unwrap_or(0);
 
 	for i in 0..2u8 {
-		pallet_timestamp::Pallet::<T>::set_timestamp(
-			(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000).into(),
-		);
+		set_now::<T>(job.schedule.start_time + (job.schedule.interval * (i as u64)) - 120_000);
 
 		let mut planned_executions: Vec<PlannedExecution<T::AccountId>> = vec![];
 		for _ in 0..max_slots {
@@ -527,7 +504,15 @@ where
 }
 
 fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
+	pallet_timestamp::Now::<T>::put(timestamp);
+}
+
+fn set_now<T: pallet_timestamp::Config>(timestamp: u64)
+where
+	<T as pallet_timestamp::Config>::Moment: From<u64>,
+{
+	let now: <T as pallet_timestamp::Config>::Moment = timestamp.into();
+	pallet_timestamp::Now::<T>::put(now);
 }
 
 #[allow(clippy::type_complexity)]
@@ -636,7 +621,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u64::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.nth_start_time(0, job.schedule.execution_count() - 1).unwrap() + job.schedule.duration);
+		pallet_timestamp::Now::<T>::put(job.schedule.nth_start_time(0, job.schedule.execution_count() - 1).unwrap() + job.schedule.duration);
 	}: _(RawOrigin::Signed(processor), job_id, ExecutionResult::Success(vec![0u8].try_into().unwrap()))
 
 	// Worst case: `x` matches, each filling every proposed processor to `MaxMatchesPerProcessor` so
@@ -705,7 +690,7 @@ benchmarks! {
 		// exercise the worst-case per-processor schedule-fit iteration.
 		let existing_matches = T::MaxMatchesPerProcessor::get().saturating_sub(1);
 		let matches: Vec<ExecutionMatchFor<T>> = registered_jobs.into_iter().map(|(job, job_id)| {
-			pallet_timestamp::Pallet::<T>::set_timestamp(
+			pallet_timestamp::Now::<T>::put(
 				job.schedule.start_time + (job.schedule.interval * 2) - 120_000,
 			);
 			let mut processor_ids: Vec<T::AccountId> = vec![];
@@ -745,7 +730,7 @@ benchmarks! {
 		let manager: T::AccountId = <T as Config>::BenchmarkHelper::funded_account(2, u64::MAX.into());
 		let (manager_id, _) = pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&manager)?;
 		pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
-		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.end_time + 1);
+		pallet_timestamp::Now::<T>::put(job.schedule.end_time + 1);
 	}: _(RawOrigin::Signed(processor), job_id)
 
 	finalize_jobs {
@@ -761,7 +746,7 @@ benchmarks! {
 			pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(&processor, manager_id)?;
 			job_ids.push(job_id.1);
 		}
-		pallet_timestamp::Pallet::<T>::set_timestamp(SCHEDULE_END_TIME + 1);
+		pallet_timestamp::Now::<T>::put(SCHEDULE_END_TIME + 1);
 	}: _(RawOrigin::Signed(consumer), job_ids.try_into().unwrap())
 
 	cleanup_storage {
@@ -796,14 +781,14 @@ benchmarks! {
 			// each job is shifted one day further out to keep the per-processor schedules from
 			// overlapping; advance the clock along with it so every `start_time` stays inside
 			// `Config::MaxStartWindow` at the time of its registration
-			pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.start_time - 300_000);
+			pallet_timestamp::Now::<T>::put(job.schedule.start_time - 300_000);
 			assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
 			let job_id_sequence = Acurast::<T>::job_id_sequence();
 			job_ids.push((MultiOrigin::Acurast(consumer.clone()), job_id_sequence));
 			last_job = Some(job);
 		}
 		let job = last_job.unwrap();
-		pallet_timestamp::Pallet::<T>::set_timestamp(job.schedule.end_time + 1);
+		pallet_timestamp::Now::<T>::put(job.schedule.end_time + 1);
 	}: _(RawOrigin::Signed(processor), job_ids.try_into().unwrap())
 
 	// benchmark the worst case performance with mutable job that reuses keys
@@ -817,7 +802,7 @@ benchmarks! {
 
 		let job_id_seq = Acurast::<T>::job_id_sequence();
 		let job_id: JobId<T::AccountId> = (MultiOrigin::Acurast(caller.clone()), job_id_seq);
-		let min_metrics: Metrics = vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)].try_into().unwrap();
+		let min_metrics: Metrics = pool_metrics::<T>().try_into().unwrap();
 	}: {
 		assert_ok!(AcurastMarketplace::<T>::deploy(RawOrigin::Signed(caller.clone()).into(), job, pallet_acurast::ScriptMutability::Mutable(Some(caller)), Some(original_job_id), Some(min_metrics)));
 	}
@@ -888,7 +873,7 @@ benchmarks! {
 			.schedule
 			.actual_end(job.schedule.actual_start(job.schedule.max_start_delay))
 			.saturating_add(<T as Config>::ReportTolerance::get());
-		pallet_timestamp::Pallet::<T>::set_timestamp(expiry + 1);
+		pallet_timestamp::Now::<T>::put(expiry + 1);
 		let job_id_after = job_id.clone();
 	}: _(RawOrigin::Signed(consumer), job_id)
 	verify {

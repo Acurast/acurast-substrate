@@ -1,4 +1,4 @@
-use acurast_common::{CommitmentIdProvider, MetricInput, PoolId};
+use acurast_common::{CommitmentIdProvider, MetricInput, OnProcessorUnpaired, PoolId};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{fungible::Balanced, Currency, ExistenceRequirement, Get, Imbalance, IsType},
@@ -15,11 +15,11 @@ use sp_std::prelude::*;
 use crate::{
 	BalanceFor, BlockAuthorProvider, CollatorRewards, CommitMetricsInfo, Commitments,
 	ComputeBasedRewards, Config, CurrentCycle, CycleFor, EpochOf, Error, InflationEnabled,
-	InflationInfo, InflationInfoFor, LastMetricPoolId, Metric, MetricCommit, MetricPool,
-	MetricPoolConfigValues, MetricPoolFor, MetricPoolLookup, MetricPoolName, MetricPoolUpdateInfo,
-	MetricPools, Metrics, MetricsEpochSum, NextCommitmentId, Pallet, ProcessorState,
-	ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget, RewardContributionProvider,
-	RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
+	InflationInfo, InflationInfoFor, LastMetricPoolId, Metric, MetricCommit, MetricCommitFor,
+	MetricPool, MetricPoolConfigValues, MetricPoolFor, MetricPoolLookup, MetricPoolName,
+	MetricPoolUpdateInfo, MetricPools, Metrics, MetricsEpochSum, NextCommitmentId, Pallet,
+	ProcessorState, ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget,
+	RewardContributionProvider, RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -317,7 +317,7 @@ where
 
 			let manager_id = manager.1;
 			let commit_metrics_info = if !metrics.is_empty() {
-				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle)
+				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle, pool_ids)
 			} else {
 				Self::reuse_metrics(processor, manager_id, active, cycle)
 			};
@@ -446,6 +446,7 @@ where
 		metrics: &[MetricInput],
 		active: bool,
 		cycle: CycleFor<T>,
+		pool_ids: &[PoolId],
 	) -> CommitMetricsInfo {
 		let epoch = cycle.epoch;
 
@@ -453,6 +454,9 @@ where
 		let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 		let mut prev_pool_totals: Vec<(PoolId, (Metric, Perquintill))> = vec![];
 		for (pool_id, numerator, denominator) in metrics {
+			if !pool_ids.contains(pool_id) {
+				continue;
+			}
 			let Some(metric) = FixedU128::checked_from_rational(
 				*numerator,
 				if denominator.is_zero() { One::one() } else { *denominator },
@@ -581,5 +585,30 @@ where
 				.saturating_div(epoch_length)
 				.into(),
 		)
+	}
+}
+
+/// Benchmark-only setup helpers.
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Fills the `Metrics` rows that [`OnProcessorUnpaired::processor_unpaired`] removes, so a
+	/// benchmark that unpairs `processor` measures the worst case. `Metrics` is `pub(super)`, so
+	/// the runtime benchmark helpers cannot write it directly.
+	pub fn benchmark_fill_metrics(processor: &T::AccountId) {
+		// `MaxPools` is far below `PoolId::MAX` in every runtime, so the cast cannot wrap.
+		for pool_id in 0..<T as Config<I>>::MaxPools::get() as PoolId {
+			<Metrics<T, I>>::insert(
+				processor,
+				pool_id,
+				MetricCommitFor::<T> { epoch: Zero::zero(), metric: Default::default() },
+			);
+		}
+	}
+}
+
+impl<T: Config<I>, I: 'static> OnProcessorUnpaired<T::AccountId> for Pallet<T, I> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		<Processors<T, I>>::remove(processor);
+		_ = <Metrics<T, I>>::clear_prefix(processor, <T as Config<I>>::MaxPools::get(), None);
 	}
 }

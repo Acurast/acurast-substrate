@@ -256,13 +256,11 @@ impl<Reward> Assignment<Reward> {
 
 	pub fn is_invalid(&self, schedule: &Schedule, now: u64, report_tolerance: u64) -> bool {
 		let (actual_start_time, actual_end_time) = match self.execution {
-			ExecutionSpecifier::All => (
-				schedule.start_time.saturating_add(self.start_delay),
-				schedule
-					.end_time
-					.saturating_add(self.start_delay)
-					.saturating_add(report_tolerance),
-			),
+			ExecutionSpecifier::All => {
+				let start = schedule.actual_start(self.start_delay);
+				let end = schedule.actual_end(start).saturating_add(report_tolerance);
+				(start, end)
+			},
 			ExecutionSpecifier::Index(i) => {
 				let execution_start =
 					schedule.nth_start_time(self.start_delay, i).unwrap_or_default();

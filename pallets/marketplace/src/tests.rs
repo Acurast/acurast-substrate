@@ -24,6 +24,7 @@ use crate::{
 	FeeManager, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions, PubKeys,
 	RegistrationExtra, Runtime, SLA,
 };
+use acurast_common::OnProcessorUnpaired;
 
 /// Job is not assigned and gets deregistered successfully.
 #[test]
@@ -2445,4 +2446,245 @@ fn later(now: u64) {
 	}
 	// pretend time moved on
 	assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+}
+
+#[test]
+fn test_no_repeated_reports_from_stale_execution_index() {
+	let start: u64 = 1_671_800_400_000;
+	let interval: u64 = 1_800_000;
+	let ad = advertisement(1000, 1, 100_000, 50_000, 100);
+	let registration = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: start,
+			end_time: start + 5 * interval,
+			interval,
+			max_start_delay: 0,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Competing,
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+		later(start - <Test as Config>::MatchingCompetingDueDelta::get());
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), 100_000_000);
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad.clone(),
+		));
+
+		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+		));
+
+		// --- match + acknowledge execution 0, but never report it
+		assert_ok!(AcurastMarketplace::propose_execution_matching(
+			RuntimeOrigin::signed(bob_account_id()),
+			vec![ExecutionMatch {
+				job_id: job_id.clone(),
+				execution_index: 0,
+				sources: vec![PlannedExecution { source: processor_account_id(), start_delay: 0 }]
+					.try_into()
+					.unwrap(),
+			}]
+			.try_into()
+			.unwrap(),
+		));
+		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			0,
+			PubKeys::default(),
+		));
+		assert_eq!(Some(0), crate::NextReportIndex::<Test>::get(&job_id, processor_account_id()));
+
+		// --- execution 0 window expires unreported
+		later(start + 5000 + <Test as Config>::ReportTolerance::get() + 1);
+
+		// --- match + acknowledge execution 1, again never reported
+		later(start + interval - <Test as Config>::MatchingCompetingDueDelta::get());
+		assert_ok!(AcurastMarketplace::propose_execution_matching(
+			RuntimeOrigin::signed(bob_account_id()),
+			vec![ExecutionMatch {
+				job_id: job_id.clone(),
+				execution_index: 1,
+				sources: vec![PlannedExecution { source: processor_account_id(), start_delay: 0 }]
+					.try_into()
+					.unwrap(),
+			}]
+			.try_into()
+			.unwrap(),
+		));
+		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			1,
+			PubKeys::default(),
+		));
+
+		let assignment =
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id.clone()).unwrap();
+		assert_eq!(ExecutionSpecifier::Index(1), assignment.execution);
+		assert_eq!(2, assignment.sla.total);
+		assert_eq!(0, assignment.sla.met);
+		// acknowledge moved the pointer forward to the newest matched execution
+		assert_eq!(Some(1), crate::NextReportIndex::<Test>::get(&job_id, processor_account_id()));
+
+		// --- now jump into execution window 2, which was never matched to this processor
+		later(start + 2 * interval + 1000);
+		let reserved_before = AcurastMarketplace::reserved(&job_id);
+
+		// first report: accepted against execution 2, pointer snapped back to stale index 1
+		assert_ok!(AcurastMarketplace::report(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			ExecutionResult::Success(b"JOB_EXECUTED".to_vec().try_into().unwrap()),
+		));
+		// the reported execution (2) lies past the assigned one (1), so nothing is left to report:
+		// the pointer terminates and the assignment is consumed
+		assert_eq!(None, crate::NextReportIndex::<Test>::get(&job_id, processor_account_id()));
+		assert_eq!(
+			None,
+			AcurastMarketplace::stored_matches(processor_account_id(), job_id.clone())
+		);
+
+		// exactly one execution fee consumed from consumer escrow
+		assert_eq!(
+			reserved_before - assignment.fee_per_execution,
+			AcurastMarketplace::reserved(&job_id)
+		);
+
+		// replay in the same execution window is rejected
+		assert_err_ignore_postinfo!(
+			AcurastMarketplace::report(
+				RuntimeOrigin::signed(processor_account_id()),
+				job_id.clone(),
+				ExecutionResult::Success(b"JOB_EXECUTED".to_vec().try_into().unwrap()),
+			),
+			Error::<Test>::ReportFromUnassignedSource
+		);
+	});
+}
+
+#[test]
+fn test_unpair_clears_all_assignment_indices() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00 (one hour later)
+			interval: 1_800_000,           // 30min
+			max_start_delay: 0,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(Some(bounded_vec![
+					PlannedExecution { source: processor_account_id(), start_delay: 0 },
+					PlannedExecution { source: processor_2_account_id(), start_delay: 0 }
+				])),
+				slots: 2,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+		later(now);
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad.clone(),
+		));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_2_account_id()),
+			ad.clone(),
+		));
+
+		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+		));
+
+		// both processors acknowledge, so both hold an assignment and a report index
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			PubKeys::default(),
+		));
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			RuntimeOrigin::signed(processor_2_account_id()),
+			job_id.clone(),
+			PubKeys::default(),
+		));
+		assert_eq!(
+			Some(JobStatus::Assigned(2)),
+			AcurastMarketplace::stored_job_status(&job_id.0, &job_id.1)
+		);
+		assert!(AcurastMarketplace::stored_matches(processor_account_id(), &job_id).is_some());
+		assert!(AcurastMarketplace::assigned_processors(&job_id, processor_account_id()).is_some());
+		assert!(AcurastMarketplace::next_report_index(&job_id, processor_account_id()).is_some());
+
+		<AcurastMarketplace as OnProcessorUnpaired<AccountId>>::processor_unpaired(
+			&processor_account_id(),
+			&alice_account_id(),
+		);
+
+		// the forward map, the reverse index and the report index are all gone
+		assert_eq!(None, AcurastMarketplace::stored_matches(processor_account_id(), &job_id));
+		assert_eq!(None, AcurastMarketplace::assigned_processors(&job_id, processor_account_id()));
+		assert_eq!(None, AcurastMarketplace::next_report_index(&job_id, processor_account_id()));
+
+		// so are the advertisement and reputation
+		assert_eq!(None, AcurastMarketplace::stored_advertisement(processor_account_id()));
+		assert_eq!(None, AcurastMarketplace::stored_advertisement_pricing(processor_account_id()));
+		assert_eq!(None, AcurastMarketplace::stored_reputation(processor_account_id()));
+
+		// the processor that is still paired keeps its assignment untouched
+		assert!(AcurastMarketplace::stored_matches(processor_2_account_id(), &job_id).is_some());
+		assert!(
+			AcurastMarketplace::assigned_processors(&job_id, processor_2_account_id()).is_some()
+		);
+		assert!(AcurastMarketplace::next_report_index(&job_id, processor_2_account_id()).is_some());
+
+		// the job keeps its slot count: releasing a single slot would require the job to become
+		// matchable again, which would let a new match overwrite the remaining processor
+		assert_eq!(
+			Some(JobStatus::Assigned(2)),
+			AcurastMarketplace::stored_job_status(&job_id.0, &job_id.1)
+		);
+	});
 }

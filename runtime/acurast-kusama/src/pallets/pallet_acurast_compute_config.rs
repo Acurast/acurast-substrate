@@ -61,7 +61,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type CommitmentIdProvider = AcurastCommitmentIdProvider;
 	type Epoch = Epoch;
 	type BusyWeightBonus = BusyWeightBonus;
-	type MaxPools = ConstU32<30>;
+	type MaxPools = ConstU32<6>;
 	type MaxMetricCommitmentRatio = MaxMetricCommitmentRatio;
 	type MinCooldownPeriod = MinCooldownPeriod;
 	type MaxCooldownPeriod = MaxCooldownPeriod;

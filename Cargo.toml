@@ -15,7 +15,7 @@ members = [
 [workspace.package]
 authors = ["Papers AG"]
 repository = "https://github.com/acurast"
-version = "0.26.4"
+version = "0.26.5"
 edition = "2021"
 
 [workspace.dependencies]
@@ -43,6 +43,7 @@ async-trait = "0.1.88"
 futures = "0.3.21"
 cfg-if = "1"
 base58 = "0.2"
+impl-trait-for-tuples = "0.2"
 
 # Base pallet of the acurast protocol, it is used for registering jobs.
 pallet-acurast = { path = "./pallets/acurast", default-features = false }
@@ -132,6 +133,7 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", default-features =
 sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-session = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
+sp-staking = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-storage = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }

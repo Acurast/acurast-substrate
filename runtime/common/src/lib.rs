@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod barrier;
-pub mod constants;
-// pub mod migrations;
 pub mod check_nonce;
+pub mod constants;
+pub mod migrations;
 pub mod types;
 pub mod utils;
 pub mod weight;

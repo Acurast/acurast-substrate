@@ -68,30 +68,52 @@ pub enum ProxyType {
 
 impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
+		match c {
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls }) => {
+				return calls.iter().all(|c| self.filter(c));
+			},
+			RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
+				return calls.iter().all(|c| self.filter(c));
+			},
+			RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) => {
+				return calls.iter().all(|c| self.filter(c));
+			},
+			RuntimeCall::Utility(pallet_utility::Call::as_derivative { index: _index, call }) => {
+				return self.filter(call);
+			},
+			RuntimeCall::Utility(pallet_utility::Call::if_else { main, fallback }) => {
+				return self.filter(main) && self.filter(fallback);
+			},
+			_ => {},
+		}
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances { .. }),
-			ProxyType::Balances => {
-				matches!(
+			ProxyType::NonTransfer => {
+				!matches!(c, RuntimeCall::Balances { .. })
+					&& !matches!(c, RuntimeCall::AcurastHyperdriveToken { .. })
+					&& !matches!(c, RuntimeCall::PolkadotXcm { .. })
+					&& !matches!(
+						c,
+						RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
+					) && !matches!(
 					c,
-					RuntimeCall::Balances { .. }
-						| RuntimeCall::Utility { .. }
-						| RuntimeCall::Multisig { .. }
+					RuntimeCall::AcurastProcessorManager(
+						pallet_acurast_processor_manager::Call::recover_funds { .. },
+					)
 				)
+			},
+			ProxyType::Balances => {
+				matches!(c, RuntimeCall::Balances { .. } | RuntimeCall::Multisig { .. })
 			},
 			ProxyType::CancelProxy => matches!(
 				c,
 				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. })
-					| RuntimeCall::Utility { .. }
 					| RuntimeCall::Multisig { .. }
 			),
 			ProxyType::ProcessorManager => matches!(c, RuntimeCall::AcurastProcessorManager { .. }),
-			ProxyType::Collator => matches!(
-				c,
-				RuntimeCall::CollatorSelection { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
-			),
+			ProxyType::Collator => {
+				matches!(c, RuntimeCall::CollatorSelection { .. } | RuntimeCall::Multisig { .. })
+			},
 		}
 	}
 
@@ -100,7 +122,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(x, y) if x == y => true,
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
-			(ProxyType::NonTransfer, ProxyType::ProcessorManager) => true,
 			(ProxyType::NonTransfer, ProxyType::Collator) => true,
 			(ProxyType::NonTransfer, ProxyType::CancelProxy) => true,
 			_ => false,

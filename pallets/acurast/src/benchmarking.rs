@@ -22,10 +22,11 @@ pub const SCRIPT_BYTES: &[u8; 53] = b"ipfs://QmQgcdqZPsnnnuvBVQeQgTy3ccQknGbnRpH
 pub trait BenchmarkHelper<T: Config> {
 	fn registration_extra(instant_match: bool) -> T::RegistrationExtra;
 	fn funded_account(index: u32) -> T::AccountId;
+	fn min_metrics() -> Metrics;
 }
 
 pub fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	frame_system::Pallet::<T>::assert_last_event(generic_event);
 }
 
 pub fn job_registration<T: Config>(extra: T::RegistrationExtra) -> JobRegistrationFor<T> {
@@ -97,7 +98,7 @@ fn register_job<T: Config>(
 }
 
 fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
-	pallet_timestamp::Pallet::<T>::set_timestamp(timestamp);
+	pallet_timestamp::Now::<T>::put(timestamp);
 }
 
 benchmarks! {
@@ -120,7 +121,7 @@ benchmarks! {
 	register_with_min_metrics {
 		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(false, true);
-		let min_metrics: Metrics = vec![(1, 1, 2), (2, 1, 2), (3, 1, 2), (4, 1, 2), (5, 1, 2), (6, 1, 2)].try_into().unwrap();
+		let min_metrics: Metrics = <T as Config>::BenchmarkHelper::min_metrics();
 	}: _(RawOrigin::Signed(caller.clone()), job.clone(), min_metrics)
 
 	deregister {

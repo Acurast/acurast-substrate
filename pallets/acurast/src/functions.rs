@@ -9,7 +9,7 @@ use sp_std::prelude::*;
 
 use acurast_common::{
 	is_valid_script, Attestation, AttestationChain, AttestationSecurityLevel, AttestationValidator,
-	EnsureAttested, JobId, JobIdSequence, Metrics, MinMetric, MinMetrics,
+	EnsureAttested, JobId, JobIdSequence, Metrics, MinMetric, MinMetrics, OnProcessorUnpaired,
 };
 
 use crate::{
@@ -138,5 +138,11 @@ impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
 		<StoredAttestation<T>>::insert(&account, attestation);
 		Self::deposit_event(Event::AttestationStoredV2(account));
 		Ok(())
+	}
+}
+
+impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		<StoredAttestation<T>>::remove(processor);
 	}
 }

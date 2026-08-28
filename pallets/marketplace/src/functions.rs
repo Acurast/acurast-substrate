@@ -1,3 +1,4 @@
+use acurast_common::OnProcessorUnpaired;
 use frame_support::{
 	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
 };
@@ -116,7 +117,7 @@ impl<T: Config> Pallet<T> {
 					};
 				},
 				ExecutionSpecifier::Index(index) => {
-					*value = if expected_report_index != index { Some(index) } else { None };
+					*value = if expected_report_index < index { Some(index) } else { None };
 				},
 			}
 
@@ -252,5 +253,29 @@ where
 				| Call::report { .. }
 				| Call::cleanup_assignments { .. }
 		)
+	}
+
+	fn is_manager_fundable_call(call: &T::RuntimeCall) -> bool {
+		// The marketplace processor-lifecycle calls a manager sponsors are exactly the
+		// reserve-fundable ones; there are no additional manager-only marketplace calls.
+		Self::is_fundable_call(call)
+	}
+}
+
+impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		<StoredAdvertisementPricing<T>>::remove(processor);
+		<StoredAdvertisementRestriction<T>>::remove(processor);
+		<StoredReputation<T>>::remove(processor);
+		let limit = T::MaxMatchesPerProcessor::get();
+		let mut removed: u32 = 0;
+		for (job_id, _) in <StoredMatches<T>>::drain_prefix(processor) {
+			<AssignedProcessors<T>>::remove(&job_id, processor);
+			<NextReportIndex<T>>::remove(&job_id, processor);
+			removed = removed.saturating_add(1);
+			if removed >= limit {
+				break;
+			}
+		}
 	}
 }

@@ -215,6 +215,47 @@ echo "=== benchmark pallet ==="
 	--output="$OUT/" \
 	2>&1 | tee "$OUT/pallet.log"
 
+# A second pass at a higher --repeat for pallets whose weights come out of a least-squares fit over a
+# very short component range, where 20 repeats leave the intercept/slope split dominated by noise.
+#
+# `pallet_acurast_marketplace` is what forced this. `propose_matching` ranges over
+# `x in 1 .. MaxProposedMatches`, and MaxProposedMatches is 3, so the fit gets three points no matter
+# what --steps says. The 2026-08-27 run split it as `5_421_264_000 + 2_377_732_275*x`; the previous one
+# as `10_723_827 + 5_824_646_942*x`. Nearly the same total at x=2, but the new intercept is worth two
+# thirds of a whole match, and the standard error on the slope went from 0.13% of it to 2.2%. The
+# intercept is the part that matters: `propose_matching` refunds skipped matches down to
+# `WeightInfo::propose_matching(processed)` (pallets/marketplace/src/lib.rs), so a fat intercept is
+# charged in full even when `processed` is 0 — the contended case the refund exists for.
+#
+# Repeats only buy 1/sqrt(n), so this narrows the intercept, it does not pin it down; three component
+# values is the real constraint and only a larger MaxProposedMatches would lift it.
+#
+# Whole pallets are rerun (`--extrinsic '*'`) because the CLI writes one file per pallet, so a
+# single-extrinsic rerun would truncate the rest of that file. Cheap extrinsics in the same pallet pay
+# the higher repeat too; they are microseconds, so it is the two matching benchmarks that cost.
+#
+# Runs before the scaling step, so files this overwrites are still scaled exactly once.
+#
+# Set PALLETS_HIGH_REPEAT to the empty string to skip the pass.
+REPEAT_HIGH="${REPEAT_HIGH:-100}"
+PALLETS_HIGH_REPEAT="${PALLETS_HIGH_REPEAT-pallet_acurast_marketplace}"
+
+if [ -n "$PALLETS_HIGH_REPEAT" ] && [ "$REPEAT_HIGH" != "$REPEAT" ]; then
+	for pallet in $PALLETS_HIGH_REPEAT; do
+		echo "=== benchmark pallet $pallet (--repeat=$REPEAT_HIGH) ==="
+		"$NODE" benchmark pallet \
+			--chain="$CHAIN" \
+			--wasm-execution=compiled \
+			--heap-pages=2048 \
+			--pallet "$pallet" \
+			--extrinsic '*' \
+			--steps="$STEPS" \
+			--repeat="$REPEAT_HIGH" \
+			--output="$OUT/" \
+			2>&1 | tee "$OUT/pallet-$pallet.log"
+	done
+fi
+
 # Scale ref_time up, because this box is faster than the hardware the weights must protect.
 #
 # `benchmark machine` (machine.txt) puts it at 150% of the reference BLAKE2-256 minimum, 171% of

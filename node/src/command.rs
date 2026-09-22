@@ -104,7 +104,7 @@ impl SubstrateCli for RelayChainCli {
 }
 
 macro_rules! construct_async_run {
-	{< $runtime:ty > ( $runner:ident, |$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* )} => {{
+	{< $runtime:ty > ( $runner:ident, |$components:ident, $config:ident| $( $code:tt )* )} => {{
 		$runner.async_run(|$config| {
 			let $components = new_partial::<$runtime>(&$config)?;
 			let task_manager = $components.task_manager;
@@ -133,7 +133,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -141,7 +141,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -149,7 +149,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -167,7 +167,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -175,7 +175,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -183,7 +183,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.database))
 						})
 					}
@@ -201,7 +201,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -209,7 +209,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -217,7 +217,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, config.chain_spec))
 						})
 					}
@@ -235,7 +235,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -243,7 +243,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -251,7 +251,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.import_queue))
 						})
 					}
@@ -269,7 +269,7 @@ pub fn run() -> Result<()> {
 				))]
 				NetworkVariant::Testnet => {
 					construct_async_run! {
-						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_rococo_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -277,7 +277,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-kusama")]
 				NetworkVariant::Canary => {
 					construct_async_run! {
-						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_kusama_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}
@@ -285,7 +285,7 @@ pub fn run() -> Result<()> {
 				#[cfg(feature = "acurast-mainnet")]
 				NetworkVariant::Mainnet => {
 					construct_async_run! {
-						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, cli, cmd, config| {
+						<acurast_mainnet_runtime::apis::RuntimeApi>(runner, |components, config| {
 							Ok(cmd.run(components.client, components.backend, None))
 						})
 					}

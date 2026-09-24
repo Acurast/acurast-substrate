@@ -96,8 +96,9 @@ cumulus-primitives-aura = { workspace = true }
 color-print = "0.3.4"
 
 # Tunnel server
-tunnel-server = { version = "0.1.5", git = "https://github.com/Acurast/quic-tunnel", tag = "0.1.5" }
+tunnel-server = { version = "0.1.6", git = "https://github.com/Acurast/quic-tunnel", tag = "0.1.6" }
 anyhow = "1"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 [dev-dependencies]
 bigdecimal = "0.4"

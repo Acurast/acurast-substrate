@@ -15,11 +15,11 @@ use sp_std::prelude::*;
 use crate::{
 	BalanceFor, BlockAuthorProvider, CollatorRewards, CommitMetricsInfo, Commitments,
 	ComputeBasedRewards, Config, CurrentCycle, CycleFor, EpochOf, Error, InflationEnabled,
-	InflationInfo, InflationInfoFor, LastMetricPoolId, Metric, MetricCommit, MetricCommitFor,
-	MetricPool, MetricPoolConfigValues, MetricPoolFor, MetricPoolLookup, MetricPoolName,
-	MetricPoolUpdateInfo, MetricPools, Metrics, MetricsEpochSum, NextCommitmentId, Pallet,
-	ProcessorState, ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget,
-	RewardContributionProvider, RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
+	InflationInfo, InflationInfoFor, LastMetricPoolId, Metric, MetricCommit, MetricPool,
+	MetricPoolConfigValues, MetricPoolFor, MetricPoolLookup, MetricPoolName, MetricPoolUpdateInfo,
+	MetricPools, Metrics, MetricsEpochSum, NextCommitmentId, Pallet, ProcessorState,
+	ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget, RewardContributionProvider,
+	RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -600,7 +600,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			<Metrics<T, I>>::insert(
 				processor,
 				pool_id,
-				MetricCommitFor::<T> { epoch: Zero::zero(), metric: Default::default() },
+				crate::MetricCommitFor::<T> { epoch: Zero::zero(), metric: Default::default() },
 			);
 		}
 	}

@@ -518,6 +518,9 @@ pub fn run() -> Result<()> {
 						acme_staging: cli.run.tunnel.tunnel_acme_staging,
 						acme_renew_days_before_expiry: cli.run.tunnel.tunnel_acme_renew_days,
 						auth_handler: None,
+						acme_directory_url: None,
+						acme_root_ca_path: None,
+						h2_keepalive: Default::default(),
 					})
 				} else {
 					None

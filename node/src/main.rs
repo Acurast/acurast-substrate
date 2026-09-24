@@ -13,5 +13,6 @@ mod rpc;
 mod service;
 
 fn main() -> sc_cli::Result<()> {
+	let _ = rustls::crypto::ring::default_provider().install_default();
 	command::run()
 }

@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-common"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "asn1",
  "base58",
@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-kusama-runtime"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-mainnet-runtime"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -216,7 +216,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-node"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-mainnet-runtime",
@@ -255,6 +255,7 @@ dependencies = [
  "polkadot-cli",
  "polkadot-primitives",
  "polkadot-service",
+ "rustls",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -298,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-p256-crypto"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -331,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-rococo-runtime"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-p256-crypto",
  "acurast-runtime-common",
@@ -420,7 +421,7 @@ dependencies = [
 
 [[package]]
 name = "acurast-runtime-common"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-p256-crypto",
  "cumulus-pallet-aura-ext",
@@ -1559,30 +1560,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
-name = "aws-lc-rs"
-version = "1.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4342d8937fc7e5dd9b1c60292261c0670c882a2cd1719cfc11b1af41731e32ad"
-dependencies = [
- "aws-lc-sys",
- "untrusted 0.7.1",
- "zeroize",
-]
-
-[[package]]
-name = "aws-lc-sys"
-version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d9ceb1da931507a12f4fccea479dccd00da1943e1b4ae72d8e502d707361444"
-dependencies = [
- "cc",
- "cmake",
- "dunce",
- "fs_extra",
- "pkg-config",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2293,15 +2270,6 @@ name = "clap_lex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
-
-[[package]]
-name = "cmake"
-version = "0.1.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "coarsetime"
@@ -5079,12 +5047,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs_extra"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6172,7 +6134,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f05ad37c421b962354c358d347d4a6130151df9407978372d3ad7f0c8f71a64"
 dependencies = [
  "async-trait",
- "aws-lc-rs",
  "base64 0.22.1",
  "bytes",
  "http 1.4.2",
@@ -6183,6 +6144,7 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "rcgen 0.14.8",
+ "ring 0.17.14",
  "rustls",
  "rustls-pki-types",
  "serde",
@@ -8287,7 +8249,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -8311,7 +8273,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-candidate-preselection"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "base64 0.13.1",
@@ -8338,7 +8300,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-compute"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -8366,7 +8328,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-ibc"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "alloy-sol-types",
  "cumulus-primitives-core",
@@ -8398,7 +8360,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-hyperdrive-token"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "alloy-sol-types",
  "cumulus-primitives-core",
@@ -8430,7 +8392,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-marketplace"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "acurast-reputation",
@@ -8468,7 +8430,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-processor-manager"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -8489,7 +8451,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-rewards-treasury"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "frame-benchmarking",
@@ -8512,7 +8474,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-token-claim"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "cfg-if",
  "derive_more 0.99.20",
@@ -8536,7 +8498,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-acurast-token-conversion"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "acurast-common",
  "cfg-if",
@@ -12083,7 +12045,6 @@ version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57f6d249aad744e274e682777a50283a225a32705394ee6d5fcc01efa25e4055"
 dependencies = [
- "aws-lc-rs",
  "pem",
  "ring 0.17.14",
  "rustls-pki-types",
@@ -12584,7 +12545,6 @@ version = "0.23.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b92b125634d9b795e7beca796cc790df15a7fb38323bf3196fda83292d06b1f"
 dependencies = [
- "aws-lc-rs",
  "log",
  "once_cell",
  "ring 0.17.14",
@@ -12689,7 +12649,6 @@ version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
- "aws-lc-rs",
  "ring 0.17.14",
  "rustls-pki-types",
  "untrusted 0.9.0",
@@ -16981,12 +16940,13 @@ dependencies = [
 
 [[package]]
 name = "tunnel-common"
-version = "0.1.5"
-source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.5#b9a804bc788a38726def90f2ef7ed6ee636faa16"
+version = "0.1.6"
+source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.6#153a1e5bf138789f76c654d2c54ceda88827177b"
 dependencies = [
  "anyhow",
  "bytes",
  "h2 0.4.15",
+ "instant-acme",
  "rcgen 0.14.8",
  "rustls",
  "sha2 0.10.9",
@@ -16996,8 +16956,8 @@ dependencies = [
 
 [[package]]
 name = "tunnel-server"
-version = "0.1.5"
-source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.5#b9a804bc788a38726def90f2ef7ed6ee636faa16"
+version = "0.1.6"
+source = "git+https://github.com/Acurast/quic-tunnel?tag=0.1.6#153a1e5bf138789f76c654d2c54ceda88827177b"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -18564,7 +18524,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d43b0f71ce057da06bc0851b23ee24f3f86190b07203dd8f567d0b706a185202"
 dependencies = [
  "asn1-rs 0.7.2",
- "aws-lc-rs",
  "data-encoding",
  "der-parser 10.0.0",
  "lazy_static",

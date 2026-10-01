@@ -11,7 +11,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-pub type AuthenticatorData = BoundedVec<u8, ConstU32<37>>;
+pub type AuthenticatorData = BoundedVec<u8, ConstU32<256>>;
 pub type ClientDataContext = (BoundedVec<u8, ConstU32<500>>, BoundedVec<u8, ConstU32<500>>);
 pub type MessagePrefix = BoundedVec<u8, ConstU32<100>>;
 

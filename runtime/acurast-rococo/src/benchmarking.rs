@@ -4,16 +4,17 @@ use frame_support::{
 	traits::{tokens::currency::Currency, Get, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_acurast_compute::ComputeCommitment;
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::Perquintill;
-use sp_std::vec;
+use sp_runtime::{FixedU128, Perbill, Perquintill};
+use sp_std::{vec, vec::Vec};
 
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
 	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
 	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, JobId, JobModules, MultiOrigin, PoolId, StoredAttestation,
-	StoredJobRegistration,
+	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, MultiOrigin, PoolId,
+	StoredAttestation, StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignedProcessors, Assignment, AssignmentStrategy, ExecutionSpecifier,
@@ -33,17 +34,65 @@ define_benchmarks!(
 	// [pallet_verify_signature, VerifySignature]
 	[pallet_multisig, Multisig]
 	[pallet_balances, Balances]
-	//[pallet_collator_selection, CollatorSelection]
+	[pallet_transaction_payment, TransactionPayment]
+	[pallet_collator_selection, CollatorSelection]
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_message_queue, MessageQueue]
+	[cumulus_pallet_parachain_system, ParachainSystem]
+	[cumulus_pallet_xcmp_queue, XcmpQueue]
+	[cumulus_pallet_weight_reclaim, WeightReclaim]
+	[pallet_scheduler, Scheduler]
+	[pallet_preimage, Preimage]
+	[pallet_utility, Utility]
+	[pallet_proxy, Proxy]
+	[pallet_vesting, Vesting]
+	[pallet_referenda, Referenda]
+	[pallet_conviction_voting, ConvictionVoting]
+	[pallet_treasury, Treasury]
+	[pallet_collective, Council]
+	[pallet_membership, CouncilMembership]
+	[pallet_treasury, OperationFunds]
+	[pallet_treasury, LiquidityFunds]
+	[pallet_treasury, ExtraFunds]
+	[pallet_xcm, pallet_xcm::benchmarking::Pallet::<Runtime>]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
-	[pallet_acurast_processor_manager::onboaring::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
-	[pallet_acurast_marketplace, AcurastMarketplace]	[pallet_acurast_compute, AcurastCompute]
+	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
+	[pallet_acurast_marketplace, AcurastMarketplace]
+	[pallet_acurast_compute, AcurastCompute]
 	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
 );
+
+// The benchmark endows its own caller and the default `setup_benchmark_environment` is a
+// no-op, so nothing extra is needed here.
+impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
+impl pallet_xcm::benchmarking::Config for Runtime {
+	// `()`/`()`: no existential deposit or delivery price, matching `ParentAsUmp<_, (), ()>`.
+	type DeliveryHelper =
+		cumulus_primitives_utility::ToParentDeliveryHelper<crate::xcm_config::XcmConfig, (), ()>;
+
+	fn reachable_dest() -> Option<xcm::latest::Location> {
+		Some(xcm::latest::Parent.into())
+	}
+
+	fn reserve_transferable_asset_and_dest() -> Option<(xcm::latest::Asset, xcm::latest::Location)>
+	{
+		acurast_runtime_common::benchmarking::xcm_reserve_transferable_asset_and_dest::<Runtime>()
+	}
+
+	fn set_up_complex_asset_transfer(
+	) -> Option<(xcm::latest::Assets, u32, xcm::latest::Location, sp_std::boxed::Box<dyn FnOnce()>)>
+	{
+		acurast_runtime_common::benchmarking::xcm_set_up_complex_asset_transfer::<Runtime>()
+	}
+
+	fn get_asset() -> xcm::latest::Asset {
+		acurast_runtime_common::benchmarking::xcm_get_asset::<Runtime>()
+	}
+}
 
 fn create_funded_user(
 	string: &'static str,
@@ -77,6 +126,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			available_modules: JobModules::default(),
 		};
 		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
+		AcurastCompute::commit(&processor, &(processor.clone(), 1), &Self::min_metrics());
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
 				slots: 1,
@@ -104,7 +154,7 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn min_metrics() -> pallet_acurast::Metrics {
 		(1..=AcurastCompute::last_metric_pool_id())
 			.map(|pool_id| (pool_id, 1, 2))
-			.collect::<sp_std::vec::Vec<_>>()
+			.collect::<Vec<_>>()
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
@@ -229,7 +279,7 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		AcurastCompute::create_pool(
 			RuntimeOrigin::root(),
 			name,
-			Perquintill::from_percent(25),
+			Perquintill::from_percent(1),
 			Default::default(),
 		)
 		.expect("Expecting that pool creation always succeeds");
@@ -240,7 +290,30 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		_ = AcurastCompute::enable_inflation(RuntimeOrigin::root());
 	}
 
-	fn commit(_manager: &<Runtime as frame_system::Config>::AccountId) {}
+	fn commit(manager: &<Runtime as frame_system::Config>::AccountId) {
+		let amount = Balances::free_balance(manager) / 2;
+		let pool_ids = (1..=AcurastCompute::last_metric_pool_id()).collect::<Vec<_>>();
+		let commitments = pool_ids
+			.into_iter()
+			.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
+			.collect::<Vec<_>>();
+		AcurastCompute::offer_backing(RuntimeOrigin::signed(manager.clone()), manager.clone())
+			.expect("offer backing success");
+		AcurastCompute::accept_backing_offer(
+			RuntimeOrigin::signed(manager.clone()),
+			manager.clone(),
+		)
+		.expect("accpet backing offer success");
+		AcurastCompute::commit_compute(
+			RuntimeOrigin::signed(manager.clone()),
+			amount,
+			<Runtime as pallet_acurast_compute::Config>::MinCooldownPeriod::get(),
+			commitments.try_into().expect("conversion to BoundedVec works"),
+			Perbill::from_percent(1),
+			false,
+		)
+		.expect("commit compute success");
+	}
 
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
@@ -255,6 +328,14 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			.expect("manager id creation success");
 		AcurastProcessorManager::do_add_processor_manager_pairing(processor, manager_id)
 			.expect("pairing success");
+	}
+
+	fn warmup_period() -> BlockNumberFor<Runtime> {
+		<Runtime as pallet_acurast_compute::Config>::WarmupPeriod::get()
+	}
+
+	fn epoch() -> BlockNumberFor<Runtime> {
+		<Runtime as pallet_acurast_compute::Config>::Epoch::get()
 	}
 
 	fn setup_unpaired_cleanup(processor: &<Runtime as frame_system::Config>::AccountId) {

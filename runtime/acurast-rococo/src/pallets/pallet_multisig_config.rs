@@ -10,5 +10,5 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type BlockNumberProvider = frame_system::Pallet<Self>;
-	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_multisig::WeightInfo<Runtime>;
 }

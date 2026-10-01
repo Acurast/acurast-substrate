@@ -854,7 +854,7 @@ pub mod pallet {
 
 					<DeploymentKeyIds<T>>::insert(deployment_hash, key_id);
 
-					// we only ever write once to his map on the creation of the job, so the key_id is immutable for the lifetime of a job
+					// we only ever write once to this map on the creation of the job, so the key_id is immutable for the lifetime of a job
 					<JobKeyIds<T>>::insert(&job_id, key_id);
 				},
 			};

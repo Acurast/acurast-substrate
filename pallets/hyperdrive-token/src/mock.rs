@@ -77,6 +77,8 @@ impl pallet_acurast_hyperdrive_ibc::Config for Test {
 	type ParachainId = ParachainId;
 	type SelfChain = SelfChain;
 	type WeightInfo = pallet_acurast_hyperdrive_ibc::weights::WeightInfo<Test>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {

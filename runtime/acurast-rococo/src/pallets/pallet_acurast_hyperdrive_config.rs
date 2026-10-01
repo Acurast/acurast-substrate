@@ -39,6 +39,10 @@ impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {
 	type ParachainId = ParachainInfo;
 	type SelfChain = SelfChain;
 	type WeightInfo = weight::pallet_acurast_hyperdrive_ibc::WeightInfo<Self>;
+	// `SelfChain` is `AcurastCanary`, so `receive_message` only accepts `AcurastCanary`
+	// recipients and never reaches the `Acurast` token route of `HyperdriveMessageProcessor`.
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {

@@ -21,5 +21,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-	type WeightInfo = ();
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_transaction_payment::WeightInfo<Runtime>;
 }

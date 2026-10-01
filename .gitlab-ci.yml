@@ -179,8 +179,8 @@ publish-dockerhub-dev-experimental:
   variables:
     BENCH_STEPS: "50"
     BENCH_REPEAT: "20"
-    # Pallets listed here are benchmarked a second time at BENCH_REPEAT_HIGH, overwriting their
-    # weight file from the main pass. For pallets whose components span only a handful of values the
+    # Pallets listed here are benchmarked a second time at BENCH_REPEAT_HIGH with median-slopes
+    # analysis, overwriting their weight file from the main pass. For pallets whose components span only a handful of values the
     # least-squares intercept is noise-dominated at 20 repeats; see the comment in ci/benchmark.sh.
     # Set BENCH_PALLETS_HIGH_REPEAT to "" to skip the pass.
     BENCH_REPEAT_HIGH: "100"

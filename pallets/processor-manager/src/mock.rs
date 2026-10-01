@@ -249,6 +249,14 @@ impl crate::BenchmarkHelper<Test> for () {
 
 	fn on_initialize(_block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
 
+	fn warmup_period() -> frame_system::pallet_prelude::BlockNumberFor<Test> {
+		1800
+	}
+
+	fn epoch() -> frame_system::pallet_prelude::BlockNumberFor<Test> {
+		900
+	}
+
 	fn pair_manager_and_processor(
 		_manager: &<Test as frame_system::Config>::AccountId,
 		_processor: &<Test as frame_system::Config>::AccountId,

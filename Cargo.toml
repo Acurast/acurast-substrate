@@ -140,6 +140,7 @@ sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk", default-feat
 sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-version = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
+sp-weights = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }
 pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, tag = "polkadot-stable2606" }

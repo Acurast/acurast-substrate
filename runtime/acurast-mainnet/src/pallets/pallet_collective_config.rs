@@ -32,7 +32,7 @@ impl pallet_collective::Config<CouncilInstance> for Runtime {
 	type KillOrigin = CouncilFourSeventh;
 	type Consideration = ();
 	type MaxProposalWeight = MaxCouncilProposalWeight;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_collective::WeightInfo<Runtime>;
 }
 
 impl pallet_membership::Config<CouncilMembershipInstance> for Runtime {
@@ -45,5 +45,5 @@ impl pallet_membership::Config<CouncilMembershipInstance> for Runtime {
 	type MembershipInitialized = Council;
 	type MembershipChanged = Council;
 	type MaxMembers = MaxMembers;
-	type WeightInfo = pallet_membership::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_membership::WeightInfo<Runtime>;
 }

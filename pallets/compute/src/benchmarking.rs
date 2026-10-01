@@ -163,7 +163,7 @@ fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 		metrics.clone().try_into().unwrap(),
 	)?;
 
-	roll_to_block::<T, I>(current_block + 1901u32.into());
+	roll_to_block::<T, I>(current_block + T::WarmupPeriod::get() + 101u32.into());
 	ProcessorManager::<T>::heartbeat_with_metrics(
 		RawOrigin::Signed(processor.clone()).into(),
 		version,
@@ -176,7 +176,7 @@ fn setup_stake<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 		.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
 		.collect::<Vec<_>>();
 
-	roll_to_block::<T, I>(current_block + 2701u32.into());
+	roll_to_block::<T, I>(current_block + T::WarmupPeriod::get() + T::Epoch::get() + 101u32.into());
 
 	Pallet::<T, I>::offer_backing(RawOrigin::Signed(manager.clone()).into(), manager.clone())?;
 	Pallet::<T, I>::accept_backing_offer(
@@ -258,7 +258,7 @@ fn setup_stakes_many<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 		)?;
 	}
 
-	roll_to_block::<T, I>(current_block + 1901u32.into());
+	roll_to_block::<T, I>(current_block + T::WarmupPeriod::get() + 101u32.into());
 	for (_, processor) in pairs {
 		ProcessorManager::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(processor.clone()).into(),
@@ -273,7 +273,7 @@ fn setup_stakes_many<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 		.map(|pool_id| ComputeCommitment { pool_id, metric: FixedU128::from_rational(5, 1) })
 		.collect::<Vec<_>>();
 
-	roll_to_block::<T, I>(current_block + 2701u32.into());
+	roll_to_block::<T, I>(current_block + T::WarmupPeriod::get() + T::Epoch::get() + 101u32.into());
 
 	for (manager, _) in pairs {
 		Pallet::<T, I>::offer_backing(RawOrigin::Signed(manager.clone()).into(), manager.clone())?;
@@ -281,9 +281,13 @@ fn setup_stakes_many<T: Config<I> + ProcessorManagerConfig, I: 'static>(
 			RawOrigin::Signed(manager.clone()).into(),
 			manager.clone(),
 		)?;
+		// At least the most the redelegation benchmarks delegate to one committer, so that stays
+		// within `MaxDelegationRatio` even where `MinStake` is small.
+		let stake = T::MinStake::get()
+			.max(T::MinDelegation::get().saturating_mul((MAX_REDELEGATIONS as u128).into()));
 		Pallet::<T, I>::commit_compute(
 			RawOrigin::Signed(manager.clone()).into(),
-			T::MinStake::get(),
+			stake,
 			T::MinCooldownPeriod::get(),
 			commitments.clone().try_into().unwrap(),
 			Perbill::from_percent(1),

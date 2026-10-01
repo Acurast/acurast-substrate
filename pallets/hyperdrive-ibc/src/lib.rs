@@ -81,6 +81,8 @@ pub mod pallet {
 		type SelfChain: Get<ProxyAcurastChain>;
 
 		type WeightInfo: WeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self, I>;
 	}
 
 	#[pallet::event]
@@ -246,7 +248,7 @@ pub mod pallet {
 
 		/// Used by a relayer to confirm that a message has been delivered, claiming the message fee.
 		#[pallet::call_index(2)]
-		#[pallet::weight(< T as Config < I >>::WeightInfo::confirm_message_delivery())]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::confirm_message_delivery(signatures.len() as u32))]
 		pub fn confirm_message_delivery(
 			origin: OriginFor<T>,
 			// We only pass the id and retrieve message from runtime storage to ensure the signatures are over the message originally sent (+ the relayer's address).
@@ -322,7 +324,7 @@ pub mod pallet {
 
 		/// Receives messages signed by the oracles.
 		#[pallet::call_index(4)]
-		#[pallet::weight(< T as Config < I >>::WeightInfo::receive_message())]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::receive_message(signatures.len() as u32))]
 		pub fn receive_message(
 			origin: OriginFor<T>,
 			sender: SubjectFor<T>,

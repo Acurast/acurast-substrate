@@ -11,11 +11,12 @@ use sp_std::prelude::*;
 use pallet_acurast::{AccountId20, ContractCall, Layer, MultiOrigin, ProxyAcurastChain, Subject};
 
 use crate::{
-	ActivityWindow, BalanceOf, Call, Config, HoldReason, IncomingMessageWithMetaFor,
-	IncomingMessages, IncomingMessagesLookup, MessageFor, MessageNonce, OraclePublicKeys,
-	OracleUpdate, OutgoingMessageWithMetaFor, OutgoingMessages, OutgoingMessagesLookup, Pallet,
-	Payload, Public, Signatures, SubjectFor, MESSAGES_CLEANUP_MAX_LENGTH,
-	ORACLE_UPDATES_MAX_LENGTH, PUBLIC_KEY_SERIALIZED_SIZE,
+	ActivityWindow, BalanceOf, BenchmarkHelper, Call, Config, HoldReason,
+	IncomingMessageWithMetaFor, IncomingMessages, IncomingMessagesLookup, MessageFor, MessageNonce,
+	OraclePublicKeys, OracleUpdate, OutgoingMessageWithMetaFor, OutgoingMessages,
+	OutgoingMessagesLookup, Pallet, Payload, Public, Signatures, SubjectFor,
+	MESSAGES_CLEANUP_MAX_LENGTH, ORACLE_UPDATES_MAX_LENGTH, PUBLIC_KEY_SERIALIZED_SIZE,
+	SIGNATURES_MAX_LENGTH,
 };
 
 fn set_block<T: Config<I>, I: 'static>(n: BlockNumberFor<T>) {
@@ -40,6 +41,29 @@ where
 		pubs.push(public);
 	}
 	pubs
+}
+
+/// Lowest signature count benchmarked: the highest `Min*ConfirmationSignatures` of the runtimes.
+///
+/// A runtime requiring more fails the benchmark with `NotEnoughSignaturesProvided` rather than
+/// having its samples below the minimum measure the minimum and flatten the per-signature cost.
+const MIN_BENCHMARKED_SIGNATURES: u32 = 3;
+
+/// `n` signatures from distinct active oracles.
+///
+/// The signature is a well-formed one (sp-core's ecdsa test vector), so each verify does a full
+/// public key recovery; benchmark builds skip the check that the recovered key matches.
+fn oracle_signatures<T: Config<I>, I: 'static>(n: u32) -> Signatures
+where
+	BlockNumberFor<T>: From<u32>,
+{
+	const SIGNATURE: [u8; 65] = hex!("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00");
+	seed_active_oracles::<T, I>(n as u8)
+		.into_iter()
+		.map(|p| (SIGNATURE.into(), p))
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap()
 }
 
 fn seed_outgoing_message<T: Config<I>, I: 'static>(
@@ -161,7 +185,9 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn confirm_message_delivery() -> Result<(), BenchmarkError> {
+	fn confirm_message_delivery(
+		n: Linear<MIN_BENCHMARKED_SIGNATURES, SIGNATURES_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
 		let relayer: T::AccountId = whitelisted_caller();
 		let payer: T::AccountId = account("payer", 0, 0);
 
@@ -175,14 +201,7 @@ mod benches {
 
 		let msg = seed_outgoing_message::<T, I>(sender, payer, nonce, recipient, payload, ttl, fee);
 
-		let need = T::MinDeliveryConfirmationSignatures::get() as u8;
-		let public_keys = seed_active_oracles::<T, I>(need.max(1));
-		let signatures: Signatures = public_keys
-			.into_iter()
-			.map(|p| ([0; 65].into(), p))
-			.collect::<Vec<_>>()
-			.try_into()
-			.unwrap();
+		let signatures = oracle_signatures::<T, I>(n);
 		let id = msg.message.id;
 
 		#[extrinsic_call]
@@ -219,22 +238,21 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn receive_message() {
+	fn receive_message(
+		n: Linear<MIN_BENCHMARKED_SIGNATURES, SIGNATURES_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let (recipient, sender) = default_subjects::<T, I>();
+		let (sender, recipient, payload) = T::BenchmarkHelper::worst_case_incoming_message()
+			.unwrap_or_else(|| {
+				let (recipient, sender) = default_subjects::<T, I>();
+				(sender, recipient, b"incoming".to_vec())
+			});
 		let relayer = MultiOrigin::Acurast(account::<T::AccountId>("relayer", 0, 0));
 
 		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());
-		let payload = b"incoming".to_vec();
 
-		let need = T::MinReceiptConfirmationSignatures::get() as u8;
-		let public_keys = seed_active_oracles::<T, I>(need.max(1));
-		let signatures: Signatures = public_keys
-			.into_iter()
-			.map(|p| ([0; 65].into(), p))
-			.collect::<Vec<_>>()
-			.try_into()
-			.unwrap();
+		let signatures = oracle_signatures::<T, I>(n);
+		let id = Pallet::<T, I>::message_id(&sender, nonce);
 
 		#[extrinsic_call]
 		_(
@@ -246,6 +264,14 @@ mod benches {
 			relayer,
 			signatures,
 		);
+
+		// The call succeeds even if processing fails, so make sure the setup took the intended route
+		// rather than silently measuring an early processing error.
+		let message =
+			IncomingMessages::<T, I>::get(id).ok_or(BenchmarkError::Stop("not stored"))?;
+		System::<T>::assert_last_event(crate::Event::<T, I>::MessageProcessed { message }.into());
+
+		Ok(())
 	}
 
 	#[benchmark]

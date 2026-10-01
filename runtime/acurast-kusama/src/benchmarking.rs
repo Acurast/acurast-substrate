@@ -31,21 +31,70 @@ define_benchmarks!(
 	[frame_system, SystemBench::<Runtime>]
 	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_balances, Balances]
+	[pallet_transaction_payment, TransactionPayment]
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_timestamp, Timestamp]
 	// [pallet_verify_signature, VerifySignature]
-	//[pallet_collator_selection, CollatorSelection]
+	[pallet_collator_selection, CollatorSelection]
 	[pallet_message_queue, MessageQueue]
+	[cumulus_pallet_parachain_system, ParachainSystem]
+	[cumulus_pallet_xcmp_queue, XcmpQueue]
+	[cumulus_pallet_weight_reclaim, WeightReclaim]
+	[pallet_scheduler, Scheduler]
+	[pallet_preimage, Preimage]
+	[pallet_multisig, Multisig]
+	[pallet_utility, Utility]
+	[pallet_proxy, Proxy]
+	[pallet_vesting, Vesting]
+	[pallet_referenda, Referenda]
+	[pallet_conviction_voting, ConvictionVoting]
+	[pallet_treasury, Treasury]
+	[pallet_collective, Council]
+	[pallet_membership, CouncilMembership]
+	[pallet_treasury, OperationFunds]
+	[pallet_treasury, LiquidityFunds]
+	[pallet_treasury, ExtraFunds]
+	[pallet_xcm, pallet_xcm::benchmarking::Pallet::<Runtime>]
 	[pallet_acurast, Acurast]
 	[pallet_acurast_processor_manager, AcurastProcessorManager]
 	[pallet_acurast_processor_manager::onboarding::extension, pallet_acurast_processor_manager::onboarding::extension::benchmarking::Pallet::<Runtime>]
-	[pallet_acurast_marketplace, AcurastMarketplace]	[pallet_acurast_compute, AcurastCompute]
+	[pallet_acurast_marketplace, AcurastMarketplace]
+	[pallet_acurast_compute, AcurastCompute]
 	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
 	[pallet_acurast_token_conversion, AcurastTokenConversion]
 	[pallet_acurast_token_claim, AcurastTokenClaim]
 );
+
+// The benchmark endows its own caller and the default `setup_benchmark_environment` is a
+// no-op, so nothing extra is needed here.
+impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
+impl pallet_xcm::benchmarking::Config for Runtime {
+	// `()`/`()`: no existential deposit or delivery price, matching `ParentAsUmp<_, (), ()>`.
+	type DeliveryHelper =
+		cumulus_primitives_utility::ToParentDeliveryHelper<crate::xcm_config::XcmConfig, (), ()>;
+
+	fn reachable_dest() -> Option<xcm::latest::Location> {
+		Some(xcm::latest::Parent.into())
+	}
+
+	fn reserve_transferable_asset_and_dest() -> Option<(xcm::latest::Asset, xcm::latest::Location)>
+	{
+		acurast_runtime_common::benchmarking::xcm_reserve_transferable_asset_and_dest::<Runtime>()
+	}
+
+	fn set_up_complex_asset_transfer(
+	) -> Option<(xcm::latest::Assets, u32, xcm::latest::Location, sp_std::boxed::Box<dyn FnOnce()>)>
+	{
+		acurast_runtime_common::benchmarking::xcm_set_up_complex_asset_transfer::<Runtime>()
+	}
+
+	fn get_asset() -> xcm::latest::Asset {
+		acurast_runtime_common::benchmarking::xcm_get_asset::<Runtime>()
+	}
+}
 
 fn create_funded_user(
 	string: &'static str,
@@ -278,6 +327,14 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 	fn on_initialize(block_number: BlockNumberFor<Runtime>) {
 		AcurastCompute::on_initialize(block_number);
 	}
+	fn warmup_period() -> BlockNumberFor<Runtime> {
+		<Runtime as pallet_acurast_compute::Config>::WarmupPeriod::get()
+	}
+
+	fn epoch() -> BlockNumberFor<Runtime> {
+		<Runtime as pallet_acurast_compute::Config>::Epoch::get()
+	}
+
 	fn setup_unpaired_cleanup(processor: &<Runtime as frame_system::Config>::AccountId) {
 		// `Config::OnProcessorUnpaired` is `(Acurast, AcurastCompute, AcurastMarketplace)`: fill
 		// everything the three hooks remove, so unpairing measures their worst case.

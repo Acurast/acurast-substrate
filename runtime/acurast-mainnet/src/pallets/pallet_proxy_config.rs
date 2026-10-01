@@ -31,7 +31,7 @@ impl pallet_proxy::Config for Runtime {
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 	type BlockNumberProvider = System;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_proxy::WeightInfo<Runtime>;
 }
 
 /// The type used to represent the kinds of proxying allowed.

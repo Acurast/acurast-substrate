@@ -9,7 +9,7 @@ use crate::{
 /// Runtime configuration for pallet_preimage.
 impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_preimage::WeightInfo<Runtime>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureCouncilOrRoot;
 	type Consideration = HoldConsideration<

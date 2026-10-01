@@ -750,7 +750,8 @@ benchmarks! {
 	}: _(RawOrigin::Signed(consumer), job_ids.try_into().unwrap())
 
 	cleanup_storage {
-		let x in 1..u8::MAX.into();
+		// A job holds at most two executions' worth of assigned processors.
+		let x in 1 .. 2 * <T as pallet_acurast::Config>::MaxSlots::get();
 		set_timestamp::<T>(BENCH_NOW);
 		let job_id = cleanup_storage_helper::<T>(None, x as u8)?;
 	}: _(RawOrigin::Root, job_id, x as u8)

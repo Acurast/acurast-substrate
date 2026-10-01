@@ -15,7 +15,6 @@ mod constants;
 mod pallets;
 mod types;
 mod utils;
-mod weights;
 pub mod xcm_config;
 
 pub use acurast_runtime_common::types::Balance;

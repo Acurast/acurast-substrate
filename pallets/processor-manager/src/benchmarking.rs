@@ -30,6 +30,10 @@ pub trait BenchmarkHelper<T: Config> {
 	fn commit(manager: &T::AccountId);
 	fn pair_manager_and_processor(manager: &T::AccountId, processor: &T::AccountId);
 	fn on_initialize(block_number: BlockNumberFor<T>);
+	/// The runtime's `pallet_acurast_compute::Config::WarmupPeriod`.
+	fn warmup_period() -> BlockNumberFor<T>;
+	/// The runtime's `pallet_acurast_compute::Config::Epoch`.
+	fn epoch() -> BlockNumberFor<T>;
 	/// Fills all storage that `T::OnProcessorUnpaired` removes for `processor`, so that removing a
 	/// pairing measures the worst case of the cleanup hooks configured for the runtime.
 	fn setup_unpaired_cleanup(processor: &T::AccountId);
@@ -71,6 +75,16 @@ where
 		System::<T>::set_block_number(block.into());
 		T::BenchmarkHelper::on_initialize(block.into());
 	}
+}
+
+/// A block `epochs` epochs after the warmup started by a heartbeat at block 100 has passed.
+///
+/// Each epoch step lands in the next compute epoch whatever the runtime's `Epoch` is, so a commit
+/// there sees the metrics of the previous step as the last completed epoch's.
+fn after_warmup<T: Config>(epochs: u32) -> BlockNumberFor<T> {
+	T::BenchmarkHelper::warmup_period()
+		+ T::BenchmarkHelper::epoch() * epochs.into()
+		+ 101u32.into()
 }
 
 pub fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
@@ -223,15 +237,15 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
 			version,
 			values.clone().try_into().unwrap(),
 		)?;
 
-		roll_to_block::<T>(2701u32.into());
+		roll_to_block::<T>(after_warmup::<T>(1));
 		T::BenchmarkHelper::commit(&manager);
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -239,8 +253,7 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(3601u32.into());
+		roll_to_block::<T>(after_warmup::<T>(2));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), version);
@@ -270,8 +283,8 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 
 		#[extrinsic_call]
 		heartbeat_with_version(RawOrigin::Signed(caller), version);
@@ -301,15 +314,15 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
 			version,
 			values.clone().try_into().unwrap(),
 		)?;
 
-		roll_to_block::<T>(2701u32.into());
+		roll_to_block::<T>(after_warmup::<T>(1));
 
 		#[extrinsic_call]
 		heartbeat_with_version(RawOrigin::Signed(caller), version);
@@ -338,15 +351,15 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
 			version,
 			values.clone().try_into().unwrap(),
 		)?;
 
-		roll_to_block::<T>(2701u32.into());
+		roll_to_block::<T>(after_warmup::<T>(1));
 		T::BenchmarkHelper::commit(&manager);
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -354,8 +367,7 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(3601u32.into());
+		roll_to_block::<T>(after_warmup::<T>(2));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), version, values.try_into().unwrap());
@@ -386,8 +398,8 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 
 		#[extrinsic_call]
 		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());
@@ -418,15 +430,15 @@ mod benchmarks {
 			values.clone().try_into().unwrap(),
 		)?;
 
-		// make sure warmup of 1800 block passed
-		roll_to_block::<T>(1901u32.into());
+		// make sure warmup passed
+		roll_to_block::<T>(after_warmup::<T>(0));
 		Pallet::<T>::heartbeat_with_metrics(
 			RawOrigin::Signed(caller.clone()).into(),
 			version,
 			values.clone().try_into().unwrap(),
 		)?;
 
-		roll_to_block::<T>(2701u32.into());
+		roll_to_block::<T>(after_warmup::<T>(1));
 
 		#[extrinsic_call]
 		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());

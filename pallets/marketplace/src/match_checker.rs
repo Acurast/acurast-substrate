@@ -692,7 +692,7 @@ impl<T: Config> Pallet<T> {
 							.checked_add(schedule.duration)
 							.ok_or(Error::<T>::CalculationOverflow)?;
 
-						if other.schedule.overlaps(start_delay, (start, end)) {
+						if other.schedule.overlaps(assignment.start_delay, (start, end)) {
 							Err(Error::<T>::ScheduleOverlapInMatch)?;
 						}
 					},

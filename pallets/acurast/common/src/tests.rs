@@ -339,7 +339,7 @@ tests! {
 				max_start_delay: 0,
 			},
 			0,
-			vec![((5,6), true), ((6,7), true), ((7,8), false), ((12, 16), false)]
+			vec![((5,6), true), ((6,7), true), ((7,8), false), ((12, 16), false), ((3, 9), true), ((8, 14), true)]
 		);
 		//    ╭start     ╭end
 		// ___□□■■_□□■■_□□■■
@@ -380,6 +380,18 @@ tests! {
 			},
 			0,
 			vec![((0,1), false), ((0,2), false)]
+		);
+		// range starting before a schedule whose start_time % interval >= duration
+		test_schedule_overlaps_range_starts_before(
+			Schedule{
+				duration: 300_000,
+				start_time: 1_790_748_953_449,
+				end_time: 1_793_340_953_450,
+				interval: 86_400_000,
+				max_start_delay: 10_000,
+			},
+			0,
+			vec![((1_790_747_930_173, 1_790_834_330_173), true), ((1_790_747_930_173, 1_790_748_953_449), false)]
 		);
 	}
 }

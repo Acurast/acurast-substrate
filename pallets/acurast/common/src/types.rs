@@ -450,9 +450,11 @@ impl Schedule {
 		if b <= a || start == end || b <= start || end <= a {
 			return false;
 		}
+		if b - a >= self.interval {
+			return true;
+		}
 
-		// if query interval `[a, b]` starts before, we can pretend it only starts at `start`
-		let relative_a = a.checked_sub(start).unwrap_or(start);
+		let relative_a = a.saturating_sub(start);
 
 		if let Some(relative_b) = b.checked_sub(start) {
 			let a = relative_a % self.interval;

@@ -64,6 +64,15 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 	type WeightInfo = weight::pallet_acurast_hyperdrive_token::WeightInfo<Runtime>;
 }
 
+/// The [`HyperdriveTokenPalletAccount`] as recipient subject on [`SelfChain`].
+fn token_pallet_subject() -> SubjectFor<Runtime> {
+	let layer = LayerFor::<Runtime>::Extrinsic(HyperdriveTokenPalletAccount::get());
+	match SelfChain::get() {
+		ProxyAcurastChain::Acurast => SubjectFor::<Runtime>::Acurast(layer),
+		ProxyAcurastChain::AcurastCanary => SubjectFor::<Runtime>::AcurastCanary(layer),
+	}
+}
+
 /// Controls routing for incoming HyperdriveIBC messages.
 ///
 /// Forwards messages with
@@ -71,10 +80,7 @@ impl pallet_acurast_hyperdrive_token::Config<Instance1> for Runtime {
 pub struct HyperdriveMessageProcessor;
 impl MessageProcessor<AccountId, AccountId> for HyperdriveMessageProcessor {
 	fn process(message: impl MessageBody<AccountId, AccountId>) -> DispatchResultWithPostInfo {
-		if &SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
-			HyperdriveTokenPalletAccount::get(),
-		)) == message.recipient()
-		{
+		if &token_pallet_subject() == message.recipient() {
 			AcurastHyperdriveToken::process(message)
 		} else {
 			// Unknown recipient (e.g. removed job-operation or token-conversion routes): no-op.
@@ -113,9 +119,7 @@ impl pallet_acurast_hyperdrive_ibc::BenchmarkHelper<Runtime, Instance1> for IbcB
 				contract,
 				selector: None,
 			})),
-			SubjectFor::<Runtime>::Acurast(LayerFor::<Runtime>::Extrinsic(
-				HyperdriveTokenPalletAccount::get(),
-			)),
+			token_pallet_subject(),
 			payload.to_vec(),
 		))
 	}

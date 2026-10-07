@@ -5,7 +5,8 @@ use crate::stub::{alice_account_id, generate_account};
 use super::*;
 
 use acurast_common::{
-	AttestationChain, ListUpdateOperation, MetricInput, PoolId, Version, METRICS_MAX_LENGTH,
+	AdvertisementHandler, AttestationChain, ListUpdateOperation, MetricInput, MultiOrigin, PoolId,
+	Version, METRICS_MAX_LENGTH,
 };
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -14,6 +15,7 @@ use frame_support::{
 		AccountId32,
 	},
 	traits::{Get, IsType},
+	BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use hex_literal::hex;
@@ -60,6 +62,34 @@ where
 fn pair<T: Config>(manager: &T::AccountId, processor: &T::AccountId) -> Result<(), BenchmarkError> {
 	let (manager_id, _) = Pallet::<T>::do_get_or_create_manager_id(manager)?;
 	Pallet::<T>::do_add_processor_manager_pairing(processor, manager_id)?;
+
+	Ok(())
+}
+
+/// The largest allowed consumers list.
+fn max_allowed_consumers<T: Config>(
+) -> BoundedVec<MultiOrigin<T::AccountId>, T::MaxAllowedConsumers>
+where
+	T::AccountId: From<AccountId32>,
+{
+	(0..T::MaxAllowedConsumers::get())
+		.map(|i| MultiOrigin::Acurast(generate_account(i).into()))
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap()
+}
+
+/// Pairs `processor` with `manager` and stores the largest allowed consumers list for it.
+fn pair_with_max_advertisement<T: Config>(
+	manager: &T::AccountId,
+	processor: &T::AccountId,
+) -> Result<(), BenchmarkError>
+where
+	T::AccountId: From<AccountId32>,
+{
+	pair::<T>(manager, processor)?;
+	T::AdvertisementHandler::advertise_for(processor, T::BenchmarkHelper::advertisement())?;
+	T::AdvertisementHandler::update_allowed_consumers(processor, max_allowed_consumers::<T>())?;
 
 	Ok(())
 }
@@ -206,11 +236,25 @@ mod benchmarks {
 		let caller: T::AccountId = alice_account_id().into();
 		whitelist_account!(caller);
 		let processor: T::AccountId = generate_account(1).into();
-		pair::<T>(&caller, &processor)?;
+		pair_with_max_advertisement::<T>(&caller, &processor)?;
 		let ad = T::BenchmarkHelper::advertisement();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), processor.into().into(), ad);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_allowed_consumers() -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(1000);
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+		let processor: T::AccountId = generate_account(1).into();
+		pair_with_max_advertisement::<T>(&caller, &processor)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), processor.into().into(), max_allowed_consumers::<T>());
 
 		Ok(())
 	}

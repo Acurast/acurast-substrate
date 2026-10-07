@@ -4,7 +4,7 @@ use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{
 		traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
-		DispatchError, FixedPointNumber, Permill, SaturatedConversion,
+		DispatchError, FixedPointNumber, Permill,
 	},
 	traits::UnixTime,
 };
@@ -121,13 +121,6 @@ impl<T: Config> Pallet<T> {
 						Error::<T>::ModuleNotAvailableInMatch
 					);
 				}
-
-				// CHECK network request quota sufficient
-				Self::check_network_request_quota_sufficient(
-					&ad,
-					&registration.schedule,
-					registration.network_requests,
-				)?;
 
 				// CHECK source is whitelisted
 				ensure!(
@@ -340,13 +333,6 @@ impl<T: Config> Pallet<T> {
 					);
 				}
 
-				// CHECK network request quota sufficient
-				Self::check_network_request_quota_sufficient(
-					&ad,
-					&registration.schedule,
-					registration.network_requests,
-				)?;
-
 				// CHECK source is whitelisted
 				ensure!(
 					is_processor_allowed::<T>(
@@ -500,34 +486,6 @@ impl<T: Config> Pallet<T> {
 
 			Ok::<_, DispatchError>(())
 		})?;
-		Ok(())
-	}
-
-	// `unwrap_or(0)` below is deliberate, not a missed `saturating_mul` — see the comment inside.
-	#[allow(clippy::manual_saturating_arithmetic)]
-	fn check_network_request_quota_sufficient(
-		ad: &AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
-		schedule: &Schedule,
-		network_requests: u32,
-	) -> Result<(), Error<T>> {
-		// CHECK network request quota sufficient
-		ensure!(
-			// duration (s) * network_request_quota >= network_requests (per second)
-			// <=>
-			// duration (ms) / 1000 * network_request_quota >= network_requests (per second)
-			// <=>
-			// duration (ms) * network_request_quota >= network_requests (per second) * 1000
-			//
-			// NOT `saturating_mul`: on overflow this side must collapse to 0 so the `ensure!` fails
-			// and the match is rejected. `saturating_mul` would yield `u64::MAX` and accept it
-			// instead, turning a fail-closed check into a fail-open one.
-			schedule.duration.checked_mul(ad.network_request_quota.into()).unwrap_or(0u64)
-				>= network_requests
-					.saturated_into::<u64>()
-					.checked_mul(1000u64)
-					.unwrap_or(u64::MAX),
-			Error::<T>::NetworkRequestQuotaExceededInMatch
-		);
 		Ok(())
 	}
 

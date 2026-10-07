@@ -1,5 +1,6 @@
 mod invulnerable_collators;
 mod price_provider;
+mod processor_info_provider;
 mod tracks_info;
 mod transaction_charger;
 
@@ -17,6 +18,7 @@ use pallet_acurast_marketplace::RegistrationExtra;
 
 pub use invulnerable_collators::*;
 pub use price_provider::*;
+pub use processor_info_provider::*;
 pub use tracks_info::*;
 pub use transaction_charger::*;
 

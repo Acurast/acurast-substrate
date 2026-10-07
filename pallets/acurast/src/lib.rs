@@ -8,7 +8,6 @@ pub mod mock;
 mod tests;
 
 mod functions;
-mod migration;
 mod traits;
 pub mod utils;
 pub mod weights;
@@ -139,11 +138,6 @@ pub mod pallet {
 	pub type StoredRevokedCertificate<T: Config> =
 		StorageMap<_, Blake2_128Concat, SerialNumber, ()>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn v5_migration_state)]
-	pub type V5MigrationState<T: Config> =
-		StorageValue<_, Option<BoundedVec<u8, ConstU32<80>>>, ValueQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	#[allow(clippy::large_enum_variant)]
@@ -230,13 +224,6 @@ pub mod pallet {
 		JobHookFailed,
 		/// The min metrics list exceeded the max length.
 		TooManyMinMetrics,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-			crate::migration::migrate::<T>()
-		}
 	}
 
 	#[pallet::call]

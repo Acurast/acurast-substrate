@@ -443,7 +443,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal 0.4.1",
- "log",
  "pallet-acurast",
  "pallet-acurast-candidate-preselection",
  "pallet-acurast-compute",

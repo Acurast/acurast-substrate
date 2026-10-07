@@ -10,7 +10,6 @@ pub use types::*;
 mod datastructures;
 mod functions;
 mod hooks;
-mod migration;
 mod staking;
 mod traits;
 mod types;
@@ -269,23 +268,6 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The measured metrics average over an era by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[block % (T::Era * T::Epoch) -> (metric, avg_count)]`.
-	///
-	/// The time unit in [`SlidingBuffer::epoch`] confusingly corresponds to an era for this storage structure!
-	///
-	/// **DEPRECATED:** This storage item is no longer used and will be removed in a future version.
-	#[pallet::storage]
-	#[pallet::getter(fn metrics_era_average)]
-	#[deprecated]
-	pub(super) type MetricsEraAverage<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
-		_,
-		Identity,
-		T::ManagerId,
-		Identity,
-		PoolId,
-		SlidingBuffer<BlockNumberFor<T>, (Metric, u32)>,
-	>;
-
 	/// The measured metrics sum over an epoch by pool and all of a manager's active devices as a map `manager_id` -> `pool_id` -> `sliding_buffer[epoch -> (metric_sum, metric_with_bonus_sum)]`.
 	#[pallet::storage]
 	#[pallet::getter(fn metrics_epoch_sum)]
@@ -374,11 +356,6 @@ pub mod pallet {
 		SlidingBuffer<EpochOf<T>, RewardBudgetFor<T, I>>,
 		ValueQuery,
 	>;
-
-	/// Migration state for V6 migration (clearing MetricsEraAverage)
-	#[pallet::storage]
-	pub type V11MigrationState<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
 
 	#[pallet::storage]
 	pub type CollatorRewards<T: Config<I>, I: 'static = ()> =
@@ -522,8 +499,6 @@ pub mod pallet {
 	{
 		fn on_initialize(block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
-
-			weight += crate::migration::migrate::<T, I>();
 
 			// The pallet initializes its cycle tracking on the first block transition (block 1 → block 2), so the epoch_start will be 2.
 			let current_cycle = Self::current_cycle();

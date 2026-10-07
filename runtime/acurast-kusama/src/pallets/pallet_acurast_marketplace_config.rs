@@ -1,5 +1,5 @@
 use acurast_runtime_common::{
-	types::{Balance, ExtraFor, ProcessorPriceProvider},
+	types::{AcurastProcessorInfoProvider, Balance, ExtraFor, ProcessorPriceProvider},
 	weight,
 };
 use frame_support::{parameter_types, PalletId};
@@ -10,9 +10,9 @@ use sp_runtime::{traits::BlakeTwo256, FixedU128};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastCompute, AcurastMarketplace, AcurastPalletId, AcurastProcessorManager, Balances,
-	DefaultFeePercentage, DefaultMatcherFeePercentage, EnsureCouncilOrRoot, FeeManagerPalletId,
-	HyperdrivePalletId, ReportTolerance, Runtime,
+	AcurastCompute, AcurastMarketplace, AcurastPalletId, Balances, DefaultFeePercentage,
+	DefaultMatcherFeePercentage, EnsureCouncilOrRoot, FeeManagerPalletId, HyperdrivePalletId,
+	ReportTolerance, Runtime,
 };
 
 parameter_types! {
@@ -45,7 +45,7 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		AcurastMarketplace,
 		(),
 	>;
-	type ProcessorInfoProvider = ProcessorLastSeenProvider;
+	type ProcessorInfoProvider = AcurastProcessorInfoProvider<Self>;
 	// Cross-chain (Hyperdrive) job-operation hooks removed; no-op hooks.
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;
@@ -73,28 +73,5 @@ impl pallet_acurast_marketplace::FeeManager for FeeManagement {
 
 	fn pallet_id() -> PalletId {
 		FeeManagerPalletId::get()
-	}
-}
-
-pub struct ProcessorLastSeenProvider;
-impl pallet_acurast_marketplace::traits::ProcessorInfoProvider<Runtime>
-	for ProcessorLastSeenProvider
-{
-	fn last_seen(processor: &<Runtime as frame_system::Config>::AccountId) -> Option<u128> {
-		AcurastProcessorManager::processor_last_seen(processor)
-	}
-
-	fn processor_version(
-		processor: &<Runtime as frame_system::Config>::AccountId,
-	) -> Option<<Runtime as pallet_acurast::Config>::ProcessorVersion> {
-		AcurastProcessorManager::processor_version(processor)
-	}
-
-	fn last_processor_metric(
-		processor: &<Runtime as frame_system::Config>::AccountId,
-		pool_id: pallet_acurast::PoolId,
-	) -> Option<sp_runtime::FixedU128> {
-		let metric = AcurastCompute::metrics(&processor, pool_id)?;
-		Some(metric.metric)
 	}
 }

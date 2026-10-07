@@ -6,6 +6,7 @@ use frame_support::{
 		Permill, Perquintill,
 	},
 	traits::{Hooks, TypedGet},
+	BoundedVec,
 };
 
 use hex_literal::hex;
@@ -24,7 +25,7 @@ use crate::{
 	FeeManager, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions, PubKeys,
 	RegistrationExtra, Runtime, SLA,
 };
-use acurast_common::OnProcessorUnpaired;
+use acurast_common::{AdvertisementHandler, IsFundableCall, JobModule, OnProcessorUnpaired};
 
 /// Job is not assigned and gets deregistered successfully.
 #[test]
@@ -69,18 +70,11 @@ fn test_valid_deregister() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -185,18 +179,11 @@ fn test_deregister_on_matched_job() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -321,18 +308,11 @@ fn test_deregister_on_assigned_job() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -489,18 +469,11 @@ fn test_deregister_on_assigned_job_for_competing() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -731,18 +704,11 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -1020,18 +986,11 @@ fn test_match() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		assert_ok!(AcurastCompute::create_pool(
@@ -1357,18 +1316,11 @@ fn test_multi_assignments() {
 					ad.clone(),
 				));
 				assert_eq!(
-					Some(AdvertisementRestriction {
-						max_memory: 50_000,
-						network_request_quota: 8,
-						storage_capacity: 100_000,
-						allowed_consumers: ad.allowed_consumers.clone(),
-						available_modules: JobModules::default(),
-					}),
+					Some(AdvertisementRestriction::new(
+						ad.allowed_consumers.clone(),
+						JobModules::default()
+					)),
 					AcurastMarketplace::stored_advertisement(processor)
-				);
-				assert_eq!(
-					Some(ad.pricing.clone()),
-					AcurastMarketplace::stored_advertisement_pricing(processor)
 				);
 
 				attestation
@@ -1805,13 +1757,10 @@ fn test_report_afer_last_report() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
 
@@ -2670,7 +2619,6 @@ fn test_unpair_clears_all_assignment_indices() {
 
 		// so are the advertisement and reputation
 		assert_eq!(None, AcurastMarketplace::stored_advertisement(processor_account_id()));
-		assert_eq!(None, AcurastMarketplace::stored_advertisement_pricing(processor_account_id()));
 		assert_eq!(None, AcurastMarketplace::stored_reputation(processor_account_id()));
 
 		// the processor that is still paired keeps its assignment untouched
@@ -2686,5 +2634,217 @@ fn test_unpair_clears_all_assignment_indices() {
 			Some(JobStatus::Assigned(2)),
 			AcurastMarketplace::stored_job_status(&job_id.0, &job_id.1)
 		);
+	});
+}
+
+#[test]
+fn test_advertise_requires_manager() {
+	ExtBuilder.build().execute_with(|| {
+		HasManager::set(&false);
+
+		assert_err!(
+			AcurastMarketplace::advertise(
+				RuntimeOrigin::signed(processor_account_id()),
+				advertisement(1000, 1, 100_000, 50_000, 8),
+			),
+			Error::<Test>::ProcessorHasNoManager
+		);
+		assert_err!(
+			AcurastMarketplace::update_available_modules(
+				RuntimeOrigin::signed(processor_account_id()),
+				bounded_vec![JobModule::LLM],
+			),
+			Error::<Test>::ProcessorHasNoManager
+		);
+		assert_eq!(None, AcurastMarketplace::stored_advertisement(processor_account_id()));
+	});
+}
+
+#[test]
+fn test_update_available_modules() {
+	ExtBuilder.build().execute_with(|| {
+		let consumers: BoundedVec<_, _> = bounded_vec![MultiOrigin::Acurast(alice_account_id())];
+		let mut ad = advertisement(1000, 1, 100_000, 50_000, 8);
+		ad.allowed_consumers = Some(consumers.clone());
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad,
+		));
+
+		let modules: JobModules = bounded_vec![JobModule::DataEncryption, JobModule::LLM];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor_account_id()),
+			modules.clone(),
+		));
+
+		assert_eq!(
+			Some(AdvertisementRestriction::new(Some(consumers), modules)),
+			AcurastMarketplace::stored_advertisement(processor_account_id())
+		);
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::AcurastMarketplace(crate::Event::AdvertisementStoredV2(
+				processor_account_id()
+			)))
+		);
+	});
+}
+
+#[test]
+fn test_update_available_modules_without_prior_advertisement() {
+	ExtBuilder.build().execute_with(|| {
+		let modules: JobModules = bounded_vec![JobModule::Shell];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor_account_id()),
+			modules.clone(),
+		));
+
+		assert_eq!(
+			Some(AdvertisementRestriction::new(None, modules)),
+			AcurastMarketplace::stored_advertisement(processor_account_id())
+		);
+		assert!(AcurastMarketplace::stored_reputation(processor_account_id()).is_some());
+	});
+}
+
+#[test]
+fn test_update_allowed_consumers_merge() {
+	ExtBuilder.build().execute_with(|| {
+		let processor = processor_account_id();
+		let modules: JobModules = bounded_vec![JobModule::LLM];
+		let consumers: BoundedVec<_, _> = bounded_vec![MultiOrigin::Acurast(alice_account_id())];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor.clone()),
+			modules.clone(),
+		));
+
+		assert_ok!(
+			<AcurastMarketplace as AdvertisementHandler<_, _, _>>::update_allowed_consumers(
+				&processor,
+				consumers.clone(),
+			)
+		);
+		assert_eq!(
+			Some(AdvertisementRestriction::new(Some(consumers), modules.clone())),
+			AcurastMarketplace::stored_advertisement(&processor)
+		);
+
+		// an empty list allows all consumers
+		assert_ok!(
+			<AcurastMarketplace as AdvertisementHandler<_, _, _>>::update_allowed_consumers(
+				&processor,
+				BoundedVec::new(),
+			)
+		);
+		assert_eq!(
+			Some(AdvertisementRestriction::new(None, modules)),
+			AcurastMarketplace::stored_advertisement(&processor)
+		);
+	});
+}
+
+#[test]
+fn test_update_available_modules_is_fundable() {
+	let call = RuntimeCall::AcurastMarketplace(crate::Call::update_available_modules {
+		available_modules: bounded_vec![JobModule::LLM],
+	});
+	assert!(<AcurastMarketplace as IsFundableCall<RuntimeCall>>::is_fundable_call(&call));
+	assert!(<AcurastMarketplace as IsFundableCall<RuntimeCall>>::is_manager_fundable_call(&call));
+}
+
+#[test]
+fn test_pricing_cleared_in_idle_time() {
+	use crate::migration::{entry_weight, step_weight, StoredAdvertisementPricing};
+	use frame_support::{
+		traits::{Get, GetStorageVersion, StorageVersion},
+		weights::{RuntimeDbWeight, Weight},
+	};
+
+	const PER_BLOCK: u32 = 200;
+	let entries = 2 * PER_BLOCK + 1;
+	let budget = step_weight::<Test>() + entry_weight::<Test>() * PER_BLOCK as u64;
+	let pricing_count = || StoredAdvertisementPricing::<Test>::iter_values().count();
+
+	let mut ext = ExtBuilder.build();
+	ext.execute_with(|| {
+		StorageVersion::new(7).put::<AcurastMarketplace>();
+		for i in 0..entries {
+			let mut account = [0u8; 32];
+			account[..4].copy_from_slice(&i.to_le_bytes());
+			StoredAdvertisementPricing::<Test>::insert(
+				AccountId::new(account),
+				crate::Pricing {
+					fee_per_millisecond: 1,
+					fee_per_storage_byte: 1,
+					base_fee_per_execution: 0,
+					scheduling_window: crate::SchedulingWindow::Delta(1),
+				},
+			);
+		}
+		// nothing is cleared before the upgrade schedules the cleanup
+		AcurastMarketplace::on_idle(1u32.into(), budget * 2);
+		assert_eq!(entries as usize, pricing_count());
+
+		// the upgrade sets the storage version right away
+		AcurastMarketplace::on_runtime_upgrade();
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(Some(Default::default()), AcurastMarketplace::migration_cursor());
+
+		// no idle weight left, nothing is cleared
+		assert_eq!(Weight::zero(), AcurastMarketplace::on_idle(1u32.into(), Weight::zero()));
+	});
+	// `clear_prefix` only limits removals of committed keys, so commit like a block would
+	ext.commit_all().unwrap();
+
+	for block in 1..=3u32 {
+		ext.execute_with(|| {
+			// `on_idle` spends half of the remaining weight
+			assert!(AcurastMarketplace::on_idle(block.into(), budget * 2).all_lte(budget));
+		});
+		ext.commit_all().unwrap();
+		ext.execute_with(|| {
+			assert_eq!(entries.saturating_sub(block * PER_BLOCK) as usize, pricing_count());
+		});
+	}
+
+	ext.execute_with(|| {
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(None, AcurastMarketplace::migration_cursor());
+		let migration_events: Vec<_> = events()
+			.into_iter()
+			.filter(|e| {
+				matches!(
+					e,
+					RuntimeEvent::AcurastMarketplace(
+						crate::Event::V8MigrationStarted | crate::Event::V8MigrationCompleted
+					)
+				)
+			})
+			.collect();
+		assert_eq!(
+			vec![
+				RuntimeEvent::AcurastMarketplace(crate::Event::V8MigrationStarted),
+				RuntimeEvent::AcurastMarketplace(crate::Event::V8MigrationCompleted),
+			],
+			migration_events
+		);
+
+		// a finished cleanup only checks for the cursor
+		assert_eq!(
+			<<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get().reads(1),
+			AcurastMarketplace::on_idle(4u32.into(), budget)
+		);
+	});
+}
+
+#[test]
+fn test_upgrade_on_current_version_schedules_no_cleanup() {
+	use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+	ExtBuilder.build().execute_with(|| {
+		StorageVersion::new(8).put::<AcurastMarketplace>();
+		AcurastMarketplace::on_runtime_upgrade();
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(None, AcurastMarketplace::migration_cursor());
 	});
 }

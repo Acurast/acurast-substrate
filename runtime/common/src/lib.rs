@@ -5,7 +5,6 @@ pub mod barrier;
 pub mod benchmarking;
 pub mod check_nonce;
 pub mod constants;
-pub mod migrations;
 pub mod types;
 pub mod utils;
 pub mod weight;

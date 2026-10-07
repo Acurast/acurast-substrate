@@ -20,7 +20,6 @@ substrate-wasm-builder = { workspace = true }
 [dependencies]
 parity-scale-codec = { workspace = true }
 hex-literal = { workspace = true, optional = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 smallvec = { workspace = true }
 derive_more = { workspace = true }
@@ -108,7 +107,6 @@ parachains-common = { workspace = true }
 default = ["std"]
 std = [
 	"parity-scale-codec/std",
-	"log/std",
 	"scale-info/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",

@@ -1,71 +1,79 @@
-#![allow(deprecated)]
-
 use frame_support::{
-	traits::{GetStorageVersion, IsType, StorageVersion},
-	weights::Weight,
-	BoundedVec,
+	traits::{GetStorageVersion, StorageVersion},
+	weights::{Weight, WeightMeter},
+	Blake2_128, BoundedVec,
 };
-use sp_core::{ConstU32, Get};
+use sp_core::Get;
 
 use super::*;
 
-type MigrationFn = dyn Fn() -> (Weight, bool);
+/// Storage of the removed advertisement pricing, cleared by [`clear_pricing`].
+#[frame_support::storage_alias]
+pub(crate) type StoredAdvertisementPricing<T: Config> =
+	StorageMap<Pallet<T>, Blake2_128, <T as frame_system::Config>::AccountId, PricingFor<T>>;
 
-pub fn migrate<T: Config>() -> Weight
-where
-	<T as pallet_acurast::Config>::RegistrationExtra: IsType<
-		RegistrationExtra<
-			T::Balance,
-			T::AccountId,
-			T::MaxSlots,
-			T::ProcessorVersion,
-			T::MaxVersions,
-		>,
-	>,
-{
-	let migrations: [(u16, &MigrationFn); 1] = [(7, &migrate_to_v7::<T>)];
+/// Storage version that removes [`StoredAdvertisementPricing`].
+const TARGET: StorageVersion = StorageVersion::new(8);
 
-	let mut onchain_version = Pallet::<T>::on_chain_storage_version();
-	let mut weight: Weight = Default::default();
-	for (i, f) in migrations.into_iter() {
-		let migrating_version = StorageVersion::new(i);
-		if onchain_version < migrating_version {
-			let (f_weight, completed) = f();
-			weight += f_weight;
-			if completed {
-				migrating_version.put::<Pallet<T>>();
-				onchain_version = migrating_version;
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
-			} else {
-				break;
-			}
-		}
-	}
+/// Benchmarked proof size of one [`StoredAdvertisementPricing`] entry, trie overhead included.
+const ENTRY_PROOF_SIZE: u64 = 2548;
 
-	weight
+/// Weight of removing one [`StoredAdvertisementPricing`] entry.
+pub(crate) fn entry_weight<T: Config>() -> Weight {
+	T::DbWeight::get()
+		.writes(1)
+		.saturating_add(Weight::from_parts(0, ENTRY_PROOF_SIZE))
 }
 
-pub fn migrate_to_v7<T: Config>() -> (Weight, bool) {
-	const CLEAR_LIMIT: u32 = 50;
+/// Fixed weight of a cleanup step besides the cursor read: the cursor write.
+pub(crate) fn step_weight<T: Config>() -> Weight {
+	T::DbWeight::get().writes(1)
+}
 
-	let mut migration_completed = false;
-	let mut weight = T::DbWeight::get().reads(1);
-	let cursor = V7MigrationState::<T>::get().map(|c| c.to_vec());
-	if cursor.is_none() {
-		crate::Pallet::<T>::deposit_event(Event::<T>::V7MigrationStarted);
+/// Sets [`TARGET`] and schedules the [`StoredAdvertisementPricing`] cleanup on chains below it.
+pub fn on_runtime_upgrade<T: Config>() -> Weight {
+	if Pallet::<T>::on_chain_storage_version() >= TARGET {
+		return T::DbWeight::get().reads(1);
 	}
-	let res = <StoredStorageCapacity<T>>::clear(CLEAR_LIMIT, cursor.as_deref());
-	weight = weight.saturating_add(T::DbWeight::get().writes(res.backend as u64));
+	TARGET.put::<Pallet<T>>();
+	MigrationCursor::<T>::put(BoundedVec::new());
+	T::DbWeight::get().reads_writes(1, 2)
+}
 
-	if let Some(new_cursor) = res.maybe_cursor {
-		let bounded_cursor: Option<BoundedVec<u8, ConstU32<80>>> = new_cursor.try_into().ok();
-		V7MigrationState::<T>::set(bounded_cursor);
-	} else {
-		migration_completed = true;
-		V7MigrationState::<T>::kill();
-		crate::Pallet::<T>::deposit_event(Event::<T>::V7MigrationCompleted);
+/// Clears as many [`StoredAdvertisementPricing`] entries as `meter` allows while a cleanup is
+/// scheduled, resuming from [`MigrationCursor`] and removing it once the map is empty.
+pub fn clear_pricing<T: Config>(meter: &mut WeightMeter) {
+	if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+		return;
 	}
-	weight = weight.saturating_add(T::DbWeight::get().writes(1));
+	let Some(cursor) = MigrationCursor::<T>::get() else {
+		return;
+	};
+	let Some(limit) = meter
+		.remaining()
+		.saturating_sub(step_weight::<T>())
+		.checked_div_per_component(&entry_weight::<T>())
+		.filter(|limit| *limit > 0)
+	else {
+		return;
+	};
+	meter.consume(step_weight::<T>());
 
-	(weight, migration_completed)
+	if cursor.is_empty() {
+		Pallet::<T>::deposit_event(Event::<T>::V8MigrationStarted);
+	}
+	let res = StoredAdvertisementPricing::<T>::clear(
+		limit.min(u32::MAX as u64) as u32,
+		(!cursor.is_empty()).then_some(&cursor[..]),
+	);
+	meter.consume(entry_weight::<T>().saturating_mul(res.backend as u64));
+
+	match res.maybe_cursor {
+		// an unfitting cursor restarts the scan, which still progresses as cleared keys are gone
+		Some(next) => MigrationCursor::<T>::put(BoundedVec::try_from(next).unwrap_or_default()),
+		None => {
+			MigrationCursor::<T>::kill();
+			Pallet::<T>::deposit_event(Event::<T>::V8MigrationCompleted);
+		},
+	}
 }

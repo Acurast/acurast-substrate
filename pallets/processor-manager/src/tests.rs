@@ -42,6 +42,10 @@ pub fn processor_account_id() -> AccountId {
 fn test_update_processor_pairings_succeed_1() {
 	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			Version { platform: 0, build_number: 1 }
+		));
 
 		let updates = vec![ProcessorPairingUpdateFor::<Test> {
 			operation: ListUpdateOperation::Remove,
@@ -54,6 +58,8 @@ fn test_update_processor_pairings_succeed_1() {
 		assert_ok!(call);
 		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
 		assert_eq!(None, AcurastProcessorManager::lookup(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_last_seen(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_version(&processor_account));
 		assert_eq!(
 			events().into_iter().last().unwrap(),
 			RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(

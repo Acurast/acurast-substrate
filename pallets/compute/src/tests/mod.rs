@@ -924,6 +924,277 @@ fn test_compound_delegation_does_not_restart_redelegation_lock() {
 	});
 }
 
+/// C and D commit compute on pool 2 at block 202, H too if `h_cooldown` is given. H — whose processors
+/// I and J are paired and measured either way — delegates to C, and everything is rolled past the
+/// redelegation blocking period to block 502.
+///
+/// Returns H's account.
+fn stake_from_delegation_flow(
+	committer_c: u64,
+	h_cooldown: Option<u64>,
+	delegation_cooldown: u64,
+) -> AccountId32 {
+	let mut actions = commit_actions_three_committers();
+	let mut committers = vec![("C", committer_c), ("D", REDELEGATE_COOLDOWN)];
+	if let Some(cooldown) = h_cooldown {
+		committers.push(("H", cooldown));
+	}
+	for (committer, cooldown) in committers {
+		actions.push(Action::CommitCompute {
+			committer: committer.to_string(),
+			stake: REDELEGATE_STAKE,
+			cooldown,
+			metrics: vec![(2, 4000u128 * 4 / 5, 1u128)],
+			commission: Perbill::from_percent(0),
+		});
+	}
+	actions.push(Action::Delegate {
+		delegator: "H".to_string(),
+		committer: "C".to_string(),
+		amount: REDELEGATE_DELEGATION,
+		cooldown: delegation_cooldown,
+	});
+	actions.extend(recommit_three_committers(3));
+	actions.extend(recommit_three_committers(4));
+	actions.extend(recommit_three_committers(5));
+
+	compute_test_flow(1, REDELEGATE_POOLS, REDELEGATE_COMMITTERS, &actions);
+	henry_account_id()
+}
+
+fn pool_2_commitment() -> sp_runtime::BoundedVec<ComputeCommitment, sp_core::ConstU32<30>> {
+	bounded_vec![ComputeCommitment {
+		pool_id: 2,
+		metric: FixedU128::from_rational(4000u128 * 4 / 5, 1u128),
+	}]
+}
+
+fn commit_compute_from_delegation(
+	who: &AccountId32,
+	cooldown_period: u64,
+) -> frame_support::dispatch::DispatchResultWithPostInfo {
+	Compute::commit_compute_from_delegation(
+		RuntimeOrigin::signed(who.clone()),
+		charlie_account_id(),
+		cooldown_period,
+		pool_2_commitment(),
+		Perbill::from_percent(0),
+		false,
+	)
+}
+
+fn stake_more_from_delegation(
+	who: &AccountId32,
+	cooldown_period: Option<u64>,
+) -> frame_support::dispatch::DispatchResultWithPostInfo {
+	Compute::stake_more_from_delegation(
+		RuntimeOrigin::signed(who.clone()),
+		charlie_account_id(),
+		cooldown_period,
+		None,
+		None,
+		None,
+	)
+}
+
+/// A delegator in cooldown commits compute for their own farm with the delegated stake: the delegation
+/// is gone, its stake is the new commitment's stake, and the account stays locked for the same total.
+#[test]
+fn test_commit_compute_from_delegation_in_cooldown() {
+	ExtBuilder.build().execute_with(|| {
+		let h = stake_from_delegation_flow(REDELEGATE_COOLDOWN, None, REDELEGATE_COOLDOWN);
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(h.clone()),
+			charlie_account_id()
+		));
+		roll_to_block(512);
+
+		let total_stake_before = Compute::total_stake();
+		assert_eq!(Balances::locks(&h)[0].amount, REDELEGATE_DELEGATION);
+
+		assert_ok!(commit_compute_from_delegation(&h, REDELEGATE_COOLDOWN));
+
+		assert!(Compute::delegations(&h, COMMITMENT_C).is_none());
+		assert_eq!(Compute::delegator_total(&h), 0);
+		assert_eq!(Compute::commitments(COMMITMENT_C).unwrap().delegations_total_amount, 0);
+
+		let stake = Compute::commitments(COMMITMENT_H).unwrap().stake.unwrap();
+		assert_eq!(stake.amount, REDELEGATE_DELEGATION);
+		assert_eq!(stake.rewardable_amount, REDELEGATE_DELEGATION);
+		assert_eq!(stake.cooldown_period, REDELEGATE_COOLDOWN);
+		assert!(stake.cooldown_started.is_none());
+
+		// The tokens never left the lock: they moved from delegation to stake.
+		assert_eq!(Balances::locks(&h)[0].amount, REDELEGATE_DELEGATION);
+		assert_eq!(Compute::total_stake(), total_stake_before);
+
+		let events = events();
+		assert!(events.contains(&RuntimeEvent::Compute(Event::DelegationStaked(
+			h.clone(),
+			COMMITMENT_C,
+			COMMITMENT_H,
+			REDELEGATE_DELEGATION
+		))));
+		assert!(events.contains(&RuntimeEvent::Compute(Event::ComputeCommitted(COMMITMENT_H))));
+	});
+}
+
+/// The new commitment's cooldown period has to cover what remains of the delegation's cooldown, so the
+/// move can never unlock the tokens earlier than ending the delegation would.
+#[test]
+fn test_commit_compute_from_delegation_requires_remaining_cooldown_covered() {
+	ExtBuilder.build().execute_with(|| {
+		let h =
+			stake_from_delegation_flow(REDELEGATE_COOLDOWN_LONG, None, REDELEGATE_COOLDOWN_LONG);
+
+		// Outside of cooldown, the full period remains.
+		assert_err!(
+			commit_compute_from_delegation(&h, REDELEGATE_COOLDOWN_LONG - 1),
+			Error::<Test, ()>::CooldownPeriodBelowRemainingDelegationCooldown
+		);
+
+		// Once in cooldown, only the part not yet passed has to be covered.
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(h.clone()),
+			charlie_account_id()
+		));
+		roll_to_block(System::block_number() + 50);
+		let remaining = REDELEGATE_COOLDOWN_LONG - 50;
+		assert_err!(
+			commit_compute_from_delegation(&h, remaining - 1),
+			Error::<Test, ()>::CooldownPeriodBelowRemainingDelegationCooldown
+		);
+		// The failed attempts changed nothing.
+		assert_eq!(
+			Compute::delegations(&h, COMMITMENT_C).unwrap().stake.amount,
+			REDELEGATE_DELEGATION
+		);
+		assert!(Compute::commitments(COMMITMENT_H).is_none());
+
+		assert_ok!(commit_compute_from_delegation(&h, remaining));
+		assert_eq!(
+			Compute::commitments(COMMITMENT_H).unwrap().stake.unwrap().cooldown_period,
+			remaining
+		);
+	});
+}
+
+/// A delegator can only stake into the commitment of the account they sign with, which needs to back a
+/// manager; and the usual redelegation blocking period applies.
+#[test]
+fn test_commit_compute_from_delegation_rejections() {
+	ExtBuilder.build().execute_with(|| {
+		let h = stake_from_delegation_flow(REDELEGATE_COOLDOWN, None, REDELEGATE_COOLDOWN);
+
+		// G backs no manager, so has no commitment to stake into.
+		assert!(commit_compute_from_delegation(&george_account_id(), REDELEGATE_COOLDOWN).is_err());
+
+		// D does not delegate to C.
+		assert_err!(
+			commit_compute_from_delegation(&dave_account_id(), REDELEGATE_COOLDOWN),
+			Error::<Test, ()>::NotDelegating
+		);
+
+		// A fresh delegation is held by the blocking period, like any redelegation.
+		assert_ok!(Compute::end_delegation_for(&h, COMMITMENT_C, false, false));
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(h.clone()),
+			charlie_account_id(),
+			REDELEGATE_DELEGATION,
+			REDELEGATE_COOLDOWN,
+			false,
+		));
+		assert_err!(
+			commit_compute_from_delegation(&h, REDELEGATE_COOLDOWN),
+			Error::<Test, ()>::RedelegateBlocked
+		);
+	});
+}
+
+/// A committer adds the stake of a delegation (here in cooldown) to their existing commitment.
+#[test]
+fn test_stake_more_from_delegation() {
+	ExtBuilder.build().execute_with(|| {
+		let h = stake_from_delegation_flow(
+			REDELEGATE_COOLDOWN,
+			Some(REDELEGATE_COOLDOWN),
+			REDELEGATE_COOLDOWN,
+		);
+		assert_eq!(Balances::locks(&h)[0].amount, REDELEGATE_STAKE + REDELEGATE_DELEGATION);
+		assert_ok!(Compute::cooldown_delegation(
+			RuntimeOrigin::signed(h.clone()),
+			charlie_account_id()
+		));
+		let total_stake_before = Compute::total_stake();
+
+		assert_ok!(stake_more_from_delegation(&h, None));
+
+		assert!(Compute::delegations(&h, COMMITMENT_C).is_none());
+		assert_eq!(Compute::delegator_total(&h), 0);
+		let stake = Compute::commitments(COMMITMENT_H).unwrap().stake.unwrap();
+		assert_eq!(stake.amount, REDELEGATE_STAKE + REDELEGATE_DELEGATION);
+		assert_eq!(Balances::locks(&h)[0].amount, REDELEGATE_STAKE + REDELEGATE_DELEGATION);
+		assert_eq!(Compute::total_stake(), total_stake_before);
+		assert!(events().contains(&RuntimeEvent::Compute(Event::DelegationStaked(
+			h.clone(),
+			COMMITMENT_C,
+			COMMITMENT_H,
+			REDELEGATE_DELEGATION
+		))));
+	});
+}
+
+/// Staking more from a delegation needs the commitment's (possibly raised) cooldown period to cover the
+/// delegation's remaining cooldown, and the commitment must not be in cooldown itself.
+#[test]
+fn test_stake_more_from_delegation_rejections() {
+	ExtBuilder.build().execute_with(|| {
+		let h = stake_from_delegation_flow(
+			REDELEGATE_COOLDOWN_LONG,
+			Some(REDELEGATE_COOLDOWN),
+			REDELEGATE_COOLDOWN_LONG,
+		);
+
+		assert_err!(
+			stake_more_from_delegation(&h, None),
+			Error::<Test, ()>::CooldownPeriodBelowRemainingDelegationCooldown
+		);
+		assert_eq!(
+			Compute::commitments(COMMITMENT_H).unwrap().stake.unwrap().amount,
+			REDELEGATE_STAKE
+		);
+
+		// A commitment in cooldown would unlock its stake too early.
+		assert_ok!(Compute::cooldown_compute_commitment(RuntimeOrigin::signed(h.clone())));
+		assert_err!(
+			stake_more_from_delegation(&h, Some(REDELEGATE_COOLDOWN_LONG)),
+			Error::<Test, ()>::CommitmentInCooldown
+		);
+		assert_eq!(
+			Compute::delegations(&h, COMMITMENT_C).unwrap().stake.amount,
+			REDELEGATE_DELEGATION
+		);
+	});
+}
+
+/// Raising the commitment's cooldown period in the same call is enough to cover the delegation's.
+#[test]
+fn test_stake_more_from_delegation_raising_cooldown() {
+	ExtBuilder.build().execute_with(|| {
+		let h = stake_from_delegation_flow(
+			REDELEGATE_COOLDOWN_LONG,
+			Some(REDELEGATE_COOLDOWN),
+			REDELEGATE_COOLDOWN_LONG,
+		);
+
+		assert_ok!(stake_more_from_delegation(&h, Some(REDELEGATE_COOLDOWN_LONG)));
+
+		let stake = Compute::commitments(COMMITMENT_H).unwrap().stake.unwrap();
+		assert_eq!(stake.amount, REDELEGATE_STAKE + REDELEGATE_DELEGATION);
+		assert_eq!(stake.cooldown_period, REDELEGATE_COOLDOWN_LONG);
+	});
+}
+
 #[test]
 fn test_compute_flow_no_delegations_no_rewards() {
 	ExtBuilder.build().execute_with(|| {

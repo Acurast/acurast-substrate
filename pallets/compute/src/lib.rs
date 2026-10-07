@@ -444,6 +444,8 @@ pub mod pallet {
 		BackingEnded(T::CommitmentId, T::ManagerId),
 		/// Inflation has been enabled
 		InflationEnabled,
+		/// A delegation was ended and its stake restaked into the delegator's own commitment. [delegator, old_commitment_id, commitment_id, amount]
+		DelegationStaked(T::AccountId, T::CommitmentId, T::CommitmentId, BalanceFor<T, I>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -513,6 +515,9 @@ pub mod pallet {
 		/// targets state the full split, so a share that should stay with the old committer has to be
 		/// listed as a target of its own.
 		RedelegationAmountMismatch,
+		/// Restaking a delegation into the own commitment requires the commitment's cooldown period to
+		/// cover at least what remains of the delegation's cooldown, so the stake is not unlocked earlier.
+		CooldownPeriodBelowRemainingDelegationCooldown,
 	}
 
 	#[pallet::hooks]
@@ -1198,6 +1203,112 @@ pub mod pallet {
 			InflationEnabled::<T, I>::set(true);
 
 			Self::deposit_event(Event::<T, I>::InflationEnabled);
+
+			Ok(().into())
+		}
+
+		/// Commits compute like [`Self::commit_compute`], but stakes the caller's full delegation to
+		/// `committer` instead of free funds, so a delegator can move into backing their own farm
+		/// without waiting out the delegation's cooldown first.
+		///
+		/// The delegation may be in cooldown or not. It is ended as by a redelegation to the caller
+		/// itself (see [`Self::redelegate_v2`]): the [`T::RedelegationBlockingPeriod`] applies unless
+		/// `committer` is in cooldown, accrued rewards are paid out and accrued slashes are applied, and
+		/// the remaining stake is restaked as the new commitment's stake.
+		///
+		/// The cooldown is never shortened by the move: `cooldown_period` must be at least the blocks
+		/// remaining until the delegation could have been ended, otherwise the call fails with
+		/// [`Error::CooldownPeriodBelowRemainingDelegationCooldown`]. Since the new commitment starts
+		/// outside of cooldown, the stake stays locked at least until the delegation's cooldown would
+		/// have ended.
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::end_delegation().saturating_add(T::WeightInfo::commit_compute(commitment.len() as u32)))]
+		pub fn commit_compute_from_delegation(
+			origin: OriginFor<T>,
+			committer: T::AccountId,
+			cooldown_period: BlockNumberFor<T>,
+			commitment: BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>,
+			commission: Perbill,
+			allow_auto_compound: bool,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			let old_commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
+
+			let (amount, remaining_cooldown) =
+				Self::release_delegation_for_staking(&who, old_commitment_id)?;
+			ensure!(
+				cooldown_period >= remaining_cooldown,
+				Error::<T, I>::CooldownPeriodBelowRemainingDelegationCooldown
+			);
+
+			Self::validate_max_metric_store_commitments(commitment_id, commitment)?;
+
+			// only call this AFTER storing commitment since it's a requirement for stake_for
+			Self::stake_for(&who, amount, cooldown_period, commission, allow_auto_compound)?;
+
+			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
+			Self::validate_max_stake_metric_ratio(commitment_id)?;
+
+			Self::deposit_event(Event::<T, I>::DelegationStaked(
+				who,
+				old_commitment_id,
+				commitment_id,
+				amount,
+			));
+			Self::deposit_event(Event::<T, I>::ComputeCommitted(commitment_id));
+
+			Ok(().into())
+		}
+
+		/// Stakes more like [`Self::stake_more`], but adds the caller's full delegation to `committer`
+		/// to the stake of the caller's existing commitment instead of free funds.
+		///
+		/// The same rules as for [`Self::commit_compute_from_delegation`] apply. The commitment must not
+		/// be in cooldown, and its cooldown period — after applying `cooldown_period`, if given — must
+		/// cover what remains of the delegation's cooldown.
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::end_delegation().saturating_add(T::WeightInfo::stake_more(commitment.as_ref().map(|c| c.len()).unwrap_or_default() as u32)))]
+		pub fn stake_more_from_delegation(
+			origin: OriginFor<T>,
+			committer: T::AccountId,
+			cooldown_period: Option<BlockNumberFor<T>>,
+			commitment: Option<BoundedVec<ComputeCommitment, <T as Config<I>>::MaxPools>>,
+			commission: Option<Perbill>,
+			allow_auto_compound: Option<bool>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let commitment_id = T::CommitmentIdProvider::commitment_id_for(&who)?;
+			let old_commitment_id = T::CommitmentIdProvider::commitment_id_for(&committer)?;
+
+			let (amount, remaining_cooldown) =
+				Self::release_delegation_for_staking(&who, old_commitment_id)?;
+
+			if let Some(commitment) = commitment {
+				Self::validate_max_metric_store_commitments(commitment_id, commitment)?;
+			}
+
+			Self::stake_more_for(&who, amount, cooldown_period, commission, allow_auto_compound)?;
+
+			let stake_cooldown_period = Self::commitments(commitment_id)
+				.and_then(|c| c.stake)
+				.ok_or(Error::<T, I>::CommitmentNotFound)?
+				.cooldown_period;
+			ensure!(
+				stake_cooldown_period >= remaining_cooldown,
+				Error::<T, I>::CooldownPeriodBelowRemainingDelegationCooldown
+			);
+
+			// Validate max_stake_metric_ratio with new total commitment stake (after `CommitmentStake` was increased)
+			Self::validate_max_stake_metric_ratio(commitment_id)?;
+
+			Self::deposit_event(Event::<T, I>::DelegationStaked(
+				who,
+				old_commitment_id,
+				commitment_id,
+				amount,
+			));
+			Self::deposit_event(Event::<T, I>::StakedMore(commitment_id));
 
 			Ok(().into())
 		}

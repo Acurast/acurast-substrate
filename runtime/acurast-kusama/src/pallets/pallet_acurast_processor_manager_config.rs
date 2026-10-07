@@ -28,7 +28,8 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type PairingProofExpirationTime = ConstU128<14_400_000>; // 4 hours
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type Advertisement = pallet_acurast_marketplace::AdvertisementFor<Self>;
-	type AdvertisementHandler = AdvertisementHandlerImpl;
+	type MaxAllowedConsumers = <Runtime as pallet_acurast_marketplace::Config>::MaxAllowedConsumers;
+	type AdvertisementHandler = AcurastMarketplace;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type ManagerProviderForEligibleProcessor = ManagerProviderForEligibleProcessor<
@@ -46,16 +47,6 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarking::AcurastBenchmarkHelper;
-}
-
-pub struct AdvertisementHandlerImpl;
-impl pallet_acurast_processor_manager::AdvertisementHandler<Runtime> for AdvertisementHandlerImpl {
-	fn advertise_for(
-		processor: &<Runtime as frame_system::Config>::AccountId,
-		advertisement: &<Runtime as pallet_acurast_processor_manager::Config>::Advertisement,
-	) -> sp_runtime::DispatchResult {
-		AcurastMarketplace::do_advertise(processor, advertisement)
-	}
 }
 
 pub struct AcurastManagerIdProvider;

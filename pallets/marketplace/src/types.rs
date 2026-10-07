@@ -98,7 +98,7 @@ impl<Reward, AccountId, MaxSlots: ParameterBound, Version, MaxVersions: Paramete
 	}
 }
 
-/// The resource advertisement by a source containing pricing and capacity announcements.
+/// DEPRECATED. The resource advertisement by a source containing pricing and capacity announcements.
 #[derive(
 	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
 )]
@@ -117,6 +117,7 @@ pub struct Advertisement<AccountId, Reward, MaxAllowedConsumers: Get<u32>> {
 	pub available_modules: JobModules,
 }
 
+/// DEPRECATED.
 pub type AdvertisementFor<T> = Advertisement<
 	<T as frame_system::Config>::AccountId,
 	<T as Config>::Balance,
@@ -124,18 +125,49 @@ pub type AdvertisementFor<T> = Advertisement<
 >;
 
 /// The resource advertisement by a source containing the base restrictions.
-#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
+)]
 pub struct AdvertisementRestriction<AccountId, MaxAllowedConsumers: ParameterBound> {
-	/// Maximum memory in bytes not to be exceeded during any job's execution.
+	/// DEPRECATED. Maximum memory in bytes not to be exceeded during any job's execution.
+	#[deprecated]
 	pub max_memory: u32,
-	/// Maximum network requests per second not to be exceeded.
+	/// DEPRECATED. Maximum network requests per second not to be exceeded.
+	#[deprecated]
 	pub network_request_quota: u8,
-	/// Storage capacity in bytes not to be exceeded in matching. The associated fee is listed in [pricing].
+	/// DEPRECATED. Storage capacity in bytes not to be exceeded in matching. The associated fee is listed in [pricing].
+	#[deprecated]
 	pub storage_capacity: u32,
 	/// An optional array of the [AccountId]s of consumers whose jobs should get accepted. If the array is [None], then jobs from all consumers are accepted.
 	pub allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
 	/// The modules available to the job on processor.
 	pub available_modules: JobModules,
+}
+
+impl<AccountId, MaxAllowedConsumers: ParameterBound>
+	AdvertisementRestriction<AccountId, MaxAllowedConsumers>
+{
+	pub fn new(
+		allowed_consumers: Option<BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>>,
+		available_modules: JobModules,
+	) -> Self {
+		#[allow(deprecated)]
+		Self {
+			max_memory: Default::default(),
+			network_request_quota: Default::default(),
+			storage_capacity: Default::default(),
+			allowed_consumers,
+			available_modules,
+		}
+	}
+}
+
+impl<AccountId, MaxAllowedConsumers: ParameterBound> Default
+	for AdvertisementRestriction<AccountId, MaxAllowedConsumers>
+{
+	fn default() -> Self {
+		Self::new(None, Default::default())
+	}
 }
 
 /// Defines the scheduling window in which to accept matches for this pricing,
@@ -162,7 +194,7 @@ pub enum SchedulingWindow {
 	Delta(u64),
 }
 
-/// Pricing listing cost per resource unit and slash on SLA violation.
+/// DEPRECATED. Pricing listing cost per resource unit and slash on SLA violation.
 /// Specified in specific asset that is payed out or deducted from stake on complete fulfillment.
 #[derive(
 	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
@@ -178,6 +210,7 @@ pub struct Pricing<Reward> {
 	pub scheduling_window: SchedulingWindow,
 }
 
+/// DEPRECATED.
 pub type PricingFor<T> = Pricing<<T as Config>::Balance>;
 
 /// Specifier of execution(s) to be assigned in a [`Assignment`].

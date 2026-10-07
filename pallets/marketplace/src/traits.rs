@@ -6,6 +6,7 @@ pub trait ProcessorInfoProvider<T: crate::Config> {
 	fn last_seen(processor: &T::AccountId) -> Option<u128>;
 	fn processor_version(processor: &T::AccountId) -> Option<T::ProcessorVersion>;
 	fn last_processor_metric(processor: &T::AccountId, pool_id: PoolId) -> Option<FixedU128>;
+	fn has_manager(processor: &T::AccountId) -> bool;
 }
 
 pub trait PriceProvider<AccountId, Balance> {
@@ -32,4 +33,5 @@ pub trait WeightInfo {
 	fn cleanup_job_assignments() -> Weight;
 	fn update_price_settings() -> Weight;
 	fn cleanup_job_matcher() -> Weight;
+	fn update_available_modules() -> Weight;
 }

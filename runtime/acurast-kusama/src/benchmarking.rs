@@ -11,10 +11,10 @@ use sp_std::{vec, vec::Vec};
 
 use acurast_runtime_common::types::{ExtraFor, Signature};
 use pallet_acurast::{
-	Attestation, AttestationValidity, BoundedAttestationContent, BoundedDeviceAttestation,
-	BoundedDeviceAttestationDeviceOSInformation, BoundedDeviceAttestationKeyUsageProperties,
-	BoundedDeviceAttestationNonce, ComputeHooks, JobId, JobModules, MultiOrigin, PoolId,
-	StoredAttestation, StoredJobRegistration,
+	AdvertisementHandler, Attestation, AttestationValidity, BoundedAttestationContent,
+	BoundedDeviceAttestation, BoundedDeviceAttestationDeviceOSInformation,
+	BoundedDeviceAttestationKeyUsageProperties, BoundedDeviceAttestationNonce, ComputeHooks, JobId,
+	JobModules, MultiOrigin, PoolId, StoredAttestation, StoredJobRegistration,
 };
 use pallet_acurast_marketplace::{
 	Advertisement, AssignedProcessors, Assignment, AssignmentStrategy, ExecutionSpecifier,
@@ -126,7 +126,9 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			network_request_quota: 100,
 			available_modules: JobModules::default(),
 		};
-		assert_ok!(AcurastMarketplace::do_advertise(&processor, &ad));
+		assert_ok!(<AcurastMarketplace as AdvertisementHandler<_, _, _>>::advertise_for(
+			&processor, ad
+		));
 		AcurastCompute::commit(&processor, &(processor.clone(), 1), &Self::min_metrics());
 		ExtraFor::<Runtime> {
 			requirements: JobRequirements {
@@ -347,8 +349,11 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		// the compute hook also clears up to `MaxPools` metric rows
 		AcurastCompute::benchmark_fill_metrics(processor);
 
-		AcurastMarketplace::do_advertise(processor, &Self::advertisement())
-			.expect("advertisement storage success");
+		<AcurastMarketplace as AdvertisementHandler<_, _, _>>::advertise_for(
+			processor,
+			Self::advertisement(),
+		)
+		.expect("advertisement storage success");
 		// the marketplace hook clears up to `MaxMatchesPerProcessor` matches
 		let max_matches =
 			<Runtime as pallet_acurast_marketplace::Config>::MaxMatchesPerProcessor::get();

@@ -105,6 +105,7 @@ parameter_types! {
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hypdrpid");
 	pub const ReportTolerance: u64 = 70_000;
 	pub RootAccountId: AccountId = alice_account_id();
+	pub storage HasManager: bool = true;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
@@ -425,9 +426,9 @@ impl ManagerLookup for MockLockup {
 	}
 }
 
-pub struct ProcessorLastSeenProvider;
+pub struct MockProcessorInfoProvider;
 
-impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
+impl crate::traits::ProcessorInfoProvider<Test> for MockProcessorInfoProvider {
 	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
 		Some(AcurastMarketplace::now().unwrap().into())
 	}
@@ -443,6 +444,10 @@ impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 		pool_id: pallet_acurast::PoolId,
 	) -> Option<frame_support::sp_runtime::FixedU128> {
 		Some(AcurastCompute::metrics(processor, pool_id)?.metric)
+	}
+
+	fn has_manager(_processor: &<Test as frame_system::Config>::AccountId) -> bool {
+		HasManager::get()
 	}
 }
 
@@ -476,7 +481,7 @@ impl Config for Test {
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>, ()>;
-	type ProcessorInfoProvider = ProcessorLastSeenProvider;
+	type ProcessorInfoProvider = MockProcessorInfoProvider;
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;

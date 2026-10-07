@@ -4,10 +4,11 @@ use frame_support::{
 		fungible::{Balanced, Imbalance, Inspect},
 		Get, IsType,
 	},
+	BoundedVec,
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::{Attestation, AttestationChain, MetricInput, Version};
+use crate::{Attestation, AttestationChain, MetricInput, MultiOrigin, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -123,4 +124,28 @@ pub type ImbalanceFor<Currency, AccountId> = Imbalance<
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait OnProcessorUnpaired<AccountId> {
 	fn processor_unpaired(processor: &AccountId, former_manager: &AccountId);
+}
+
+pub trait AdvertisementHandler<AccountId, Advertisement, MaxAllowedConsumers: Get<u32>> {
+	fn advertise_for(processor: &AccountId, advertisement: Advertisement) -> DispatchResult;
+	/// Replaces the consumers allowed on `processor`; an empty list allows all.
+	fn update_allowed_consumers(
+		processor: &AccountId,
+		allowed_consumers: BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>,
+	) -> DispatchResult;
+}
+
+impl<AccountId, Advertisement, MaxAllowedConsumers: Get<u32>>
+	AdvertisementHandler<AccountId, Advertisement, MaxAllowedConsumers> for ()
+{
+	fn advertise_for(_processor: &AccountId, _advertisement: Advertisement) -> DispatchResult {
+		Ok(())
+	}
+
+	fn update_allowed_consumers(
+		_processor: &AccountId,
+		_allowed_consumers: BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>,
+	) -> DispatchResult {
+		Ok(())
+	}
 }

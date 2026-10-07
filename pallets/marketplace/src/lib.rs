@@ -34,6 +34,7 @@ pub use benchmarking::BenchmarkHelper;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use acurast_common::{AdvertisementHandler, JobModules};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		ensure,
@@ -145,7 +146,7 @@ pub mod pallet {
 		type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
 	}
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -186,18 +187,6 @@ pub mod pallet {
 		T::AccountId,
 		AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
 	>;
-
-	/// The storage for advertisements' pricings. They are stored as a map [`AccountId`] `(source)` -> [`Pricing`] since only one
-	/// advertisement per client, and at most one pricing for each distinct `AssetID` is allowed.
-	#[pallet::storage]
-	#[pallet::getter(fn stored_advertisement_pricing)]
-	pub type StoredAdvertisementPricing<T: Config> =
-		StorageMap<_, Blake2_128, T::AccountId, PricingFor<T>>;
-
-	/// The storage for remaining capacity for each source. Can be negative if capacity is reduced beyond the number of jobs currently assigned.
-	#[pallet::storage]
-	#[pallet::getter(fn stored_storage_capacity)]
-	pub type StoredStorageCapacity<T: Config> = StorageMap<_, Blake2_128, T::AccountId, i64>;
 
 	/// Reputation as a map [`AccountId`] `(source)` -> [`BetaParameters`].
 	#[pallet::storage]
@@ -302,10 +291,12 @@ pub mod pallet {
 	#[pallet::getter(fn min_fee_per_millisecond)]
 	pub type MinFeePerMillisecond<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
+	/// Cursor of the background cleanup of the removed advertisement pricing storage, present
+	/// while the cleanup runs. Empty until the first step.
 	#[pallet::storage]
-	#[pallet::getter(fn v7_migration_state)]
-	pub type V7MigrationState<T: Config> =
-		StorageValue<_, BoundedVec<u8, ConstU32<80>>, OptionQuery>;
+	#[pallet::getter(fn migration_cursor)]
+	pub type MigrationCursor<T: Config> =
+		StorageValue<_, BoundedVec<u8, ConstU32<128>>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn price_settings)]
@@ -356,9 +347,9 @@ pub mod pallet {
 		/// A registration was successfully matched. [JobId]
 		JobExecutionMatchedV2(JobId<T::AccountId>),
 		/// Migration started.
-		V7MigrationStarted,
+		V8MigrationStarted,
 		/// Migration completed.
-		V7MigrationCompleted,
+		V8MigrationCompleted,
 		/// Processor assignments cleaned up
 		ProcessorAssignmentsCleanedUp(
 			T::AccountId,
@@ -516,6 +507,8 @@ pub mod pallet {
 		JobRegistrationMaxStartDelayExceeded,
 		/// Match is invalid due to a proposed `start_delay` exceeding the schedule's `max_start_delay`.
 		StartDelayExceedsMaxStartDelayInMatch,
+		/// The processor has no manager pairing
+		ProcessorHasNoManager,
 	}
 
 	#[pallet::hooks]
@@ -531,8 +524,18 @@ pub mod pallet {
 			>,
 		>,
 	{
-		fn on_initialize(_block_number: BlockNumberFor<T>) -> frame_support::weights::Weight {
-			crate::migration::migrate::<T>()
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			crate::migration::on_runtime_upgrade::<T>()
+		}
+
+		fn on_idle(
+			_block_number: BlockNumberFor<T>,
+			remaining_weight: frame_support::weights::Weight,
+		) -> frame_support::weights::Weight {
+			// half of the idle weight, leaving a margin for estimation errors and other pallets
+			let mut meter = frame_support::weights::WeightMeter::with_limit(remaining_weight / 2);
+			crate::migration::clear_pricing::<T>(&mut meter);
+			meter.consumed()
 		}
 	}
 
@@ -547,7 +550,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::do_advertise(&who, &advertisement)?;
+			ensure!(T::ProcessorInfoProvider::has_manager(&who), Error::<T>::ProcessorHasNoManager);
+
+			<Self as AdvertisementHandler<_, _, _>>::advertise_for(&who, advertisement)?;
 
 			Self::deposit_event(Event::AdvertisementStoredV2(who));
 			Ok(().into())
@@ -565,7 +570,6 @@ pub mod pallet {
 			// prohibit updates as long as jobs assigned
 			ensure!(!Self::has_matches(&who), Error::<T>::CannotDeleteAdvertisementWhileMatched);
 
-			<StoredAdvertisementPricing<T>>::remove(&who);
 			<StoredAdvertisementRestriction<T>>::remove(&who);
 
 			Self::deposit_event(Event::AdvertisementRemoved(who));
@@ -1007,6 +1011,23 @@ pub mod pallet {
 				Self::deposit_event(Event::JobMatcherEntryCleanedUp(job_id));
 			}
 
+			Ok(().into())
+		}
+
+		/// Updates the modules available on the calling processor.
+		#[pallet::call_index(19)]
+		#[pallet::weight(< T as Config >::WeightInfo::update_available_modules())]
+		pub fn update_available_modules(
+			origin: OriginFor<T>,
+			available_modules: JobModules,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			ensure!(T::ProcessorInfoProvider::has_manager(&who), Error::<T>::ProcessorHasNoManager);
+
+			Self::do_advertise(&who, Some(available_modules), None)?;
+
+			Self::deposit_event(Event::AdvertisementStoredV2(who));
 			Ok(().into())
 		}
 	}

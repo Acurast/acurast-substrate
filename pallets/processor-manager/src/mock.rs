@@ -159,6 +159,7 @@ impl Config for Test {
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type Advertisement = ();
+	type MaxAllowedConsumers = ConstU32<100>;
 	type AdvertisementHandler = ();
 	type WeightInfo = weights::WeightInfo<Self>;
 	type ExtensionWeightInfo = weights::ExtensionWeightInfo<Self>;

@@ -396,4 +396,11 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 4990))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn update_available_modules() -> Weight {
+		Weight::from_parts(24_080_000, 0)
+			.saturating_add(Weight::from_parts(0, 7296))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }

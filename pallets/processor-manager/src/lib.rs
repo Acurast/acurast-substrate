@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod functions;
-mod migration;
 pub mod onboarding;
 mod traits;
 mod types;
@@ -26,8 +25,6 @@ pub use stub::generate_account;
 pub use traits::*;
 pub use types::*;
 
-pub(crate) use pallet::STORAGE_VERSION;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
@@ -40,16 +37,14 @@ pub mod pallet {
 		},
 		Blake2_128, Blake2_128Concat, Parameter,
 	};
-	use frame_system::{
-		ensure_signed,
-		pallet_prelude::{BlockNumberFor, OriginFor},
-	};
+	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
 	use parity_scale_codec::MaxEncodedLen;
 	use sp_std::prelude::*;
 
 	use acurast_common::{
-		AttestationChain, AttestationValidator, ComputeHooks, ListUpdateOperation,
-		ManagerIdProvider, ManagerLookup, Metrics, OnProcessorUnpaired, Version,
+		AdvertisementHandler, AttestationChain, AttestationValidator, ComputeHooks,
+		ListUpdateOperation, ManagerIdProvider, ManagerLookup, Metrics, MultiOrigin,
+		OnProcessorUnpaired, Version,
 	};
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -82,7 +77,12 @@ pub mod pallet {
 		type Counter: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + Ord + From<u8>;
 		type PairingProofExpirationTime: Get<u128>;
 		type Advertisement: Parameter + Member;
-		type AdvertisementHandler: AdvertisementHandler<Self>;
+		type MaxAllowedConsumers: Get<u32>;
+		type AdvertisementHandler: AdvertisementHandler<
+			Self::AccountId,
+			Self::Advertisement,
+			Self::MaxAllowedConsumers,
+		>;
 		type UnixTime: UnixTime;
 		type ManagerProviderForEligibleProcessor: ManagerLookup<
 			AccountId = Self::AccountId,
@@ -268,13 +268,6 @@ pub mod pallet {
 		CallDeprecated,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			crate::migration::migrate::<T>()
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
@@ -377,7 +370,7 @@ pub mod pallet {
 			let processor_account_id = <T::Lookup as StaticLookup>::lookup(processor)?;
 			_ = Self::ensure_managed(&who, &processor_account_id)?;
 
-			T::AdvertisementHandler::advertise_for(&processor_account_id, &advertisement)?;
+			T::AdvertisementHandler::advertise_for(&processor_account_id, advertisement)?;
 
 			Self::deposit_event(Event::<T>::ProcessorAdvertisementV2(processor_account_id));
 
@@ -622,6 +615,28 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			Err(Error::<T>::MigrationDisabled.into())
+		}
+
+		/// Replaces the consumers allowed on a managed processor; an empty list allows all.
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::update_allowed_consumers())]
+		pub fn update_allowed_consumers(
+			origin: OriginFor<T>,
+			processor: <T::Lookup as StaticLookup>::Source,
+			allowed_consumers: BoundedVec<MultiOrigin<T::AccountId>, T::MaxAllowedConsumers>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let processor_account_id = <T::Lookup as StaticLookup>::lookup(processor)?;
+			_ = Self::ensure_managed(&who, &processor_account_id)?;
+
+			T::AdvertisementHandler::update_allowed_consumers(
+				&processor_account_id,
+				allowed_consumers,
+			)?;
+
+			Self::deposit_event(Event::<T>::ProcessorAdvertisementV2(processor_account_id));
+
+			Ok(().into())
 		}
 	}
 }

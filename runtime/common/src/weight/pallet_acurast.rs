@@ -184,7 +184,7 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 			// Standard Error: 1_163
 			.saturating_add(Weight::from_parts(1_927_581, 0).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 	}
 	/// Storage: `Acurast::Revokers` (r:0 w:10)
 	/// The range of component `x` is `[1, 10]`.

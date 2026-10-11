@@ -205,9 +205,9 @@ mod benchmarks {
 	) {
 		set_timestamp::<T>(1000);
 		let updates: Vec<CertificateRevocationListUpdate> = (0..x)
-			.map(|_| CertificateRevocationListUpdate {
+			.map(|i| CertificateRevocationListUpdate {
 				operation: ListUpdateOperation::Add,
-				item: hex!("15905857467176635834").to_vec().try_into().unwrap(),
+				item: i.to_le_bytes().to_vec().try_into().unwrap(),
 			})
 			.collect();
 		let revoker: T::AccountId = account("revoker", 0, SEED);

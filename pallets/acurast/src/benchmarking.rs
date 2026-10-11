@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use frame_benchmarking::{account, benchmarks, whitelist_account};
+use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, sp_runtime::traits::Get, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
@@ -101,131 +101,172 @@ fn set_timestamp<T: pallet_timestamp::Config<Moment = u64>>(timestamp: u64) {
 	pallet_timestamp::Now::<T>::put(timestamp);
 }
 
-benchmarks! {
-	where_clause {  where
+fn environment<T: Config>(vars: u32) -> EnvironmentFor<T> {
+	let value = vec![105, 112, 102, 115, 58, 47, 47, 8];
+	Environment {
+		public_key: BoundedVec::truncate_from(value.clone()),
+		variables: BoundedVec::try_from(
+			(0..vars)
+				.map(|_| {
+					(
+						BoundedVec::truncate_from(value.clone()),
+						BoundedVec::truncate_from(value.clone()),
+					)
+				})
+				.collect::<Vec<_>>(),
+		)
+		.unwrap(),
+	}
+}
+
+#[benchmarks(
+	where
 		T: pallet_timestamp::Config<Moment = u64>,
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
-		<T as pallet_timestamp::Config>::Moment: From<u64>,
-	}
+)]
+mod benchmarks {
+	use super::*;
 
-	register {
+	#[benchmark]
+	fn register() {
 		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(false, true);
-	}: _(RawOrigin::Signed(caller.clone()), job.clone())
-	verify {
-		assert_last_event::<T>(Event::<T>::JobRegistrationStoredV2(
-			(MultiOrigin::Acurast(caller), 1)
-		).into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), job);
+
+		assert_last_event::<T>(
+			Event::<T>::JobRegistrationStoredV2((MultiOrigin::Acurast(caller), 1)).into(),
+		);
 	}
 
-	register_with_min_metrics {
+	#[benchmark]
+	fn register_with_min_metrics() {
 		set_timestamp::<T>(1000);
 		let (caller, job) = register_job::<T>(false, true);
 		let min_metrics: Metrics = <T as Config>::BenchmarkHelper::min_metrics();
-	}: _(RawOrigin::Signed(caller.clone()), job.clone(), min_metrics)
 
-	deregister {
-		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(true, false);
-		let local_job_id = 1;
-	}: _(RawOrigin::Signed(caller.clone()), local_job_id)
-	verify {
-		assert_last_event::<T>(Event::<T>::JobRegistrationRemoved(
-			(MultiOrigin::Acurast(caller), local_job_id)
-		).into());
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), job, min_metrics);
 	}
 
-	update_allowed_sources {
-		let x in 1 .. T::MaxAllowedSources::get();
+	#[benchmark]
+	fn deregister() {
 		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(true, false);
-		let mut updates: Vec<AllowedSourcesUpdate<T::AccountId>> = vec![];
-		for i in 0..x {
-			updates.push(AllowedSourcesUpdate {
+		let (caller, _) = register_job::<T>(true, false);
+		let local_job_id = 1;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), local_job_id);
+
+		assert_last_event::<T>(
+			Event::<T>::JobRegistrationRemoved((MultiOrigin::Acurast(caller), local_job_id)).into(),
+		);
+	}
+
+	#[benchmark]
+	fn update_allowed_sources(x: Linear<1, { T::MaxAllowedSources::get() }>) {
+		set_timestamp::<T>(1000);
+		let (caller, _) = register_job::<T>(true, false);
+		let updates: Vec<AllowedSourcesUpdate<T::AccountId>> = (0..x)
+			.map(|i| AllowedSourcesUpdate {
 				operation: ListUpdateOperation::Add,
 				item: account("processor", i, SEED),
 			})
-		}
+			.collect();
 		let local_job_id = 1;
-		let updates: BoundedVec<AllowedSourcesUpdate<T::AccountId>, <T as Config>::MaxAllowedSources> = updates.try_into().unwrap();
-	}: _(RawOrigin::Signed(caller.clone()), local_job_id, updates.clone())
-	verify {
-		assert_last_event::<T>(Event::AllowedSourcesUpdatedV2(
-			(MultiOrigin::Acurast(caller), 1)
-		).into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), local_job_id, updates.try_into().unwrap());
+
+		assert_last_event::<T>(
+			Event::AllowedSourcesUpdatedV2((MultiOrigin::Acurast(caller), 1)).into(),
+		);
 	}
 
-	submit_attestation {
+	#[benchmark]
+	fn submit_attestation() {
 		set_timestamp::<T>(1657363915001);
 		let processor_account: T::AccountId = processor_account_id::<T>();
 		let attestation_chain = attestation_chain();
-	}: _(RawOrigin::Signed(processor_account.clone()), attestation_chain.clone())
-	verify {
-		let attestation = validate_and_extract_attestation::<T>(&processor_account, &attestation_chain).unwrap();
-		assert_last_event::<T>(Event::AttestationStoredV2(
-			processor_account,
-		).into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(processor_account.clone()), attestation_chain.clone());
+
+		assert!(
+			validate_and_extract_attestation::<T>(&processor_account, &attestation_chain).is_ok()
+		);
+		assert_last_event::<T>(Event::AttestationStoredV2(processor_account).into());
 	}
 
-	update_certificate_revocation_list {
-		let x in 1 .. T::MaxCertificateRevocationListUpdates::get();
+	#[benchmark]
+	fn update_certificate_revocation_list(
+		x: Linear<1, { T::MaxCertificateRevocationListUpdates::get() }>,
+	) {
 		set_timestamp::<T>(1000);
-		let mut updates: Vec<CertificateRevocationListUpdate> = vec![];
-		for i in 0..x {
-			updates.push(CertificateRevocationListUpdate {
+		let updates: Vec<CertificateRevocationListUpdate> = (0..x)
+			.map(|_| CertificateRevocationListUpdate {
 				operation: ListUpdateOperation::Add,
-				item: hex!("15905857467176635834").to_vec().try_into().unwrap()
-			});
-		}
-	}: _(RawOrigin::Root, updates.clone().try_into().unwrap())
-	verify {
+				item: hex!("15905857467176635834").to_vec().try_into().unwrap(),
+			})
+			.collect();
+		let revoker: T::AccountId = account("revoker", 0, SEED);
+		<Revokers<T>>::insert(&revoker, ());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(revoker), updates.try_into().unwrap());
+
 		assert_last_event::<T>(Event::CertificateRevocationListUpdated.into());
 	}
 
-	set_environment {
-		let x in 1 .. T::MaxEnvVars::get();
-		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(true, false);
-		let mut vars: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
-		for i in 0..x {
-			vars.push((BoundedVec::truncate_from(vec![
-				105, 112, 102, 115, 58, 47, 47, 8]), BoundedVec::truncate_from(vec![
-				105, 112, 102, 115, 58, 47, 47, 8])))
-		}
-		let env: EnvironmentFor<T> = Environment{
-			public_key: BoundedVec::truncate_from(vec![105, 112, 102, 115, 58, 47, 47, 8]),
-			variables: BoundedVec::try_from(vars).unwrap(),
-		};
-		let local_job_id = 1;
-	}: _(RawOrigin::Signed(caller.clone()), local_job_id, account("processor", 0, SEED), env.clone())
-	verify {
-		assert_last_event::<T>(Event::ExecutionEnvironmentsUpdatedV2(
-			(MultiOrigin::Acurast(caller), 1)
-		).into());
+	#[benchmark]
+	fn update_revokers(x: Linear<1, { T::MaxCertificateRevocationListUpdates::get() }>) {
+		let updates: Vec<ListUpdate<T::AccountId>> = (0..x)
+			.map(|i| ListUpdate {
+				operation: ListUpdateOperation::Add,
+				item: account("revoker", i, SEED),
+			})
+			.collect();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, updates.try_into().unwrap());
+
+		assert_last_event::<T>(Event::RevokersUpdated.into());
 	}
 
-	set_environments {
-		let x in 1 .. T::MaxSlots::get();
-		let y in 1 .. T::MaxEnvVars::get();
+	#[benchmark]
+	fn set_environment(x: Linear<1, { T::MaxEnvVars::get() }>) {
 		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(true, false);
-		let mut e: Vec<(T::AccountId, EnvironmentFor<T>)> = vec![];
-		for j in 0..x {
-			let mut v: Vec<(BoundedVec<u8, T::EnvKeyMaxSize>, BoundedVec<u8, T::EnvValueMaxSize>)> = vec![];
-			for i in 0..y {
-				v.push((BoundedVec::truncate_from(vec![
-					105, 112, 102, 115, 58, 47, 47, 8]), BoundedVec::truncate_from(vec![
-					105, 112, 102, 115, 58, 47, 47, 8])))
-			}
-			let env: EnvironmentFor<T> = Environment {
-				public_key: BoundedVec::truncate_from(vec![105, 112, 102, 115, 58, 47, 47, 8]),
-				variables: BoundedVec::try_from(v).unwrap(),
-			};
-			e.push((account("processor", j, SEED), env));
-		}
-
+		let (caller, _) = register_job::<T>(true, false);
 		let local_job_id = 1;
-	}: _(RawOrigin::Signed(caller.clone()), local_job_id, e.try_into().unwrap())
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(caller.clone()),
+			local_job_id,
+			account("processor", 0, SEED),
+			environment::<T>(x),
+		);
+
+		assert_last_event::<T>(
+			Event::ExecutionEnvironmentsUpdatedV2((MultiOrigin::Acurast(caller), 1)).into(),
+		);
+	}
+
+	#[benchmark]
+	fn set_environments(
+		x: Linear<1, { T::MaxSlots::get() }>,
+		y: Linear<1, { T::MaxEnvVars::get() }>,
+	) {
+		set_timestamp::<T>(1000);
+		let (caller, _) = register_job::<T>(true, false);
+		let environments: Vec<(T::AccountId, EnvironmentFor<T>)> =
+			(0..x).map(|j| (account("processor", j, SEED), environment::<T>(y))).collect();
+		let local_job_id = 1;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), local_job_id, environments.try_into().unwrap());
+	}
 
 	impl_benchmark_test_suite!(Acurast, mock::ExtBuilder.build(), mock::Test);
 }

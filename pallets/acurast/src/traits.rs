@@ -39,6 +39,7 @@ pub trait WeightInfo {
 	fn update_allowed_sources(x: u32) -> Weight;
 	fn submit_attestation() -> Weight;
 	fn update_certificate_revocation_list(x: u32) -> Weight;
+	fn update_revokers(x: u32) -> Weight;
 	fn set_environment(x: u32) -> Weight;
 	fn set_environments(x: u32, y: u32) -> Weight;
 	fn register_with_min_metrics() -> Weight;

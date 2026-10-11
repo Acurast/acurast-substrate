@@ -178,12 +178,20 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_700_000 picoseconds.
-		Weight::from_parts(8_107_050, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_024
-			.saturating_add(Weight::from_parts(1_856_735, 0).saturating_mul(x.into()))
+		// Minimum execution time: 5_520_000 picoseconds.
+		Weight::from_parts(7_816_596, 0)
+			.saturating_add(Weight::from_parts(0, 2512))
+			// Standard Error: 1_163
+			.saturating_add(Weight::from_parts(1_927_581, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Acurast::Revokers` (r:0 w:10)
+	/// The range of component `x` is `[1, 10]`.
+	fn update_revokers(x: u32, ) -> Weight {
+		Weight::from_parts(7_816_596, 0)
+			.saturating_add(Weight::from_parts(1_927_581, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 	}
 	/// Storage: `Acurast::StoredJobRegistration` (r:1 w:0)
 	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34818), added: 37293, mode: `MaxEncodedLen`)

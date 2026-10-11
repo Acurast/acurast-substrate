@@ -115,6 +115,7 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: Acurast Revokers (r:1 w:0)
 	/// Storage: Acurast StoredRevokedCertificate (r:0 w:1)
 	/// Proof: Acurast StoredRevokedCertificate (max_values: None, max_size: Some(37), added: 2512, mode: MaxEncodedLen)
 	fn update_certificate_revocation_list(_x: u32) -> Weight {
@@ -123,8 +124,14 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 9_000_000 picoseconds.
 		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(Weight::from_parts(0, 2512))
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: Acurast Revokers (r:0 w:x)
+	fn update_revokers(x: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(x.into()))
 	}
 	/// Storage: Acurast StoredJobRegistration (r:1 w:0)
 	/// Proof: Acurast StoredJobRegistration (max_values: None, max_size: Some(34795), added: 37270, mode: MaxEncodedLen)

@@ -115,16 +115,25 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: Acurast StoredRevokedCertificate (r:0 w:1)
+	/// Storage: Acurast Revokers (r:1 w:0)
+	/// Proof: Acurast Revokers (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
+	/// Storage: Acurast StoredRevokedCertificate (r:0 w:10)
 	/// Proof: Acurast StoredRevokedCertificate (max_values: None, max_size: Some(37), added: 2512, mode: MaxEncodedLen)
-	fn update_certificate_revocation_list(_x: u32) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 9_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
+	/// The range of component `x` is `[1, 10]`.
+	fn update_certificate_revocation_list(x: u32) -> Weight {
+		Weight::from_parts(9_777_777, 0)
+			.saturating_add(Weight::from_parts(0, 3513))
+			.saturating_add(Weight::from_parts(1_222_222, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(x.into()))
+	}
+	/// Storage: Acurast Revokers (r:0 w:10)
+	/// Proof: Acurast Revokers (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
+	/// The range of component `x` is `[1, 10]`.
+	fn update_revokers(x: u32) -> Weight {
+		Weight::from_parts(4_666_666, 0)
+			.saturating_add(Weight::from_parts(1_333_333, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().writes(x.into()))
 	}
 	/// Storage: Acurast StoredJobRegistration (r:1 w:0)
 	/// Proof: Acurast StoredJobRegistration (max_values: None, max_size: Some(34795), added: 37270, mode: MaxEncodedLen)

@@ -16,6 +16,8 @@ pub mod weights;
 pub use acurast_common::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
+use frame_support::traits::EnsureOrigin;
+use frame_system::RawOrigin;
 pub use pallet::*;
 pub use traits::*;
 
@@ -24,6 +26,25 @@ pub type JobRegistrationFor<T> = JobRegistration<
 	<T as Config>::MaxAllowedSources,
 	<T as Config>::RegistrationExtra,
 >;
+
+/// Ensures the origin is a signed account in [Revokers].
+pub struct EnsureRevoker<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> EnsureOrigin<T::RuntimeOrigin> for EnsureRevoker<T> {
+	type Success = T::AccountId;
+
+	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+		o.into().and_then(|o| match o {
+			RawOrigin::Signed(who) if Revokers::<T>::contains_key(&who) => Ok(who),
+			r => Err(T::RuntimeOrigin::from(r)),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Err(())
+	}
+}
 
 pub type EnvironmentFor<T> = Environment<
 	<T as Config>::MaxEnvVars,
@@ -39,13 +60,13 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		traits::{EnsureOrigin, UnixTime},
+		traits::{EitherOfDiverse, EnsureOrigin, UnixTime},
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, EnvironmentFor, JobRegistrationFor};
+	use crate::{traits::*, EnsureRevoker, EnvironmentFor, JobRegistrationFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -139,6 +160,10 @@ pub mod pallet {
 	pub type StoredRevokedCertificate<T: Config> =
 		StorageMap<_, Blake2_128Concat, SerialNumber, ()>;
 
+	/// Accounts allowed to update the certificate revocation list.
+	#[pallet::storage]
+	pub type Revokers<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ()>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn v5_migration_state)]
 	pub type V5MigrationState<T: Config> =
@@ -178,6 +203,8 @@ pub mod pallet {
 		AttestationStoredV2(T::AccountId),
 		/// The execution environment has been updated. [job_id]
 		ExecutionEnvironmentsUpdatedV2(JobId<T::AccountId>),
+		/// The revokers list has been updated.
+		RevokersUpdated,
 	}
 
 	#[pallet::error]
@@ -355,8 +382,7 @@ pub mod pallet {
 		}
 
 		/// Updates the certificate revocation list by adding or removing a revoked certificate serial number. Attestations signed
-		/// by a revoked certificate will not be considered valid anymore. The `RevocationListUpdateBarrier` configured in [Config] can be used to
-		/// customize who can execute this action.
+		/// by a revoked certificate will not be considered valid anymore. Callable by [Config::UpdateOrigin] or an account in [Revokers].
 		#[pallet::weight(<T as Config>::WeightInfo::update_certificate_revocation_list(updates.len() as u32))]
 		#[pallet::call_index(6)]
 		pub fn update_certificate_revocation_list(
@@ -366,7 +392,8 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			T::UpdateOrigin::ensure_origin(origin)?;
+			EitherOfDiverse::<T::UpdateOrigin, EnsureRevoker<T>>::ensure_origin(origin)
+				.map_err(|_| Error::<T>::CertificateRevocationListUpdateNotAllowed)?;
 
 			for update in &updates {
 				match &update.operation {
@@ -414,6 +441,25 @@ pub mod pallet {
 			let job_id: JobId<T::AccountId> = (multi_origin, job_id_seq);
 			Self::set_environment_for(job_id, environments)?;
 
+			Ok(().into())
+		}
+
+		/// Adds or removes accounts allowed to update the certificate revocation list.
+		#[pallet::weight(<T as Config>::WeightInfo::update_revokers(updates.len() as u32))]
+		#[pallet::call_index(10)]
+		pub fn update_revokers(
+			origin: OriginFor<T>,
+			updates: BoundedVec<ListUpdate<T::AccountId>, T::MaxCertificateRevocationListUpdates>,
+		) -> DispatchResultWithPostInfo {
+			T::UpdateOrigin::ensure_origin(origin)?;
+
+			for update in &updates {
+				match &update.operation {
+					ListUpdateOperation::Add => <Revokers<T>>::insert(&update.item, ()),
+					ListUpdateOperation::Remove => <Revokers<T>>::remove(&update.item),
+				}
+			}
+			Self::deposit_event(Event::RevokersUpdated);
 			Ok(().into())
 		}
 	}

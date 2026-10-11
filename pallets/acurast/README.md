@@ -35,7 +35,11 @@ Allows an Acurast Processor to submit a key attestation proving its integrity. T
 
 ### updateCertificateRevocationList
 
-Allows to update the certificate recovation list used during attestation validation.
+Allows to update the certificate revocation list used during attestation validation. Callable by `UpdateOrigin` or an account in `Revokers`.
+
+### updateRevokers
+
+Allows `UpdateOrigin` to add or remove accounts allowed to update the certificate revocation list.
 
 ## Setup
 
@@ -68,7 +72,7 @@ impl pallet_acurast::Config for Runtime {
 	type MaxAllowedSources = MaxAllowedSources;
 	type RewardManager = (); // provide proper type to enable rewards to be payed on fulfillment
 	type PalletId = AcurastPalletId;
-	type RevocationListUpdateBarrier = ();
+	type UpdateOrigin = EnsureRoot<AccountId>;
 	type KeyAttestationBarrier = ();
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Self>;

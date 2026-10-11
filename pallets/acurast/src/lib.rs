@@ -16,6 +16,8 @@ pub mod weights;
 pub use acurast_common::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
+use frame_support::traits::EnsureOrigin;
+use frame_system::RawOrigin;
 pub use pallet::*;
 pub use traits::*;
 
@@ -24,6 +26,25 @@ pub type JobRegistrationFor<T> = JobRegistration<
 	<T as Config>::MaxAllowedSources,
 	<T as Config>::RegistrationExtra,
 >;
+
+/// Ensures the origin is a signed account in [Revokers].
+pub struct EnsureRevoker<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> EnsureOrigin<T::RuntimeOrigin> for EnsureRevoker<T> {
+	type Success = T::AccountId;
+
+	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+		o.into().and_then(|o| match o {
+			RawOrigin::Signed(who) if Revokers::<T>::contains_key(&who) => Ok(who),
+			r => Err(T::RuntimeOrigin::from(r)),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Err(())
+	}
+}
 
 pub type EnvironmentFor<T> = Environment<
 	<T as Config>::MaxEnvVars,
@@ -39,13 +60,13 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
-		traits::{EnsureOrigin, UnixTime},
+		traits::{EitherOfDiverse, EnsureOrigin, UnixTime},
 		Blake2_128Concat, PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, EnvironmentFor, JobRegistrationFor};
+	use crate::{traits::*, EnsureRevoker, EnvironmentFor, JobRegistrationFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -371,13 +392,8 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			if T::UpdateOrigin::try_origin(origin.clone()).is_err() {
-				let who = ensure_signed(origin)?;
-				ensure!(
-					<Revokers<T>>::contains_key(&who),
-					Error::<T>::CertificateRevocationListUpdateNotAllowed
-				);
-			}
+			EitherOfDiverse::<T::UpdateOrigin, EnsureRevoker<T>>::ensure_origin(origin)
+				.map_err(|_| Error::<T>::CertificateRevocationListUpdateNotAllowed)?;
 
 			for update in &updates {
 				match &update.operation {

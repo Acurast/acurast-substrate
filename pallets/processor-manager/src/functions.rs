@@ -18,7 +18,7 @@ use frame_support::{
 use crate::{
 	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
 	OnboardingProvider, Pallet, ProcessorHeartbeat, ProcessorPairingFor, ProcessorToManagerIdIndex,
-	ProcessorVersion,
+	ProcessorUpdateInfo, ProcessorVersion,
 };
 
 impl<T: Config> Pallet<T> {
@@ -70,6 +70,7 @@ impl<T: Config> Pallet<T> {
 		<ProcessorToManagerIdIndex<T>>::remove(processor_account);
 		<ProcessorVersion<T>>::remove(processor_account);
 		<ProcessorHeartbeat<T>>::remove(processor_account);
+		<ProcessorUpdateInfo<T>>::remove(processor_account);
 		<T as Config>::OnProcessorUnpaired::processor_unpaired(processor_account, manager);
 		Ok(())
 	}

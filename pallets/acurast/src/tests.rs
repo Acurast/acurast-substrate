@@ -6,7 +6,8 @@ use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
 	mock::*, utils::validate_and_extract_attestation, AllowedSourcesUpdate, AttestationChain,
-	CertificateRevocationListUpdate, Error, ListUpdateOperation, SerialNumber,
+	CertificateRevocationListUpdate, Error, ListUpdate, ListUpdateOperation, Revokers,
+	SerialNumber,
 };
 
 #[test]
@@ -470,7 +471,7 @@ fn test_update_revocation_list() {
 				RuntimeOrigin::signed(alice_account_id()),
 				updates_1.clone().try_into().unwrap(),
 			),
-			BadOrigin,
+			Error::<Test>::CertificateRevocationListUpdateNotAllowed,
 		);
 		assert_eq!(None, Acurast::stored_revoked_certificate::<SerialNumber>(cert_serial_number()));
 
@@ -479,6 +480,69 @@ fn test_update_revocation_list() {
 			[
 				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated),
 				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated)
+			]
+		);
+	});
+}
+
+#[test]
+fn test_update_revocation_list_by_revoker() {
+	ExtBuilder.build().execute_with(|| {
+		let revoke = vec![CertificateRevocationListUpdate {
+			operation: ListUpdateOperation::Add,
+			item: cert_serial_number(),
+		}];
+		let add_alice =
+			vec![ListUpdate { operation: ListUpdateOperation::Add, item: alice_account_id() }];
+		let remove_alice =
+			vec![ListUpdate { operation: ListUpdateOperation::Remove, item: alice_account_id() }];
+
+		assert_err!(
+			Acurast::update_revokers(
+				RuntimeOrigin::signed(alice_account_id()),
+				add_alice.clone().try_into().unwrap(),
+			),
+			BadOrigin,
+		);
+
+		assert_ok!(Acurast::update_revokers(RuntimeOrigin::root(), add_alice.try_into().unwrap()));
+		assert!(Revokers::<Test>::contains_key(alice_account_id()));
+
+		assert_err!(
+			Acurast::update_certificate_revocation_list(
+				RuntimeOrigin::signed(bob_account_id()),
+				revoke.clone().try_into().unwrap(),
+			),
+			Error::<Test>::CertificateRevocationListUpdateNotAllowed,
+		);
+		assert_ok!(Acurast::update_certificate_revocation_list(
+			RuntimeOrigin::signed(alice_account_id()),
+			revoke.clone().try_into().unwrap(),
+		));
+		assert_eq!(
+			Some(()),
+			Acurast::stored_revoked_certificate::<SerialNumber>(cert_serial_number())
+		);
+
+		assert_ok!(Acurast::update_revokers(
+			RuntimeOrigin::root(),
+			remove_alice.try_into().unwrap()
+		));
+		assert!(!Revokers::<Test>::contains_key(alice_account_id()));
+		assert_err!(
+			Acurast::update_certificate_revocation_list(
+				RuntimeOrigin::signed(alice_account_id()),
+				revoke.try_into().unwrap(),
+			),
+			Error::<Test>::CertificateRevocationListUpdateNotAllowed,
+		);
+
+		assert_eq!(
+			events(),
+			[
+				RuntimeEvent::Acurast(crate::Event::RevokersUpdated),
+				RuntimeEvent::Acurast(crate::Event::CertificateRevocationListUpdated),
+				RuntimeEvent::Acurast(crate::Event::RevokersUpdated),
 			]
 		);
 	});

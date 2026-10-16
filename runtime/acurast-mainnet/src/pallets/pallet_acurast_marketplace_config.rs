@@ -4,7 +4,7 @@ use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{traits::BlakeTwo256, FixedU128};
 
 use acurast_runtime_common::{
-	types::{AcurastProcessorInfoProvider, Balance, ExtraFor, ProcessorPriceProvider},
+	types::{Balance, ExtraFor, ProcessorPriceProvider},
 	weight,
 };
 use pallet_acurast::CU32;
@@ -47,7 +47,6 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		AcurastMarketplace,
 		(),
 	>;
-	type ProcessorInfoProvider = AcurastProcessorInfoProvider<Self>;
 	// Cross-chain (Hyperdrive) job-operation hooks removed; no-op hooks.
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;

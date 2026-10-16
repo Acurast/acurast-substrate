@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::{stub::*, *};
 use acurast_common::{
 	extract_attestation, parse_cert, Attestation, AttestationChain, AttestationValidator,
-	AttestationValidity, ManagerIdProvider, ManagerLookup, CU32,
+	AttestationValidity, ManagerIdProvider, ManagerLookup, ProcessorInfoProvider, CU32,
 };
 use frame_support::{
 	derive_impl,
@@ -140,6 +140,8 @@ impl pallet_acurast::Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = ();
 	type ProcessorVersion = acurast_common::Version;
+	type ProcessorInfoProvider = MockProcessorInfoProvider;
+	type OnProcessorInvalidated = AcurastProcessorManager;
 	type MaxVersions = CU32<2>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
@@ -171,6 +173,33 @@ impl Config for Test {
 	type AttestationHandler = MockAttestationValidator;
 	type OnProcessorUnpaired = Acurast;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+}
+
+pub struct MockProcessorInfoProvider;
+impl ProcessorInfoProvider for MockProcessorInfoProvider {
+	type AccountId = <Test as frame_system::Config>::AccountId;
+	type ProcessorVersion = <Test as pallet_acurast::Config>::ProcessorVersion;
+
+	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
+		None
+	}
+
+	fn processor_version(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as pallet_acurast::Config>::ProcessorVersion> {
+		None
+	}
+
+	fn last_processor_metric(
+		_processor: &<Test as frame_system::Config>::AccountId,
+		_pool_id: pallet_acurast::PoolId,
+	) -> Option<frame_support::sp_runtime::FixedU128> {
+		None
+	}
+
+	fn has_manager(processor: &<Test as frame_system::Config>::AccountId) -> bool {
+		AcurastProcessorManager::manager_id_for_processor(processor).is_some()
+	}
 }
 
 pub struct MockAttestationValidator;
@@ -293,6 +322,8 @@ where
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
+
+	fn setup_invalid_processor(_processor: &<Test as frame_system::Config>::AccountId) {}
 }
 
 pub struct AcurastManagerIdProvider;

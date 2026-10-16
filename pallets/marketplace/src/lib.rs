@@ -34,7 +34,7 @@ pub use benchmarking::BenchmarkHelper;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use acurast_common::{AdvertisementHandler, JobModules};
+	use acurast_common::{AdvertisementHandler, JobModules, ProcessorInfoProvider};
 	use frame_support::{
 		dispatch::DispatchResultWithPostInfo,
 		ensure,
@@ -97,7 +97,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type ReportTolerance: Get<u64>;
 		type Balance: Parameter + From<u64> + IsType<u128> + Balance + FixedPointOperand;
-		type ProcessorInfoProvider: ProcessorInfoProvider<Self>;
 		/// Logic for locking and paying tokens for job execution
 		type RewardManager: RewardManager<Self>;
 		/// Hook to act on marketplace related state transitions.

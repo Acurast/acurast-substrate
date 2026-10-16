@@ -1,8 +1,8 @@
 use acurast_runtime_common::{
 	barrier::Barrier,
 	types::{
-		EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources, MaxEnvVars, MaxSlots,
-		MaxVersions,
+		AcurastProcessorInfoProvider, EnvKeyMaxSize, EnvValueMaxSize, ExtraFor, MaxAllowedSources,
+		MaxEnvVars, MaxSlots, MaxVersions,
 	},
 	weight,
 };
@@ -10,8 +10,9 @@ use acurast_runtime_common::{
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking;
 use crate::{
-	AcurastPalletId, BundleIds, CorePackageNames, CoreSignatureDigests, EnsureCouncilOrRoot,
-	LitePackageNames, LiteSignatureDigests, PackageNames, Runtime, SignatureDigests,
+	AcurastCompute, AcurastMarketplace, AcurastPalletId, AcurastProcessorManager, BundleIds,
+	CorePackageNames, CoreSignatureDigests, EnsureCouncilOrRoot, LitePackageNames,
+	LiteSignatureDigests, PackageNames, Runtime, SignatureDigests,
 };
 
 /// Runtime configuration for pallet_acurast.
@@ -37,6 +38,8 @@ impl pallet_acurast::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Runtime>;
 	type JobHooks = pallet_acurast_marketplace::Pallet<Runtime>;
 	type ProcessorVersion = pallet_acurast::Version;
+	type ProcessorInfoProvider = AcurastProcessorInfoProvider<Self>;
+	type OnProcessorInvalidated = (AcurastProcessorManager, AcurastCompute, AcurastMarketplace);
 	type MaxVersions = MaxVersions;
 	type UpdateOrigin = EnsureCouncilOrRoot;
 	type WeightInfo = weight::pallet_acurast::WeightInfo<Self>;

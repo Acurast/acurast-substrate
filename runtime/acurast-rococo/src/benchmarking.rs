@@ -160,6 +160,12 @@ impl pallet_acurast::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
+
+	fn setup_invalid_processor(processor: &<Runtime as frame_system::Config>::AccountId) {
+		<Self as pallet_acurast_processor_manager::BenchmarkHelper<Runtime>>::setup_unpaired_cleanup(
+			processor,
+		);
+	}
 }
 
 fn setup_pools() {
@@ -344,6 +350,7 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 		// `Config::OnProcessorUnpaired` is `(Acurast, AcurastCompute, AcurastMarketplace)`: fill
 		// everything the three hooks remove, so unpairing measures their worst case.
 		Self::attest_account(processor);
+		AcurastProcessorManager::benchmark_fill_processor_data(processor, Self::dummy_proof());
 
 		pallet_acurast_compute::Processors::<Runtime>::insert(
 			processor,

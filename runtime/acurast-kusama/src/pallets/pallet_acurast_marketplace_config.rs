@@ -1,5 +1,5 @@
 use acurast_runtime_common::{
-	types::{AcurastProcessorInfoProvider, Balance, ExtraFor, ProcessorPriceProvider},
+	types::{Balance, ExtraFor, ProcessorPriceProvider},
 	weight,
 };
 use frame_support::{parameter_types, PalletId};
@@ -45,7 +45,6 @@ impl pallet_acurast_marketplace::Config for Runtime {
 		AcurastMarketplace,
 		(),
 	>;
-	type ProcessorInfoProvider = AcurastProcessorInfoProvider<Self>;
 	// Cross-chain (Hyperdrive) job-operation hooks removed; no-op hooks.
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;

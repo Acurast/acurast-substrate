@@ -1,7 +1,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::BenchmarkHelper;
 use crate::{AttestationChain, JobRegistration, Script, SerialNumber};
-use acurast_common::{AllowedSources, JobModules, Schedule, CU32};
+use acurast_common::{AllowedSources, JobModules, ProcessorInfoProvider, Schedule, CU32};
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
 use frame_support::{
@@ -147,6 +147,8 @@ impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type ProcessorVersion = acurast_common::Version;
+	type ProcessorInfoProvider = MockProcessorInfoProvider;
+	type OnProcessorInvalidated = ();
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type MaxVersions = CU32<2>;
 }
@@ -174,6 +176,35 @@ where
 			.collect::<Vec<_>>()
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
+	}
+
+	fn setup_invalid_processor(_processor: &T::AccountId) {}
+}
+
+pub struct MockProcessorInfoProvider;
+impl ProcessorInfoProvider for MockProcessorInfoProvider {
+	type AccountId = <Test as frame_system::Config>::AccountId;
+	type ProcessorVersion = <Test as crate::Config>::ProcessorVersion;
+
+	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
+		None
+	}
+
+	fn processor_version(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as crate::Config>::ProcessorVersion> {
+		None
+	}
+
+	fn last_processor_metric(
+		_processor: &<Test as frame_system::Config>::AccountId,
+		_pool_id: crate::PoolId,
+	) -> Option<frame_support::sp_runtime::FixedU128> {
+		None
+	}
+
+	fn has_manager(_processor: &<Test as frame_system::Config>::AccountId) -> bool {
+		true
 	}
 }
 

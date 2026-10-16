@@ -65,7 +65,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, EnsureRevoker, EnvironmentFor, JobRegistrationFor};
+	use crate::{
+		traits::*, utils::ensure_source_verified, EnsureRevoker, EnvironmentFor, JobRegistrationFor,
+	};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -96,6 +98,12 @@ pub mod pallet {
 		type JobHooks: JobHooks<Self>;
 		/// The type to use to represent a processor version.
 		type ProcessorVersion: PartialOrd + Parameter;
+		type ProcessorInfoProvider: ProcessorInfoProvider<
+			AccountId = Self::AccountId,
+			ProcessorVersion = Self::ProcessorVersion,
+		>;
+		/// Removes the data other pallets hold for an invalid or unpaired processor.
+		type OnProcessorInvalidated: OnProcessorInvalidated<Self::AccountId>;
 		#[pallet::constant]
 		type MaxVersions: Get<u32> + ParameterBound;
 		/// Origin allowd to call update_* extrinsics
@@ -199,6 +207,8 @@ pub mod pallet {
 		ExecutionEnvironmentsUpdatedV2(JobId<T::AccountId>),
 		/// The revokers list has been updated.
 		RevokersUpdated,
+		/// The stale data of an invalid or unpaired processor has been removed. [processor]
+		ProcessorInvalidated(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -251,6 +261,10 @@ pub mod pallet {
 		JobHookFailed,
 		/// The min metrics list exceeded the max length.
 		TooManyMinMetrics,
+		/// The processor is paired and its attestation is missing or still valid.
+		ProcessorStillValid,
+		/// The processor has no stale data to remove.
+		NothingToCleanUp,
 	}
 
 	#[pallet::call]
@@ -448,6 +462,30 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::RevokersUpdated);
 			Ok(().into())
+		}
+
+		/// Removes the stale data of `processor` if it is unpaired or its stored attestation is no longer valid.
+		/// The pairing itself is kept. Free of charge if anything was removed.
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::validate_processor())]
+		pub fn validate_processor(
+			origin: OriginFor<T>,
+			processor: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			let attested = <StoredAttestation<T>>::contains_key(&processor);
+			ensure!(
+				!T::ProcessorInfoProvider::has_manager(&processor)
+					|| (attested && ensure_source_verified::<T>(&processor).is_err()),
+				Error::<T>::ProcessorStillValid
+			);
+			<StoredAttestation<T>>::remove(&processor);
+			let data_removed = T::OnProcessorInvalidated::processor_invalidated(&processor);
+			ensure!(attested || data_removed, Error::<T>::NothingToCleanUp);
+
+			Self::deposit_event(Event::ProcessorInvalidated(processor));
+			Ok(Pays::No.into())
 		}
 	}
 }

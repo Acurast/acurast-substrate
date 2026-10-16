@@ -1,6 +1,6 @@
 use acurast_common::{
-	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup, OnProcessorUnpaired,
-	ProcessorVersionProvider, Version,
+	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup, OnProcessorInvalidated,
+	OnProcessorUnpaired, ProcessorVersionProvider, Version,
 };
 use frame_support::{
 	pallet_prelude::{DispatchResult, Zero},
@@ -17,8 +17,9 @@ use frame_support::{
 
 use crate::{
 	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
-	OnboardingProvider, Pallet, ProcessorHeartbeat, ProcessorPairingFor, ProcessorToManagerIdIndex,
-	ProcessorUpdateInfo, ProcessorVersion,
+	OnboardingProvider, Pallet, ProcessorHeartbeat, ProcessorMigrationData, ProcessorPairingFor,
+	ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex, ProcessorUpdateInfo,
+	ProcessorVersion,
 };
 
 impl<T: Config> Pallet<T> {
@@ -346,5 +347,54 @@ where
 				| Call::heartbeat_with_version { .. }
 				| Call::onboard { .. }
 		)
+	}
+}
+
+impl<T: Config> OnProcessorInvalidated<T::AccountId> for Pallet<T> {
+	/// Only removes data of unpaired processors; a paired processor's data belongs to its manager.
+	fn processor_invalidated(processor: &T::AccountId) -> bool {
+		if <ProcessorToManagerIdIndex<T>>::contains_key(processor) {
+			return false;
+		}
+		let mut removed = <ProcessorHeartbeat<T>>::take(processor).is_some();
+		removed |= <ProcessorVersion<T>>::take(processor).is_some();
+		removed |= <ProcessorUpdateInfo<T>>::take(processor).is_some();
+		removed |= <ProcessorRewardDistributionWindow<T>>::take(processor).is_some();
+		removed |= <ProcessorMigrationData<T>>::take(processor).is_some();
+		removed
+	}
+}
+
+/// Benchmark-only setup helpers.
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> Pallet<T> {
+	/// Fills the rows that [`OnProcessorInvalidated::processor_invalidated`] removes for `processor`.
+	pub fn benchmark_fill_processor_data(processor: &T::AccountId, proof: T::Proof) {
+		let version = Version { platform: 0, build_number: 1 };
+		<ProcessorHeartbeat<T>>::insert(processor, 1u128);
+		<ProcessorVersion<T>>::insert(processor, version);
+		<ProcessorUpdateInfo<T>>::insert(
+			processor,
+			crate::UpdateInfo {
+				version,
+				binary_location: frame_support::BoundedVec::truncate_from(
+					[0u8; crate::MAX_LOCATION_LENGTH as usize].to_vec(),
+				),
+			},
+		);
+		<ProcessorRewardDistributionWindow<T>>::insert(
+			processor,
+			crate::RewardDistributionWindow {
+				start: 0,
+				heartbeats: 0,
+				window_length: 0,
+				tollerance: 0,
+				min_heartbeats: 0,
+			},
+		);
+		<ProcessorMigrationData<T>>::insert(
+			processor,
+			crate::Proof { timestamp: 0, signature: proof },
+		);
 	}
 }

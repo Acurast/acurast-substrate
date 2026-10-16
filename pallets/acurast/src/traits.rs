@@ -43,6 +43,7 @@ pub trait WeightInfo {
 	fn set_environment(x: u32) -> Weight;
 	fn set_environments(x: u32, y: u32) -> Weight;
 	fn register_with_min_metrics() -> Weight;
+	fn validate_processor() -> Weight;
 }
 
 /// Allows to hook additional logic for various job related extrinsics.

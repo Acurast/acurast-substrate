@@ -11,7 +11,8 @@ use frame_support::{
 use itertools::Itertools;
 use pallet_acurast::{
 	utils::{ensure_source_verified, ensure_source_verified_and_of_type},
-	JobId, JobRegistrationFor, ProcessorType, RequiredMinMetrics, Schedule, StoredJobRegistration,
+	JobId, JobRegistrationFor, ProcessorInfoProvider, ProcessorType, RequiredMinMetrics, Schedule,
+	StoredJobRegistration,
 };
 use reputation::{BetaReputation, ReputationEngine};
 

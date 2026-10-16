@@ -1,4 +1,4 @@
-use frame_support::{assert_err, assert_ok, BoundedVec};
+use frame_support::{assert_err, assert_ok, dispatch::Pays, BoundedVec};
 use hex_literal::hex;
 use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 
@@ -661,6 +661,55 @@ fn test_set_environment() {
 					crate::Event::ExecutionEnvironmentsUpdatedV2(job_id.clone(),)
 				),
 			]
+		);
+	});
+}
+
+#[test]
+fn test_validate_processor() {
+	ExtBuilder.build().execute_with(|| {
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
+		assert_ok!(Acurast::submit_attestation(
+			RuntimeOrigin::signed(processor_account_id()),
+			attestation_chain()
+		));
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(alice_account_id()),
+				processor_account_id()
+			),
+			Error::<Test>::ProcessorStillValid
+		);
+
+		let revoke = vec![CertificateRevocationListUpdate {
+			operation: ListUpdateOperation::Add,
+			item: cert_serial_number(),
+		}];
+		assert_ok!(Acurast::update_certificate_revocation_list(
+			RuntimeOrigin::root(),
+			revoke.try_into().unwrap()
+		));
+		let post_info = Acurast::validate_processor(
+			RuntimeOrigin::signed(alice_account_id()),
+			processor_account_id(),
+		)
+		.unwrap();
+		assert_eq!(Pays::No, post_info.pays_fee);
+		assert_eq!(None, Acurast::stored_attestation(processor_account_id()));
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::Acurast(
+				crate::Event::ProcessorInvalidated(processor_account_id())
+			))
+		);
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(alice_account_id()),
+				processor_account_id()
+			),
+			Error::<Test>::ProcessorStillValid
 		);
 	});
 }

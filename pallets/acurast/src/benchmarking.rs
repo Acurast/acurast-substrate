@@ -23,6 +23,8 @@ pub trait BenchmarkHelper<T: Config> {
 	fn registration_extra(instant_match: bool) -> T::RegistrationExtra;
 	fn funded_account(index: u32) -> T::AccountId;
 	fn min_metrics() -> Metrics;
+	/// Fills the storage other pallets hold for `processor`, leaving it unpaired.
+	fn setup_invalid_processor(processor: &T::AccountId);
 }
 
 pub fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
@@ -266,6 +268,24 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), local_job_id, environments.try_into().unwrap());
+	}
+
+	#[benchmark]
+	fn validate_processor() {
+		set_timestamp::<T>(1657363915001);
+		let processor: T::AccountId = processor_account_id::<T>();
+		T::BenchmarkHelper::setup_invalid_processor(&processor);
+		let attestation =
+			validate_and_extract_attestation::<T>(&processor, &attestation_chain()).unwrap();
+		<StoredRevokedCertificate<T>>::insert(&attestation.cert_ids[0].1, ());
+		<StoredAttestation<T>>::insert(&processor, attestation);
+		let caller: T::AccountId = account("caller", 0, SEED);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), processor.clone());
+
+		assert!(<StoredAttestation<T>>::get(&processor).is_none());
+		assert_last_event::<T>(Event::ProcessorInvalidated(processor).into());
 	}
 
 	impl_benchmark_test_suite!(Acurast, mock::ExtBuilder.build(), mock::Test);

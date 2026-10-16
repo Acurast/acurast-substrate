@@ -176,4 +176,11 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
+	// shortcut: estimated from `update_processor_pairings` per processor, regenerate with the CI benchmarks.
+	fn validate_processor() -> Weight {
+		Weight::from_parts(120_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 20_000))
+			.saturating_add(T::DbWeight::get().reads(40))
+			.saturating_add(T::DbWeight::get().writes(40))
+	}
 }

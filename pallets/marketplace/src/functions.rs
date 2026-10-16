@@ -1,4 +1,6 @@
-use acurast_common::{AdvertisementHandler, JobModules, MultiOrigin, OnProcessorUnpaired};
+use acurast_common::{
+	AdvertisementHandler, JobModules, MultiOrigin, OnProcessorInvalidated, OnProcessorUnpaired,
+};
 use frame_support::{
 	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
 	BoundedVec,
@@ -254,10 +256,11 @@ where
 	}
 }
 
-impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
-	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
-		<StoredAdvertisementRestriction<T>>::remove(processor);
-		<StoredReputation<T>>::remove(processor);
+impl<T: Config> Pallet<T> {
+	/// Removes the processor's advertisement, reputation and up to `MaxMatchesPerProcessor` matches.
+	fn clear_processor(processor: &T::AccountId) -> bool {
+		let mut cleared = <StoredAdvertisementRestriction<T>>::take(processor).is_some();
+		cleared |= <StoredReputation<T>>::take(processor).is_some();
 		let limit = T::MaxMatchesPerProcessor::get();
 		let mut removed: u32 = 0;
 		for (job_id, _) in <StoredMatches<T>>::drain_prefix(processor) {
@@ -268,6 +271,19 @@ impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
 				break;
 			}
 		}
+		cleared || removed > 0
+	}
+}
+
+impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		Self::clear_processor(processor);
+	}
+}
+
+impl<T: Config> OnProcessorInvalidated<T::AccountId> for Pallet<T> {
+	fn processor_invalidated(processor: &T::AccountId) -> bool {
+		Self::clear_processor(processor)
 	}
 }
 

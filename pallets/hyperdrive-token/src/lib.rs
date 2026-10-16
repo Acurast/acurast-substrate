@@ -53,6 +53,9 @@ pub mod pallet {
 		ActionDecoderError, ActionEncoderError,
 	};
 
+	/// Maximum number of transfers refundable in a single [`Pallet::refund_transfers`] call.
+	pub const MAX_REFUND_TRANSFERS: u32 = 100;
+
 	/// A instantiable pallet for receiving secure state synchronizations into Acurast.
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -140,6 +143,12 @@ pub mod pallet {
 			proxy_chain: ProxyChain,
 			ttl: Option<BlockNumberFor<T>>,
 		},
+		TransferRefunded {
+			proxy: ProxyChain,
+			transfer_nonce: TransferNonce,
+			source: T::AccountId,
+			amount: T::Balance,
+		},
 	}
 
 	#[pallet::error]
@@ -160,6 +169,8 @@ pub mod pallet {
 		UnsupportedAction,
 		TransferAmountTooLow,
 		FeeRefundFailed,
+		UnknownTransfer,
+		TransferRefundFailed,
 	}
 
 	impl<T: Config<I>, I: 'static> From<ActionDecoderError> for Error<T, I> {
@@ -377,9 +388,66 @@ pub mod pallet {
 			Self::deposit_event(Event::DefaultOutgoingTransferTTLUpdated { proxy_chain, ttl });
 			Ok(())
 		}
+
+		/// Refunds outstanding outgoing transfers to their source accounts. Can only be called by a privileged/root account.
+		///
+		/// For each of the explicitly named `transfer_nonces`, the transferred amount is paid back from the proxy's vault
+		/// and the [`OutgoingTransfers`] entry is removed, which also prevents any further retry of that transfer.
+		///
+		/// NOTE: the caller is responsible to only name transfers that were never processed on the proxy chain and can no longer be;
+		/// this is not verifiable on Acurast since delivery confirmations are not tracked per transfer.
+		/// Fees paid for the original transfer or its retries are not refunded.
+		#[pallet::call_index(7)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::refund_transfers(transfer_nonces.len() as u32))]
+		pub fn refund_transfers(
+			origin: OriginFor<T>,
+			proxy: ProxyChain,
+			transfer_nonces: BoundedVec<TransferNonce, ConstU32<MAX_REFUND_TRANSFERS>>,
+		) -> DispatchResult {
+			<T as Config<I>>::UpdateOrigin::ensure_origin(origin)?;
+
+			for transfer_nonce in transfer_nonces {
+				let (source, _dest, amount) =
+					OutgoingTransfers::<T, I>::take(proxy, transfer_nonce)
+						.ok_or(Error::<T, I>::UnknownTransfer)?;
+				if !amount.is_zero() {
+					T::Currency::transfer(
+						&Self::vault(&proxy)?,
+						&source,
+						amount.saturated_into::<BalanceFor<T, I>>(),
+						Preservation::Preserve,
+					)
+					.map_err(|e| {
+						log::error!(
+							target: "runtime::acurast_hyperdrive_token",
+							"error in refund_transfers; refund {:?} for transfer {:?}: {:?}",
+							amount,
+							transfer_nonce,
+							e,
+						);
+						Error::<T, I>::TransferRefundFailed
+					})?;
+				}
+				Self::deposit_event(Event::TransferRefunded {
+					proxy,
+					transfer_nonce,
+					source,
+					amount,
+				});
+			}
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		fn vault(proxy: &ProxyChain) -> Result<T::AccountId, Error<T, I>> {
+			match proxy {
+				ProxyChain::Ethereum => Ok(T::EthereumVault::get()),
+				_ => Err(Error::InvalidRecipient),
+			}
+		}
+
 		fn proxy_params(
 			proxy: &ProxyChain,
 		) -> Result<(SubjectFor<T>, T::AccountId, T::AccountId), Error<T, I>> {

@@ -1,5 +1,8 @@
 use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::assert_ok;
+use frame_support::{
+	assert_ok,
+	pallet_prelude::{BoundedVec, ConstU32},
+};
 
 pub use crate::stub::*;
 use crate::Pallet as AcurastHyperdriveToken;
@@ -156,6 +159,30 @@ benchmarks_instance_pallet! {
 
 		run_to_block::<T, I>(100u32.into());
 	}: _(RawOrigin::Root, ProxyChain::Ethereum, Some(ttl.into()))
+
+	refund_transfers {
+		let x in 1 .. MAX_REFUND_TRANSFERS;
+
+		let amount = UNIT;
+		let initial_balance = (1000 * UNIT).max(amount.saturating_mul(x as u128 + 1));
+		let vault = T::EthereumVault::get();
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), vault.into(), initial_balance.into()));
+
+		// every refund goes to a distinct (new) account as worst case
+		let nonces: Vec<TransferNonce> = (0..x as u64).collect();
+		for nonce in nonces.iter() {
+			let mut raw = [7u8; 32];
+			raw[..8].copy_from_slice(&nonce.to_le_bytes());
+			let source: T::AccountId = AccountId32::new(raw).into();
+			OutgoingTransfers::<T, I>::insert(ProxyChain::Ethereum, nonce, (source, MultiOrigin::<T::AccountId>::from(ethereum_dest()), <T as Config<I>>::Balance::from(amount)));
+		}
+		let nonces: BoundedVec<TransferNonce, ConstU32<MAX_REFUND_TRANSFERS>> = nonces.try_into().unwrap();
+
+		run_to_block::<T, I>(100u32.into());
+	}: _(RawOrigin::Root, ProxyChain::Ethereum, nonces)
+	verify {
+		assert!(OutgoingTransfers::<T, I>::iter_prefix(ProxyChain::Ethereum).next().is_none());
+	}
 
 	//impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

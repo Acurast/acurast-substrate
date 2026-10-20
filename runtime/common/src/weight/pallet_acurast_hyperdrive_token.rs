@@ -160,4 +160,21 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `AcurastHyperdriveToken::OutgoingTransfers` (r:100 w:100)
+	/// Proof: `AcurastHyperdriveToken::OutgoingTransfers` (`max_values`: None, `max_size`: Some(95), added: 2570, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:101 w:101)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[1, 100]`.
+	// NOTE: hand-estimated until the next benchmark run (no measurement yet).
+	fn refund_transfers(x: u32, ) -> Weight {
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			// Standard Error: estimated
+			.saturating_add(Weight::from_parts(90_000_000, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(x.into()))
+	}
 }

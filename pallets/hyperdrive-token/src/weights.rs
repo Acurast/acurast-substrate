@@ -109,4 +109,11 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn refund_transfers(x: u32) -> Weight {
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(60_000_000, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64.saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64.saturating_mul(x.into())))
+	}
 }

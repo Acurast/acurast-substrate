@@ -200,6 +200,12 @@ impl ProcessorInfoProvider for MockProcessorInfoProvider {
 	fn has_manager(processor: &<Test as frame_system::Config>::AccountId) -> bool {
 		AcurastProcessorManager::manager_id_for_processor(processor).is_some()
 	}
+
+	fn manager(
+		processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		<AcurastProcessorManager as ManagerLookup>::lookup(processor).map(|(manager, _)| manager)
+	}
 }
 
 pub struct MockAttestationValidator;
@@ -207,10 +213,11 @@ impl AttestationValidator<AccountId> for MockAttestationValidator {
 	fn validate(
 		attestation_chain: &AttestationChain,
 		_account: &AccountId,
+		_manager: Option<&AccountId>,
 	) -> Result<Attestation, DispatchError> {
 		let leaf = attestation_chain.certificate_chain.iter().last().unwrap();
 		let cert = parse_cert(leaf).unwrap();
-		let attestation = extract_attestation(cert.tbs_certificate.extensions).unwrap();
+		let attestation = extract_attestation(&cert.tbs_certificate.extensions).unwrap();
 
 		let attestation_validity = AttestationValidity {
 			not_before: cert.tbs_certificate.validity.not_before.timestamp_millis().unwrap(),
@@ -227,8 +234,9 @@ impl AttestationValidator<AccountId> for MockAttestationValidator {
 	fn validate_and_store(
 		attestation_chain: AttestationChain,
 		account: AccountId,
+		manager: Option<&AccountId>,
 	) -> frame_support::sp_runtime::DispatchResult {
-		let attestation = Self::validate(&attestation_chain, &account)?;
+		let attestation = Self::validate(&attestation_chain, &account, manager)?;
 		<StoredAttestation<Test>>::insert(account, attestation);
 		Ok(())
 	}
@@ -294,6 +302,10 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn setup_unpaired_cleanup(_processor: &<Test as frame_system::Config>::AccountId) {}
+
+	fn setup_rkp_takeover() -> (<Test as frame_system::Config>::AccountId, AttestationChain) {
+		pallet_acurast::benchmarking::setup_rkp_takeover::<Test>()
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

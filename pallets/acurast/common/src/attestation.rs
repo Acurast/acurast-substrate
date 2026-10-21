@@ -1,8 +1,9 @@
 pub mod asn;
 pub mod error;
 
+use crate::AttestationSecurityLevel;
 use asn::*;
-use asn1::{oid, BitString, ObjectIdentifier, ParseError, SequenceOf};
+use asn1::{oid, BitString, Enumerated, ObjectIdentifier, ParseError, SequenceOf};
 use ecdsa_vendored::hazmat::VerifyPrimitive;
 use error::ValidationError;
 use frame_support::{traits::ConstU32, BoundedVec};
@@ -26,10 +27,30 @@ pub fn parse_cert(serialized: &[u8]) -> Result<Certificate<'_>, ParseError> {
 	Ok(data)
 }
 
-fn parse_cert_payload(serialized: &[u8]) -> Result<&[u8], ParseError> {
-	let payload = asn1::parse_single::<CertificateRawPayload>(serialized)?;
+/// A certificate of a chain with the DER of its signed part.
+struct ChainCertificate<'a> {
+	cert: Certificate<'a>,
+	payload: &'a [u8],
+}
 
-	Ok(payload.tbs_certificate.full_data())
+/// Parses each certificate of the chain once, for [verify_chain] and [ensure_chain_policy].
+fn parse_certificate_chain(
+	chain: &CertificateChainInput,
+) -> Result<Vec<ChainCertificate<'_>>, ValidationError> {
+	chain
+		.iter()
+		.map(|serialized| {
+			let raw = asn1::parse_single::<CertificateRawPayload>(serialized)?;
+			Ok(ChainCertificate {
+				cert: Certificate {
+					tbs_certificate: raw.tbs_certificate.parse()?,
+					signature_algorithm: raw.signature_algorithm,
+					signature_value: raw.signature_value,
+				},
+				payload: raw.tbs_certificate.full_data(),
+			})
+		})
+		.collect()
 }
 
 pub type CertificateId = (Vec<u8>, Vec<u8>);
@@ -55,9 +76,10 @@ const APPLE_DEVICE_ATTESTATION_NONCE: ObjectIdentifier = oid!(1, 2, 840, 113635,
 
 /// Extracts and parses the attestation from the extension field of a X.509 certificate.
 pub fn extract_attestation<'a>(
-	extensions: Option<SequenceOf<'a, Extension<'a>>>,
+	extensions: &Option<SequenceOf<'a, Extension<'a>>>,
 ) -> Result<ParsedAttestation<'a>, ValidationError> {
-	let extensions = extensions.ok_or(ValidationError::ExtensionMissing)?.collect::<Vec<_>>();
+	let extensions =
+		extensions.clone().ok_or(ValidationError::ExtensionMissing)?.collect::<Vec<_>>();
 	if let Some(extension) = &extensions.iter().find(|e| e.extn_id == KEY_ATTESTATION_OID) {
 		return Ok(ParsedAttestation::KeyDescription(parse_key_description(extension)?));
 	}
@@ -266,6 +288,21 @@ fn ensure_ca_certificate(
 	Ok(())
 }
 
+/// Whether the certificate carries an Android key attestation, RKP provisioning info or Apple device attestation
+/// extension, which a non-CA issuer of the leaf must not, as such a device key could forge a sub-certificate.
+fn carries_attestation(cert: &Certificate<'_>) -> bool {
+	cert.tbs_certificate.extensions.clone().into_iter().flatten().any(|e| {
+		[
+			KEY_ATTESTATION_OID,
+			PROVISIONING_INFO_OID,
+			APPLE_DEVICE_ATTESTATION_KEY_USAGE_PROPERTIES,
+			APPLE_DEVICE_ATTESTATION_DEVICE_OS_INFORMATION,
+			APPLE_DEVICE_ATTESTATION_NONCE,
+		]
+		.contains(&e.extn_id)
+	})
+}
+
 fn validate(
 	cert: &Certificate<'_>,
 	payload: &[u8],
@@ -364,91 +401,510 @@ fn parse_rsa_pbk(data: &[u8]) -> Result<RSAPbk, ParseError> {
 	})
 }
 
-/// Validates the chain by ensuring that
-///
-/// - the chain starts with a self-signed certificate at index 0 that matches one of the known [TRUSTED_ROOT_CERTS]
-/// - that the root's contained public key signs the next certificate in the chain
-/// - the next certificate's public key signs the next one and so on...
+/// A chain accepted by [validate_certificate_chain].
+pub struct ValidatedChain<'a> {
+	pub cert_ids: Vec<CertificateId>,
+	/// The validity of the leaf certificate.
+	pub validity: Validity,
+	pub public_key: PublicKey,
+	/// Whether it is an RKP chain, whose leaf's issuer is the RKP device certificate.
+	pub is_rkp: bool,
+	pub attestation: ParsedAttestation<'a>,
+}
+
+/// Validates the chain at `now` (unix millis): its signatures, issuers and validity down from a trusted root and, for
+/// Android, the shape of a genuine keybox or RKP chain with accepted provisioning info.
 pub fn validate_certificate_chain(
 	chain: &CertificateChainInput,
-) -> Result<(Vec<CertificateId>, TBSCertificate<'_>, PublicKey), ValidationError> {
-	let google_root_pub_key =
-		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(GOOGLE_ROOT_PUB_KEY)?)?;
-	let google_p384_root_pub_key =
-		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(GOOGLE_P384_ROOT_PUB_KEY)?)?;
-	let apple_root_pub_key =
-		PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(APPLE_ROOT_PUB_KEY)?)?;
-	let trusted_roots = &[google_root_pub_key, google_p384_root_pub_key, apple_root_pub_key];
+	now: u64,
+) -> Result<ValidatedChain<'_>, ValidationError> {
+	let certs = parse_certificate_chain(chain)?;
+	let VerifiedChain { cert_ids, public_key, root_included, leaf_issuer_ca, apple_root } =
+		verify_chain(&certs)?;
+	let leaf = &certs.last().ok_or(ValidationError::ChainTooShort)?.cert.tbs_certificate;
+	let attestation =
+		extract_attestation(&leaf.extensions).map_err(|_| ValidationError::ExtractAttestation)?;
+	if apple_root != matches!(attestation, ParsedAttestation::DeviceAttestation(_)) {
+		return Err(ValidationError::AttestationRootMismatch);
+	}
+	let is_rkp = ensure_chain_policy(&certs, root_included, leaf_issuer_ca, &attestation, now)?;
+	Ok(ValidatedChain {
+		cert_ids,
+		validity: leaf.validity.clone(),
+		public_key,
+		is_rkp,
+		attestation,
+	})
+}
+
+/// What [verify_chain] found, for [ensure_chain_policy].
+struct VerifiedChain {
+	cert_ids: Vec<CertificateId>,
+	public_key: PublicKey,
+	/// Whether the chain starts with a trusted root.
+	root_included: bool,
+	/// Whether the leaf's issuer is a CA; a non-CA one without attestation extension is let through.
+	leaf_issuer_ca: bool,
+	/// Whether the chain verifies against the Apple root rather than a Google one.
+	apple_root: bool,
+}
+
+/// Verifies the signatures down from a trusted root, which may only head the chain, and that every issuer is a CA
+/// except a leaf issuer without attestation extension, which [ensure_chain_policy] only allows in keybox chains.
+fn verify_chain(chain: &[ChainCertificate<'_>]) -> Result<VerifiedChain, ValidationError> {
+	let trusted_roots = trusted_roots()?;
 	let mut cert_ids = Vec::<CertificateId>::new();
-	let chain_len = chain.len();
-	let fold_result = chain.iter().enumerate().try_fold::<_, _, Result<_, ValidationError>>(
-		(Option::<PublicKey>::None, Option::<Certificate>::None),
-		|(prev_pbk, _), (index, cert_data)| {
-			let cert = parse_cert(cert_data)?;
-			let payload = parse_cert_payload(cert_data)?;
-			let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
-			let validating_pbk: Option<&PublicKey> = if let Some(ref prev_pbk) = prev_pbk {
-				Some(prev_pbk)
-			} else if trusted_roots.contains(&current_pbk) {
-				Some(&current_pbk)
-			} else {
-				// this can happen if the submitted certificate chain does not contain the root,
-				// which is fine, we can start validating from the intermediate certificate since
-				// we already have the root public key.
-				None
-			};
+	let mut prev_pbk = Option::<PublicKey>::None;
+	let mut head = None;
+	let mut leaf_issuer_ca = true;
+	for (index, ChainCertificate { cert, payload }) in chain.iter().enumerate() {
+		let current_pbk = PublicKey::parse(&cert.tbs_certificate.subject_public_key_info)?;
+		let root = trusted_roots.iter().position(|root| *root == current_pbk);
+		match &prev_pbk {
+			Some(prev_pbk) => verify_signed_by(cert, payload, prev_pbk, root)?,
+			None => {
+				let head_root =
+					verify_chain_head(cert, payload, &current_pbk, root, &trusted_roots)?;
+				head = Some((head_root, root.is_some()));
+			},
+		}
+		// Every certificate except the last (the end-entity/leaf, e.g. the attestation
+		// key) signs the next certificate in the chain, so it must be a valid CA.
+		// Skipping this lets a leaf certificate forge a sub-certificate.
+		if index + 1 < chain.len() {
+			let following_intermediate_ca_count = (chain.len() - 2 - index) as u64;
+			leaf_issuer_ca &= ensure_issuer(cert, following_intermediate_ca_count)?;
+		}
+		cert_ids
+			.push(unique_id(&cert.tbs_certificate.issuer, &cert.tbs_certificate.serial_number)?);
+		// it's crucial for security to pass on a non-null public key here,
+		// otherwise self-signed certificates would get accepted later down the chain
+		prev_pbk = Some(current_pbk);
+	}
+	let (Some((root, root_included)), Some(public_key)) = (head, prev_pbk) else {
+		return Err(ValidationError::ChainTooShort);
+	};
+	Ok(VerifiedChain {
+		cert_ids,
+		public_key,
+		root_included,
+		leaf_issuer_ca,
+		apple_root: root == APPLE_ROOT,
+	})
+}
 
-			if let Some(validating_pbk) = validating_pbk {
-				validate(&cert, payload, validating_pbk)?;
-			} else {
-				let mut accepted = false;
-				for trusted_root in trusted_roots.iter() {
-					match validate(&cert, payload, trusted_root) {
-						Ok(_) => {
-							accepted = true;
-							break;
-						},
-						Err(ValidationError::InvalidSignature)
-						| Err(ValidationError::UnsupportedPublicKeyAlgorithm) => {},
-						Err(error) => return Err(error),
-					}
-				}
-				if !accepted {
-					return Err(ValidationError::InvalidSignature);
-				}
+/// Verifies that `cert`, which does not head the chain, is signed by `issuer_key` and is not itself the trusted root at
+/// position `root`.
+fn verify_signed_by(
+	cert: &Certificate<'_>,
+	payload: &[u8],
+	issuer_key: &PublicKey,
+	root: Option<usize>,
+) -> Result<(), ValidationError> {
+	if root.is_some() {
+		return Err(ValidationError::UnexpectedChainShape);
+	}
+	validate(cert, payload, issuer_key)
+}
+
+/// Verifies the first certificate against itself if it is the trusted root at position `root`, or else against the
+/// trusted root that signed it. Returns that root's position in `trusted_roots`.
+fn verify_chain_head(
+	cert: &Certificate<'_>,
+	payload: &[u8],
+	public_key: &PublicKey,
+	root: Option<usize>,
+	trusted_roots: &[PublicKey],
+) -> Result<usize, ValidationError> {
+	if let Some(root) = root {
+		validate(cert, payload, public_key)?;
+		return Ok(root);
+	}
+	// this can happen if the submitted certificate chain does not contain the root,
+	// which is fine, we can start validating from the intermediate certificate since
+	// we already have the root public key.
+	trusted_roots
+		.iter()
+		.position(|root| validate(cert, payload, root).is_ok())
+		.ok_or(ValidationError::InvalidSignature)
+}
+
+/// Ensures `cert`, which signs the next certificate, is a CA, except that the leaf's issuer may be a non-CA without
+/// attestation extension. Returns whether it is a CA.
+fn ensure_issuer(
+	cert: &Certificate<'_>,
+	following_intermediate_ca_count: u64,
+) -> Result<bool, ValidationError> {
+	match ensure_ca_certificate(cert, following_intermediate_ca_count) {
+		Ok(()) => Ok(true),
+		Err(
+			ValidationError::BasicConstraintsMissing | ValidationError::NotACertificateAuthority,
+		) if following_intermediate_ca_count == 0 && !carries_attestation(cert) => Ok(false),
+		Err(error) => Err(error),
+	}
+}
+
+/// Position of the Apple root in [trusted_roots].
+const APPLE_ROOT: usize = 1;
+
+fn trusted_roots() -> Result<[PublicKey; 3], ValidationError> {
+	let parse = |key| PublicKey::parse(&asn1::parse_single::<SubjectPublicKeyInfo>(key)?);
+	// App Attest chains never include their root, so try Apple before the Google P-384 root
+	Ok([parse(GOOGLE_ROOT_PUB_KEY)?, parse(APPLE_ROOT_PUB_KEY)?, parse(GOOGLE_P384_ROOT_PUB_KEY)?])
+}
+
+/// OID of the RKP provisioning info extension carried by remotely provisioned attestation certificates.
+const PROVISIONING_INFO_OID: ObjectIdentifier = oid!(1, 3, 6, 1, 4, 1, 11129, 2, 1, 30);
+/// Lowest bucketed count of certificates issued to one device in 30 days that is rejected.
+const MAX_CERTIFICATES_ISSUED: u64 = 1024;
+const KEYBOX_CHAIN_LENGTH: usize = 4;
+const SERIAL_NUMBER_OID: ObjectIdentifier = oid!(2, 5, 4, 5);
+const ORGANIZATION_OID: ObjectIdentifier = oid!(2, 5, 4, 10);
+
+/// The raw value of the first attribute of type `typ` in `name`.
+fn attribute<'a>(name: &Name<'a>, typ: &ObjectIdentifier) -> Option<&'a [u8]> {
+	attributes(name).find(|a| a.typ == *typ).map(|a| a.value.data())
+}
+
+/// The attributes of all relative distinguished names of `name`.
+fn attributes<'a>(name: &Name<'a>) -> impl Iterator<Item = AttributeTypeAndValue<'a>> {
+	let Name::RDNSequence(rdns) = name.clone();
+	rdns.flatten()
+}
+
+/// Whether any attribute value of `name` mentions StrongBox, in any case.
+fn mentions_strongbox(name: &Name<'_>) -> bool {
+	attributes(name)
+		.any(|a| a.value.data().windows(9).any(|w| w.eq_ignore_ascii_case(b"strongbox")))
+}
+
+/// Ensures that the key's attestation and KeyMint security levels agree and are not
+/// software, and that a StrongBox key comes from a chain claiming StrongBox and a TEE key from none claiming otherwise.
+fn ensure_security_level(
+	key_description: &KeyDescription<'_>,
+	leaf_issuer: Option<&Name<'_>>,
+	issued_by_root: Option<&Name<'_>>,
+	is_rkp: bool,
+) -> Result<(), ValidationError> {
+	use AttestationSecurityLevel::{Software, StrongBox, TrustedEnvironemnt};
+	let level_of =
+		|level: &SecurityLevel| AttestationSecurityLevel::from(Enumerated::new(level.value()));
+	let level = level_of(&key_description.key_mint_security_level);
+	// an RKP chain claims the level in its device certificate's organization, a factory one only names StrongBox
+	let claimed = if is_rkp {
+		Some(match leaf_issuer.and_then(|name| attribute(name, &ORGANIZATION_OID)) {
+			Some(b"TEE") => TrustedEnvironemnt,
+			Some(b"StrongBox") => StrongBox,
+			_ => Software,
+		})
+	} else {
+		[leaf_issuer, issued_by_root]
+			.into_iter()
+			.flatten()
+			.any(mentions_strongbox)
+			.then_some(StrongBox)
+	};
+	let consistent = level == level_of(&key_description.attestation_security_level)
+		&& matches!(level, TrustedEnvironemnt | StrongBox);
+	let matches_chain = match level {
+		StrongBox => claimed == Some(StrongBox),
+		_ => claimed.is_none_or(|claimed| claimed == level),
+	};
+	if !(consistent && matches_chain) {
+		return Err(ValidationError::SecurityLevelMismatch);
+	}
+	Ok(())
+}
+
+/// Ensures a chain checked by [verify_chain] is valid at `now` (unix millis) with a CA issuing the leaf, both waived for
+/// a keybox chain's intermediates, and for Android has the shape of a genuine keybox or RKP chain with accepted
+/// provisioning info. Returns whether it is an RKP chain.
+fn ensure_chain_policy(
+	chain: &[ChainCertificate<'_>],
+	root_trusted: bool,
+	leaf_issuer_ca: bool,
+	attestation: &ParsedAttestation<'_>,
+	now: u64,
+) -> Result<bool, ValidationError> {
+	let mut intermediate_expired = false;
+	let mut provisioning_info = None;
+	for (index, ChainCertificate { cert, .. }) in chain.iter().enumerate() {
+		let tbs = &cert.tbs_certificate;
+		if index > 0 || !root_trusted {
+			intermediate_expired |= ensure_valid_at(&tbs.validity, index + 1 == chain.len(), now)?;
+		}
+		for info in provisioning_infos(tbs) {
+			if provisioning_info.replace((index, info)).is_some() {
+				return Err(ValidationError::UnexpectedChainShape);
 			}
+		}
+	}
+	let ParsedAttestation::KeyDescription(key_description) = attestation else {
+		ensure_not_exempted(intermediate_expired, leaf_issuer_ca)?;
+		return Ok(false);
+	};
+	ensure_leaf_serial_number(chain)?;
+	let rkp_info = if is_keybox(chain, root_trusted, provisioning_info.is_some()) {
+		None
+	} else {
+		ensure_not_exempted(intermediate_expired, leaf_issuer_ca)?;
+		// an RKP chain has the provisioning info directly above the leaf; its length may change
+		match provisioning_info {
+			Some((index, info)) if index + 2 == chain.len() => Some(info),
+			_ => return Err(ValidationError::UnexpectedChainShape),
+		}
+	};
+	let issued_by_root = issued_by_root(chain, root_trusted);
+	ensure_security_level(key_description, leaf_issuer(chain), issued_by_root, rkp_info.is_some())?;
+	if let Some(info) = rkp_info {
+		ensure_provisioning_info_accepted(info, verified_boot_hash(key_description))?;
+	}
+	Ok(rkp_info.is_some())
+}
 
-			// Every certificate except the last (the end-entity/leaf, e.g. the attestation
-			// key) signs the next certificate in the chain, so it must be a valid CA.
-			// Skipping this lets a leaf certificate forge a sub-certificate.
-			let is_leaf = index + 1 == chain_len;
-			if !is_leaf {
-				// number of intermediate CA certificates that still follow this one,
-				// excluding the leaf, used to enforce the pathLenConstraint.
-				let following_intermediate_ca_count = (chain_len - 2 - index) as u64;
-				ensure_ca_certificate(&cert, following_intermediate_ca_count)?;
-			}
+/// Ensures a certificate is valid at `now` (unix millis), letting it expire unless it is the leaf. Returns whether it
+/// expired.
+fn ensure_valid_at(validity: &Validity, is_leaf: bool, now: u64) -> Result<bool, ValidationError> {
+	let not_yet_valid = now < validity.not_before.timestamp_millis()?;
+	let expired = now >= validity.not_after.timestamp_millis()?;
+	if not_yet_valid || (expired && is_leaf) {
+		return Err(ValidationError::CertificateNotValidAtTime);
+	}
+	Ok(expired)
+}
 
-			let unique_id =
-				unique_id(&cert.tbs_certificate.issuer, &cert.tbs_certificate.serial_number)?;
-			cert_ids.push(unique_id);
+/// The values of the RKP provisioning info extensions of a certificate.
+fn provisioning_infos<'a>(tbs: &TBSCertificate<'a>) -> impl Iterator<Item = &'a [u8]> {
+	tbs.extensions
+		.clone()
+		.into_iter()
+		.flatten()
+		.filter(|extension| extension.extn_id == PROVISIONING_INFO_OID)
+		.map(|extension| extension.extn_value)
+}
 
-			// it's crucial for security to pass on a non-null public key here,
-			// otherwise self-signed certificates would get accepted later down the chain
-			Ok((Some(current_pbk), Some(cert)))
+/// Ensures no intermediate expired and the leaf's issuer is a CA; only factory keybox chains are exempt, as Google's
+/// verifier accepts both for their unrotatable keys.
+fn ensure_not_exempted(
+	intermediate_expired: bool,
+	leaf_issuer_ca: bool,
+) -> Result<(), ValidationError> {
+	if intermediate_expired {
+		return Err(ValidationError::CertificateNotValidAtTime);
+	}
+	if !leaf_issuer_ca {
+		return Err(ValidationError::NotACertificateAuthority);
+	}
+	Ok(())
+}
+
+/// Ensures the Android leaf certificate has the serial number 1 the secure hardware always assigns.
+fn ensure_leaf_serial_number(chain: &[ChainCertificate<'_>]) -> Result<(), ValidationError> {
+	if chain
+		.last()
+		.is_some_and(|leaf| leaf.cert.tbs_certificate.serial_number.as_bytes() != [1])
+	{
+		return Err(ValidationError::UnexpectedLeafSerialNumber);
+	}
+	Ok(())
+}
+
+/// Whether an Android chain is a factory keybox chain: four certificates with the root, the certificate the root issued
+/// naming a serial number, and no RKP provisioning info.
+fn is_keybox(
+	chain: &[ChainCertificate<'_>],
+	root_trusted: bool,
+	has_provisioning_info: bool,
+) -> bool {
+	let length_with_root = chain.len() + usize::from(!root_trusted);
+	let factory = issued_by_root(chain, root_trusted)
+		.is_some_and(|name| attribute(name, &SERIAL_NUMBER_OID).is_some());
+	factory && length_with_root == KEYBOX_CHAIN_LENGTH && !has_provisioning_info
+}
+
+/// The subject of the certificate the trusted root issued.
+fn issued_by_root<'c, 'a>(
+	chain: &'c [ChainCertificate<'a>],
+	root_trusted: bool,
+) -> Option<&'c Name<'a>> {
+	chain
+		.get(if root_trusted { 1 } else { 0 })
+		.map(|c| &c.cert.tbs_certificate.subject)
+}
+
+/// The subject of the certificate that issued the leaf.
+fn leaf_issuer<'c, 'a>(chain: &'c [ChainCertificate<'a>]) -> Option<&'c Name<'a>> {
+	chain
+		.len()
+		.checked_sub(2)
+		.and_then(|index| chain.get(index))
+		.map(|c| &c.cert.tbs_certificate.subject)
+}
+
+/// The verified boot hash an Android attestation reports in its hardware-enforced root of trust.
+fn verified_boot_hash<'a>(key_description: &KeyDescription<'a>) -> Option<&'a [u8]> {
+	key_description
+		.tee_enforced
+		.root_of_trust
+		.as_ref()
+		.and_then(|rot| rot.verified_boot_hash)
+}
+
+/// Ensures the RKP provisioning info approves the build, reports few certificates issued and stamps the vbmeta digest
+/// the leaf reports as `verified_boot_hash`.
+fn ensure_provisioning_info_accepted(
+	info: &[u8],
+	verified_boot_hash: Option<&[u8]>,
+) -> Result<(), ValidationError> {
+	let info = ProvisioningInfo::parse(info).ok_or(ValidationError::ParseProvisioningInfo)?;
+	if info.approval_status != Some(b"APPROVED".as_slice()) {
+		return Err(ValidationError::BuildNotApproved);
+	}
+	if info.certificates_issued.is_none_or(|issued| issued >= MAX_CERTIFICATES_ISSUED) {
+		return Err(ValidationError::TooManyCertificatesIssued);
+	}
+	let vbmeta_digest = info
+		.vbmeta_digest
+		.filter(|digest| digest.len() % 2 == 0 && digest.iter().all(u8::is_ascii_hexdigit))
+		.and_then(|digest| core::str::from_utf8(digest).ok())
+		.and_then(|digest| impl_serde::serialize::from_hex(digest).ok());
+	if vbmeta_digest.is_none() || vbmeta_digest.as_deref() != verified_boot_hash {
+		return Err(ValidationError::VerifiedBootHashMismatch);
+	}
+	Ok(())
+}
+
+/// The fields of the RKP provisioning info CBOR map that the validation reads.
+#[derive(Debug, PartialEq, Eq)]
+struct ProvisioningInfo<'a> {
+	/// Field 1: bucketed number of certificates issued to the device in the last 30 days.
+	certificates_issued: Option<u64>,
+	/// Field 5.1: approval status of the device's build.
+	approval_status: Option<&'a [u8]>,
+	/// Field 5.2: hex text of the device's vbmeta digest, stamped for approved builds.
+	vbmeta_digest: Option<&'a [u8]>,
+}
+
+const CBOR_UNSIGNED: u8 = 0;
+const CBOR_TEXT: u8 = 3;
+const CBOR_MAP: u8 = 5;
+const CBOR_MAX_DEPTH: u8 = 8;
+
+impl<'a> ProvisioningInfo<'a> {
+	fn parse(data: &'a [u8]) -> Option<Self> {
+		if cbor_skip(data, 0, 0)? != data.len() || cbor_head(data, 0)?.0 != CBOR_MAP {
+			return None;
+		}
+		let unsigned = |at| match cbor_head(data, at)? {
+			(CBOR_UNSIGNED, value, _) => Some(value),
+			_ => None,
+		};
+		let text = |at| match cbor_head(data, at)? {
+			(CBOR_TEXT, len, start) => {
+				data.get(start..start.checked_add(usize::try_from(len).ok()?)?)
+			},
+			_ => None,
+		};
+		let build_map = cbor_map_get(data, 0, 5);
+		let build = |key| build_map.and_then(|field| cbor_map_get(data, field, key));
+		Some(Self {
+			certificates_issued: cbor_map_get(data, 0, 1).and_then(unsigned),
+			approval_status: build(1).and_then(text),
+			vbmeta_digest: build(2).and_then(text),
+		})
+	}
+}
+
+/// Index of the value under the unsigned `key` of the well-formed CBOR map at `map`, if it holds one.
+fn cbor_map_get(data: &[u8], map: usize, key: u64) -> Option<usize> {
+	let (major, entries, mut i) = cbor_head(data, map)?;
+	if major != CBOR_MAP {
+		return None;
+	}
+	for _ in 0..entries {
+		let (key_major, entry_key, value) = cbor_head(data, i)?;
+		if (key_major, entry_key) == (CBOR_UNSIGNED, key) {
+			return Some(value);
+		}
+		i = cbor_skip(data, value, 0)?;
+	}
+	None
+}
+
+/// Reads the CBOR item head at `i`: (major type, argument, index after the head).
+fn cbor_head(data: &[u8], i: usize) -> Option<(u8, u64, usize)> {
+	let initial = *data.get(i)?;
+	let (major, info) = (initial >> 5, initial & 0x1f);
+	let size = match info {
+		0..=23 => return Some((major, info.into(), i + 1)),
+		24 => 1,
+		25 => 2,
+		26 => 4,
+		27 => 8,
+		_ => return None,
+	};
+	let bytes = data.get(i + 1..i + 1 + size)?;
+	let argument = bytes.iter().fold(0u64, |acc, b| (acc << 8) | u64::from(*b));
+	Some((major, argument, i + 1 + size))
+}
+
+/// Returns the index after the CBOR item at `i`; indefinite lengths are rejected.
+fn cbor_skip(data: &[u8], i: usize, depth: u8) -> Option<usize> {
+	if depth > CBOR_MAX_DEPTH {
+		return None;
+	}
+	let (major, argument, mut next) = cbor_head(data, i)?;
+	// major types: 0/1 integers, 2/3 byte/text strings, 4/5 arrays/maps, 6 tags, 7 simple values and floats
+	match major {
+		0 | 1 | 7 => Some(next),
+		2 | 3 => {
+			let end = next.checked_add(usize::try_from(argument).ok()?)?;
+			(end <= data.len()).then_some(end)
 		},
-	)?;
-
-	let last_cert = fold_result.1.ok_or(ValidationError::ChainTooShort)?;
-	let last_cert_pbk = fold_result.0.ok_or(ValidationError::MissingPublicKey)?;
-
-	// if the chain is non-empty as ensured above, we know that we always have Some certificate in option
-	Ok((cert_ids, last_cert.tbs_certificate, last_cert_pbk))
+		4 | 5 => {
+			let items = if major == CBOR_MAP { argument.checked_mul(2)? } else { argument };
+			for _ in 0..items {
+				next = cbor_skip(data, next, depth + 1)?;
+			}
+			Some(next)
+		},
+		6 => cbor_skip(data, next, depth + 1),
+		_ => None,
+	}
 }
 
 const GOOGLE_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/google-public.key");
 const GOOGLE_P384_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/google-p384-public.key");
 const APPLE_ROOT_PUB_KEY: &[u8] = include_bytes!("./__root_key__/apple-public.key");
+
+#[cfg(test)]
+fn validate_chain(chain: &CertificateChainInput) -> Result<(), ValidationError> {
+	verified_leaf(chain).map(|_| ())
+}
+
+/// The leaf of a chain that passes [verify_chain].
+#[cfg(test)]
+fn verified_leaf(chain: &CertificateChainInput) -> Result<TBSCertificate<'_>, ValidationError> {
+	let mut certs = parse_certificate_chain(chain)?;
+	verify_chain(&certs)?;
+	Ok(certs.pop().ok_or(ValidationError::ChainTooShort)?.cert.tbs_certificate)
+}
+
+/// Applies [ensure_chain_policy] alone, with the facts [verify_chain] would report but without its signature checks.
+#[cfg(test)]
+fn chain_policy(chain: &CertificateChainInput, now: u64) -> Result<bool, ValidationError> {
+	let certs = parse_certificate_chain(chain)?;
+	let root_included = match certs.first() {
+		Some(first) => trusted_roots()?
+			.contains(&PublicKey::parse(&first.cert.tbs_certificate.subject_public_key_info)?),
+		None => false,
+	};
+	let leaf_issuer_ca =
+		certs.len() < 2 || ensure_ca_certificate(&certs[certs.len() - 2].cert, 0).is_ok();
+	let leaf = certs.last().ok_or(ValidationError::ChainTooShort)?;
+	let attestation = extract_attestation(&leaf.cert.tbs_certificate.extensions)?;
+	ensure_chain_policy(&certs, root_included, leaf_issuer_ca, &attestation, now)
+}
 
 #[cfg(test)]
 mod tests {
@@ -461,8 +917,8 @@ mod tests {
 	};
 
 	use super::{
-		validate_certificate_chain, CertificateChainInput, CertificateInput, P384_COORDINATE_SIZE,
-		P384_UNTAGGED_POINT_SIZE,
+		chain_policy, validate_certificate_chain, validate_chain, verified_leaf,
+		CertificateChainInput, CertificateInput, P384_COORDINATE_SIZE, P384_UNTAGGED_POINT_SIZE,
 	};
 
 	pub fn decode_certificate_chain(chain: &[&str]) -> CertificateChainInput {
@@ -714,8 +1170,8 @@ mod tests {
 			SAMSUNG_KEY_CERT,
 		];
 		let decoded_chain = decode_certificate_chain(&chain);
-		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
-		let parsed_attestation = extract_attestation(cert.extensions)?;
+		let cert = verified_leaf(&decoded_chain)?;
+		let parsed_attestation = extract_attestation(&cert.extensions)?;
 		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
@@ -744,10 +1200,52 @@ mod tests {
 			SAMSUNG_KEY_CERT,
 		];
 		let decoded_chain = decode_certificate_chain(&chain);
+		assert_eq!(validate_chain(&decoded_chain), Err(ValidationError::BasicConstraintsMissing),);
+	}
+
+	/// Legacy chain (2016 Google root) whose batch attestation key cert signing the leaf is
+	/// `cA = FALSE` without `keyCertSign`.
+	const LEGACY_BATCH_KEY_CHAIN: [&str; 4] = [
+		r"MIIFYDCCA0igAwIBAgIJAOj6GWMU0voYMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTYwNTI2MTYyODUyWhcNMjYwNTI0MTYyODUyWjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaOBpjCBozAdBgNVHQ4EFgQUNmHhAHyIBQlRi0RsR/8aTMnqTxIwHwYDVR0jBBgwFoAUNmHhAHyIBQlRi0RsR/8aTMnqTxIwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwQAYDVR0fBDkwNzA1oDOgMYYvaHR0cHM6Ly9hbmRyb2lkLmdvb2dsZWFwaXMuY29tL2F0dGVzdGF0aW9uL2NybC8wDQYJKoZIhvcNAQELBQADggIBACDIw41L3KlXG0aMiS//cqrG+EShHUGo8HNsw30W1kJtjn6UBwRM6jnmiwfBPb8VA91chb2vssAtX2zbTvqBJ9+LBPGCdw/E53Rbf86qhxKaiAHOjpvAy5Y3m00mqC0w/Zwvju1twb4vhLaJ5NkUJYsUS7rmJKHHBnETLi8GFqiEsqTWpG/6ibYCv7rYDBJDcR9W62BW9jfIoBQcxUCUJouMPH25lLNcDc1ssqvC2v7iUgI9LeoM1sNovqPmQUiG9rHli1vXxzCyaMTjwftkJLkf6724DFhuKug2jITV0QkXvaJWF4nUaHOTNA4uJU9WDvZLI1j83A+/xnAJUucIv/zGJ1AMH2boHqF8CY16LpsYgBt6tKxxWH00XcyDCdW2KlBCeqbQPcsFmWyWugxdcekhYsAWyoSf818NUsZdBWBaR/OukXrNLfkQ79IyZohZbvabO/X+MVT3rriAoKc8oE2Uws6DF+60PV7/WIPjNvXySdqspImSN78mflxDqwLqRBYkA3I75qppLGG9rp7UCdRjxMl8ZDBld+7yvHVgt1cVzJx9xnyGCC23UaicMDSXYrB4I4WHXPGjxhZuCuPBLTdOLU8YRvMYdEvYebWHMpvwGCF6bAx3JBpIeOQ1wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk",
+		r"MIIDwzCCAaugAwIBAgIKA4gmZ2BliZaFdzANBgkqhkiG9w0BAQsFADAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MB4XDTE2MDUyNjE3MjIxOVoXDTI2MDUyNDE3MjIxOVowGzEZMBcGA1UEBRMQYmU0MDY0NjZiZWEzNzgyYjB2MBAGByqGSM49AgEGBSuBBAAiA2IABNG7VnbdYr9743R76MZBPgjpEy54v1pz7FyAgnATGLfiCjHvXtxmT7uvCB0bUvGPTfU2JMoKGXjxBBVA2RVDN01jZ65EpXntTvctKV9SlwFgubp0w4tB0IJNGo5SxOF1YaOBtjCBszAdBgNVHQ4EFgQUprPevzFgmWV9vksDm3PQsGV3SgEwHwYDVR0jBBgwFoAUNmHhAHyIBQlRi0RsR/8aTMnqTxIwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwUAYDVR0fBEkwRzBFoEOgQYY/aHR0cHM6Ly9hbmRyb2lkLmdvb2dsZWFwaXMuY29tL2F0dGVzdGF0aW9uL2NybC9FOEZBMTk2MzE0RDJGQTE4MA0GCSqGSIb3DQEBCwUAA4ICAQCmQbMLG+NeRm6A/rtF1pgD8q8Sd+13RCC24gMBhpdcgSJfPRF4f7Y61d2NL8OlGhVCJoqXvxVXx3lJNYJAwLeZIKk9iwZaJ7BI6zpxJUFaaGzf6793Z1jNLeqAMBbluxbSik+ZHdY1m/2kjLKqOIrYniCubahKl/OwsQeTJibATNaSe1IbSxZGBgzgRYtpQGIUvPk4wJ9Zs1Z/drsAZ70LciS3T+68WFjWiBzoXZ1JBG9BpR0zQzkxN2jkSAtBmGLagR1WGbxwwehThcBi7cGCJVGGFv0TbvZOtmoaa0E+zPcDz0HTxk+YalABrLeUrRC9DtEl+lwM8TNzruG7/+r89Wga40/WxcTrdAFCExsKx6Q3RC5wMVvesUSlsa9nndLUzZbRdiyS+x477gqDt6JwQ2ZLYxpt0D94czJd9KY4YY246i/ge0ggAfrozoOquXWnfHb0j73SS6ZFU8uX6o8+M9Aac/ZMcLVFeXUCF67Sxjce0cFRKaFs63Dhph8MKjIvtsue+LxhCJ8agrULkqvNeT+6TxYicH8Hj7K8BJmlVHsM35o90OHQtn5h755+Fjtrgcvnk0o1C/cfc4WzejGEgDuY9M6Z6kxdNKdomAV8YupF2PLwjdessamdr66tyt08Tea1zsxJ6e6Z/jkRFtAKbAUsfeqAD+aBWNgu5/XzFg==",
+		r"MIICLDCCAbKgAwIBAgIKAnIUWGVwUJBgaDAKBggqhkjOPQQDAjAbMRkwFwYDVQQFExBiZTQwNjQ2NmJlYTM3ODJiMB4XDTE2MDUyNjE3Mzc1M1oXDTI2MDUyNDE3Mzc1M1owGzEZMBcGA1UEBRMQYjczYWNmMWQyOTk4ZGIyZDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABIS6/x81v7FO7EGxFiIxf/J11zeXCWhv10toXiAYm9zr+h/qbQ8oipabJJOYPCFFrxMKrO9M/CiUEnbLckwf86+jgd0wgdowHQYDVR0OBBYEFJ5oNybcwGYLSp8dmSSxm7QUO7QiMB8GA1UdIwQYMBaAFKaz3r8xYJllfb5LA5tz0LBld0oBMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgeAMCQGA1UdHgQdMBugGTAXghVpbnZhbGlkO2VtYWlsOmludmFsaWQwVAYDVR0fBE0wSzBJoEegRYZDaHR0cHM6Ly9hbmRyb2lkLmdvb2dsZWFwaXMuY29tL2F0dGVzdGF0aW9uL2NybC8wMjcyMTQ1ODY1NzA1MDkwNjA2ODAKBggqhkjOPQQDAgNoADBlAjBB6GkFvjSLoMxkPr11ypz72LtCNEwdWbMEwG3buL2KAfOqGrHjNEAbPhjsKTaDKMMCMQCMjM4sETuaM5BcMkzUaXGsUwR4D7ZxCSApCWensq9flVJ2no5Ztd5gAimZBnmrz9Y=",
+		r"MIICmDCCAj6gAwIBAgIBATAKBggqhkjOPQQDAjAbMRkwFwYDVQQFExBiNzNhY2YxZDI5OThkYjJkMCAXDTcwMDEwMTAwMDAwMFoYDzIxMDYwMjA3MDYyODE1WjAfMR0wGwYDVQQDDBRBbmRyb2lkIEtleXN0b3JlIEtleTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABKdnHAjTKTKdmFXuvwLJL9oguKNEfcFoA+F1DIL4cXAVAgrnHognQ/ZIhEUyvB/5COmc9U2eGe2FN7ouzGHi0fqjggFrMIIBZzAOBgNVHQ8BAf8EBAMCB4AwggFTBgorBgEEAdZ5AgERBIIBQzCCAT8CAQMKAQECAQQKAQEEIKVnboqsOc7mtpKSdszrSn7ccL/fRlFfcTF/KUOaATbaBAAwZr+FPQgCBgGhHe7CSL+FRVYEVDBSMSwwKgQkY29tLmFjdXJhc3QuYXR0ZXN0ZWQuZXhlY3V0b3IuY2FuYXJ5AgIAjDEiBCDscMKk4HKg9YZVKmg1eyNpfJ1F8eEleoxNKaJaxJgkMzCBpKEIMQYCAQICAQOiAwIBA6MEAgIBAKUFMQMCAQCqAwIBAb+DdwIFAL+FPgMCAQC/hUBMMEoEIAlBlF/vs/y30TeRTnxfTkEMUccL2P1fG/ISCoFv2O1rAQH/CgEABCCRIdOl33rZqDw36czFIGrK/GOec7BocWybuorv5MQytL+FQQUCAwHUwL+FQgUCAwMV47+FTgYCBAE0jK2/hU8GAgQBNIytMAoGCCqGSM49BAMCA0gAMEUCIQCVqGU51RrdS+FGTQFoFrTLY1XL5Nz4/gfFNw643TrP5AIgeSpCgcEtPnDxTMEPs+fktsCPICAJfvFolDOwxPZVUps=",
+	];
+
+	#[test]
+	fn test_validate_legacy_batch_key_chain() -> Result<(), Error> {
+		let decoded_chain = decode_certificate_chain(&LEGACY_BATCH_KEY_CHAIN);
+		// onboarding time of the chain; both intermediates expired 2026-05-24
+		let chain = validate_certificate_chain(&decoded_chain, 1_791_503_598_000)?;
+		assert!(!chain.is_rkp);
+		let ParsedAttestation::KeyDescription(_) = chain.attestation else {
+			return Err(());
+		};
+		Ok(())
+	}
+
+	/// A non-CA issuer of the leaf is only tolerated in a keybox chain.
+	#[test]
+	fn test_reject_legacy_batch_key_outside_keybox_chain() {
+		let mut chain = LEGACY_BATCH_KEY_CHAIN[..3].to_vec();
+		chain.push(APPLE_KEY_CERT);
+		let decoded_chain = decode_certificate_chain(&chain);
+		// within the validity of the Apple leaf and the legacy intermediates
 		assert_eq!(
-			validate_certificate_chain(&decoded_chain).map(|_| ()),
-			Err(ValidationError::BasicConstraintsMissing),
+			chain_policy(&decoded_chain, 1_735_689_600_000),
+			Err(ValidationError::NotACertificateAuthority),
 		);
+	}
+
+	const APPLE_KEY_CERT: &str = r"MIIDKjCCArCgAwIBAgIGAZHq9k9GMAoGCCqGSM49BAMCME8xIzAhBgNVBAMMGkFwcGxlIEFwcCBBdHRlc3RhdGlvbiBDQSAxMRMwEQYDVQQKDApBcHBsZSBJbmMuMRMwEQYDVQQIDApDYWxpZm9ybmlhMB4XDTI0MDkxMjEwMzgxNloXDTI1MDcyNDA0MjAxNlowgZExSTBHBgNVBAMMQDY4NTUzY2RkZmU2N2QyMTIxNzFhZGIyMjQ1OTI5NzFhNmM5MGQ0YzJlNzRhMWU4Y2MyNjU3NzI5YzQwNjhhYjUxGjAYBgNVBAsMEUFBQSBDZXJ0aWZpY2F0aW9uMRMwEQYDVQQKDApBcHBsZSBJbmMuMRMwEQYDVQQIDApDYWxpZm9ybmlhMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7UseYUwbGOo2uUDv2EyC/mYbE2qANYlGVS0TOMeN4NQ8bdyb0CdxjqZ0p91Le58fLN/AhA1hyZV9HuV81oAKHKOCATMwggEvMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgTwMIGABgkqhkiG92NkCAUEczBxpAMCAQq/iTADAgEBv4kxAwIBAL+JMgMCAQG/iTMDAgEBv4k0IQQfR1YyNDUyOTIyUi5jb20uYWN1cmFzdC5leGVjdXRvcqUGBARza3Mgv4k2AwIBBb+JNwMCAQC/iTkDAgEAv4k6AwIBAL+JOwMCAQAwVwYJKoZIhvdjZAgHBEowSL+KeAgEBjE3LjYuMb+IUAcCBQD////+v4p7BwQFMjFHOTO/in0IBAYxNy42LjG/in4DAgEAv4sMDwQNMjEuNy45My4wLjAsMDAzBgkqhkiG92NkCAIEJjAkoSIEIOGFqR92fg26fqKg+3a8RKWltjU3rcAJfq2lX2RtjBPyMAoGCCqGSM49BAMCA2gAMGUCMQCo9hwAAF7Kw+Gb9uLy3bwDdoIYTSQUCsyAvmsUduEuQSCi3OClMOaQxEksDIZRGlMCMBGkWYyKDk2PgspcBKBr8xG/VpGKQ2QAJlUgnrEqbEvtA7LomzGoj0TRbaq4dS4G5A==";
+
+	/// The non-CA batch key is only tolerated directly above the last certificate.
+	#[test]
+	fn test_reject_legacy_batch_key_above_intermediate() {
+		let mut chain = LEGACY_BATCH_KEY_CHAIN.to_vec();
+		chain.push(LEGACY_BATCH_KEY_CHAIN[3]);
+		let decoded_chain = decode_certificate_chain(&chain);
+		assert_eq!(validate_chain(&decoded_chain), Err(ValidationError::NotACertificateAuthority),);
 	}
 
 	#[test]
@@ -758,8 +1256,8 @@ mod tests {
             hex_literal::hex!("308201fe30820185a00302010202106fd912a55cb7563380ddfa2ac2d1eb8c300a06082a8648ce3d040302303f31123010060355040c0c095374726f6e67426f7831293027060355040513203138346464346137643861373133316539386161653465613761663531306461301e170d3231303931353232353831375a170d3331303931333232353831375a303f31123010060355040c0c095374726f6e67426f78312930270603550405132037386235656561343461313465353437373261363862653665623738313462343059301306072a8648ce3d020106082a8648ce3d03010703420004df1afbe9c0d1fb4d291a6573de2cdf95ca9f43e4bd2f33ded358ca8118dd42ea619a9cdbccd4cc32335f5db51774bb5e9ccf08a2d6d3259572a27fe064fd451da3633061301d0603551d0e04160414f40c71002bcb6425158db7b4b552d09820d9e4c9301f0603551d2304183016801448e9cf69260a89c4c584499c6dbad846e5a266b3300f0603551d130101ff040530030101ff300e0603551d0f0101ff040403020204300a06082a8648ce3d0403020367003064023044f91fe977e5ddba9c69a4f0b0d9b7c550e8e117216d6768b3477e4277fb88e9ed1dcae08c538b5452f30f4aabd473c10230312efaac05f998263283e0b718025eaa224ee8e386b6f143b9781c789f3a38abc8480731325893d6efc25b67c473ecf8").to_vec().try_into().unwrap(),
             hex_literal::hex!("308202ba30820260a003020102020101300a06082a8648ce3d040302303f31123010060355040c0c095374726f6e67426f7831293027060355040513203738623565656134346131346535343737326136386265366562373831346234301e170d3730303130313030303030305a170d3439313233313233353935395a301f311d301b06035504031314416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d03010703420004e203b4ed148733aca6322978ffb9d72dc940919d489d87ae5242cf6eb39b6ae8ab9edf67310b5b88e8ab5e82f7ec6cb7778ad00c480e4846aa6dbbde55303b43a382016b30820167300c0603551d0f0405030307880030820155060a2b06010401d67902011104820145308201410201640a01020201640a0102042052331675bfbad8106ff561287fcb0397307dc4ed8cccc3f7e2ace4a7fe82f19c04003065bf853d080206018c1a85f13ebf85455504533051312b30290424636f6d2e616375726173742e61747465737465642e6578656375746f722e63616e61727902011031220420ec70c2a4e072a0f586552a68357b23697c9d45f1e1257a8c4d29a25ac49824333081a7a10b3109020106020103020102a203020103a30402020100a5053103020100aa03020101bf8377020500bf853e03020100bf85404c304a0420c276f9fcf895a8838c8d6e6ec441494822e69acfca3bb27715790b2951da33980101ff0a010004209b51df228d989cd600b59e307b0bbc1d92013f969d4cebcc0ca3e1556bff6e7bbf854105020301fbd0bf854205020303163fbf854e0602040134b09dbf854f0602040134b09d300a06082a8648ce3d040302034800304502200229006e3a528c45224739b7773731c99ca811fa3ee57121626bbc9279fad3af022100bf47d355feae07bb6a4528e8872a8775248d4960477ce807cf4ee7ce902d42b9").to_vec().try_into().unwrap(),
         ].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
-		let parsed_attestation = extract_attestation(cert.extensions)?;
+		let cert = verified_leaf(&decoded_chain)?;
+		let parsed_attestation = extract_attestation(&cert.extensions)?;
 		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
@@ -778,9 +1276,21 @@ mod tests {
             hex_literal::hex!("308201f230820198a00302010202106b1a0d4882cf7b565006bd71a77f1159300a06082a8648ce3d040302302931133011060355040a130a476f6f676c65204c4c43311230100603550403130944726f696420434133301e170d3235303831393130323934305a170d3235303931363132353835385a303f3129302706035504031320366231613064343838326366376235363530303662643731613737663131353931123010060355040a13095374726f6e67426f783059301306072a8648ce3d020106082a8648ce3d0301070342000409a73a592725d66795565da358102607a14b1a423f17a942981d7db5914d98f691860c02226093f5f502963e40422229a5db0247140150160cfd813d1d550915a3818b308188301d0603551d0e04160414311db33cf32f95bafc64804d5d887be37b49f9eb301f0603551d23041830168014b4c77197661ea2bc8f9eaa483f1425effb9b71e3300f0603551d130101ff040530030101ff300e0603551d0f0101ff0404030202043025060a2b06010401d67902011e0417a201080372536f6c616e61204d6f62696c6520496e632e300a06082a8648ce3d0403020348003045022100c6b1f86dedcaf4f8bc9dd669869c2d4ffb3c991b754a2da2a8b876c6aeedde2c02205ee0cef4add14256e4d9470a2d7979a1e8421c9ee531636b2293630d88b14442").to_vec().try_into().unwrap(),
             hex_literal::hex!("308202bf30820265a003020102020101300a06082a8648ce3d040302303f3129302706035504031320366231613064343838326366376235363530303662643731613737663131353931123010060355040a13095374726f6e67426f78301e170d3730303130313030303030305a170d3438303130313030303030305a301f311d301b06035504031314416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d03010703420004525fd90b61574ff43b0a9f8833674e0063e52f07fdbaa6e91810f92a4680d2c90634e7c527077bd8575d2a7b66a3eb6cf8771fee4f9663f5f41ba0d861dc6787a38201703082016c30820158060a2b06010401d67902011104820148308201440202012c0a01020202012c0a01020420dc1d47687c0142ce02b1a7c3240d689269fc365bd6c49aa7ab3643a6e730809504003069bf853d0802060198cc525cd1bf85455904573055312f302d0428636f6d2e616375726173742e61747465737465642e6578656375746f722e7362732e63616e61727902015331220420e095733f011ae6934a02d65a0945fcf24c16af7598c1c23405dcc4f3cb9ee5bc3081a4a1083106020103020102a203020103a30402020100a5053103020100aa03020101bf8377020500bf853e03020100bf85404c304a0420eb63f1a60094029d2e5e3968dadaff3407fb4280394869cddbb3e64bf17ae37b0101ff0a010004207b8301dc8ef68779083c58875fdbc71aa8ba5bd0309160d85bc6c21a848085efbf85410502030249f0bf854205020303170abf854e0602040134ffedbf854f0602040134d815300e0603551d0f010101040403020780300a06082a8648ce3d0403020348003045022100e6f8fbaacf03b67b6f2f514cac6ba0f408762670e1bc8154748876b420775a5402204d44d0ba2bc4477442bcb63e54877c9cc361b65e58753f0440c43c2fdd71ae19").to_vec().try_into().unwrap(),
         ].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
-		_ = extract_attestation(cert.extensions)?;
+		let cert = verified_leaf(&decoded_chain)?;
+		_ = extract_attestation(&cert.extensions)?;
 		Ok(())
+	}
+
+	#[test]
+	fn expired_trusted_root_is_ignored() {
+		// the 2016 Google root expired 2026-05-24; the intermediates and the leaf are still valid
+		let chain = decode_certificate_chain(&[
+			PIXEL_ROOT_CERT,
+			PIXEL_INTERMEDIATE_2_CERT,
+			PIXEL_INTERMEDIATE_1_CERT,
+			PIXEL_KEY_CERT,
+		]);
+		assert_eq!(chain_policy(&chain, 1_800_000_000_000), Ok(false));
 	}
 
 	#[test]
@@ -816,9 +1326,8 @@ mod tests {
 
 		for chain in chains {
 			let decoded_chain = decode_certificate_chain(&chain);
-			let (_, cert, _) =
-				validate_certificate_chain(&decoded_chain).expect("validating chain failed");
-			let parsed_attestation = extract_attestation(cert.extensions)?;
+			let cert = verified_leaf(&decoded_chain).expect("validating chain failed");
+			let parsed_attestation = extract_attestation(&cert.extensions)?;
 			if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 				match key_description.attestation_version {
 					4 | 100 | 200 | 300 => {},
@@ -840,8 +1349,8 @@ mod tests {
 		let chain =
 			vec![SAMSUNG_INTERMEDIATE_2_CERT, SAMSUNG_INTERMEDIATE_1_CERT, SAMSUNG_KEY_CERT];
 		let decoded_chain = decode_certificate_chain(&chain);
-		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
-		let parsed_attestation = extract_attestation(cert.extensions)?;
+		let cert = verified_leaf(&decoded_chain)?;
+		let parsed_attestation = extract_attestation(&cert.extensions)?;
 		if let ParsedAttestation::KeyDescription(key_description) = parsed_attestation {
 			assert_eq!(key_description.attestation_version, 100);
 			let _: BoundedKeyDescription = key_description.try_into()?;
@@ -858,7 +1367,7 @@ mod tests {
 	fn test_validate_pixel_chain_without_root() -> Result<(), Error> {
 		let chain = vec![PIXEL_INTERMEDIATE_2_CERT, PIXEL_INTERMEDIATE_1_CERT, PIXEL_KEY_CERT];
 		let decoded_chain = decode_certificate_chain(&chain);
-		validate_certificate_chain(&decoded_chain)?;
+		validate_chain(&decoded_chain)?;
 		Ok(())
 	}
 
@@ -873,7 +1382,7 @@ mod tests {
 		// not by the Google/Samsung root, so it must not be accepted as a chain head.
 		let chain = vec![SAMSUNG_INTERMEDIATE_1_CERT, SAMSUNG_KEY_CERT];
 		let decoded_chain = decode_certificate_chain(&chain);
-		match validate_certificate_chain(&decoded_chain) {
+		match validate_chain(&decoded_chain) {
 			Err(ValidationError::InvalidSignature) => Ok(()),
 			_ => Err(()),
 		}
@@ -888,7 +1397,7 @@ mod tests {
 			PIXEL_KEY_CERT_INVALID,
 		];
 		let decoded_chain = decode_certificate_chain(&chain);
-		let res = validate_certificate_chain(&decoded_chain);
+		let res = validate_chain(&decoded_chain);
 		match res {
 			Err(e) => assert_eq!(e, ValidationError::InvalidSignature),
 			_ => return Err(()),
@@ -905,7 +1414,7 @@ mod tests {
 			PIXEL_KEY_CERT_INVALID,
 		];
 		let decoded_chain = decode_certificate_chain(&chain);
-		let res = validate_certificate_chain(&decoded_chain);
+		let res = validate_chain(&decoded_chain);
 		match res {
 			Err(e) => assert_eq!(e, ValidationError::InvalidSignature),
 			_ => return Err(()),
@@ -919,8 +1428,11 @@ mod tests {
 			hex_literal::hex!("30820243308201c8a003020102021009bac5e1bc401ad9d45395bc381a0854300a06082a8648ce3d04030330523126302406035504030c1d4170706c6520417070204174746573746174696f6e20526f6f7420434131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3230303331383138333935355a170d3330303331333030303030305a304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613076301006072a8648ce3d020106052b8104002203620004ae5b37a0774d79b2358f40e7d1f22626f1c25fef17802deab3826a59874ff8d2ad1525789aa26604191248b63cb967069e98d363bd5e370fbfa08e329e8073a985e7746ea359a2f66f29db32af455e211658d567af9e267eb2614dc21a66ce99a366306430120603551d130101ff040830060101ff020100301f0603551d23041830168014ac91105333bdbe6841ffa70ca9e5faeae5e58aa1301d0603551d0e041604143ee35d1c0419a9c9b431f88474d6e1e15772e39b300e0603551d0f0101ff040403020106300a06082a8648ce3d0403030369003066023100bbbe888d738d0502cfbcfd666d09575035bcd6872c3f8430492629edd1f914e879991c9ae8b5aef8d3a85433f7b60d06023100ab38edd0cc81ed00a452c3ba44f993636553fecc297f2eb4df9f5ebe5a4acab6995c4b820df904386f7807bb589439b7").to_vec().try_into().unwrap(),
 			hex_literal::hex!("3082032a308202b0a00302010202060191eaf64f46300a06082a8648ce3d040302304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3234303931323130333831365a170d3235303732343034323031365a3081913149304706035504030c4036383535336364646665363764323132313731616462323234353932393731613663393064346332653734613165386363323635373732396334303638616235311a3018060355040b0c114141412043657274696669636174696f6e31133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613059301306072a8648ce3d020106082a8648ce3d03010703420004ed4b1e614c1b18ea36b940efd84c82fe661b136a80358946552d1338c78de0d43c6ddc9bd027718ea674a7dd4b7b9f1f2cdfc0840d61c9957d1ee57cd6800a1ca38201333082012f300c0603551d130101ff04023000300e0603551d0f0101ff0404030204f030818006092a864886f76364080504733071a40302010abf893003020101bf893103020100bf893203020101bf893303020101bf893421041f475632343532393232522e636f6d2e616375726173742e6578656375746f72a5060404736b7320bf893603020105bf893703020100bf893903020100bf893a03020100bf893b03020100305706092a864886f763640807044a3048bf8a7808040631372e362e31bf885007020500fffffffebf8a7b0704053231473933bf8a7d08040631372e362e31bf8a7e03020100bf8b0c0f040d32312e372e39332e302e302c30303306092a864886f76364080204263024a1220420e185a91f767e0dba7ea2a0fb76bc44a5a5b63537adc0097eada55f646d8c13f2300a06082a8648ce3d0403020368003065023100a8f61c00005ecac3e19bf6e2f2ddbc037682184d24140acc80be6b1476e12e4120a2dce0a530e690c4492c0c86511a53023011a4598c8a0e4d8f82ca5c04a06bf311bf56918a4364002655209eb12a6c4bed03b2e89b31a88f44d16daab8752e06e4").to_vec().try_into().unwrap(),
 		].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&chain)?;
-		let res = extract_attestation(cert.extensions);
+		// within the leaf's validity, 2024-09-12 to 2025-07-24
+		let validated = validate_certificate_chain(&chain, 1_735_689_600_000).map_err(|_| ())?;
+		assert!(!validated.is_rkp);
+		let cert = verified_leaf(&chain)?;
+		let res = extract_attestation(&cert.extensions);
 		match res {
 			Ok(attestation) => match attestation {
 				ParsedAttestation::DeviceAttestation(_) => Ok(()),
@@ -936,8 +1448,8 @@ mod tests {
 			hex_literal::hex!("30820243308201c8a003020102021009bac5e1bc401ad9d45395bc381a0854300a06082a8648ce3d04030330523126302406035504030c1d4170706c6520417070204174746573746174696f6e20526f6f7420434131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3230303331383138333935355a170d3330303331333030303030305a304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613076301006072a8648ce3d020106052b8104002203620004ae5b37a0774d79b2358f40e7d1f22626f1c25fef17802deab3826a59874ff8d2ad1525789aa26604191248b63cb967069e98d363bd5e370fbfa08e329e8073a985e7746ea359a2f66f29db32af455e211658d567af9e267eb2614dc21a66ce99a366306430120603551d130101ff040830060101ff020100301f0603551d23041830168014ac91105333bdbe6841ffa70ca9e5faeae5e58aa1301d0603551d0e041604143ee35d1c0419a9c9b431f88474d6e1e15772e39b300e0603551d0f0101ff040403020106300a06082a8648ce3d0403030369003066023100bbbe888d738d0502cfbcfd666d09575035bcd6872c3f8430492629edd1f914e879991c9ae8b5aef8d3a85433f7b60d06023100ab38edd0cc81ed00a452c3ba44f993636553fecc297f2eb4df9f5ebe5a4acab6995c4b820df904386f7807bb589439b7").to_vec().try_into().unwrap(),
 			hex_literal::hex!("3082036d308202f4a003020102020601928f7ff4be300a06082a8648ce3d040302304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3234313031343039323632305a170d3235303730393136343632305a3081913149304706035504030c4032353761636165393263656365333661343133666261646264633036306238323162646230656464386166366334376333373566323737633063663561373134311a3018060355040b0c114141412043657274696669636174696f6e31133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613059301306072a8648ce3d020106082a8648ce3d030107034200042890afb5a9fd64f7c60a84bd5096b72f89ff9c794098281560ba72399cce7508ec3356edf4854add327d42e4b465bbffee15cd3c3dad152db0b0e2cfa7dd759aa382017730820173300c0603551d130101ff04023000300e0603551d0f0101ff0404030204f030818006092a864886f76364080504733071a40302010abf893003020101bf893103020100bf893203020101bf893303020101bf893421041f475632343532393232522e636f6d2e616375726173742e6578656375746f72a5060404736b7320bf893603020105bf893703020100bf893903020100bf893a03020100bf893b0302010030819a06092a864886f76364080704818c308189bf8a7808040631382e302e31bf885003020100bf8a7b09040732324133333730bf8a7c08040631382e302e31bf8a7d08040631382e302e31bf8a7e03020100bf8b0a10040e32322e312e3337302e332e302c30bf8b0b10040e32322e312e3337302e332e302c30bf8b0c10040e32322e312e3337302e332e302c30bf88020a04086970686f6e656f73303306092a864886f76364080204263024a1220420145ba64f1d8598845f480a2076e7224326b82642242ce39265feadf19a978ab8300a06082a8648ce3d040302036700306402304d4f5469770b138ed80ea73c9f73624eba5fc759ce1e346eaccd5d2b11bb4548875aed9fbacd6c973f8749bc6fba1b00023012fc340363c86353fdc568aa8b11706c2bb5cbb50b4fc21fcfa4dbce9f6b0b1aa5ad5906ec0c369845d6f5da93fa19b4").to_vec().try_into().unwrap(),
 		].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&chain)?;
-		let res = extract_attestation(cert.extensions);
+		let cert = verified_leaf(&chain)?;
+		let res = extract_attestation(&cert.extensions);
 		match res {
 			Ok(attestation) => match attestation {
 				ParsedAttestation::DeviceAttestation(_) => Ok(()),
@@ -953,8 +1465,8 @@ mod tests {
 			hex_literal::hex!("30820243308201c8a003020102021009bac5e1bc401ad9d45395bc381a0854300a06082a8648ce3d04030330523126302406035504030c1d4170706c6520417070204174746573746174696f6e20526f6f7420434131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3230303331383138333935355a170d3330303331333030303030305a304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613076301006072a8648ce3d020106052b8104002203620004ae5b37a0774d79b2358f40e7d1f22626f1c25fef17802deab3826a59874ff8d2ad1525789aa26604191248b63cb967069e98d363bd5e370fbfa08e329e8073a985e7746ea359a2f66f29db32af455e211658d567af9e267eb2614dc21a66ce99a366306430120603551d130101ff040830060101ff020100301f0603551d23041830168014ac91105333bdbe6841ffa70ca9e5faeae5e58aa1301d0603551d0e041604143ee35d1c0419a9c9b431f88474d6e1e15772e39b300e0603551d0f0101ff040403020106300a06082a8648ce3d0403030369003066023100bbbe888d738d0502cfbcfd666d09575035bcd6872c3f8430492629edd1f914e879991c9ae8b5aef8d3a85433f7b60d06023100ab38edd0cc81ed00a452c3ba44f993636553fecc297f2eb4df9f5ebe5a4acab6995c4b820df904386f7807bb589439b7").to_vec().try_into().unwrap(),
 			hex_literal::hex!("30820355308202dba0030201020206019290222805300a06082a8648ce3d040302304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3234313031343132323333305a170d3235303530313230333633305a3081913149304706035504030c4033353936386337346362336332383133306433386531346132643537333031656632623762326636633164656638346661613462346331396231386631663665311a3018060355040b0c114141412043657274696669636174696f6e31133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613059301306072a8648ce3d020106082a8648ce3d03010703420004fc74290d7305aed590a485b1fea4cb17d2cee3ef86cbd05a18f553e078025531d8cd16525ed4661c820fe6f0d0d5fa61785fff4019871a789e482d9ef8e5a678a382015e3082015a300c0603551d130101ff04023000300e0603551d0f0101ff0404030204f030818006092a864886f76364080504733071a40302010abf893003020101bf893103020100bf893203020101bf893303020101bf893421041f475632343532393232522e636f6d2e616375726173742e6578656375746f72a5060404736b7320bf893603020105bf893703020100bf893903020100bf893a03020100bf893b0302010030818106092a864886f76364080704743072bf8a7806040431382e31bf885007020500fffffffebf8a7b0a04083232423530363961bf8a7d06040431382e31bf8a7e03020100bf8b0a0f040d32322e322e36392e352e312c30bf8b0c0f040d32322e322e36392e352e312c30bf88020a04086970686f6e656f73bf880506040442657461303306092a864886f76364080204263024a12204200093e616846df01f7e252468e3e6b3c1b80958f98e3809e7bb8486c9c75017ae300a06082a8648ce3d040302036800306502310097ab23f82c210de06769ff97cf97b4ca5521c9bdbbb856b997ca17194c193f3a29222bb5d56de1028cb699ec5068e731023073246cecd83aba24c4c95ae2a5b83b556afbfbe920350397604c3d929f092c92c0f547abec82630815e8f32a5f6e2b94").to_vec().try_into().unwrap(),
 		].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&chain)?;
-		let res = extract_attestation(cert.extensions);
+		let cert = verified_leaf(&chain)?;
+		let res = extract_attestation(&cert.extensions);
 		match res {
 			Ok(attestation) => match attestation {
 				ParsedAttestation::DeviceAttestation(_) => Ok(()),
@@ -970,8 +1482,8 @@ mod tests {
 			hex_literal::hex!("30820243308201c8a003020102021009bac5e1bc401ad9d45395bc381a0854300a06082a8648ce3d04030330523126302406035504030c1d4170706c6520417070204174746573746174696f6e20526f6f7420434131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3230303331383138333935355a170d3330303331333030303030305a304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613076301006072a8648ce3d020106052b8104002203620004ae5b37a0774d79b2358f40e7d1f22626f1c25fef17802deab3826a59874ff8d2ad1525789aa26604191248b63cb967069e98d363bd5e370fbfa08e329e8073a985e7746ea359a2f66f29db32af455e211658d567af9e267eb2614dc21a66ce99a366306430120603551d130101ff040830060101ff020100301f0603551d23041830168014ac91105333bdbe6841ffa70ca9e5faeae5e58aa1301d0603551d0e041604143ee35d1c0419a9c9b431f88474d6e1e15772e39b300e0603551d0f0101ff040403020106300a06082a8648ce3d0403030369003066023100bbbe888d738d0502cfbcfd666d09575035bcd6872c3f8430492629edd1f914e879991c9ae8b5aef8d3a85433f7b60d06023100ab38edd0cc81ed00a452c3ba44f993636553fecc297f2eb4df9f5ebe5a4acab6995c4b820df904386f7807bb589439b7").to_vec().try_into().unwrap(),
 			hex_literal::hex!("3082039f30820325a0030201020206019293e26592300a06082a8648ce3d040302304f3123302106035504030c1a4170706c6520417070204174746573746174696f6e204341203131133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e6961301e170d3234313031353035353232305a170d3235303432323032313332305a3081913149304706035504030c4066303531373038353965633963333238346430663863636330356166323336643733376464373330666236333539323034653363353266623864353037383565311a3018060355040b0c114141412043657274696669636174696f6e31133011060355040a0c0a4170706c6520496e632e3113301106035504080c0a43616c69666f726e69613059301306072a8648ce3d020106082a8648ce3d030107034200044a6bd9ca256f2bda5ae1eef8fd6e4d997d1ad188902287d8fca2ac980bdc7a3819fa9e4742e7b17edbe2b1a04285f700ee5e9f58fc4d5e5c7e9f3253e0144816a38201a8308201a4300c0603551d130101ff04023000300e0603551d0f0101ff0404030204f030818006092a864886f76364080504733071a40302010abf893003020101bf893103020100bf893203020101bf893303020101bf893421041f475632343532393232522e636f6d2e616375726173742e6578656375746f72a5060404736b7320bf893603020105bf893703020100bf893903020100bf893a03020100bf893b030201003081cb06092a864886f7636408070481bd3081babf8a7808040631382e302e31bf885003020102bf8a7b09040732324133333730bf8a7c08040631382e302e31bf8a7d08040631382e302e31bf8a7e03020100bf8a7f03020100bf8b0003020100bf8b0103020100bf8b0203020100bf8b0303020100bf8b0403020101bf8b0503020100bf8b0a10040e32322e312e3337302e332e302c30bf8b0b10040e32322e312e3337302e332e302c30bf8b0c10040e32322e312e3337302e332e302c30bf88020a04086970686f6e656f73303306092a864886f76364080204263024a1220420ce35294bddf18492b2746df4cec1f75df47f3642848d1d294598fb85e6bedf12300a06082a8648ce3d040302036800306502303342d4ebbf6b9a93c7b85a0775e86026760705458f3c88621375deaf479c96da48ea55d8136887cf198c6a00f8b3e073023100c854609bbaf098564ee4cc38a0207c6dce7c252e0abbf8791d20849eac4db5a59ab77cd252f48e00b9b9d95b94a2936a").to_vec().try_into().unwrap(),
 		].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&chain)?;
-		let res = extract_attestation(cert.extensions);
+		let cert = verified_leaf(&chain)?;
+		let res = extract_attestation(&cert.extensions);
 		match res {
 			Ok(attestation) => match attestation {
 				ParsedAttestation::DeviceAttestation(_) => Ok(()),
@@ -989,10 +1501,10 @@ mod tests {
             hex_literal::hex!("308201f330820179a003020102021073600bfb2b935c6b7cea5dab983e13f2300a06082a8648ce3d0403023039310c300a060355040c0c0354454531293027060355040513203432363866343036363032356135373633626464326464363938333933336161301e170d3231303631363139313830385a170d3331303631343139313830385a3039310c300a060355040c0c03544545312930270603550405132030323431353333343333353664366233373964616333313730666364613039313059301306072a8648ce3d020106082a8648ce3d03010703420004845c6ba85507ebbf1ff6d79c344bed87f7234246d37eb1d13c7089db57a3f527e9e1d099c83d291da16bdd5bb0514319d96992316aeef61cbf307de35c0fd787a3633061301d0603551d0e041604145b0a4a12838506b64a81e0efa4933685513e2523301f0603551d23041830168014887b508c220692460f5c4ab13a14acecd8795ec2300f0603551d130101ff040530030101ff300e0603551d0f0101ff040403020204300a06082a8648ce3d040302036800306502310084e9a4efd84cf528915f284fe6e9ba0804b219e8e971d03903f81e211547e15ae6e3e42e3d250e0c4dedc9d157a3b303023059e0da7c366a117985a9fe1bd465762813c558df1044f84b2cb159a1538b3e06e312ab793ba916a7c4bcec6f64ef4dd1").to_vec().try_into().unwrap(),
             hex_literal::hex!("308202b83082025ea003020102020101300a06082a8648ce3d0403023039310c300a060355040c0c0354454531293027060355040513203032343135333334333335366436623337396461633331373066636461303931301e170d3730303130313030303030305a170d3639313233313233353935395a301f311d301b06035504030c14416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d030107034200045b05ac7b2ac523cc38de09340a70d2854006531bb007c3ad4d3231ceebd9a9663958c763ce36a00d0ccc15b2ff42f0e9775d9f411e3bcd15d41ad7ac94ca1a5ea382016f3082016b300e0603551d0f0101ff04040302078030820157060a2b06010401d67902011104820147308201430201030a01010201040a010104203ccc7f6af1f5a1b9e7cd2679d99eb249018dcd9f004d5a4f596621e8e7ad6e3b0400306abf853d08020601a039c0c1e8bf85455a045830563130302e0428636f6d2e616375726173742e61747465737465642e6578656375746f722e7362732e63616e6172790202008831220420ea21af13f3b724c662f3da05247acc5a68a45331a90220f0d90a6024d7fa8f363081a4a1083106020102020103a203020103a30402020100a5053103020100aa03020101bf8377020500bf853e03020100bf85404c304a0420d78769441545c2cd8a498d1446667b0bf9806b234535a5f52a602a20c9d53eea0101ff0a01000420e536f6d7b77e28900973d70ebac101e4e1a42109f7dd51f628af3a78c5e59af3bf854105020301d4c0bf85420502030316a8bf854e0602040134d9a1bf854f0602040134d9a1300a06082a8648ce3d0403020348003045022040b2eea88a263f7d1f2dde8e52d5b0dda0352559e901911bc935f189f2364175022100befb0c4996698df044818817731b4112253df177de36d0b6800fce7bdcdbf926").to_vec().try_into().unwrap(),
         ].to_vec().try_into().unwrap();
-		let (_, cert, _) = validate_certificate_chain(&decoded_chain)?;
+		let cert = verified_leaf(&decoded_chain)?;
 		assert_eq!(cert.validity.not_before.timestamp_millis()?, 0);
 		assert_eq!(cert.validity.not_after.timestamp_millis()?, 3_155_759_999_000);
-		let parsed = extract_attestation(cert.extensions)?;
+		let parsed = extract_attestation(&cert.extensions)?;
 		let bounded: BoundedAttestationContent = parsed.try_into().unwrap();
 		let BoundedAttestationContent::KeyDescription(kd) = bounded else { panic!() };
 		let rot = kd.tee_enforced.root_of_trust.unwrap();
@@ -1401,5 +1913,292 @@ mod tests {
 			assert_modern_baseline(&bkd.tee_enforced);
 			assert_eq!(bkd.tee_enforced.usage_count_limit, Some(7));
 		}
+	}
+}
+
+#[cfg(test)]
+mod android_chain_tests {
+	use super::*;
+
+	/// A mainnet onboarding chain, root first, one hex certificate per line.
+	fn chain(text: &str) -> CertificateChainInput {
+		let certs = text
+			.lines()
+			.map(|line| {
+				CertificateInput::truncate_from(impl_serde::serialize::from_hex(line).unwrap())
+			})
+			.collect::<Vec<_>>();
+		CertificateChainInput::truncate_from(certs)
+	}
+
+	fn rkp_genuine() -> CertificateChainInput {
+		chain(include_str!("./__test_chains__/rkp_genuine.txt"))
+	}
+
+	fn keybox() -> CertificateChainInput {
+		chain(include_str!("./__test_chains__/keybox.txt"))
+	}
+
+	/// Onboarding times of the fixtures, in unix millis.
+	const RKP_GENUINE_ONBOARDED: u64 = 1_789_323_732_000;
+	const KEYBOX_ONBOARDED: u64 = 1_789_323_744_000;
+
+	/// Whether [validate_certificate_chain] accepts `chain` at `now` as an RKP chain.
+	fn is_rkp(chain: &CertificateChainInput, now: u64) -> Result<bool, ValidationError> {
+		validate_certificate_chain(chain, now).map(|chain| chain.is_rkp)
+	}
+
+	fn without_root(chain: CertificateChainInput) -> CertificateChainInput {
+		CertificateChainInput::truncate_from(chain[1..].to_vec())
+	}
+
+	/// The certificates of `chain` at `indices`, in that order.
+	fn pick(chain: &CertificateChainInput, indices: &[usize]) -> CertificateChainInput {
+		CertificateChainInput::truncate_from(indices.iter().map(|i| chain[*i].clone()).collect())
+	}
+
+	#[test]
+	fn genuine_chains_are_accepted() {
+		for (chain, now, expected) in [
+			(rkp_genuine(), RKP_GENUINE_ONBOARDED, true),
+			(without_root(rkp_genuine()), RKP_GENUINE_ONBOARDED, true),
+			(keybox(), KEYBOX_ONBOARDED, false),
+			(without_root(keybox()), KEYBOX_ONBOARDED, false),
+		] {
+			assert_eq!(is_rkp(&chain, now), Ok(expected));
+		}
+	}
+
+	#[test]
+	fn certificate_outside_its_validity_is_rejected() {
+		// the RKP certificate of the fixture is valid from 2026-09-11T09:15:20Z to 2026-09-26T06:19:40Z
+		let chain = rkp_genuine();
+		assert_eq!(is_rkp(&chain, 1_790_403_579_999), Ok(true));
+		for now in [1_789_118_119_999, 1_790_403_580_000] {
+			assert_eq!(is_rkp(&chain, now), Err(ValidationError::CertificateNotValidAtTime));
+		}
+	}
+
+	#[test]
+	fn rkp_intermediates_are_not_classified_as_keybox() {
+		// keybox length without the provisioning info, but issued by Droid CA2 instead of a factory intermediate
+		let chain = pick(&rkp_genuine(), &[0, 1, 2, 4]);
+		assert_eq!(
+			chain_policy(&chain, RKP_GENUINE_ONBOARDED),
+			Err(ValidationError::UnexpectedChainShape)
+		);
+	}
+
+	#[test]
+	fn rkp_chain_length_is_not_fixed() {
+		// as if Google dropped or added an RKP intermediate
+		for indices in [&[0, 3, 4][..], &[0, 1, 1, 2, 3, 4]] {
+			let chain = pick(&rkp_genuine(), indices);
+			assert_eq!(chain_policy(&chain, RKP_GENUINE_ONBOARDED), Ok(true));
+		}
+	}
+
+	#[test]
+	fn repeated_trusted_root_is_rejected() {
+		// a second root would otherwise be read as the certificate the root issued
+		let chain = pick(&keybox(), &[0, 0, 2, 3]);
+		assert_eq!(validate_chain(&chain), Err(ValidationError::UnexpectedChainShape));
+	}
+
+	#[test]
+	fn rkp_chain_cannot_pass_as_keybox() {
+		let rkp = rkp_genuine();
+		// every proper subchain that keeps the attested leaf
+		for mask in (1u32 << (rkp.len() - 1))..(1u32 << rkp.len()) - 1 {
+			let indices: Vec<usize> = (0..rkp.len()).filter(|i| mask & (1 << i) != 0).collect();
+			let chain = pick(&rkp, &indices);
+			assert_ne!(
+				is_rkp(&chain, RKP_GENUINE_ONBOARDED),
+				Ok(false),
+				"subchain {mask:05b} passes as keybox"
+			);
+		}
+	}
+
+	#[test]
+	fn keybox_intermediate_expiry_is_ignored() {
+		// the intermediates of the fixture are valid from 2020-01-07 to 2030-01-04
+		for chain in [keybox(), without_root(keybox())] {
+			assert_eq!(chain_policy(&chain, 1_900_000_000_000), Ok(false));
+			assert_eq!(
+				chain_policy(&chain, 1_550_000_000_000),
+				Err(ValidationError::CertificateNotValidAtTime)
+			);
+		}
+	}
+
+	/// A mainnet onboarding whose StrongBox key is signed by an RKP device certificate claiming TEE.
+	#[test]
+	fn strongbox_key_under_tee_rkp_certificate_is_rejected() {
+		let chain = chain(include_str!("./__test_chains__/strongbox_key_under_tee.txt"));
+		assert_eq!(is_rkp(&chain, 1_792_392_528_000), Err(ValidationError::SecurityLevelMismatch));
+	}
+
+	#[test]
+	fn not_approved_build_is_rejected() {
+		let chain = chain(include_str!("./__test_chains__/not_approved.txt"));
+		assert_eq!(is_rkp(&chain, 1_789_406_952_000), Err(ValidationError::BuildNotApproved));
+	}
+
+	#[test]
+	fn too_many_certificates_issued_is_rejected() {
+		let chain = chain(include_str!("./__test_chains__/high_velocity.txt"));
+		assert_eq!(
+			is_rkp(&chain, 1_789_576_644_000),
+			Err(ValidationError::TooManyCertificatesIssued)
+		);
+	}
+
+	#[test]
+	fn attest_key_chain_is_rejected() {
+		let chain = chain(include_str!("./__test_chains__/attest_key.txt"));
+		assert!(validate_chain(&chain).is_ok());
+		assert_eq!(
+			chain_policy(&chain, 1_791_575_034_000),
+			Err(ValidationError::UnexpectedLeafSerialNumber)
+		);
+	}
+
+	#[test]
+	fn unexpected_shapes_are_rejected() {
+		let rkp = rkp_genuine();
+		let keybox = keybox();
+
+		for (chain, now) in [
+			// an extra certificate below the RKP certificate
+			(pick(&rkp, &[0, 1, 2, 3, 3, 4]), RKP_GENUINE_ONBOARDED),
+			// the same without the root
+			(pick(&rkp, &[1, 2, 3, 3, 4]), RKP_GENUINE_ONBOARDED),
+			// the RKP certificate not directly above the leaf
+			(pick(&rkp, &[0, 1, 3, 2, 4]), RKP_GENUINE_ONBOARDED),
+			// a keybox chain with an extra intermediate
+			(pick(&keybox, &[0, 1, 2, 2, 3]), KEYBOX_ONBOARDED),
+			// the same without the root, as long as a genuine keybox chain with the root
+			(pick(&keybox, &[1, 2, 2, 3]), KEYBOX_ONBOARDED),
+		] {
+			assert_eq!(chain_policy(&chain, now), Err(ValidationError::UnexpectedChainShape));
+		}
+	}
+
+	#[test]
+	fn leaf_serial_other_than_one_is_rejected() {
+		let keybox = keybox();
+		let mut leaf = keybox[3].to_vec();
+		assert_eq!(parse_cert(&leaf).unwrap().tbs_certificate.serial_number.as_bytes(), [1]);
+		// the serial INTEGER `02 01 01` is the first one in the leaf; patch its value
+		let at = leaf.windows(3).position(|w| w == [0x02, 0x01, 0x01]).unwrap();
+		leaf[at + 2] = 2;
+		let chain = CertificateChainInput::truncate_from(vec![
+			keybox[0].clone(),
+			keybox[1].clone(),
+			keybox[2].clone(),
+			CertificateInput::truncate_from(leaf),
+		]);
+		assert_eq!(
+			chain_policy(&chain, KEYBOX_ONBOARDED),
+			Err(ValidationError::UnexpectedLeafSerialNumber)
+		);
+	}
+
+	#[test]
+	fn provisioning_info_is_parsed() {
+		// {1: 64, 3: "x", 5: {1: "APPROVED", 2: "00ff"}}
+		let info = hex_literal::hex!("a301184003617805a20168415050524f564544" "026430306666");
+		assert_eq!(
+			ProvisioningInfo::parse(&info),
+			Some(ProvisioningInfo {
+				certificates_issued: Some(64),
+				approval_status: Some(b"APPROVED".as_slice()),
+				vbmeta_digest: Some(b"00ff".as_slice()),
+			})
+		);
+	}
+
+	#[test]
+	fn missing_approval_status_is_rejected() {
+		// {1: 64}, {1: 64, 5: {}} and {1: 64, 5: {2: h'00'}}
+		for info in [
+			hex_literal::hex!("a1011840").as_slice(),
+			hex_literal::hex!("a2011840" "05a0").as_slice(),
+			hex_literal::hex!("a2011840" "05a1024100").as_slice(),
+		] {
+			assert_eq!(
+				ensure_provisioning_info_accepted(info, None),
+				Err(ValidationError::BuildNotApproved)
+			);
+		}
+		// {1: 64, 5: {1: "NOT_APPROVED" | "PENDING"}}
+		for status in [b"NOT_APPROVED".as_slice(), b"PENDING"] {
+			let mut info = hex_literal::hex!("a2011840" "05a101").to_vec();
+			info.push(0x60 + status.len() as u8);
+			info.extend_from_slice(status);
+			assert_eq!(
+				ensure_provisioning_info_accepted(&info, None),
+				Err(ValidationError::BuildNotApproved)
+			);
+		}
+	}
+
+	#[test]
+	fn vbmeta_digest_must_match_the_leaf() {
+		// {1: 64, 5: {1: "APPROVED", 2: "00fF"}}
+		let info = hex_literal::hex!("a2011840" "05a20168415050524f564544" "026430306646");
+		assert_eq!(ensure_provisioning_info_accepted(&info, Some(&[0x00, 0xff])), Ok(()));
+		for leaf_hash in [None, Some([0x00, 0xfe].as_slice())] {
+			assert_eq!(
+				ensure_provisioning_info_accepted(&info, leaf_hash),
+				Err(ValidationError::VerifiedBootHashMismatch)
+			);
+		}
+		// {1: 64, 5: {1: "APPROVED", 2: "0x00ff"}}
+		let prefixed = hex_literal::hex!("a2011840" "05a20168415050524f564544" "0266307830306666");
+		assert_eq!(
+			ensure_provisioning_info_accepted(&prefixed, Some(&[0x00, 0xff])),
+			Err(ValidationError::VerifiedBootHashMismatch)
+		);
+		// {1: 64, 5: {1: "APPROVED"}}
+		let without_digest = hex_literal::hex!("a2011840" "05a10168415050524f564544");
+		assert_eq!(
+			ensure_provisioning_info_accepted(&without_digest, Some(&[0x00, 0xff])),
+			Err(ValidationError::VerifiedBootHashMismatch)
+		);
+	}
+
+	#[test]
+	fn missing_certificates_issued_is_rejected() {
+		// {5: {1: "APPROVED"}} and {1: "x", 5: {1: "APPROVED"}}
+		for info in [
+			hex_literal::hex!("a1" "05a10168415050524f564544").as_slice(),
+			hex_literal::hex!("a2016178" "05a10168415050524f564544").as_slice(),
+		] {
+			assert_eq!(
+				ensure_provisioning_info_accepted(info, None),
+				Err(ValidationError::TooManyCertificatesIssued)
+			);
+		}
+	}
+
+	#[test]
+	fn malformed_provisioning_info_is_rejected() {
+		// truncated map
+		assert_eq!(ProvisioningInfo::parse(&hex_literal::hex!("a20118")), None);
+		// not a map
+		assert_eq!(ProvisioningInfo::parse(&hex_literal::hex!("01")), None);
+		// indefinite length map
+		assert_eq!(ProvisioningInfo::parse(&hex_literal::hex!("bf0101ff")), None);
+		// trailing bytes
+		assert_eq!(ProvisioningInfo::parse(&hex_literal::hex!("a1010100")), None);
+		// text running past the end
+		assert_eq!(ProvisioningInfo::parse(&hex_literal::hex!("a105a1016841")), None);
+		// nesting deeper than allowed
+		let mut deep = vec![0xa1, 0x02];
+		deep.extend([0x81; 16]);
+		deep.push(0x00);
+		assert_eq!(ProvisioningInfo::parse(&deep), None);
 	}
 }

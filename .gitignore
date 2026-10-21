@@ -16,6 +16,7 @@
 .DS_Store
 .idea
 .vscode
+.env
 
 zombienet/bin
 !zombienet/bin/acurast-node

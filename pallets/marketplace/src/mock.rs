@@ -455,6 +455,12 @@ impl ProcessorInfoProvider for MockProcessorInfoProvider {
 	fn has_manager(_processor: &<Test as frame_system::Config>::AccountId) -> bool {
 		HasManager::get()
 	}
+
+	fn manager(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		None
+	}
 }
 
 type MaxSlotsFor<T> = <T as pallet_acurast::Config>::MaxSlots;

@@ -15,6 +15,7 @@ pub trait OnboardingProvider<T: Config> {
 	fn validate_attestation(
 		attestation_chain: &AttestationChain,
 		account: &T::AccountId,
+		manager: &T::AccountId,
 	) -> DispatchResult;
 	fn can_fund_processor_onboarding(
 		processor: &T::AccountId,

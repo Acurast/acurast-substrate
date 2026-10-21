@@ -61,6 +61,26 @@ pub enum ValidationError {
 	KeyCertSignNotAllowed,
 	/// A certificate validity date is invalid or before the unix epoch.
 	InvalidCertificateDate,
+	/// A certificate is not yet valid or has expired.
+	CertificateNotValidAtTime,
+	/// The chain does not have the shape of a genuine Android key attestation chain.
+	UnexpectedChainShape,
+	/// The leaf certificate's serial number is not 1.
+	UnexpectedLeafSerialNumber,
+	/// The RKP provisioning info extension could not be parsed.
+	ParseProvisioningInfo,
+	/// The RKP provisioning info does not mark the device's build as approved.
+	BuildNotApproved,
+	/// The RKP provisioning info reports too many certificates issued to the device or lacks their count.
+	TooManyCertificatesIssued,
+	/// The leaf's verified boot hash does not match the vbmeta digest in the RKP provisioning info, or either is missing.
+	VerifiedBootHashMismatch,
+	/// The attestation could not be extracted from the leaf certificate.
+	ExtractAttestation,
+	/// The key's security levels disagree, are software, or do not match what the chain claims.
+	SecurityLevelMismatch,
+	/// An Android attestation does not chain to a Google root, or an Apple one to the Apple root.
+	AttestationRootMismatch,
 }
 
 impl From<ParseError> for ValidationError {

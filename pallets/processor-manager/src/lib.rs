@@ -572,9 +572,13 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			T::AttestationHandler::validate_and_store(attestation_chain, who.clone())?;
-
 			let maybe_new_counter = Self::do_validate_pairing(&pairing, multi)?;
+			T::AttestationHandler::validate_and_store(
+				attestation_chain,
+				who.clone(),
+				Some(&pairing.account),
+			)?;
+
 			if let Some(counter) = maybe_new_counter {
 				<ManagerCounter<T>>::insert(&pairing.account, counter);
 			}

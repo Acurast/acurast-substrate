@@ -30,4 +30,9 @@ where
 	fn has_manager(processor: &Self::AccountId) -> bool {
 		pallet_acurast_processor_manager::Pallet::<Runtime>::lookup_manager_id(processor).is_some()
 	}
+
+	fn manager(processor: &Self::AccountId) -> Option<Self::AccountId> {
+		pallet_acurast_processor_manager::Pallet::<Runtime>::lookup(processor)
+			.map(|(manager, _)| manager)
+	}
 }

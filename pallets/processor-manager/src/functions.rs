@@ -220,8 +220,9 @@ where
 	fn validate_attestation(
 		attestation_chain: &acurast_common::AttestationChain,
 		account: &T::AccountId,
+		manager: &T::AccountId,
 	) -> DispatchResult {
-		_ = T::AttestationHandler::validate(attestation_chain, account)?;
+		_ = T::AttestationHandler::validate(attestation_chain, account, Some(manager))?;
 		Ok(())
 	}
 

@@ -2,7 +2,9 @@ use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
 	ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
-use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
+use acurast_common::{
+	AttestationChain, ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version,
+};
 use frame_support::{
 	assert_err, assert_ok, dispatch::Pays, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
 };
@@ -242,6 +244,34 @@ fn test_multi_pair_with_manager_is_deprecated() {
 		);
 		assert_eq!(None, AcurastProcessorManager::last_manager_id());
 		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
+	});
+}
+
+#[test]
+#[cfg(not(feature = "runtime-benchmarks"))]
+fn test_onboard_validates_pairing_before_attestation() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer, manager_account) = generate_pair_account();
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
+		let timestamp = 1657363915002u128;
+		// signed for counter 2 while the manager expects 1
+		let signature = generate_signature(&signer, &manager_account, timestamp, 2);
+		let pairing =
+			ProcessorPairingFor::<Test>::new_with_proof(manager_account, timestamp, signature);
+		// the mock validator panics on this chain, so it must not be reached
+		let attestation_chain = AttestationChain {
+			certificate_chain: vec![vec![0u8].try_into().unwrap()].try_into().unwrap(),
+		};
+
+		assert_err!(
+			AcurastProcessorManager::onboard(
+				RuntimeOrigin::signed(processor_account_id()),
+				pairing,
+				false,
+				attestation_chain
+			),
+			Error::<Test>::InvalidPairingProof
+		);
 	});
 }
 

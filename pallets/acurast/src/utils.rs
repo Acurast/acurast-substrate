@@ -1,6 +1,6 @@
 use acurast_common::{
-	extract_attestation, validate_certificate_chain, AttestationSecurityLevel,
-	BoundedAttestationContent, ECDSACurve, PublicKey,
+	error::ValidationError, validate_certificate_chain, AttestationSecurityLevel,
+	BoundedAttestationContent, ECDSACurve, PublicKey, ValidatedChain,
 };
 use frame_support::{ensure, traits::UnixTime};
 use parity_scale_codec::Encode;
@@ -8,8 +8,8 @@ use sp_std::prelude::*;
 
 use crate::{
 	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
-	KeyAttestationBarrier, ProcessorType, SerialNumber, StoredAttestation,
-	StoredRevokedCertificate, ValidatingCertIds,
+	KeyAttestationBarrier, ProcessorInfoProvider, ProcessorType, RkpCertificateProcessor,
+	SerialNumber, StoredAttestation, StoredRevokedCertificate, ValidatingCertIds,
 };
 
 /// Validates and returns an [Attestation] from the provided chain.
@@ -17,27 +17,42 @@ pub fn validate_and_extract_attestation<T: Config>(
 	source: &T::AccountId,
 	attestation_chain: &AttestationChain,
 ) -> Result<Attestation, Error<T>> {
-	let (cert_ids, cert, public_key) =
-		validate_certificate_chain(&attestation_chain.certificate_chain)
-			.map_err(|_| Error::<T>::CertificateChainValidationFailed)?;
+	validate_and_extract_attestation_with_rkp_cert::<T>(source, attestation_chain)
+		.map(|(attestation, _)| attestation)
+}
+
+/// Validates and returns an [Attestation] from the provided chain, with its RKP device certificate if it has one.
+pub(crate) fn validate_and_extract_attestation_with_rkp_cert<T: Config>(
+	source: &T::AccountId,
+	attestation_chain: &AttestationChain,
+) -> Result<(Attestation, Option<CertId>), Error<T>> {
+	let ValidatedChain { cert_ids, validity, public_key, is_rkp, attestation } =
+		validate_certificate_chain(&attestation_chain.certificate_chain, now::<T>()?).map_err(
+			|error| match error {
+				ValidationError::CertificateNotValidAtTime => {
+					Error::<T>::AttestationCertificateNotValid
+				},
+				ValidationError::BuildNotApproved => Error::<T>::AttestationBuildNotApproved,
+				ValidationError::TooManyCertificatesIssued => {
+					Error::<T>::AttestationTooManyCertificatesIssued
+				},
+				ValidationError::ExtractAttestation => Error::<T>::AttestationExtractionFailed,
+				_ => Error::<T>::CertificateChainValidationFailed,
+			},
+		)?;
 
 	ensure_valid_public_key_for_source(source, &public_key)?;
 
 	let attestation_validity = AttestationValidity {
-		not_before: cert
-			.validity
+		not_before: validity
 			.not_before
 			.timestamp_millis()
 			.map_err(|_| Error::<T>::FailedTimestampConversion)?,
-		not_after: cert
-			.validity
+		not_after: validity
 			.not_after
 			.timestamp_millis()
 			.map_err(|_| Error::<T>::FailedTimestampConversion)?,
 	};
-
-	let parsed_attestation = extract_attestation(cert.extensions)
-		.map_err(|_| Error::<T>::AttestationExtractionFailed)?;
 
 	let cert_ids_bounded = cert_ids
 		.into_iter()
@@ -53,13 +68,15 @@ pub fn validate_and_extract_attestation<T: Config>(
 	let cert_ids_bounded_vec = ValidatingCertIds::try_from(cert_ids_bounded)
 		.map_err(|_| Error::<T>::CannotGetCertificateId)?;
 
-	Ok(Attestation {
+	let attestation = Attestation {
 		cert_ids: cert_ids_bounded_vec,
-		content: parsed_attestation
+		content: attestation
 			.try_into()
 			.map_err(|_| Error::<T>::AttestationToBoundedTypeConversionFailed)?,
 		validity: attestation_validity,
-	})
+	};
+	let rkp_cert = if is_rkp { rkp_cert_id(&attestation).cloned() } else { None };
+	Ok((attestation, rkp_cert))
 }
 
 /// Ensures that the provided account id has a valid (not expired and not revoked) key attestation.
@@ -92,12 +109,16 @@ pub fn ensure_source_verified_and_security_level<T: Config>(
 	Ok(())
 }
 
-/// Ensures the attestation is not expired.
-pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result<(), Error<T>> {
-	let now: u64 = T::UnixTime::now()
+fn now<T: Config>() -> Result<u64, Error<T>> {
+	T::UnixTime::now()
 		.as_millis()
 		.try_into()
-		.map_err(|_| Error::<T>::FailedTimestampConversion)?;
+		.map_err(|_| Error::<T>::FailedTimestampConversion)
+}
+
+/// Ensures the attestation is not expired.
+pub(crate) fn ensure_not_expired<T: Config>(attestation: &Attestation) -> Result<(), Error<T>> {
+	let now = now::<T>()?;
 
 	if now >= attestation.validity.not_after || now < attestation.validity.not_before {
 		return Err(Error::<T>::AttestationCertificateNotValid);
@@ -126,6 +147,46 @@ pub(crate) fn ensure_not_revoked<T: Config>(attestation: &Attestation) -> Result
 		}
 	}
 	Ok(())
+}
+
+/// The leaf's issuer of an Android attestation, which is the RKP device certificate in an RKP chain.
+pub(crate) fn rkp_cert_id(attestation: &Attestation) -> Option<&CertId> {
+	match attestation.content {
+		BoundedAttestationContent::KeyDescription(_) => {
+			attestation.cert_ids.get(attestation.cert_ids.len().checked_sub(2)?)
+		},
+		_ => None,
+	}
+}
+
+/// Whether the stored attestation of `processor` is under the RKP device certificate `cert_id`.
+pub(crate) fn holds_rkp_certificate<T: Config>(processor: &T::AccountId, cert_id: &CertId) -> bool {
+	<StoredAttestation<T>>::get(processor)
+		.is_some_and(|attestation| rkp_cert_id(&attestation) == Some(cert_id))
+}
+
+/// Ensures the RKP device certificate `cert_id` is not bound to another attested processor
+/// paired with a manager other than `manager`.
+pub(crate) fn ensure_rkp_certificate_available<T: Config>(
+	cert_id: Option<&CertId>,
+	account: &T::AccountId,
+	manager: Option<&T::AccountId>,
+) -> Result<(), Error<T>> {
+	let Some(cert_id) = cert_id else {
+		return Ok(());
+	};
+	let Some(bound) = <RkpCertificateProcessor<T>>::get(cert_id) else {
+		return Ok(());
+	};
+	if &bound == account || !holds_rkp_certificate::<T>(&bound, cert_id) {
+		return Ok(());
+	}
+	match T::ProcessorInfoProvider::manager(&bound) {
+		Some(bound_manager) if Some(&bound_manager) != manager => {
+			Err(Error::<T>::RkpCertificateInUse)
+		},
+		_ => Ok(()),
+	}
 }
 
 fn check_attestation<T: Config>(account: &T::AccountId) -> Result<Attestation, Error<T>> {

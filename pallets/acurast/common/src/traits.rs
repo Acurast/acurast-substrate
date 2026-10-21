@@ -79,13 +79,16 @@ pub trait ManagerLookup {
 }
 
 pub trait AttestationValidator<AccountId> {
+	/// Validates the chain of `account`, to be paired with `manager`.
 	fn validate(
 		attestation_chain: &AttestationChain,
 		account: &AccountId,
+		manager: Option<&AccountId>,
 	) -> Result<Attestation, DispatchError>;
 	fn validate_and_store(
 		attestation_chain: AttestationChain,
 		account: AccountId,
+		manager: Option<&AccountId>,
 	) -> DispatchResult;
 }
 
@@ -172,4 +175,5 @@ pub trait ProcessorInfoProvider {
 	fn processor_version(processor: &Self::AccountId) -> Option<Self::ProcessorVersion>;
 	fn last_processor_metric(processor: &Self::AccountId, pool_id: PoolId) -> Option<FixedU128>;
 	fn has_manager(processor: &Self::AccountId) -> bool;
+	fn manager(processor: &Self::AccountId) -> Option<Self::AccountId>;
 }

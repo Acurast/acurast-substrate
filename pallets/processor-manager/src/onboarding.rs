@@ -112,7 +112,7 @@ where
 			return Ok((ValidTransaction::default(), Val::NoFund, origin));
 		};
 
-		if OP::validate_attestation(attestation_chain, who).is_err() {
+		if OP::validate_attestation(attestation_chain, who, &pairing.account).is_err() {
 			#[cfg(not(feature = "runtime-benchmarks"))]
 			return Err(InvalidTransaction::Custom(ATTESTATION_VALIDATION_ERROR).into());
 		}
@@ -169,10 +169,8 @@ pub mod extension {
 		use frame_system::{pallet_prelude::*, RawOrigin};
 
 		use crate::{
-			benchmarking::{attestation_chain, processor_pairing, set_timestamp},
-			onboarding::Onboarding,
-			BalanceFor, BenchmarkHelper, Call, Config, OnboardingSettings,
-			Pallet as ProcessorManager,
+			benchmarking::processor_pairing, onboarding::Onboarding, BalanceFor, BenchmarkHelper,
+			Call, Config, OnboardingSettings, Pallet as ProcessorManager,
 		};
 
 		pub struct Pallet<T: Config>(ProcessorManager<T>);
@@ -191,15 +189,14 @@ pub mod extension {
 
 			#[benchmark]
 			fn onboarding() -> Result<(), BenchmarkError> {
-				set_timestamp::<T>(1000);
+				let (processor, attestation_chain) = T::BenchmarkHelper::setup_rkp_takeover();
 				let len = 0_usize;
-				let processor = account::<T::AccountId>("processor", 0, 0);
 				let manager = account::<T::AccountId>("manager", 0, 0);
 				let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 				let call: T::RuntimeCall = Call::onboard {
 					pairing: processor_pairing::<T>(manager),
 					multi: false,
-					attestation_chain: attestation_chain(),
+					attestation_chain,
 				}
 				.into();
 				frame_benchmarking::benchmarking::add_to_whitelist(

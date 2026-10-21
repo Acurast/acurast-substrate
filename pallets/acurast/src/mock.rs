@@ -206,6 +206,18 @@ impl ProcessorInfoProvider for MockProcessorInfoProvider {
 	fn has_manager(_processor: &<Test as frame_system::Config>::AccountId) -> bool {
 		true
 	}
+
+	fn manager(
+		processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		MANAGERS.with(|managers| managers.borrow().get(processor).cloned())
+	}
+}
+
+thread_local! {
+	/// The manager [MockProcessorInfoProvider] reports per processor.
+	pub static MANAGERS: core::cell::RefCell<sp_std::collections::btree_map::BTreeMap<AccountId, AccountId>> =
+		Default::default();
 }
 
 pub fn events() -> Vec<RuntimeEvent> {

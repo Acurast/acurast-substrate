@@ -384,6 +384,11 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 			NextReportIndex::<Runtime>::insert(&job_id, processor, 0);
 		}
 	}
+
+	fn setup_rkp_takeover(
+	) -> (<Runtime as frame_system::Config>::AccountId, pallet_acurast::AttestationChain) {
+		pallet_acurast::benchmarking::setup_rkp_takeover::<Runtime>()
+	}
 }
 
 impl pallet_acurast_token_claim::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {

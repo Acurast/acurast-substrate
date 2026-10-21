@@ -9,20 +9,34 @@ use sp_std::prelude::*;
 
 use acurast_common::{
 	is_valid_script, Attestation, AttestationChain, AttestationSecurityLevel, AttestationValidator,
-	EnsureAttested, JobId, JobIdSequence, Metrics, MinMetric, MinMetrics, OnProcessorUnpaired,
+	CertId, EnsureAttested, JobId, JobIdSequence, Metrics, MinMetric, MinMetrics,
+	OnProcessorUnpaired,
 };
 
 use crate::{
 	utils::{
-		ensure_not_expired, ensure_not_revoked, ensure_source_verified_and_security_level,
-		validate_and_extract_attestation,
+		ensure_not_expired, ensure_not_revoked, ensure_rkp_certificate_available,
+		ensure_source_verified_and_security_level, holds_rkp_certificate, rkp_cert_id,
+		validate_and_extract_attestation_with_rkp_cert,
 	},
 	Config, EnvironmentFor, Error, Event, ExecutionEnvironment, JobHooks, JobRegistrationFor,
-	KeyAttestationBarrier, LocalJobIdSequence, Pallet, RequiredMinMetrics, StoredAttestation,
-	StoredJobRegistration,
+	KeyAttestationBarrier, LocalJobIdSequence, Pallet, RequiredMinMetrics, RkpCertificateProcessor,
+	StoredAttestation, StoredJobRegistration,
 };
 
 impl<T: Config> Pallet<T> {
+	/// Removes the stored attestation of `processor` and the binding of its RKP device certificate.
+	pub(crate) fn remove_attestation(processor: &T::AccountId) {
+		let Some(attestation) = <StoredAttestation<T>>::take(processor) else {
+			return;
+		};
+		if let Some(cert_id) = rkp_cert_id(&attestation) {
+			if <RkpCertificateProcessor<T>>::get(cert_id).as_ref() == Some(processor) {
+				<RkpCertificateProcessor<T>>::remove(cert_id);
+			}
+		}
+	}
+
 	/// Get and update the next job identifier in the sequence.
 	pub fn next_job_id() -> JobIdSequence {
 		<LocalJobIdSequence<T>>::mutate(|job_id_seq| {
@@ -108,17 +122,21 @@ impl<T: Config> EnsureAttested<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
-	fn validate(
+impl<T: Config> Pallet<T> {
+	/// Validates the chain of `account`, to be paired with `manager`, and returns the attestation with its RKP
+	/// device certificate if it has one.
+	fn validate_with_rkp_cert(
 		attestation_chain: &AttestationChain,
 		account: &T::AccountId,
-	) -> Result<Attestation, DispatchError> {
+		manager: Option<&T::AccountId>,
+	) -> Result<(Attestation, Option<CertId>), DispatchError> {
 		ensure!(
 			attestation_chain.certificate_chain.len() >= 2,
 			Error::<T>::CertificateChainTooShort,
 		);
 
-		let attestation = validate_and_extract_attestation::<T>(account, attestation_chain)?;
+		let (attestation, rkp_cert) =
+			validate_and_extract_attestation_with_rkp_cert::<T>(account, attestation_chain)?;
 
 		if !T::KeyAttestationBarrier::accept_attestation_for_origin(account, &attestation) {
 			#[cfg(not(feature = "runtime-benchmarks"))]
@@ -127,14 +145,43 @@ impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
 
 		ensure_not_expired::<T>(&attestation)?;
 		ensure_not_revoked::<T>(&attestation)?;
-		Ok(attestation)
+		ensure_rkp_certificate_available::<T>(rkp_cert.as_ref(), account, manager)?;
+		Ok((attestation, rkp_cert))
+	}
+}
+
+impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
+	fn validate(
+		attestation_chain: &AttestationChain,
+		account: &T::AccountId,
+		manager: Option<&T::AccountId>,
+	) -> Result<Attestation, DispatchError> {
+		Self::validate_with_rkp_cert(attestation_chain, account, manager)
+			.map(|(attestation, _)| attestation)
 	}
 
+	/// Validates and stores the attestation. A processor still attested under the same RKP device certificate
+	/// loses its attestation; [Self::validate] ensures it is unpaired or paired with `manager`.
 	fn validate_and_store(
 		attestation_chain: AttestationChain,
 		account: T::AccountId,
+		manager: Option<&T::AccountId>,
 	) -> DispatchResult {
-		let attestation = Self::validate(&attestation_chain, &account)?;
+		let (attestation, rkp_cert) =
+			Self::validate_with_rkp_cert(&attestation_chain, &account, manager)?;
+		Self::remove_attestation(&account);
+		if let Some(cert_id) = rkp_cert {
+			if let Some(bound) = <RkpCertificateProcessor<T>>::get(&cert_id) {
+				if bound != account && holds_rkp_certificate::<T>(&bound, &cert_id) {
+					Self::remove_attestation(&bound);
+					Self::deposit_event(Event::ProcessorAttestationReplaced(
+						bound,
+						account.clone(),
+					));
+				}
+			}
+			<RkpCertificateProcessor<T>>::insert(&cert_id, &account);
+		}
 		<StoredAttestation<T>>::insert(&account, attestation);
 		Self::deposit_event(Event::AttestationStoredV2(account));
 		Ok(())
@@ -143,6 +190,6 @@ impl<T: Config> AttestationValidator<T::AccountId> for Pallet<T> {
 
 impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
 	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
-		<StoredAttestation<T>>::remove(processor);
+		Self::remove_attestation(processor);
 	}
 }

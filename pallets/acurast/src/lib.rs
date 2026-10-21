@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
@@ -171,6 +171,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Revokers<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ()>;
 
+	/// The processor each remotely provisioned (RKP) device certificate is bound to.
+	#[pallet::storage]
+	pub type RkpCertificateProcessor<T: Config> =
+		StorageMap<_, Blake2_128Concat, CertId, T::AccountId>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	#[allow(clippy::large_enum_variant)]
@@ -209,6 +214,8 @@ pub mod pallet {
 		RevokersUpdated,
 		/// The stale data of an invalid or unpaired processor has been removed. [processor]
 		ProcessorInvalidated(T::AccountId),
+		/// A processor took over the RKP device certificate of another and its attestation was removed. [previous, processor]
+		ProcessorAttestationReplaced(T::AccountId, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -265,6 +272,12 @@ pub mod pallet {
 		ProcessorStillValid,
 		/// The processor has no stale data to remove.
 		NothingToCleanUp,
+		/// The RKP device certificate is bound to an attested processor of another manager.
+		RkpCertificateInUse,
+		/// The RKP provisioning info marks the device's build as not approved or lacks its approval status.
+		AttestationBuildNotApproved,
+		/// The RKP provisioning info reports too many certificates issued to the device or lacks their count.
+		AttestationTooManyCertificatesIssued,
 	}
 
 	#[pallet::call]
@@ -377,7 +390,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::validate_and_store(attestation_chain, who)?;
+			let manager = T::ProcessorInfoProvider::manager(&who);
+			Self::validate_and_store(attestation_chain, who, manager.as_ref())?;
 
 			Ok(().into())
 		}
@@ -480,7 +494,7 @@ pub mod pallet {
 					|| (attested && ensure_source_verified::<T>(&processor).is_err()),
 				Error::<T>::ProcessorStillValid
 			);
-			<StoredAttestation<T>>::remove(&processor);
+			Self::remove_attestation(&processor);
 			let data_removed = T::OnProcessorInvalidated::processor_invalidated(&processor);
 			ensure!(attested || data_removed, Error::<T>::NothingToCleanUp);
 

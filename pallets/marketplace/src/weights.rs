@@ -143,6 +143,10 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((194_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 403584).saturating_mul(x.into()))
 	}
+	/// Placeholder until benchmarked.
+	fn instant_match(_s: u32, ) -> Weight {
+		<Self as crate::WeightInfo>::propose_matching(1)
+	}
 	/// Storage: `AcurastMarketplace::StoredJobExecutionStatus` (r:10 w:20)
 	/// Proof: `AcurastMarketplace::StoredJobExecutionStatus` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
 	/// Storage: `Acurast::StoredJobRegistration` (r:10 w:0)

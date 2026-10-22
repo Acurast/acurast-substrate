@@ -2848,3 +2848,256 @@ fn test_upgrade_on_current_version_schedules_no_cleanup() {
 		assert_eq!(None, AcurastMarketplace::migration_cursor());
 	});
 }
+
+/// How the second job in [`test_fits_schedule_end_to_end`] gets matched.
+#[derive(Clone, Copy, Debug)]
+enum MatchPath {
+	ProposeMatching,
+	RegisterInstantMatch,
+	DeployInstantMatch,
+	ExecutionMatching,
+}
+
+/// Execution spans `(start, end)` of `schedule` with `delay`, restricted to `index` if given.
+fn execution_spans(schedule: &Schedule, delay: u64, index: Option<u64>) -> Vec<(u64, u64)> {
+	(0..schedule.execution_count())
+		.filter(|i| index.is_none_or(|index| index == *i))
+		.map(|i| {
+			let start = schedule.start_time + i * schedule.interval + delay;
+			(start, start + schedule.duration)
+		})
+		.collect()
+}
+
+/// Two legitimately registered jobs matched to the same processor through every extrinsic path:
+/// the second match fails with `ScheduleOverlapInMatch` iff any of their executions overlap.
+#[test]
+fn test_fits_schedule_end_to_end() {
+	let now: u64 = 1_671_800_100_000;
+	let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+	let mut rand = move |max: u64| {
+		seed ^= seed << 13;
+		seed ^= seed >> 7;
+		seed ^= seed << 17;
+		seed % max
+	};
+	let (mut overlaps, mut fits, mut skipped) = (0u32, 0u32, 0u32);
+	for case in 0..3_000u64 {
+		let competing = [case % 4 == 1 || case % 4 == 3, case % 4 >= 2];
+		let schedule = |rand: &mut dyn FnMut(u64) -> u64, competing: bool, start_time: u64| {
+			let interval = match rand(3) {
+				0 => 60_000 * (5 + rand(26)),
+				1 => 300_000 + rand(1_500_000),
+				_ if competing => 300_000 + rand(1_500_000),
+				_ => 2_000 + rand(1_800_000),
+			};
+			let duration = 1_000 + rand((interval - 1_000).min(600_000));
+			let periods = 1 + rand(30);
+			Schedule {
+				duration,
+				start_time,
+				end_time: start_time + 1 + rand(interval * periods),
+				interval,
+				max_start_delay: if rand(2) == 0 { 0 } else { rand(5_000) },
+			}
+		};
+		let a_start = now + 400_000 + rand(7_200_000);
+		let a = schedule(&mut rand, competing[0], a_start);
+		let b_start = match rand(4) {
+			0 => a.start_time + a.duration,
+			1 => a.start_time + a.duration - 1,
+			2 => {
+				let period = rand(3);
+				a.start_time + a.interval * period + a.duration + rand(3)
+			},
+			_ => now + 400_000 + rand(7_200_000),
+		};
+		let b = schedule(&mut rand, competing[1], b_start);
+		let (a_delay, b_delay) = (rand(a.max_start_delay + 1), rand(b.max_start_delay + 1));
+		let a_index = competing[0].then(|| rand(a.execution_count().min(3)));
+		let b_index = competing[1].then(|| rand(b.execution_count().min(3)));
+		let path = match b_index {
+			Some(_) => MatchPath::ExecutionMatching,
+			None => [
+				MatchPath::ProposeMatching,
+				MatchPath::RegisterInstantMatch,
+				MatchPath::DeployInstantMatch,
+			][rand(3) as usize],
+		};
+
+		// a competing execution is matched shortly before it starts, a single job before its start
+		let match_time = |s: &Schedule, index: Option<u64>| match index {
+			Some(i) => s.nth_start_time(0, i).unwrap() - 60_000,
+			None => now,
+		};
+		let (a_time, b_time) = (match_time(&a, a_index), match_time(&b, b_index));
+		// the first match must still count (not yet past its start) when the second is proposed
+		let a_first_start = a.nth_start_time(a_delay, a_index.unwrap_or(0)).unwrap();
+		if b_time >= a_first_start {
+			skipped += 1;
+			continue;
+		}
+		let expected = execution_spans(&a, a_delay, a_index).iter().any(|x| {
+			execution_spans(&b, b_delay, b_index)
+				.iter()
+				.any(|y| x.0.max(y.0) < x.1.min(y.1))
+		});
+
+		let registration = |schedule: &Schedule, competing: bool, instant: Option<u64>| {
+			JobRegistrationFor::<Test> {
+				script: script(),
+				allowed_sources: None,
+				allow_only_verified_sources: false,
+				schedule: *schedule,
+				memory: 5_000u32,
+				network_requests: 5,
+				storage: 20_000u32,
+				required_modules: JobModules::default(),
+				extra: RegistrationExtra {
+					requirements: JobRequirements {
+						assignment_strategy: if competing {
+							AssignmentStrategy::Competing
+						} else {
+							AssignmentStrategy::Single(instant.map(|start_delay| {
+								bounded_vec![PlannedExecution {
+									source: processor_account_id(),
+									start_delay
+								}]
+							}))
+						},
+						slots: 1,
+						reward: 700_000,
+						min_reputation: None,
+						processor_version: None,
+						runtime: Runtime::NodeJS,
+					},
+				},
+			}
+		};
+		let propose = |job_id: (MultiOrigin<AccountId>, u128),
+		               index: Option<u64>,
+		               start_delay: u64| {
+			let sources =
+				bounded_vec![PlannedExecution { source: processor_account_id(), start_delay }];
+			match index {
+				Some(execution_index) => AcurastMarketplace::propose_execution_matching(
+					RuntimeOrigin::signed(charlie_account_id()),
+					vec![ExecutionMatch { job_id, execution_index, sources }].try_into().unwrap(),
+				),
+				None => AcurastMarketplace::propose_matching(
+					RuntimeOrigin::signed(charlie_account_id()),
+					vec![Match { job_id, sources }].try_into().unwrap(),
+				),
+			}
+		};
+
+		ExtBuilder.build().execute_with(|| {
+			Timestamp::set_timestamp(now);
+			assert_ok!(AcurastMarketplace::advertise(
+				RuntimeOrigin::signed(processor_account_id()),
+				advertisement(1, 1, 100_000, 50_000, 8),
+			));
+			let first_id = Acurast::job_id_sequence() + 1;
+			let a_id = (MultiOrigin::Acurast(alice_account_id()), first_id);
+			let b_id = (MultiOrigin::Acurast(alice_account_id()), first_id + 1);
+			assert_ok!(Acurast::register(
+				RuntimeOrigin::signed(alice_account_id()),
+				registration(&a, competing[0], None)
+			));
+			let second = match path {
+				MatchPath::RegisterInstantMatch => None,
+				MatchPath::DeployInstantMatch => None,
+				_ => Some(Acurast::register(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, competing[1], None),
+				)),
+			};
+			if let Some(result) = second {
+				assert_ok!(result);
+			}
+
+			Timestamp::set_timestamp(a_time);
+			assert_ok!(propose(a_id, a_index, a_delay));
+
+			Timestamp::set_timestamp(b_time);
+			let result = match path {
+				MatchPath::ProposeMatching | MatchPath::ExecutionMatching =>
+					propose(b_id, b_index, b_delay).map(|_| ()).map_err(|e| e.error),
+				MatchPath::RegisterInstantMatch => Acurast::register(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, false, Some(b_delay)),
+				)
+				.map(|_| ())
+				.map_err(|e| e.error),
+				MatchPath::DeployInstantMatch => AcurastMarketplace::deploy(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, false, Some(b_delay)),
+					pallet_acurast::ScriptMutability::Immutable,
+					None,
+					None,
+				)
+				.map(|_| ())
+				.map_err(|e| e.error),
+			};
+			let context = format!("case={case} path={path:?} a={a:?} a_delay={a_delay} a_index={a_index:?} b={b:?} b_delay={b_delay}");
+			if expected {
+				assert_eq!(result, Err(Error::<Test>::ScheduleOverlapInMatch.into()), "{context}");
+			} else {
+				assert_eq!(result, Ok(()), "{context}");
+			}
+		});
+		if expected {
+			overlaps += 1
+		} else {
+			fits += 1
+		}
+	}
+	assert!(overlaps > 300 && fits > 300, "overlaps={overlaps} fits={fits} skipped={skipped}");
+}
+
+#[test]
+fn test_register_rejects_executions_ending_beyond_u64() {
+	let now: u64 = 1_671_800_100_000;
+	let start = now + 3_600_000;
+	let registration = |max_start_delay: u64, end_time: u64| JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 60_000,
+			start_time: start,
+			end_time,
+			interval: end_time - 1 - start,
+			max_start_delay,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 100_000,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+	ExtBuilder.build().execute_with(|| {
+		Timestamp::set_timestamp(now);
+		let register = |r| Acurast::register(RuntimeOrigin::signed(alice_account_id()), r);
+		// the last execution starts at `end_time - 1` and ends exactly at u64::MAX
+		assert_ok!(register(registration(0, u64::MAX - 59_999)));
+		assert_ok!(register(registration(1, u64::MAX - 60_000)));
+		assert_err_ignore_postinfo!(
+			register(registration(0, u64::MAX - 59_998)),
+			Error::<Test>::CalculationOverflow
+		);
+		assert_err_ignore_postinfo!(
+			register(registration(1, u64::MAX - 59_999)),
+			Error::<Test>::CalculationOverflow
+		);
+	});
+}

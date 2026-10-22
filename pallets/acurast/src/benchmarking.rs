@@ -195,7 +195,7 @@ mod benchmarks {
 	#[benchmark]
 	fn register() {
 		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(false, true);
+		let (caller, job) = register_job::<T>(false, false);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), job);
@@ -208,7 +208,7 @@ mod benchmarks {
 	#[benchmark]
 	fn register_with_min_metrics() {
 		set_timestamp::<T>(1000);
-		let (caller, job) = register_job::<T>(false, true);
+		let (caller, job) = register_job::<T>(false, false);
 		let min_metrics: Metrics = <T as Config>::BenchmarkHelper::min_metrics();
 
 		#[extrinsic_call]

@@ -10,6 +10,7 @@ pub trait WeightInfo {
 	fn delete_advertisement() -> Weight;
 	fn report() -> Weight;
 	fn propose_matching(x: u32) -> Weight;
+	fn instant_match(s: u32) -> Weight;
 	fn propose_execution_matching(x: u32) -> Weight;
 	fn acknowledge_match() -> Weight;
 	fn acknowledge_execution_match() -> Weight;

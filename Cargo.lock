@@ -8407,7 +8407,6 @@ dependencies = [
  "frame-system",
  "hex-literal 0.3.4",
  "hex-literal 0.4.1",
- "itertools 0.10.5",
  "log",
  "pallet-acurast",
  "pallet-acurast-compute",

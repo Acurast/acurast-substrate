@@ -284,7 +284,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Registers a job by providing a [JobRegistration]. If a job for the same script was previously registered, it will be overwritten.
 		#[pallet::call_index(0)]
-		#[pallet::weight(< T as Config >::WeightInfo::register())]
+		#[pallet::weight(< T as Config >::WeightInfo::register().saturating_add(T::JobHooks::register_hook_weight(registration)))]
 		pub fn register(
 			origin: OriginFor<T>,
 			registration: JobRegistrationFor<T>,
@@ -296,7 +296,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(< T as Config >::WeightInfo::register_with_min_metrics())]
+		#[pallet::weight(< T as Config >::WeightInfo::register_with_min_metrics().saturating_add(T::JobHooks::register_hook_weight(registration)))]
 		pub fn register_with_min_metrics(
 			origin: OriginFor<T>,
 			registration: JobRegistrationFor<T>,

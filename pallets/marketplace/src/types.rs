@@ -312,8 +312,6 @@ impl<Reward> Assignment<Reward> {
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct JobAssignment<Reward, AccountId, MaxAllowedSources: Get<u32>, Extra> {
 	pub job_id: JobId<AccountId>,
 	pub job: JobRegistration<AccountId, MaxAllowedSources, Extra>,
@@ -557,10 +555,7 @@ pub struct ExecutionMatch<AccountId, MaxSlots: ParameterBound> {
 }
 
 /// Structure representing a job registration partially specified.
-///
-/// Useful for frontend to filter for processors that would match.
-#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Encode, Decode, TypeInfo, Clone, PartialEq)]
 pub struct PartialJobRegistration<Reward, AccountId, MaxAllowedSources: Get<u32>> {
 	/// An optional array of the [AccountId]s allowed to fulfill the job. If the array is [None], then all sources are allowed.
 	pub allowed_sources: Option<AllowedSources<AccountId, MaxAllowedSources>>,

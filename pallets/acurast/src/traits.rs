@@ -52,6 +52,8 @@ pub trait JobHooks<T: Config> {
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
 		registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo;
+	/// Weight `register_hook` may consume for `registration` on top of the base registration weight.
+	fn register_hook_weight(registration: &JobRegistrationFor<T>) -> Weight;
 	fn deregister_hook(
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
 	) -> DispatchResultWithPostInfo;
@@ -68,6 +70,9 @@ impl<T: Config> JobHooks<T> for () {
 		_registration: &JobRegistrationFor<T>,
 	) -> DispatchResultWithPostInfo {
 		Ok(().into())
+	}
+	fn register_hook_weight(_registration: &JobRegistrationFor<T>) -> Weight {
+		Weight::zero()
 	}
 	fn deregister_hook(
 		_job_id: &JobId<<T as frame_system::Config>::AccountId>,

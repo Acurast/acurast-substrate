@@ -139,6 +139,10 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((130_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 1082880).saturating_mul(x.into()))
 	}
+	/// Placeholder until benchmarked.
+	fn instant_match(_s: u32, ) -> Weight {
+		<Self as pallet_acurast_marketplace::WeightInfo>::propose_matching(1)
+	}
 	/// Storage: `AcurastMarketplace::StoredJobExecutionStatus` (r:3 w:6)
 	/// Proof: `AcurastMarketplace::StoredJobExecutionStatus` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
 	/// Storage: `Acurast::StoredJobRegistration` (r:7 w:0)

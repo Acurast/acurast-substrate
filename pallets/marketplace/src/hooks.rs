@@ -42,6 +42,13 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 			registration.schedule.start_time <= registration.schedule.end_time,
 			Error::<T>::JobRegistrationEndBeforeStart
 		);
+		ensure!(
+			(registration.schedule.end_time - 1)
+				.checked_add(registration.schedule.max_start_delay)
+				.and_then(|end| end.checked_add(registration.schedule.duration))
+				.is_some(),
+			Error::<T>::CalculationOverflow
+		);
 		ensure!(requirements.slots > 0, Error::<T>::JobRegistrationZeroSlots);
 		ensure!(
 			requirements.slots as u32 <= <T as pallet_acurast::Config>::MaxSlots::get(),
@@ -57,8 +64,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		match requirements.assignment_strategy {
 			AssignmentStrategy::Single(instant_match) => {
 				if let Some(sources) = instant_match {
-					// the instant match is accounted for in the (fixed) registration weight, so the
-					// variable work meter is discarded here
+					// charged upfront via `register_hook_weight`, so the work meter is discarded here
 					Self::process_matching(
 						once(&crate::types::Match { job_id: job_id.clone(), sources }),
 						None,
@@ -83,6 +89,18 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 		T::RewardManager::lock_reward(job_id, Self::total_reward_amount(registration)?)?;
 
 		Ok(().into())
+	}
+
+	/// An instant match is charged by its number of sources.
+	fn register_hook_weight(registration: &JobRegistrationFor<T>) -> Weight {
+		let e: <T as Config>::RegistrationExtra = registration.extra.clone().into();
+		let requirements: JobRequirementsFor<T> = e.into();
+		match requirements.assignment_strategy {
+			AssignmentStrategy::Single(Some(sources)) => {
+				<T as Config>::WeightInfo::instant_match(sources.len() as u32)
+			},
+			_ => Weight::zero(),
+		}
 	}
 
 	/// Deregisters a job.

@@ -770,7 +770,7 @@ pub mod pallet {
 		///
 		/// This extrinsic could replace [`Self::register`] since this extrinsic has the same effect if `registration_type ==` [`ScriptMutability::Immutable`] and `reuse_keys_from == None`.
 		#[pallet::call_index(11)]
-		#[pallet::weight(< T as Config >::WeightInfo::deploy())]
+		#[pallet::weight(< T as Config >::WeightInfo::deploy().saturating_add(<Pallet<T> as pallet_acurast::JobHooks<T>>::register_hook_weight(registration)))]
 		pub fn deploy(
 			origin: OriginFor<T>,
 			registration: JobRegistrationFor<T>,

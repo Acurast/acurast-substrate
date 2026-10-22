@@ -67,6 +67,8 @@ const SCHEDULE_START_TIME: u64 = 1689332400000;
 
 /// The `end_time` of those schedules (one day after [`SCHEDULE_START_TIME`]).
 const SCHEDULE_END_TIME: u64 = SCHEDULE_START_TIME + DAY;
+/// The `interval` of the schedules built by [`job_registration_with_reward`].
+const SCHEDULE_INTERVAL: u64 = 180_000;
 
 /// The timestamp benchmarks start from.
 ///
@@ -109,7 +111,7 @@ pub fn job_registration_with_reward<T: Config>(
 			duration,
 			start_time: SCHEDULE_START_TIME + (DAY * schedule_shift),
 			end_time: SCHEDULE_END_TIME + (DAY * schedule_shift),
-			interval: 180000, // 30min
+			interval: SCHEDULE_INTERVAL,
 			max_start_delay: 5000,
 		},
 		memory,
@@ -243,11 +245,11 @@ where
 	let job = job_registration_with_reward::<T>(
 		script(),
 		slots,
-		// duration must be >= `Config::MinDuration` for registration to succeed; `interval` in
-		// `job_registration_with_reward` (180000) is comfortably above the configured minimum.
+		// duration must be >= `Config::MinDuration` for registration to succeed;
+		// [`SCHEDULE_INTERVAL`] is comfortably above the configured minimum.
 		<T as Config>::MinDuration::get(),
 		// reward per execution must cover `price_for` which is proportional to `duration`; sized
-		// with margin for the (now larger) minimum duration.
+		// with margin for the minimum duration.
 		500_000_000_000,
 		1000,
 		1,
@@ -599,36 +601,31 @@ where
 	Ok((processor_id, job, job_id))
 }
 
-/// Pre-populates `processor`'s `StoredMatches` with `count` already-acknowledged matches for
-/// far-future (thus non-overlapping) jobs.
-///
-/// The matching extrinsics iterate over a processor's entire `StoredMatches` prefix in
-/// `fits_schedule`; this iteration is bounded by [`Config::MaxMatchesPerProcessor`]. To benchmark
-/// the worst case we fill each matched processor up to that bound so the measured weight reflects
-/// the maximum schedule-fit iteration. The synthetic jobs are placed far in the future and marked
-/// acknowledged so they are considered valid but never overlap the benchmarked job (which would
-/// otherwise abort the matching call).
+/// Fills `processor` with `count` acknowledged matches whose executions exactly fill the gaps of the
+/// benchmarked jobs' executions, so every `fits_schedule` pair runs the full overlap check without
+/// overlapping. Assumes those jobs start at [`SCHEDULE_START_TIME`] with `duration == MinDuration`.
 fn fill_processor_matches<T>(processor: &T::AccountId, count: u32)
 where
 	T: Config + pallet_balances::Config,
 {
 	let consumer: T::AccountId =
 		<T as Config>::BenchmarkHelper::funded_account(u32::MAX, u64::MAX.into());
+	let min_duration = <T as Config>::MinDuration::get();
+	assert!(min_duration < SCHEDULE_INTERVAL, "fillers need MinDuration < SCHEDULE_INTERVAL");
 	for k in 0..count {
-		// A large per-entry schedule shift (in days) keeps these jobs well beyond the benchmarked
-		// job's schedule, so `fits_schedule` never reports an overlap for them.
-		let job = job_registration_with_reward::<T>(
+		let mut job = job_registration_with_reward::<T>(
 			script(),
 			1,
-			500,
+			SCHEDULE_INTERVAL - min_duration,
 			2_000_000_000,
 			1000,
 			1,
 			1000,
-			// clears even the worst-case ~9.76-year collider job used by `propose_matching`.
-			Some(5000 + k as u64),
+			None,
 			None,
 		);
+		job.schedule.start_time += min_duration;
+		job.schedule.end_time += min_duration;
 		let job_id: JobId<T::AccountId> =
 			(MultiOrigin::Acurast(consumer.clone()), 1_000_000u128 + k as u128);
 		pallet_acurast::StoredJobRegistration::<T>::insert(&job_id.0, job_id.1, job);
@@ -704,13 +701,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Worst case: `x` matches, each filling every proposed processor to `MaxMatchesPerProcessor` so
-	// `fits_schedule` performs its maximum (`MaxMatchesPerProcessor`-bounded) per-source iteration.
-	// The processors carry only far-future (non-overlapping) fillers, so every `fits_schedule` short-
-	// circuits on the O(1) `overlaps` prefilter and the call succeeds. The `(All, All)` per-execution
-	// merge is not exercised on purpose: it is bounded by `MAX_EXECUTIONS_PER_JOB` and each step is a
-	// trivial integer comparison, so it is negligible next to the per-source storage reads (and it can
-	// only run to length on a call that ultimately errors, doing strictly less work than this path).
+	// Worst case: every source holds `MaxMatchesPerProcessor - 1` fillers that pass the range
+	// prefilter, so each pair runs the full `overlaps_schedule` check.
 	#[benchmark]
 	fn propose_matching(
 		x: Linear<1, { T::MaxProposedMatches::get() }>,
@@ -755,11 +747,39 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Worst case fills every processor to `MaxMatchesPerProcessor`. Unlike `propose_matching`, the
-	// matched job here is `Competing`, so each schedule-fit pair is `(Index, _)` and resolved
-	// analytically in O(1) (`nth_start_time` + a single `overlaps`); the `(All, All)` per-execution
-	// merge is never entered. `MAX_EXECUTIONS_PER_JOB` therefore does not affect this weight — only
-	// the `MaxMatchesPerProcessor`-bounded outer loop does.
+	// Worst case: every source holds `MaxMatchesPerProcessor - 1` fillers that pass the range
+	// prefilter, so each pair runs the full `overlaps_schedule` check.
+	// Worst case: every source holds `MaxMatchesPerProcessor - 1` fillers that pass the range
+	// prefilter, so each pair runs the full `overlaps_schedule` check.
+	#[benchmark]
+	fn instant_match(
+		s: Linear<1, { <T as pallet_acurast::Config>::MaxSlots::get() }>,
+	) -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(BENCH_NOW);
+		setup_pools::<T>();
+		let (_, _, job_id) = register_submit_helper::<T>(0, s as u8);
+		let existing_matches = T::MaxMatchesPerProcessor::get().saturating_sub(1);
+		let sources: Vec<PlannedExecution<T::AccountId>> = (1..=s)
+			.map(|index| {
+				let (source, _) = advertise_helper::<T>(index, true);
+				fill_processor_matches::<T>(&source, existing_matches);
+				PlannedExecution { source, start_delay: 0 }
+			})
+			.collect();
+		let planned: MatchFor<T> = Match { job_id, sources: sources.try_into().unwrap() };
+
+		#[block]
+		{
+			assert_ok!(AcurastMarketplace::<T>::process_matching(
+				core::iter::once(&planned),
+				None,
+				&mut crate::types::MatchingWeightMeter::default(),
+			));
+		}
+
+		Ok(())
+	}
+
 	#[benchmark]
 	fn propose_execution_matching(
 		x: Linear<1, { T::MaxProposedExecutionMatches::get() }>,

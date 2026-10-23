@@ -1644,6 +1644,66 @@ where
 		Ok(())
 	}
 
+	/// The block a delegation's cooldown counts from, or `None` if neither the delegator nor the
+	/// committer started a cooldown yet.
+	///
+	/// A committer's cooldown force-starts the cooldown of all its delegations, so the earlier of the
+	/// two starts applies.
+	pub fn delegation_cooldown_start(
+		committer_stake: &StakeFor<T, I>,
+		delegation_stake: &StakeFor<T, I>,
+	) -> Option<BlockNumberFor<T>> {
+		match (committer_stake.cooldown_started, delegation_stake.cooldown_started) {
+			(Some(committer_start), Some(delegator_start)) => {
+				Some(committer_start.min(delegator_start))
+			},
+			(Some(start), None) | (None, Some(start)) => Some(start),
+			(None, None) => None,
+		}
+	}
+
+	/// Ends `who`'s delegation to `old_commitment_id` in full so its stake can be restaked into `who`'s
+	/// own commitment, within the same call. Behaves like a redelegation to `who` itself: the same
+	/// source checks as for [`Self::redelegate_v2_for`] apply, accrued rewards are paid out and accrued
+	/// slashes applied before the stake is released.
+	///
+	/// Returns the released (post-slash) amount and the blocks remaining until the delegation would
+	/// have been free to end — the full cooldown period if no cooldown was started yet, zero if it has
+	/// already passed. The caller must restake the amount on a commitment that is not in cooldown and
+	/// has a cooldown period of at least that many blocks, so the tokens stay locked at least as long
+	/// as they would have under the delegation.
+	pub fn release_delegation_for_staking(
+		who: &T::AccountId,
+		old_commitment_id: T::CommitmentId,
+	) -> Result<(BalanceFor<T, I>, BlockNumberFor<T>), DispatchError> {
+		let old_delegation = Self::ensure_can_redelegate(who, old_commitment_id)?;
+		// present and not stale, as checked by `ensure_can_redelegate`
+		let committer_stake = Self::commitments(old_commitment_id)
+			.and_then(|c| c.stake)
+			.ok_or(Error::<T, I>::StaleDelegationMustBeEnded)?;
+
+		let current_block = <frame_system::Pallet<T>>::block_number();
+		let cooldown_start =
+			Self::delegation_cooldown_start(&committer_stake, &old_delegation.stake)
+				.unwrap_or(current_block);
+		let remaining_cooldown = cooldown_start
+			.saturating_add(old_delegation.stake.cooldown_period)
+			.saturating_sub(current_block);
+
+		// Apply pending slashes first, so only what is left of the stake gets restaked.
+		Self::apply_delegator_slash(who, old_commitment_id)?;
+		let amount = <Delegations<T, I>>::get(who, old_commitment_id)
+			.ok_or(Error::<T, I>::NotDelegating)?
+			.stake
+			.amount;
+
+		// `end_delegation_for` transfers the accrued reward to `who` and unlocks the stake, which the
+		// caller locks again right away as committer stake.
+		Self::end_delegation_for(who, old_commitment_id, false, false)?;
+
+		Ok((amount, remaining_cooldown))
+	}
+
 	pub fn end_delegation_for(
 		who: &T::AccountId,
 		commitment_id: T::CommitmentId,
@@ -1666,45 +1726,14 @@ where
 						if let Some(committer_stake) = commitment.stake.clone() {
 							// skip all cooldown checks if the existing delegation was for a previous commitment that got ended and "replaced" by a new commitment by same committer
 							if d.stake.created >= committer_stake.created {
-								match (committer_stake.cooldown_started, d.stake.cooldown_started) {
-									(
-										Some(committer_cooldown_start),
-										Some(delegator_cooldown_start),
-									) => {
-										let first = if committer_cooldown_start
-											< delegator_cooldown_start
-										{
-											committer_cooldown_start
-										} else {
-											delegator_cooldown_start
-										};
-										ensure!(
-											first.saturating_add(d.stake.cooldown_period)
-												<= current_block,
-											Error::<T, I>::CooldownNotEnded
-										);
-									},
-									(Some(committer_cooldown_start), None) => {
-										// inherit the committer's cooldown start
-										ensure!(
-											committer_cooldown_start
-												.saturating_add(d.stake.cooldown_period)
-												<= current_block,
-											Error::<T, I>::CooldownNotEnded
-										);
-									},
-									(None, Some(delegator_cooldown_start)) => {
-										ensure!(
-											delegator_cooldown_start
-												.saturating_add(d.stake.cooldown_period)
-												<= current_block,
-											Error::<T, I>::CooldownNotEnded
-										);
-									},
-									(None, None) => {
-										Err(Error::<T, I>::CooldownNotStarted)?;
-									},
-								}
+								let cooldown_start =
+									Self::delegation_cooldown_start(&committer_stake, &d.stake)
+										.ok_or(Error::<T, I>::CooldownNotStarted)?;
+								ensure!(
+									cooldown_start.saturating_add(d.stake.cooldown_period)
+										<= current_block,
+									Error::<T, I>::CooldownNotEnded
+								);
 							}
 						}
 						// if the commitment is gone, which means the committer even passed his cooldown without the delegator taking action (like redelegating)

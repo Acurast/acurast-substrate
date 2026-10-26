@@ -164,17 +164,42 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_token::WeightInfo for We
 	/// Proof: `AcurastHyperdriveToken::OutgoingTransfers` (`max_values`: None, `max_size`: Some(95), added: 2570, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:101 w:101)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastHyperdriveIbc::OutgoingMessages` (r:100 w:100)
+	/// Proof: `AcurastHyperdriveIbc::OutgoingMessages` (`max_values`: None, `max_size`: Some(1256), added: 3731, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (r:0 w:100)
+	/// Proof: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (`max_values`: None, `max_size`: Some(135), added: 2610, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 100]`.
-	// NOTE: hand-estimated until the next benchmark run (no measurement yet).
+	// NOTE: hand-estimated until the next benchmark run (no measurement yet), including removal of each transfer's expired message.
 	fn refund_transfers(x: u32, ) -> Weight {
 		Weight::from_parts(15_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(Weight::from_parts(0, 6279))
 			// Standard Error: estimated
-			.saturating_add(Weight::from_parts(90_000_000, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
-			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
-			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(x.into()))
+			.saturating_add(Weight::from_parts(180_000_000, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 8904).saturating_mul(x.into()))
+	}
+	/// Storage: `AcurastHyperdriveToken::OutgoingTransfers` (r:1 w:0)
+	/// Proof: `AcurastHyperdriveToken::OutgoingTransfers` (`max_values`: None, `max_size`: Some(95), added: 2570, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastHyperdriveToken::EthereumContract` (r:1 w:0)
+	/// Proof: `AcurastHyperdriveToken::EthereumContract` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastHyperdriveIbc::OutgoingMessages` (r:1 w:1)
+	/// Proof: `AcurastHyperdriveIbc::OutgoingMessages` (`max_values`: None, `max_size`: Some(1256), added: 3731, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (r:0 w:1)
+	/// Proof: `AcurastHyperdriveIbc::OutgoingMessagesLookup` (`max_values`: None, `max_size`: Some(135), added: 2610, mode: `MaxEncodedLen`)
+	// NOTE: hand-estimated (ibc remove_message + fee refund transfer) until the next benchmark run (no measurement yet).
+	fn remove_transfer_message() -> Weight {
+		Weight::from_parts(150_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
 }

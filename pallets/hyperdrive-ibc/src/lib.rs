@@ -170,6 +170,7 @@ pub mod pallet {
 		PayloadLengthExceeded,
 		FeeTooLow,
 		SelfMessagingNotAllowed,
+		NotAllowedToRemoveMessage,
 	}
 
 	/// A reason for the pallet placing a hold on funds.
@@ -294,30 +295,29 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Removes an outgoing message whose `ttl` passed, releasing the held fee back to the payer.
+		///
+		/// Can only be called by the message's sender or [`Config::UpdateOrigin`].
+		/// Senders that are pallet accounts (e.g. hyperdrive-token) expose their own way of removing messages
+		/// via [`MessageSender::remove_message`], since they keep track of whom to refund the fee to.
 		#[pallet::call_index(3)]
 		#[pallet::weight(< T as Config < I >>::WeightInfo::remove_message())]
 		pub fn remove_message(origin: OriginFor<T>, id: MessageId) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+			let maybe_who = match T::UpdateOrigin::try_origin(origin) {
+				Ok(_) => None,
+				Err(origin) => Some(ensure_signed(origin)?),
+			};
 
 			let message = Self::outgoing_messages(id).ok_or(Error::<T, I>::MessageNotFound)?;
 
-			let current_block = <frame_system::Pallet<T>>::block_number();
+			if let Some(who) = maybe_who {
+				ensure!(
+					message.message.sender == Self::sender_subject(&who),
+					Error::<T, I>::NotAllowedToRemoveMessage
+				);
+			}
 
-			ensure!(message.ttl_block < current_block, Error::<T, I>::CannotRemovePendingMessage);
-
-			T::Currency::release(
-				&HoldReason::OutgoingMessageFee.into(),
-				&message.payer,
-				message.fee,
-				Precision::BestEffort,
-			)
-			.map_err(|_| Error::<T, I>::CouldNotHoldFee)?;
-
-			Self::deposit_event(Event::MessageRemoved { id });
-
-			// clear
-			<OutgoingMessages<T, I>>::remove(id);
-			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, message.message.nonce);
+			Self::do_remove_message(&message)?;
 
 			Ok(())
 		}
@@ -497,6 +497,32 @@ pub mod pallet {
 			T::MessageIdHashing::hash_of(&(sender, nonce))
 		}
 
+		/// Removes an outgoing message whose `ttl` passed, releasing the held fee back to the payer.
+		fn do_remove_message(
+			message: &OutgoingMessageWithMetaFor<T, I>,
+		) -> Result<(), Error<T, I>> {
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			ensure!(message.ttl_block < current_block, Error::<T, I>::CannotRemovePendingMessage);
+
+			T::Currency::release(
+				&HoldReason::OutgoingMessageFee.into(),
+				&message.payer,
+				message.fee,
+				Precision::BestEffort,
+			)
+			.map_err(|_| Error::<T, I>::CouldNotReleaseHoldFee)?;
+
+			let id = message.message.id;
+			Self::deposit_event(Event::MessageRemoved { id });
+
+			// clear
+			<OutgoingMessages<T, I>>::remove(id);
+			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, message.message.nonce);
+
+			Ok(())
+		}
+
 		/// Sends a message by the given `sender` paid by a potentially different `payer`.
 		///
 		/// **NOTE**:
@@ -517,11 +543,7 @@ pub mod pallet {
 			ensure!(fee >= T::MinFee::get(), Error::<T, I>::FeeTooLow);
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
-			let layer = Layer::Extrinsic(sender.clone());
-			let sender = match T::SelfChain::get() {
-				ProxyAcurastChain::Acurast => Subject::Acurast(layer),
-				ProxyAcurastChain::AcurastCanary => Subject::AcurastCanary(layer),
-			};
+			let sender = Self::sender_subject(sender);
 
 			// Prevent self-messaging: sender and recipient must be from different chains
 			ensure!(
@@ -580,6 +602,15 @@ pub mod pallet {
 			Ok((message_with_meta, replaced_message))
 		}
 
+		/// The [`SubjectFor`] of messages sent by `account` from this chain.
+		pub(crate) fn sender_subject(account: &T::AccountId) -> SubjectFor<T> {
+			let layer = Layer::Extrinsic(account.clone());
+			match T::SelfChain::get() {
+				ProxyAcurastChain::Acurast => Subject::Acurast(layer),
+				ProxyAcurastChain::AcurastCanary => Subject::AcurastCanary(layer),
+			}
+		}
+
 		#[transactional]
 		fn process_message(message: MessageFor<T>) -> DispatchResultWithPostInfo {
 			let message_body: MessageBody<T::AccountId, T::AccountId> = message.into();
@@ -603,6 +634,16 @@ pub mod pallet {
 			fee: BalanceOf<T, I>,
 		) -> Result<(Self::OutgoingMessage, Option<Self::OutgoingMessage>), DispatchError> {
 			Ok(Self::do_send_message(sender, payer, nonce, recipient, payload, ttl, fee)?)
+		}
+
+		fn remove_message(
+			sender: &T::AccountId,
+			nonce: MessageNonce,
+		) -> Result<Self::OutgoingMessage, DispatchError> {
+			let id = Self::message_id(&Self::sender_subject(sender), nonce);
+			let message = Self::outgoing_messages(id).ok_or(Error::<T, I>::MessageNotFound)?;
+			Self::do_remove_message(&message)?;
+			Ok(message)
 		}
 	}
 }

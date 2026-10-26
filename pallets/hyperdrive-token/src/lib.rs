@@ -28,6 +28,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, *},
 		sp_runtime::{traits::AtLeast32BitUnsigned, SaturatedConversion},
+		storage::with_storage_layer,
 		traits::{
 			tokens::{
 				fungible::{Inspect, Mutate},
@@ -148,6 +149,12 @@ pub mod pallet {
 			transfer_nonce: TransferNonce,
 			source: T::AccountId,
 			amount: T::Balance,
+		},
+		TransferMessageRemoved {
+			proxy: ProxyChain,
+			transfer_nonce: TransferNonce,
+			source: T::AccountId,
+			fee: T::Balance,
 		},
 	}
 
@@ -396,7 +403,10 @@ pub mod pallet {
 		///
 		/// NOTE: the caller is responsible to only name transfers that were never processed on the proxy chain and can no longer be;
 		/// this is not verifiable on Acurast since delivery confirmations are not tracked per transfer.
-		/// Fees paid for the original transfer or its retries are not refunded.
+		///
+		/// If the transfer's Hyperdrive (IBC) message expired, it is removed and its fee refunded to the source as with
+		/// [`Pallet::remove_transfer_message`]. A message still pending (or already removed) does not prevent the refund;
+		/// fees of pending messages and of previously replaced messages are not refunded.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::refund_transfers(transfer_nonces.len() as u32))]
 		pub fn refund_transfers(
@@ -428,6 +438,17 @@ pub mod pallet {
 						Error::<T, I>::TransferRefundFailed
 					})?;
 				}
+				// best-effort: since the transfer entry is gone after this refund, this is the last chance to refund the message fee to the source
+				if let Err(e) = with_storage_layer(|| {
+					Self::do_remove_transfer_message(proxy, transfer_nonce, &source)
+				}) {
+					log::debug!(
+						target: "runtime::acurast_hyperdrive_token",
+						"refund_transfers; message for transfer {:?} not removed: {:?}",
+						transfer_nonce,
+						e,
+					);
+				}
 				Self::deposit_event(Event::TransferRefunded {
 					proxy,
 					transfer_nonce,
@@ -438,12 +459,76 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Removes the expired Hyperdrive (IBC) message of an outgoing transfer, refunding its fee to the transfer's source.
+		///
+		/// Can only be called by the source of the transfer. The transferred amount stays locked and the transfer
+		/// can still be retried with [`Pallet::retry_transfer_native`] or refunded with [`Pallet::refund_transfers`].
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::remove_transfer_message())]
+		pub fn remove_transfer_message(
+			origin: OriginFor<T>,
+			proxy: ProxyChain,
+			transfer_nonce: TransferNonce,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let (prev_source, _, _) = OutgoingTransfers::<T, I>::get(proxy, transfer_nonce)
+				.ok_or(Error::<T, I>::UnknownTransfer)?;
+			ensure!(prev_source == source, Error::<T, I>::InvalidSender);
+			Self::do_remove_transfer_message(proxy, transfer_nonce, &source)
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Removes the expired Hyperdrive (IBC) message of a transfer, refunding its fee from the fee vault to `source`.
+		fn do_remove_transfer_message(
+			proxy: ProxyChain,
+			transfer_nonce: TransferNonce,
+			source: &T::AccountId,
+		) -> DispatchResult {
+			let fee_vault = Self::fee_vault(&proxy)?;
+
+			let message = T::MessageSender::remove_message(
+				&T::PalletAccount::get(),
+				Self::transfer_message_nonce(proxy, transfer_nonce),
+			)?;
+
+			let fee = message.get_fee();
+			if !fee.is_zero() {
+				T::Currency::transfer(&fee_vault, source, fee, Preservation::Preserve)
+					.map_err(|_| Error::<T, I>::FeeRefundFailed)?;
+			}
+
+			Self::deposit_event(Event::TransferMessageRemoved {
+				proxy,
+				transfer_nonce,
+				source: source.clone(),
+				fee: fee.saturated_into(),
+			});
+
+			Ok(())
+		}
+
+		/// The Hyperdrive (IBC) message nonce of the transfer with `transfer_nonce` to `proxy`.
+		fn transfer_message_nonce(
+			proxy: ProxyChain,
+			transfer_nonce: TransferNonce,
+		) -> <T::MessageIdHasher as Hash>::Output {
+			let complete_nonce =
+				&[proxy.encode().as_slice(), transfer_nonce.to_be_bytes().as_slice()].concat();
+			T::MessageIdHasher::hash_of(complete_nonce)
+		}
+
 		fn vault(proxy: &ProxyChain) -> Result<T::AccountId, Error<T, I>> {
 			match proxy {
 				ProxyChain::Ethereum => Ok(T::EthereumVault::get()),
+				_ => Err(Error::InvalidRecipient),
+			}
+		}
+
+		fn fee_vault(proxy: &ProxyChain) -> Result<T::AccountId, Error<T, I>> {
+			match proxy {
+				ProxyChain::Ethereum => Ok(T::EthereumFeeVault::get()),
 				_ => Err(Error::InvalidRecipient),
 			}
 		}
@@ -548,13 +633,10 @@ pub mod pallet {
 			let encoded = <EthereumActionEncoder as ActionEncoder<T::AccountId>>::encode(&action)
 				.map_err(|e| -> Error<T, I> { e.into() })?;
 
-			let complete_nonce =
-				&[proxy.encode().as_slice(), transfer_nonce.to_be_bytes().as_slice()].concat();
-
 			let (_, maybe_replaced_message) = T::MessageSender::send_message(
 				&T::PalletAccount::get(),
 				&fee_vault,
-				T::MessageIdHasher::hash_of(complete_nonce),
+				Self::transfer_message_nonce(proxy, transfer_nonce),
 				recipient,
 				encoded,
 				Self::outgoing_transfer_ttl_or_default(proxy),

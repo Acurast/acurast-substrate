@@ -141,6 +141,163 @@ fn test_transfer_native_success() {
 	});
 }
 
+fn setup_expired_transfer(
+	initial_block: u64,
+	initial_balance: u128,
+	amount: u128,
+	fee: u128,
+) -> (u64, sp_core::H256) {
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), alice_account_id(), initial_balance);
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), bob_account_id(), initial_balance);
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), ethereum_vault(), initial_balance);
+	let _ =
+		Balances::force_set_balance(RuntimeOrigin::root(), ethereum_fee_vault(), initial_balance);
+	EthereumContract::<Test>::set(Some(ethereum_token_contract()));
+	Enabled::<Test>::set(Some(true));
+
+	System::set_block_number(initial_block);
+	assert_ok!(AcurastHyperdriveToken::transfer_native(
+		RuntimeOrigin::signed(alice_account_id()),
+		ethereum_dest(),
+		amount,
+		fee,
+	));
+	let nonce = AcurastHyperdriveToken::next_transfer_nonce(ProxyChain::Ethereum) - 1;
+	let id = pallet_acurast_hyperdrive_ibc::OutgoingMessages::<Test>::iter_keys()
+		.next()
+		.unwrap();
+
+	// let the message expire
+	System::set_block_number(initial_block + 16);
+	(nonce, id)
+}
+
+#[test]
+fn test_remove_message_restricted_to_sender_or_update_origin() {
+	try_init_simple(); // ignore error if already initialized
+
+	let initial_block = 10;
+	let initial_balance = 1000 * UNIT;
+	let amount_to_transfer = UNIT;
+	let fee_amount = UNIT / 10;
+	let retry_fee_amount = 2 * fee_amount;
+
+	new_test_ext().execute_with(|| {
+		let (nonce, id) =
+			setup_expired_transfer(initial_block, initial_balance, amount_to_transfer, fee_amount);
+
+		// neither an unrelated account nor the transfer source (who is neither sender nor payer of the message)
+		// can remove the message directly on hyperdrive-ibc
+		for who in [bob_account_id(), alice_account_id()] {
+			assert_err!(
+				AcurastHyperdriveIbc::remove_message(RuntimeOrigin::signed(who), id),
+				pallet_acurast_hyperdrive_ibc::Error::<Test>::NotAllowedToRemoveMessage,
+			);
+		}
+
+		// retry still refunds the previous fee to the source
+		assert_ok!(AcurastHyperdriveToken::retry_transfer_native(
+			RuntimeOrigin::signed(alice_account_id()),
+			ProxyChain::Ethereum,
+			nonce,
+			retry_fee_amount,
+		));
+		assert_eq!(
+			Balances::free_balance(alice_account_id()),
+			initial_balance - amount_to_transfer - retry_fee_amount
+		);
+		assert_eq!(Balances::free_balance(ethereum_fee_vault()), initial_balance);
+		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), retry_fee_amount);
+
+		// the privileged origin can still remove expired messages
+		System::set_block_number(initial_block + 32);
+		assert_ok!(AcurastHyperdriveIbc::remove_message(RuntimeOrigin::root(), id));
+		assert!(pallet_acurast_hyperdrive_ibc::OutgoingMessages::<Test>::get(id).is_none());
+		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), 0);
+	});
+}
+
+#[test]
+fn test_remove_transfer_message_refunds_fee_to_source() {
+	try_init_simple(); // ignore error if already initialized
+
+	let initial_block = 10;
+	let initial_balance = 1000 * UNIT;
+	let amount_to_transfer = UNIT;
+	let fee_amount = UNIT / 10;
+
+	new_test_ext().execute_with(|| {
+		System::set_block_number(initial_block);
+		let (nonce, id) =
+			setup_expired_transfer(initial_block, initial_balance, amount_to_transfer, fee_amount);
+
+		// only the source of the transfer can remove its message
+		assert_err!(
+			AcurastHyperdriveToken::remove_transfer_message(
+				RuntimeOrigin::signed(bob_account_id()),
+				ProxyChain::Ethereum,
+				nonce,
+			),
+			Error::<Test>::InvalidSender,
+		);
+
+		assert_ok!(AcurastHyperdriveToken::remove_transfer_message(
+			RuntimeOrigin::signed(alice_account_id()),
+			ProxyChain::Ethereum,
+			nonce,
+		));
+
+		assert!(pallet_acurast_hyperdrive_ibc::OutgoingMessages::<Test>::get(id).is_none());
+		assert_eq!(
+			Balances::free_balance(alice_account_id()),
+			initial_balance - amount_to_transfer
+		);
+		assert_eq!(Balances::free_balance(ethereum_fee_vault()), initial_balance);
+		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), 0);
+		// amount stays locked and transfer remains retryable
+		assert_eq!(Balances::free_balance(ethereum_vault()), initial_balance + amount_to_transfer);
+		assert!(OutgoingTransfers::<Test>::get(ProxyChain::Ethereum, nonce).is_some());
+		System::assert_has_event(
+			Event::TransferMessageRemoved {
+				proxy: ProxyChain::Ethereum,
+				transfer_nonce: nonce,
+				source: alice_account_id(),
+				fee: fee_amount,
+			}
+			.into(),
+		);
+
+		// a second removal fails since the message is gone
+		assert_err!(
+			AcurastHyperdriveToken::remove_transfer_message(
+				RuntimeOrigin::signed(alice_account_id()),
+				ProxyChain::Ethereum,
+				nonce,
+			),
+			pallet_acurast_hyperdrive_ibc::Error::<Test>::MessageNotFound,
+		);
+	});
+}
+
+#[test]
+fn test_remove_transfer_message_pending_fails() {
+	try_init_simple(); // ignore error if already initialized
+
+	new_test_ext().execute_with(|| {
+		let (nonce, _) = setup_expired_transfer(10, 1000 * UNIT, UNIT, UNIT / 10);
+		// back within ttl
+		System::set_block_number(25);
+		assert_err!(
+			AcurastHyperdriveToken::remove_transfer_message(
+				RuntimeOrigin::signed(alice_account_id()),
+				ProxyChain::Ethereum,
+				nonce,
+			),
+			pallet_acurast_hyperdrive_ibc::Error::<Test>::CannotRemovePendingMessage,
+		);
+	});
+}
+
 #[test]
 fn test_update_ethereum_contract_success() {
 	let mut test = new_test_ext();
@@ -317,6 +474,64 @@ fn test_refund_transfers_success() {
 			),
 			Error::<Test>::UnknownTransfer
 		);
+	});
+}
+
+#[test]
+fn test_refund_transfers_removes_expired_messages() {
+	let initial_balance = 1000 * UNIT;
+	let amount = UNIT;
+	let fee = UNIT / 10;
+
+	new_test_ext().execute_with(|| {
+		let nonces = setup_outgoing_transfers(initial_balance, amount, fee, 2);
+
+		// both messages expire, the second transfer is retried and therefore has a pending message again
+		System::set_block_number(26);
+		assert_ok!(AcurastHyperdriveToken::retry_transfer_native(
+			RuntimeOrigin::signed(alice_account_id()),
+			ProxyChain::Ethereum,
+			nonces[1],
+			fee,
+		));
+		assert_eq!(
+			Balances::free_balance(alice_account_id()),
+			initial_balance - 2 * amount - 2 * fee
+		);
+		System::reset_events();
+
+		assert_ok!(AcurastHyperdriveToken::refund_transfers(
+			RuntimeOrigin::root(),
+			ProxyChain::Ethereum,
+			nonces.clone().try_into().unwrap(),
+		));
+
+		// amounts of both transfers and the fee of the expired message are refunded
+		assert_eq!(Balances::free_balance(alice_account_id()), initial_balance - fee);
+		assert_eq!(Balances::free_balance(ethereum_fee_vault()), initial_balance);
+		// the pending message stays with its fee held
+		assert_eq!(Balances::reserved_balance(ethereum_fee_vault()), fee);
+		assert_eq!(pallet_acurast_hyperdrive_ibc::OutgoingMessages::<Test>::iter().count(), 1);
+		System::assert_has_event(
+			Event::TransferMessageRemoved {
+				proxy: ProxyChain::Ethereum,
+				transfer_nonce: nonces[0],
+				source: alice_account_id(),
+				fee,
+			}
+			.into(),
+		);
+		for nonce in nonces {
+			System::assert_has_event(
+				Event::TransferRefunded {
+					proxy: ProxyChain::Ethereum,
+					transfer_nonce: nonce,
+					source: alice_account_id(),
+					amount,
+				}
+				.into(),
+			);
+		}
 	});
 }
 

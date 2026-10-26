@@ -58,6 +58,15 @@ pub trait MessageSender<AccountId, Contract, Balance, BlockNumber> {
 		ttl: BlockNumber,
 		fee: Balance,
 	) -> Result<(Self::OutgoingMessage, Option<Self::OutgoingMessage>), DispatchError>;
+
+	/// Removes the outgoing message sent by `sender_extrinsic` with `nonce` once its ttl passed,
+	/// releasing the held fee back to the message's payer.
+	///
+	/// The caller is responsible to ensure the authorization for `sender_extrinsic`.
+	fn remove_message(
+		sender_extrinsic: &AccountId,
+		nonce: Self::MessageNonce,
+	) -> Result<Self::OutgoingMessage, DispatchError>;
 }
 
 pub trait MessageFeeProvider<Balance> {
@@ -92,6 +101,13 @@ where
 		_fee: Balance,
 	) -> Result<(Self::OutgoingMessage, Option<Self::OutgoingMessage>), DispatchError> {
 		Ok(((), None))
+	}
+
+	fn remove_message(
+		_sender: &AccountId,
+		_nonce: Self::MessageNonce,
+	) -> Result<Self::OutgoingMessage, DispatchError> {
+		Ok(())
 	}
 }
 

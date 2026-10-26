@@ -213,7 +213,9 @@ mod benches {
 	#[benchmark]
 	fn remove_message() {
 		let caller: T::AccountId = whitelisted_caller();
-		let (sender, recipient) = default_subjects::<T, I>();
+		let (_, recipient) = default_subjects::<T, I>();
+		// only the sender is allowed to remove its message
+		let sender = Pallet::<T, I>::sender_subject(&caller);
 		let ttl = T::MinTTL::get();
 		let fee = T::MinFee::get();
 		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());

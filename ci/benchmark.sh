@@ -16,6 +16,9 @@ set -euo pipefail
 CHAIN="${1:?usage: benchmark.sh <chain-id> [steps] [repeat]}"
 STEPS="${2:-50}"
 REPEAT="${3:-20}"
+# ref_time scale factor, applied to pallet weights and to `benchmark overhead` (see below).
+SCALE_NUM="${SCALE_NUM:-3}"
+SCALE_DEN="${SCALE_DEN:-2}"
 
 NODE="${NODE:-/usr/local/bin/acurast-node}"
 OUT=/bench/benchmarks
@@ -203,6 +206,53 @@ echo "=== benchmark machine ==="
 # --execution=wasm is deliberately absent: it no longer selects anything. The stable2606 CLI
 # accepts it and ignores it, warning "Argument `--execution` is deprecated. Its value of `wasm`
 # has on effect." Passing it only adds noise to the log and to the generated file headers.
+
+# These runtime log targets emit one line per benchmark repetition, which on a --steps=50
+# --repeat=20 run adds up to ~2MB and blew GitLab's 4MB job-log cap on 2026-09-02 ("Job's log
+# exceeded limit of 4194304 bytes"). The cap silently truncates everything after it, so the failure
+# summary, the high-repeat pass, the overhead step and the scaling step were all lost from the log
+# while the job kept running. None of them says anything about the weights:
+#
+#   * runtime::storage_reclaim_pallet -- "Node-side PoV size higher than runtime proof size weight".
+#     The benchmark harness does not do real block accounting, so runtime BlockWeight is 0 while the
+#     node-side recorder reports real bytes. 6885 lines, 1.0MB.
+#   * runtime::xcmp-queue-migration -- "Message dropped: too big", from the v3->v4 migration path the
+#     xcmp-queue benchmarks drive deliberately. Logged at error level, so it needs `off`, not
+#     `error`. 30892 lines, 0.9MB.
+#   * pallet_collator_selection -- "assembling new collators for new session N", one per session
+#     rotation the benchmarks trigger. 2202 lines, 0.1MB.
+#   * acurast_<network>_runtime::apis -- "WARNING: benchmark error overridden - <name>", one per
+#     iteration of the --min-duration loop. A `BenchmarkError::Override` benchmark returns
+#     instantly, so the CLI spins for the whole minimum duration re-running it: 37136 lines,
+#     2.2MB, for `teleport_assets` alone on 2026-09-02, and there are four overridden
+#     extrinsics. The information is not lost -- an overridden benchmark is unmistakable in
+#     the generated file, where its ref_time is Weight::MAX (18_446_744_073_709_551_000).
+#     Only the compiled network's target does anything; the other two are inert.
+#   * xcm::benchmarking -- "try_origin failed", logged by the pallet_xcm benchmarks right before
+#     they return the same `BenchmarkError::Override`, so it repeats with the line above.
+#
+# Everything else keeps its default level, so the CLI's own progress and summary output is untouched.
+BENCH_LOG_FILTER="${BENCH_LOG_FILTER:-runtime::storage_reclaim_pallet=off,runtime::xcmp-queue-migration=off,pallet_collator_selection=off,xcm::benchmarking=off,acurast_mainnet_runtime::apis=off,acurast_kusama_runtime::apis=off,acurast_rococo_runtime::apis=off}"
+
+# Collapses runs of identical consecutive log lines, ignoring their timestamp.
+#
+# The log filter above names the targets known to flood, but three separate ones turned up on
+# 2026-09-02 alone, each discovered only by blowing GitLab's 4MB cap and truncating the run's tail --
+# including the failure summary, which is the one thing needed to diagnose it. This makes the next
+# unknown one cost a single line instead of the rest of the log.
+collapse_repeats() {
+	awk '{
+		msg = $0
+		sub(/^[0-9][0-9-]* [0-9:]+ /, "", msg)
+		if (NR > 1 && msg == prev) { n++; next }
+		if (n) { printf "  [previous line repeated %d more times]\n", n; n = 0 }
+		prev = msg
+		print
+		fflush()
+	}
+	END { if (n) printf "  [previous line repeated %d more times]\n", n }'
+}
+
 echo "=== benchmark pallet ==="
 "$NODE" benchmark pallet \
 	--chain="$CHAIN" \
@@ -212,8 +262,68 @@ echo "=== benchmark pallet ==="
 	--extrinsic '*' \
 	--steps="$STEPS" \
 	--repeat="$REPEAT" \
+	--log="$BENCH_LOG_FILTER" \
 	--output="$OUT/" \
-	2>&1 | tee "$OUT/pallet.log"
+	2>&1 | collapse_repeats | tee "$OUT/pallet.log"
+
+# `benchmark overhead` measures BlockExecutionWeight and ExtrinsicBaseWeight -- the per-block and
+# per-extrinsic cost that RuntimeBlockWeights adds on top of every dispatch. Without it those two
+# stay at the stock upstream placeholders (5ms and 125us), which is what the SDK parachains ship,
+# but it does not mix with the ref_time scaling below: per-call weights would be chain-measured and
+# scaled while the base weights stayed an unmeasured guess at the unscaled scale.
+#
+# Two wrinkles, both of which the CLI cannot work around on its own:
+#
+#   * --para-id is required. Without it the block builder omits the parachain inherent and
+#     cumulus-pallet-parachain-system panics with "included head not present in relay storage proof".
+#     It is read back out of the chain spec so this stays correct for every network.
+#
+#   * The extrinsic half signs a `System::remark` as Alice, who holds no balance in any of our chain
+#     specs, so it fails with Invalid(Payment). --genesis-patch cannot help: it is refused alongside
+#     --chain, and --runtime on its own trips the node's load_spec("") lookup. So we export the spec,
+#     endow Alice in it, and benchmark against that copy. Nothing else in genesis is touched.
+#
+# --mul applies the same hardware correction the perl pass below applies to pallet weights, recorded
+# in the generated header as WEIGHT-MUL. Those two files use
+# `WEIGHT_REF_TIME_PER_NANOS.saturating_mul(N)` rather than a bare `Weight::from_parts(N, ...)`, so
+# the perl pass does not match them and cannot double-apply it.
+#
+# Set BENCH_OVERHEAD to the empty string to skip.
+BENCH_OVERHEAD="${BENCH_OVERHEAD:-1}"
+
+if [ -n "$BENCH_OVERHEAD" ]; then
+	echo "=== benchmark overhead ==="
+	# --base-path is required: the container runs as a bare uid with no writable home, so the
+	# default base path is unopenable and build-spec fails with
+	# `Io(Os { code: 13, kind: PermissionDenied })` (2026-09-02). `benchmark pallet` does not
+	# need one; `build-spec` and `benchmark overhead` both do.
+	"$NODE" build-spec --chain="$CHAIN" --base-path=/bench/db > "$OUT/spec.json"
+
+	# Endow //Alice by textual insertion rather than a JSON decode/encode round-trip. The genesis
+	# holds u128 balances larger than 2^64 (e.g. acurastHyperdriveToken.initialEthTokenAllocation),
+	# and perl -- JSON::PP with allow_bignum included -- reads those into a double and writes them
+	# back as `7.623964e+19`, which the runtime rejects with "Invalid JSON blob". Inserting one array
+	# element leaves every other byte of the spec untouched.
+	perl -0777 -i -pe '
+		s{("balances"\s*:\s*\{\s*"balances"\s*:\s*\[)}
+		 {$1\n            [\n              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",\n              1000000000000000000000\n            ],}
+	' "$OUT/spec.json"
+	grep -q 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY "$OUT/spec.json" \
+		|| { echo "failed to endow //Alice in $OUT/spec.json" >&2; exit 1; }
+
+	PARA_ID="$(perl -0777 -ne 'print $1 if /"para_id"\s*:\s*(\d+)/' "$OUT/spec.json")"
+	[ -n "$PARA_ID" ] || { echo "no para_id in $OUT/spec.json" >&2; exit 1; }
+	echo "  para-id $PARA_ID, weight-mul $SCALE_NUM/$SCALE_DEN"
+
+	"$NODE" benchmark overhead \
+		--chain="$OUT/spec.json" \
+		--base-path=/bench/db \
+		--para-id="$PARA_ID" \
+		--wasm-execution=compiled \
+		--mul="$(perl -e 'printf "%.4f", $ARGV[0] / $ARGV[1]' "$SCALE_NUM" "$SCALE_DEN")" \
+		--weight-path="$OUT" \
+		2>&1 | collapse_repeats | tee "$OUT/overhead.log"
+fi
 
 # A second pass at a higher --repeat for pallets whose weights come out of a least-squares fit over a
 # very short component range, where 20 repeats leave the intercept/slope split dominated by noise.
@@ -227,8 +337,9 @@ echo "=== benchmark pallet ==="
 # `WeightInfo::propose_matching(processed)` (pallets/marketplace/src/lib.rs), so a fat intercept is
 # charged in full even when `processed` is 0 — the contended case the refund exists for.
 #
-# Repeats only buy 1/sqrt(n), so this narrows the intercept, it does not pin it down; three component
-# values is the real constraint and only a larger MaxProposedMatches would lift it.
+# Repeats only buy 1/sqrt(n), so they narrow the intercept but do not pin it down: the 2026-09-29
+# --repeat=100 run fit `3964 + 1767*x` µs to means of 4027/8174/12690 µs. This pass therefore uses
+# --output-analysis=median-slopes, which stayed within 3% of those means in both runs.
 #
 # Whole pallets are rerun (`--extrinsic '*'`) because the CLI writes one file per pallet, so a
 # single-extrinsic rerun would truncate the rest of that file. Cheap extrinsics in the same pallet pay
@@ -240,9 +351,9 @@ echo "=== benchmark pallet ==="
 REPEAT_HIGH="${REPEAT_HIGH:-100}"
 PALLETS_HIGH_REPEAT="${PALLETS_HIGH_REPEAT-pallet_acurast_marketplace}"
 
-if [ -n "$PALLETS_HIGH_REPEAT" ] && [ "$REPEAT_HIGH" != "$REPEAT" ]; then
+if [ -n "$PALLETS_HIGH_REPEAT" ]; then
 	for pallet in $PALLETS_HIGH_REPEAT; do
-		echo "=== benchmark pallet $pallet (--repeat=$REPEAT_HIGH) ==="
+		echo "=== benchmark pallet $pallet (--repeat=$REPEAT_HIGH, median slopes) ==="
 		"$NODE" benchmark pallet \
 			--chain="$CHAIN" \
 			--wasm-execution=compiled \
@@ -251,8 +362,10 @@ if [ -n "$PALLETS_HIGH_REPEAT" ] && [ "$REPEAT_HIGH" != "$REPEAT" ]; then
 			--extrinsic '*' \
 			--steps="$STEPS" \
 			--repeat="$REPEAT_HIGH" \
+			--output-analysis=median-slopes \
+			--log="$BENCH_LOG_FILTER" \
 			--output="$OUT/" \
-			2>&1 | tee "$OUT/pallet-$pallet.log"
+			2>&1 | collapse_repeats | tee "$OUT/pallet-$pallet.log"
 	done
 fi
 
@@ -274,9 +387,6 @@ fi
 #
 # The raw measurements stay visible in the "Minimum execution time" comments and in pallet.log, so
 # the transformation can always be checked against the unscaled source.
-SCALE_NUM="${SCALE_NUM:-3}"
-SCALE_DEN="${SCALE_DEN:-2}"
-
 if [ "$SCALE_NUM" != "$SCALE_DEN" ]; then
 	echo "=== scaling ref_time by $SCALE_NUM/$SCALE_DEN ==="
 	for f in "$OUT"/*.rs; do
@@ -291,6 +401,10 @@ if [ "$SCALE_NUM" != "$SCALE_DEN" ]; then
 			BEGIN {
 				$num = $ENV{SCALE_NUM};
 				$den = $ENV{SCALE_DEN};
+				# u64::MAX divided by the multiplier: at or above this, the intermediate $plain * $num
+				# overflows the 64-bit integer arithmetic perl uses and silently becomes a double, which group() then
+				# renders as scientific notation -- not valid Rust.
+				$overflow_limit = 18446744073709551615 / $num;
 				# Groups digits with "_" the way the generated files already write large numbers.
 				sub group {
 					my $n = reverse shift;
@@ -305,6 +419,13 @@ if [ "$SCALE_NUM" != "$SCALE_DEN" ]; then
 				my $plain = $ref;
 				$plain =~ s/_//g;
 				if ($plain eq "0") {
+					"Weight::from_parts($ref, $proof)";
+				} elsif ($plain + 0 >= $overflow_limit) {
+					# `Weight::MAX`, written by the CLI when a benchmark returns
+					# `BenchmarkError::Override` because the runtime config makes the extrinsic
+					# impossible to set up (e.g. `XcmExecuteFilter = Nothing`). It is a sentinel
+					# meaning "unusable", not a measurement, so there is nothing to scale.
+					warn "  WARNING: $ref left un-scaled (Weight::MAX override) in $ARGV\n";
 					"Weight::from_parts($ref, $proof)";
 				} else {
 					# Round up: never scale a weight down through integer truncation.

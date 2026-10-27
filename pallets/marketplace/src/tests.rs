@@ -6,6 +6,7 @@ use frame_support::{
 		Permill, Perquintill,
 	},
 	traits::{Hooks, TypedGet},
+	BoundedVec,
 };
 
 use hex_literal::hex;
@@ -24,7 +25,7 @@ use crate::{
 	FeeManager, JobRequirements, JobStatus, Match, PlannedExecution, PlannedExecutions, PubKeys,
 	RegistrationExtra, Runtime, SLA,
 };
-use acurast_common::OnProcessorUnpaired;
+use acurast_common::{AdvertisementHandler, IsFundableCall, JobModule, OnProcessorUnpaired};
 
 /// Job is not assigned and gets deregistered successfully.
 #[test]
@@ -69,18 +70,11 @@ fn test_valid_deregister() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -185,18 +179,11 @@ fn test_deregister_on_matched_job() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -321,18 +308,11 @@ fn test_deregister_on_assigned_job() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -489,18 +469,11 @@ fn test_deregister_on_assigned_job_for_competing() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -731,18 +704,11 @@ fn test_deregister_on_assigned_job_for_competing_2() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		let job_id1 = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
@@ -1020,18 +986,11 @@ fn test_match() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
-		);
-		assert_eq!(
-			Some(ad.pricing.clone()),
-			AcurastMarketplace::stored_advertisement_pricing(processor_account_id())
 		);
 
 		assert_ok!(AcurastCompute::create_pool(
@@ -1357,18 +1316,11 @@ fn test_multi_assignments() {
 					ad.clone(),
 				));
 				assert_eq!(
-					Some(AdvertisementRestriction {
-						max_memory: 50_000,
-						network_request_quota: 8,
-						storage_capacity: 100_000,
-						allowed_consumers: ad.allowed_consumers.clone(),
-						available_modules: JobModules::default(),
-					}),
+					Some(AdvertisementRestriction::new(
+						ad.allowed_consumers.clone(),
+						JobModules::default()
+					)),
 					AcurastMarketplace::stored_advertisement(processor)
-				);
-				assert_eq!(
-					Some(ad.pricing.clone()),
-					AcurastMarketplace::stored_advertisement_pricing(processor)
 				);
 
 				attestation
@@ -1805,13 +1757,10 @@ fn test_report_afer_last_report() {
 			ad.clone(),
 		));
 		assert_eq!(
-			Some(AdvertisementRestriction {
-				max_memory: 50_000,
-				network_request_quota: 8,
-				storage_capacity: 100_000,
-				allowed_consumers: ad.allowed_consumers.clone(),
-				available_modules: JobModules::default(),
-			}),
+			Some(AdvertisementRestriction::new(
+				ad.allowed_consumers.clone(),
+				JobModules::default()
+			)),
 			AcurastMarketplace::stored_advertisement(processor_account_id())
 		);
 
@@ -2670,7 +2619,6 @@ fn test_unpair_clears_all_assignment_indices() {
 
 		// so are the advertisement and reputation
 		assert_eq!(None, AcurastMarketplace::stored_advertisement(processor_account_id()));
-		assert_eq!(None, AcurastMarketplace::stored_advertisement_pricing(processor_account_id()));
 		assert_eq!(None, AcurastMarketplace::stored_reputation(processor_account_id()));
 
 		// the processor that is still paired keeps its assignment untouched
@@ -2685,6 +2633,471 @@ fn test_unpair_clears_all_assignment_indices() {
 		assert_eq!(
 			Some(JobStatus::Assigned(2)),
 			AcurastMarketplace::stored_job_status(&job_id.0, &job_id.1)
+		);
+	});
+}
+
+#[test]
+fn test_advertise_requires_manager() {
+	ExtBuilder.build().execute_with(|| {
+		HasManager::set(&false);
+
+		assert_err!(
+			AcurastMarketplace::advertise(
+				RuntimeOrigin::signed(processor_account_id()),
+				advertisement(1000, 1, 100_000, 50_000, 8),
+			),
+			Error::<Test>::ProcessorHasNoManager
+		);
+		assert_err!(
+			AcurastMarketplace::update_available_modules(
+				RuntimeOrigin::signed(processor_account_id()),
+				bounded_vec![JobModule::LLM],
+			),
+			Error::<Test>::ProcessorHasNoManager
+		);
+		assert_eq!(None, AcurastMarketplace::stored_advertisement(processor_account_id()));
+	});
+}
+
+#[test]
+fn test_update_available_modules() {
+	ExtBuilder.build().execute_with(|| {
+		let consumers: BoundedVec<_, _> = bounded_vec![MultiOrigin::Acurast(alice_account_id())];
+		let mut ad = advertisement(1000, 1, 100_000, 50_000, 8);
+		ad.allowed_consumers = Some(consumers.clone());
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad,
+		));
+
+		let modules: JobModules = bounded_vec![JobModule::DataEncryption, JobModule::LLM];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor_account_id()),
+			modules.clone(),
+		));
+
+		assert_eq!(
+			Some(AdvertisementRestriction::new(Some(consumers), modules)),
+			AcurastMarketplace::stored_advertisement(processor_account_id())
+		);
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::AcurastMarketplace(crate::Event::AdvertisementStoredV2(
+				processor_account_id()
+			)))
+		);
+	});
+}
+
+#[test]
+fn test_update_available_modules_without_prior_advertisement() {
+	ExtBuilder.build().execute_with(|| {
+		let modules: JobModules = bounded_vec![JobModule::Shell];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor_account_id()),
+			modules.clone(),
+		));
+
+		assert_eq!(
+			Some(AdvertisementRestriction::new(None, modules)),
+			AcurastMarketplace::stored_advertisement(processor_account_id())
+		);
+		assert!(AcurastMarketplace::stored_reputation(processor_account_id()).is_some());
+	});
+}
+
+#[test]
+fn test_update_allowed_consumers_merge() {
+	ExtBuilder.build().execute_with(|| {
+		let processor = processor_account_id();
+		let modules: JobModules = bounded_vec![JobModule::LLM];
+		let consumers: BoundedVec<_, _> = bounded_vec![MultiOrigin::Acurast(alice_account_id())];
+		assert_ok!(AcurastMarketplace::update_available_modules(
+			RuntimeOrigin::signed(processor.clone()),
+			modules.clone(),
+		));
+
+		assert_ok!(
+			<AcurastMarketplace as AdvertisementHandler<_, _, _>>::update_allowed_consumers(
+				&processor,
+				consumers.clone(),
+			)
+		);
+		assert_eq!(
+			Some(AdvertisementRestriction::new(Some(consumers), modules.clone())),
+			AcurastMarketplace::stored_advertisement(&processor)
+		);
+
+		// an empty list allows all consumers
+		assert_ok!(
+			<AcurastMarketplace as AdvertisementHandler<_, _, _>>::update_allowed_consumers(
+				&processor,
+				BoundedVec::new(),
+			)
+		);
+		assert_eq!(
+			Some(AdvertisementRestriction::new(None, modules)),
+			AcurastMarketplace::stored_advertisement(&processor)
+		);
+	});
+}
+
+#[test]
+fn test_update_available_modules_is_fundable() {
+	let call = RuntimeCall::AcurastMarketplace(crate::Call::update_available_modules {
+		available_modules: bounded_vec![JobModule::LLM],
+	});
+	assert!(<AcurastMarketplace as IsFundableCall<RuntimeCall>>::is_fundable_call(&call));
+	assert!(<AcurastMarketplace as IsFundableCall<RuntimeCall>>::is_manager_fundable_call(&call));
+}
+
+#[test]
+fn test_pricing_cleared_in_idle_time() {
+	use crate::migration::{entry_weight, step_weight, StoredAdvertisementPricing};
+	use frame_support::{
+		traits::{Get, GetStorageVersion, StorageVersion},
+		weights::{RuntimeDbWeight, Weight},
+	};
+
+	const PER_BLOCK: u32 = 200;
+	let entries = 2 * PER_BLOCK + 1;
+	let budget = step_weight::<Test>() + entry_weight::<Test>() * PER_BLOCK as u64;
+	let pricing_count = || StoredAdvertisementPricing::<Test>::iter_values().count();
+
+	let mut ext = ExtBuilder.build();
+	ext.execute_with(|| {
+		StorageVersion::new(7).put::<AcurastMarketplace>();
+		for i in 0..entries {
+			let mut account = [0u8; 32];
+			account[..4].copy_from_slice(&i.to_le_bytes());
+			StoredAdvertisementPricing::<Test>::insert(
+				AccountId::new(account),
+				crate::Pricing {
+					fee_per_millisecond: 1,
+					fee_per_storage_byte: 1,
+					base_fee_per_execution: 0,
+					scheduling_window: crate::SchedulingWindow::Delta(1),
+				},
+			);
+		}
+		// nothing is cleared before the upgrade schedules the cleanup
+		AcurastMarketplace::on_idle(1u32.into(), budget * 2);
+		assert_eq!(entries as usize, pricing_count());
+
+		// the upgrade sets the storage version right away
+		AcurastMarketplace::on_runtime_upgrade();
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(Some(Default::default()), AcurastMarketplace::migration_cursor());
+
+		// no idle weight left, nothing is cleared
+		assert_eq!(Weight::zero(), AcurastMarketplace::on_idle(1u32.into(), Weight::zero()));
+	});
+	// `clear_prefix` only limits removals of committed keys, so commit like a block would
+	ext.commit_all().unwrap();
+
+	for block in 1..=3u32 {
+		ext.execute_with(|| {
+			// `on_idle` spends half of the remaining weight
+			assert!(AcurastMarketplace::on_idle(block.into(), budget * 2).all_lte(budget));
+		});
+		ext.commit_all().unwrap();
+		ext.execute_with(|| {
+			assert_eq!(entries.saturating_sub(block * PER_BLOCK) as usize, pricing_count());
+		});
+	}
+
+	ext.execute_with(|| {
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(None, AcurastMarketplace::migration_cursor());
+		let migration_events: Vec<_> = events()
+			.into_iter()
+			.filter(|e| {
+				matches!(
+					e,
+					RuntimeEvent::AcurastMarketplace(
+						crate::Event::V8MigrationStarted | crate::Event::V8MigrationCompleted
+					)
+				)
+			})
+			.collect();
+		assert_eq!(
+			vec![
+				RuntimeEvent::AcurastMarketplace(crate::Event::V8MigrationStarted),
+				RuntimeEvent::AcurastMarketplace(crate::Event::V8MigrationCompleted),
+			],
+			migration_events
+		);
+
+		// a finished cleanup only checks for the cursor
+		assert_eq!(
+			<<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get().reads(1),
+			AcurastMarketplace::on_idle(4u32.into(), budget)
+		);
+	});
+}
+
+#[test]
+fn test_upgrade_on_current_version_schedules_no_cleanup() {
+	use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+	ExtBuilder.build().execute_with(|| {
+		StorageVersion::new(8).put::<AcurastMarketplace>();
+		AcurastMarketplace::on_runtime_upgrade();
+		assert_eq!(StorageVersion::new(8), AcurastMarketplace::on_chain_storage_version());
+		assert_eq!(None, AcurastMarketplace::migration_cursor());
+	});
+}
+
+/// How the second job in [`test_fits_schedule_end_to_end`] gets matched.
+#[derive(Clone, Copy, Debug)]
+enum MatchPath {
+	ProposeMatching,
+	RegisterInstantMatch,
+	DeployInstantMatch,
+	ExecutionMatching,
+}
+
+/// Execution spans `(start, end)` of `schedule` with `delay`, restricted to `index` if given.
+fn execution_spans(schedule: &Schedule, delay: u64, index: Option<u64>) -> Vec<(u64, u64)> {
+	(0..schedule.execution_count())
+		.filter(|i| index.is_none_or(|index| index == *i))
+		.map(|i| {
+			let start = schedule.start_time + i * schedule.interval + delay;
+			(start, start + schedule.duration)
+		})
+		.collect()
+}
+
+/// Two legitimately registered jobs matched to the same processor through every extrinsic path:
+/// the second match fails with `ScheduleOverlapInMatch` iff any of their executions overlap.
+#[test]
+fn test_fits_schedule_end_to_end() {
+	let now: u64 = 1_671_800_100_000;
+	let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+	let mut rand = move |max: u64| {
+		seed ^= seed << 13;
+		seed ^= seed >> 7;
+		seed ^= seed << 17;
+		seed % max
+	};
+	let (mut overlaps, mut fits, mut skipped) = (0u32, 0u32, 0u32);
+	for case in 0..3_000u64 {
+		let competing = [case % 4 == 1 || case % 4 == 3, case % 4 >= 2];
+		let schedule = |rand: &mut dyn FnMut(u64) -> u64, competing: bool, start_time: u64| {
+			let interval = match rand(3) {
+				0 => 60_000 * (5 + rand(26)),
+				1 => 300_000 + rand(1_500_000),
+				_ if competing => 300_000 + rand(1_500_000),
+				_ => 2_000 + rand(1_800_000),
+			};
+			let duration = 1_000 + rand((interval - 1_000).min(600_000));
+			let periods = 1 + rand(30);
+			Schedule {
+				duration,
+				start_time,
+				end_time: start_time + 1 + rand(interval * periods),
+				interval,
+				max_start_delay: if rand(2) == 0 { 0 } else { rand(5_000) },
+			}
+		};
+		let a_start = now + 400_000 + rand(7_200_000);
+		let a = schedule(&mut rand, competing[0], a_start);
+		let b_start = match rand(4) {
+			0 => a.start_time + a.duration,
+			1 => a.start_time + a.duration - 1,
+			2 => {
+				let period = rand(3);
+				a.start_time + a.interval * period + a.duration + rand(3)
+			},
+			_ => now + 400_000 + rand(7_200_000),
+		};
+		let b = schedule(&mut rand, competing[1], b_start);
+		let (a_delay, b_delay) = (rand(a.max_start_delay + 1), rand(b.max_start_delay + 1));
+		let a_index = competing[0].then(|| rand(a.execution_count().min(3)));
+		let b_index = competing[1].then(|| rand(b.execution_count().min(3)));
+		let path = match b_index {
+			Some(_) => MatchPath::ExecutionMatching,
+			None => [
+				MatchPath::ProposeMatching,
+				MatchPath::RegisterInstantMatch,
+				MatchPath::DeployInstantMatch,
+			][rand(3) as usize],
+		};
+
+		// a competing execution is matched shortly before it starts, a single job before its start
+		let match_time = |s: &Schedule, index: Option<u64>| match index {
+			Some(i) => s.nth_start_time(0, i).unwrap() - 60_000,
+			None => now,
+		};
+		let (a_time, b_time) = (match_time(&a, a_index), match_time(&b, b_index));
+		// the first match must still count (not yet past its start) when the second is proposed
+		let a_first_start = a.nth_start_time(a_delay, a_index.unwrap_or(0)).unwrap();
+		if b_time >= a_first_start {
+			skipped += 1;
+			continue;
+		}
+		let expected = execution_spans(&a, a_delay, a_index).iter().any(|x| {
+			execution_spans(&b, b_delay, b_index)
+				.iter()
+				.any(|y| x.0.max(y.0) < x.1.min(y.1))
+		});
+
+		let registration = |schedule: &Schedule, competing: bool, instant: Option<u64>| {
+			JobRegistrationFor::<Test> {
+				script: script(),
+				allowed_sources: None,
+				allow_only_verified_sources: false,
+				schedule: *schedule,
+				memory: 5_000u32,
+				network_requests: 5,
+				storage: 20_000u32,
+				required_modules: JobModules::default(),
+				extra: RegistrationExtra {
+					requirements: JobRequirements {
+						assignment_strategy: if competing {
+							AssignmentStrategy::Competing
+						} else {
+							AssignmentStrategy::Single(instant.map(|start_delay| {
+								bounded_vec![PlannedExecution {
+									source: processor_account_id(),
+									start_delay
+								}]
+							}))
+						},
+						slots: 1,
+						reward: 700_000,
+						min_reputation: None,
+						processor_version: None,
+						runtime: Runtime::NodeJS,
+					},
+				},
+			}
+		};
+		let propose = |job_id: (MultiOrigin<AccountId>, u128),
+		               index: Option<u64>,
+		               start_delay: u64| {
+			let sources =
+				bounded_vec![PlannedExecution { source: processor_account_id(), start_delay }];
+			match index {
+				Some(execution_index) => AcurastMarketplace::propose_execution_matching(
+					RuntimeOrigin::signed(charlie_account_id()),
+					vec![ExecutionMatch { job_id, execution_index, sources }].try_into().unwrap(),
+				),
+				None => AcurastMarketplace::propose_matching(
+					RuntimeOrigin::signed(charlie_account_id()),
+					vec![Match { job_id, sources }].try_into().unwrap(),
+				),
+			}
+		};
+
+		ExtBuilder.build().execute_with(|| {
+			Timestamp::set_timestamp(now);
+			assert_ok!(AcurastMarketplace::advertise(
+				RuntimeOrigin::signed(processor_account_id()),
+				advertisement(1, 1, 100_000, 50_000, 8),
+			));
+			let first_id = Acurast::job_id_sequence() + 1;
+			let a_id = (MultiOrigin::Acurast(alice_account_id()), first_id);
+			let b_id = (MultiOrigin::Acurast(alice_account_id()), first_id + 1);
+			assert_ok!(Acurast::register(
+				RuntimeOrigin::signed(alice_account_id()),
+				registration(&a, competing[0], None)
+			));
+			let second = match path {
+				MatchPath::RegisterInstantMatch => None,
+				MatchPath::DeployInstantMatch => None,
+				_ => Some(Acurast::register(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, competing[1], None),
+				)),
+			};
+			if let Some(result) = second {
+				assert_ok!(result);
+			}
+
+			Timestamp::set_timestamp(a_time);
+			assert_ok!(propose(a_id, a_index, a_delay));
+
+			Timestamp::set_timestamp(b_time);
+			let result = match path {
+				MatchPath::ProposeMatching | MatchPath::ExecutionMatching =>
+					propose(b_id, b_index, b_delay).map(|_| ()).map_err(|e| e.error),
+				MatchPath::RegisterInstantMatch => Acurast::register(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, false, Some(b_delay)),
+				)
+				.map(|_| ())
+				.map_err(|e| e.error),
+				MatchPath::DeployInstantMatch => AcurastMarketplace::deploy(
+					RuntimeOrigin::signed(alice_account_id()),
+					registration(&b, false, Some(b_delay)),
+					pallet_acurast::ScriptMutability::Immutable,
+					None,
+					None,
+				)
+				.map(|_| ())
+				.map_err(|e| e.error),
+			};
+			let context = format!("case={case} path={path:?} a={a:?} a_delay={a_delay} a_index={a_index:?} b={b:?} b_delay={b_delay}");
+			if expected {
+				assert_eq!(result, Err(Error::<Test>::ScheduleOverlapInMatch.into()), "{context}");
+			} else {
+				assert_eq!(result, Ok(()), "{context}");
+			}
+		});
+		if expected {
+			overlaps += 1
+		} else {
+			fits += 1
+		}
+	}
+	assert!(overlaps > 300 && fits > 300, "overlaps={overlaps} fits={fits} skipped={skipped}");
+}
+
+#[test]
+fn test_register_rejects_executions_ending_beyond_u64() {
+	let now: u64 = 1_671_800_100_000;
+	let start = now + 3_600_000;
+	let registration = |max_start_delay: u64, end_time: u64| JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 60_000,
+			start_time: start,
+			end_time,
+			interval: end_time - 1 - start,
+			max_start_delay,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 100_000,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+	ExtBuilder.build().execute_with(|| {
+		Timestamp::set_timestamp(now);
+		let register = |r| Acurast::register(RuntimeOrigin::signed(alice_account_id()), r);
+		// the last execution starts at `end_time - 1` and ends exactly at u64::MAX
+		assert_ok!(register(registration(0, u64::MAX - 59_999)));
+		assert_ok!(register(registration(1, u64::MAX - 60_000)));
+		assert_err_ignore_postinfo!(
+			register(registration(0, u64::MAX - 59_998)),
+			Error::<Test>::CalculationOverflow
+		);
+		assert_err_ignore_postinfo!(
+			register(registration(1, u64::MAX - 59_999)),
+			Error::<Test>::CalculationOverflow
 		);
 	});
 }

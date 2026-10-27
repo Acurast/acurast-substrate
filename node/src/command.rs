@@ -446,6 +446,11 @@ pub fn run() -> Result<()> {
 						cmd.run(config, partials.client.clone(), db, storage, shared_trie_cache)
 					},
 				}),
+				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
+					cmd.run_with_default_builder_and_spec::<acurast_runtime_common::opaque::Block, ReclaimHostFunctions>(
+						Some(config.chain_spec),
+					)
+				}),
 				BenchmarkCmd::Machine(cmd) => {
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
 				},

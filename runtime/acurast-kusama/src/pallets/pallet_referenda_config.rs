@@ -1,12 +1,11 @@
-use frame_support::parameter_types;
-use pallet_collective::EnsureMember;
+use frame_support::{parameter_types, traits::ActiveIssuanceOf};
 use pallet_referenda::{Curve, Track, TrackInfo};
 use sp_core::ConstU32;
 use sp_runtime::str_array as s;
 
 use acurast_runtime_common::{
 	constants::{DAYS, HOURS, UNIT},
-	types::{AccountId, Balance, BlockNumber, CouncilInstance, TracksInfo},
+	types::{AccountId, Balance, BlockNumber, TracksInfo},
 };
 
 use crate::{
@@ -29,7 +28,7 @@ parameter_types! {
 		id: 0,
 		info: TrackInfo {
 			name: s("root"),
-			max_deciding: 1,
+			max_deciding: 5,
 			decision_deposit: 100 * UNIT,
 			prepare_period: 2 * HOURS,
 			decision_period: 20 * HOURS,
@@ -47,7 +46,15 @@ impl pallet_referenda::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type Scheduler = Scheduler;
-	type SubmitOrigin = EnsureMember<AccountId, CouncilInstance>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type SubmitOrigin =
+		pallet_collective::EnsureMember<AccountId, acurast_runtime_common::types::CouncilInstance>;
+	// The benchmarks reuse the submit origin for `place_decision_deposit` and
+	// `refund_submission_deposit`, which need a signed origin; `EnsureMember` only produces a
+	// `Member` one. Neither checks storage, so the measured weights hold for both.
+	#[cfg(feature = "runtime-benchmarks")]
+	type SubmitOrigin =
+		frame_support::traits::AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type CancelOrigin = EnsureCouncilOrRoot;
 	type KillOrigin = EnsureCouncilOrRoot;
 	type Slash = ();
@@ -60,18 +67,17 @@ impl pallet_referenda::Config for Runtime {
 	type Tracks = TracksInfo<Self, Tracks>;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
-	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_referenda::WeightInfo<Runtime>;
 }
 
 impl pallet_conviction_voting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type Polls = Referenda;
-	type MaxTurnout =
-		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
-	type MaxVotes = ConstU32<512>;
+	type MaxTurnout = ActiveIssuanceOf<Balances, Self::AccountId>;
+	type MaxVotes = ConstU32<20>;
 	type VoteLockingPeriod = VoteLockingPeriod;
 	type BlockNumberProvider = System;
 	type VotingHooks = ();
-	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_conviction_voting::WeightInfo<Runtime>;
 }

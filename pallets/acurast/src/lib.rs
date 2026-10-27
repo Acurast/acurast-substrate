@@ -1,14 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
 
 mod functions;
-mod migration;
 mod traits;
 pub mod utils;
 pub mod weights;
@@ -66,7 +65,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_std::prelude::*;
 
-	use crate::{traits::*, EnsureRevoker, EnvironmentFor, JobRegistrationFor};
+	use crate::{
+		traits::*, utils::ensure_source_verified, EnsureRevoker, EnvironmentFor, JobRegistrationFor,
+	};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -97,6 +98,12 @@ pub mod pallet {
 		type JobHooks: JobHooks<Self>;
 		/// The type to use to represent a processor version.
 		type ProcessorVersion: PartialOrd + Parameter;
+		type ProcessorInfoProvider: ProcessorInfoProvider<
+			AccountId = Self::AccountId,
+			ProcessorVersion = Self::ProcessorVersion,
+		>;
+		/// Removes the data other pallets hold for an invalid or unpaired processor.
+		type OnProcessorInvalidated: OnProcessorInvalidated<Self::AccountId>;
 		#[pallet::constant]
 		type MaxVersions: Get<u32> + ParameterBound;
 		/// Origin allowd to call update_* extrinsics
@@ -164,10 +171,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Revokers<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ()>;
 
+	/// The processor each remotely provisioned (RKP) device certificate is bound to.
 	#[pallet::storage]
-	#[pallet::getter(fn v5_migration_state)]
-	pub type V5MigrationState<T: Config> =
-		StorageValue<_, Option<BoundedVec<u8, ConstU32<80>>>, ValueQuery>;
+	pub type RkpCertificateProcessor<T: Config> =
+		StorageMap<_, Blake2_128Concat, CertId, T::AccountId>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -205,6 +212,10 @@ pub mod pallet {
 		ExecutionEnvironmentsUpdatedV2(JobId<T::AccountId>),
 		/// The revokers list has been updated.
 		RevokersUpdated,
+		/// The stale data of an invalid or unpaired processor has been removed. [processor]
+		ProcessorInvalidated(T::AccountId),
+		/// A processor took over the RKP device certificate of another and its attestation was removed. [previous, processor]
+		ProcessorAttestationReplaced(T::AccountId, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -257,20 +268,23 @@ pub mod pallet {
 		JobHookFailed,
 		/// The min metrics list exceeded the max length.
 		TooManyMinMetrics,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-			crate::migration::migrate::<T>()
-		}
+		/// The processor is paired and its attestation is missing or still valid.
+		ProcessorStillValid,
+		/// The processor has no stale data to remove.
+		NothingToCleanUp,
+		/// The RKP device certificate is bound to an attested processor of another manager.
+		RkpCertificateInUse,
+		/// The RKP provisioning info marks the device's build as not approved or lacks its approval status.
+		AttestationBuildNotApproved,
+		/// The RKP provisioning info reports too many certificates issued to the device or lacks their count.
+		AttestationTooManyCertificatesIssued,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Registers a job by providing a [JobRegistration]. If a job for the same script was previously registered, it will be overwritten.
 		#[pallet::call_index(0)]
-		#[pallet::weight(< T as Config >::WeightInfo::register())]
+		#[pallet::weight(< T as Config >::WeightInfo::register().saturating_add(T::JobHooks::register_hook_weight(registration)))]
 		pub fn register(
 			origin: OriginFor<T>,
 			registration: JobRegistrationFor<T>,
@@ -282,7 +296,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		#[pallet::weight(< T as Config >::WeightInfo::register_with_min_metrics())]
+		#[pallet::weight(< T as Config >::WeightInfo::register_with_min_metrics().saturating_add(T::JobHooks::register_hook_weight(registration)))]
 		pub fn register_with_min_metrics(
 			origin: OriginFor<T>,
 			registration: JobRegistrationFor<T>,
@@ -376,7 +390,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::validate_and_store(attestation_chain, who)?;
+			let manager = T::ProcessorInfoProvider::manager(&who);
+			Self::validate_and_store(attestation_chain, who, manager.as_ref())?;
 
 			Ok(().into())
 		}
@@ -461,6 +476,30 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::RevokersUpdated);
 			Ok(().into())
+		}
+
+		/// Removes the stale data of `processor` if it is unpaired or its stored attestation is no longer valid.
+		/// The pairing itself is kept. Free of charge if anything was removed.
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::validate_processor())]
+		pub fn validate_processor(
+			origin: OriginFor<T>,
+			processor: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			let attested = <StoredAttestation<T>>::contains_key(&processor);
+			ensure!(
+				!T::ProcessorInfoProvider::has_manager(&processor)
+					|| (attested && ensure_source_verified::<T>(&processor).is_err()),
+				Error::<T>::ProcessorStillValid
+			);
+			Self::remove_attestation(&processor);
+			let data_removed = T::OnProcessorInvalidated::processor_invalidated(&processor);
+			ensure!(attested || data_removed, Error::<T>::NothingToCleanUp);
+
+			Self::deposit_event(Event::ProcessorInvalidated(processor));
+			Ok(Pays::No.into())
 		}
 	}
 }

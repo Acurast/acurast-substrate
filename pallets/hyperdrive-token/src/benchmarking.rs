@@ -1,5 +1,8 @@
 use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::assert_ok;
+use frame_support::{
+	assert_ok,
+	pallet_prelude::{BoundedVec, ConstU32},
+};
 
 pub use crate::stub::*;
 use crate::Pallet as AcurastHyperdriveToken;
@@ -30,7 +33,7 @@ fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
 pub fn assert_last_event<T: Config<I>, I: 'static>(
 	generic_event: <T as frame_system::Config>::RuntimeEvent,
 ) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	frame_system::Pallet::<T>::assert_last_event(generic_event);
 }
 
 benchmarks_instance_pallet! {
@@ -156,6 +159,68 @@ benchmarks_instance_pallet! {
 
 		run_to_block::<T, I>(100u32.into());
 	}: _(RawOrigin::Root, ProxyChain::Ethereum, Some(ttl.into()))
+
+	refund_transfers {
+		let x in 1 .. MAX_REFUND_TRANSFERS;
+
+		let amount = UNIT;
+		let fee_amount = min_ibc_fee::<T, I>().max(UNIT / 10);
+		let initial_balance = (1000 * UNIT).max((amount + fee_amount).saturating_mul(x as u128 + 1));
+		assert_ok!(AcurastHyperdriveToken::<T, I>::set_enabled(RawOrigin::Root.into(), true));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_fee_vault().into(), initial_balance.into()));
+		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
+
+		run_to_block::<T, I>(100u32.into());
+
+		// every refund goes to a distinct account and has an expired message to remove as worst case
+		let mut nonces: Vec<TransferNonce> = Vec::new();
+		for i in 0..x as u64 {
+			let mut raw = [7u8; 32];
+			raw[..8].copy_from_slice(&i.to_le_bytes());
+			let source: T::AccountId = AccountId32::new(raw).into();
+			assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), source.clone().into(), (10 * (amount + fee_amount)).into()));
+			nonces.push(AcurastHyperdriveToken::<T, I>::next_transfer_nonce(ProxyChain::Ethereum));
+			assert_ok!(AcurastHyperdriveToken::<T, I>::transfer_native(
+				RawOrigin::Signed(source).into(),
+				ethereum_dest().into(),
+				amount.into(),
+				fee_amount.into(),
+			));
+		}
+		let nonces: BoundedVec<TransferNonce, ConstU32<MAX_REFUND_TRANSFERS>> = nonces.try_into().unwrap();
+
+		run_to_block::<T, I>(200u32.into());
+	}: _(RawOrigin::Root, ProxyChain::Ethereum, nonces)
+	verify {
+		assert!(OutgoingTransfers::<T, I>::iter_prefix(ProxyChain::Ethereum).next().is_none());
+	}
+
+	remove_transfer_message {
+		let amount_to_transfer = UNIT;
+		let fee_amount = min_ibc_fee::<T, I>().max(UNIT / 10);
+		let initial_balance = (1000 * UNIT).max(fee_amount.saturating_mul(100));
+
+		let caller: T::AccountId = alice_account_id().into();
+		whitelist_account!(caller);
+
+		assert_ok!(AcurastHyperdriveToken::<T, I>::set_enabled(RawOrigin::Root.into(), true));
+
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), caller.clone().into(), initial_balance.into()));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_vault().into(), initial_balance.into()));
+		assert_ok!(Balances::<T>::force_set_balance(RawOrigin::Root.into(), ethereum_fee_vault().into(), initial_balance.into()));
+		assert_ok!(AcurastHyperdriveToken::<T, I>::update_ethereum_contract(RawOrigin::Root.into(), ethereum_token_contract()));
+
+		run_to_block::<T, I>(100u32.into());
+		assert_ok!(AcurastHyperdriveToken::<T, I>::transfer_native(
+			RawOrigin::Signed(caller.clone()).into(),
+			ethereum_dest().into(),
+			amount_to_transfer.into(),
+			fee_amount.into(),
+		));
+
+		run_to_block::<T, I>(200u32.into());
+	}: _(RawOrigin::Signed(caller), ProxyChain::Ethereum, 0)
 
 	//impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::default().build(), crate::mock::Test);
 }

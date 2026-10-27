@@ -4,7 +4,7 @@ use crate::{
 };
 use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{
-	assert_err, assert_ok, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
+	assert_err, assert_ok, dispatch::Pays, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
 };
 use hex_literal::hex;
 
@@ -42,6 +42,10 @@ pub fn processor_account_id() -> AccountId {
 fn test_update_processor_pairings_succeed_1() {
 	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			Version { platform: 0, build_number: 1 }
+		));
 
 		let updates = vec![ProcessorPairingUpdateFor::<Test> {
 			operation: ListUpdateOperation::Remove,
@@ -54,6 +58,8 @@ fn test_update_processor_pairings_succeed_1() {
 		assert_ok!(call);
 		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
 		assert_eq!(None, AcurastProcessorManager::lookup(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_last_seen(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_version(&processor_account));
 		assert_eq!(
 			events().into_iter().last().unwrap(),
 			RuntimeEvent::AcurastProcessorManager(Event::ProcessorPairingsUpdated(
@@ -236,6 +242,34 @@ fn test_multi_pair_with_manager_is_deprecated() {
 		);
 		assert_eq!(None, AcurastProcessorManager::last_manager_id());
 		assert_eq!(None, AcurastProcessorManager::manager_id_for_processor(&processor_account));
+	});
+}
+
+#[test]
+#[cfg(not(feature = "runtime-benchmarks"))]
+fn test_onboard_validates_pairing_before_attestation() {
+	ExtBuilder.build().execute_with(|| {
+		let (signer, manager_account) = generate_pair_account();
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915010);
+		let timestamp = 1657363915002u128;
+		// signed for counter 2 while the manager expects 1
+		let signature = generate_signature(&signer, &manager_account, timestamp, 2);
+		let pairing =
+			ProcessorPairingFor::<Test>::new_with_proof(manager_account, timestamp, signature);
+		// the mock validator panics on this chain, so it must not be reached
+		let attestation_chain = acurast_common::AttestationChain {
+			certificate_chain: vec![vec![0u8].try_into().unwrap()].try_into().unwrap(),
+		};
+
+		assert_err!(
+			AcurastProcessorManager::onboard(
+				RuntimeOrigin::signed(processor_account_id()),
+				pairing,
+				false,
+				attestation_chain
+			),
+			Error::<Test>::InvalidPairingProof
+		);
 	});
 }
 
@@ -649,5 +683,90 @@ fn test_update_onboarding_settings() {
 			last_events.last(),
 			Some(RuntimeEvent::AcurastProcessorManager(Event::OnboardingSettingsUpdated)).as_ref()
 		);
+	});
+}
+
+#[test]
+fn test_validate_processor_cleans_legacy_unpaired_processor() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			Version { platform: 0, build_number: 1 }
+		));
+		let manager_id =
+			AcurastProcessorManager::manager_id_for_processor(&processor_account).unwrap();
+		crate::ManagedProcessors::<Test>::remove(manager_id, &processor_account);
+		crate::ProcessorToManagerIdIndex::<Test>::remove(&processor_account);
+
+		let post_info = Acurast::validate_processor(
+			RuntimeOrigin::signed(manager_account.clone()),
+			processor_account.clone(),
+		)
+		.unwrap();
+		assert_eq!(Pays::No, post_info.pays_fee);
+		assert_eq!(None, Acurast::stored_attestation(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_last_seen(&processor_account));
+		assert_eq!(None, AcurastProcessorManager::processor_version(&processor_account));
+
+		assert_err!(
+			Acurast::validate_processor(RuntimeOrigin::signed(manager_account), processor_account),
+			pallet_acurast::Error::<Test>::NothingToCleanUp
+		);
+	});
+}
+
+#[test]
+fn test_validate_processor_rejects_paired_processor_without_attestation() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			Version { platform: 0, build_number: 1 }
+		));
+		pallet_acurast::StoredAttestation::<Test>::remove(&processor_account);
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(manager_account),
+				processor_account.clone()
+			),
+			pallet_acurast::Error::<Test>::ProcessorStillValid
+		);
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
+	});
+}
+
+#[test]
+fn test_validate_processor_keeps_pairing_of_revoked_processor() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		assert_ok!(AcurastProcessorManager::heartbeat_with_version(
+			RuntimeOrigin::signed(processor_account.clone()),
+			Version { platform: 0, build_number: 1 }
+		));
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(manager_account.clone()),
+				processor_account.clone()
+			),
+			pallet_acurast::Error::<Test>::ProcessorStillValid
+		);
+
+		let serial: pallet_acurast::SerialNumber = vec![1u8].try_into().unwrap();
+		pallet_acurast::StoredAttestation::<Test>::mutate(&processor_account, |attestation| {
+			attestation.as_mut().unwrap().cert_ids =
+				vec![(Default::default(), serial.clone())].try_into().unwrap();
+		});
+		pallet_acurast::StoredRevokedCertificate::<Test>::insert(&serial, ());
+
+		assert_ok!(Acurast::validate_processor(
+			RuntimeOrigin::signed(manager_account),
+			processor_account.clone()
+		));
+		assert_eq!(None, Acurast::stored_attestation(&processor_account));
+		assert!(AcurastProcessorManager::manager_id_for_processor(&processor_account).is_some());
+		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
 	});
 }

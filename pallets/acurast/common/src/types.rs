@@ -207,8 +207,6 @@ pub type CertificateRevocationListUpdate = ListUpdate<SerialNumber>;
 #[derive(
 	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct JobRegistration<AccountId, MaxAllowedSources: Get<u32>, Extra> {
 	/// The script to execute. It is a vector of bytes representing a utf8 string. The string needs to be a ipfs url that points to the script.
 	pub script: Script,
@@ -334,12 +332,10 @@ pub type JobModules = BoundedVec<JobModule, ConstU32<MAX_JOB_MODULES>>;
 	MaxEncodedLen,
 	TypeInfo,
 	Clone,
+	Copy,
 	Eq,
 	PartialEq,
-	Serialize,
-	Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Schedule {
 	/// An upperbound for the duration of one execution of the script in milliseconds.
 	pub duration: u64,
@@ -386,6 +382,12 @@ impl Schedule {
 			interval: self.interval,
 			current: None,
 		})
+	}
+
+	/// The execution at `execution_index` as a single-execution [`Schedule`].
+	pub fn execution(&self, execution_index: u64) -> Option<Schedule> {
+		let start_time = self.nth_start_time(0, execution_index)?;
+		Some(Schedule { start_time, end_time: start_time.checked_add(1)?, ..*self })
 	}
 
 	pub fn nth_start_time(&self, start_delay: u64, execution_index: u64) -> Option<u64> {
@@ -444,15 +446,18 @@ impl Schedule {
 		(actual_start, actual_end)
 	}
 
+	/// Whether any execution intersects the half-open `bounds`; zero-length executions never do.
 	pub fn overlaps(&self, start_delay: u64, bounds: (u64, u64)) -> bool {
 		let (a, b) = bounds;
 		let (start, end) = self.range(start_delay);
-		if b <= a || start == end || b <= start || end <= a {
+		if b <= a || start == end || b <= start || end <= a || self.duration == 0 {
 			return false;
 		}
+		if b - a >= self.interval {
+			return true;
+		}
 
-		// if query interval `[a, b]` starts before, we can pretend it only starts at `start`
-		let relative_a = a.checked_sub(start).unwrap_or(start);
+		let relative_a = a.saturating_sub(start);
 
 		if let Some(relative_b) = b.checked_sub(start) {
 			let a = relative_a % self.interval;
@@ -469,6 +474,93 @@ impl Schedule {
 		} else {
 			false
 		}
+	}
+
+	/// Whether any execution of `self` intersects any execution of `other`, in O(log interval).
+	///
+	/// Executions are half-open; zero-length ones never overlap. Returns `None` if an execution ends
+	/// beyond `u64::MAX`.
+	pub fn overlaps_schedule(
+		&self,
+		start_delay: u64,
+		other: &Schedule,
+		other_start_delay: u64,
+	) -> Option<bool> {
+		let (n, m) = (self.execution_count() as u128, other.execution_count() as u128);
+		if n == 0 || m == 0 || self.duration == 0 || other.duration == 0 {
+			return Some(false);
+		}
+		let a0 = self.start_time as u128 + start_delay as u128;
+		let b0 = other.start_time as u128 + other_start_delay as u128;
+		let (p, q) = (self.interval as u128, other.interval as u128);
+		let (d, e) = (self.duration as u128, other.duration as u128);
+		if a0 + (n - 1) * p + d > u64::MAX as u128 || b0 + (m - 1) * q + e > u64::MAX as u128 {
+			return None;
+		}
+
+		let first_starting_at = |t: u128| {
+			let (quotient, remainder) = div_rem(t.saturating_sub(a0), p);
+			(quotient + (remainder > 0) as u128).min(n)
+		};
+		// executions in [lo, hi) start inside `other`'s range but before its last execution
+		let lo = first_starting_at(b0);
+		let hi = first_starting_at(b0 + (m - 1) * q);
+		// the bounds fit in u64 by the check above
+		let hits = |i: u128| {
+			i < n
+				&& other.overlaps(other_start_delay, ((a0 + i * p) as u64, (a0 + i * p + d) as u64))
+		};
+		// before lo, lo-1 reaches furthest past b0; from hi on, only hi can reach `other`'s last execution
+		if (lo > 0 && hits(lo - 1)) || hits(hi) {
+			return Some(true);
+		}
+		if lo == hi {
+			return Some(false);
+		}
+
+		// execution i in [lo, hi) hits `other` iff (a0 + i·p - b0 + d - 1) mod q < d + e - 1, or always if that is >= q
+		let w = d + e - 1;
+		if w >= q {
+			return Some(true);
+		}
+		let (k, slope) = (hi - lo, div_rem(p, q).1);
+		let c = div_rem(a0 + lo * p - b0 + d - 1, q).1;
+		let misses = floor_sum(k, q, slope, c + q - w).wrapping_sub(floor_sum(k, q, slope, c));
+		Some(misses < k)
+	}
+}
+
+/// `Σ_{i=0}^{n-1} ⌊(a·i + b) / m⌋` modulo 2^128, in O(log m). Requires `n, m < 2^64` and `m > 0`.
+pub(crate) fn floor_sum(mut n: u128, mut m: u128, mut a: u128, mut b: u128) -> u128 {
+	if n == 0 {
+		return 0;
+	}
+	let mut ans = 0u128;
+	loop {
+		if a >= m {
+			let (quotient, remainder) = div_rem(a, m);
+			ans = ans.wrapping_add((n * (n - 1) / 2).wrapping_mul(quotient));
+			a = remainder;
+		}
+		if b >= m {
+			let (quotient, remainder) = div_rem(b, m);
+			ans = ans.wrapping_add(n.wrapping_mul(quotient));
+			b = remainder;
+		}
+		let y_max = a * n + b;
+		if y_max < m {
+			return ans;
+		}
+		(n, b) = div_rem(y_max, m);
+		core::mem::swap(&mut m, &mut a);
+	}
+}
+
+/// `(x / y, x % y)`, using native 64-bit division when both operands fit.
+fn div_rem(x: u128, y: u128) -> (u128, u128) {
+	match (u64::try_from(x), u64::try_from(y)) {
+		(Ok(x), Ok(y)) => ((x / y) as u128, (x % y) as u128),
+		_ => (x / y, x % y),
 	}
 }
 

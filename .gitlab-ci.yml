@@ -141,11 +141,7 @@ publish-dockerhub-dev-experimental:
   needs:
     - build-dev-experimental
   rules:
-    - if: "$CI_COMMIT_TAG"
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
-      when: never
-    - if: "$CI_COMMIT_BRANCH"
+    - if: "$CI_COMMIT_TAG || $CI_COMMIT_BRANCH"
       when: manual
   before_script:
     - echo $DOCKERHUB_PASSWORD | docker login -u "$DOCKERHUB_USER" --password-stdin
@@ -179,8 +175,8 @@ publish-dockerhub-dev-experimental:
   variables:
     BENCH_STEPS: "50"
     BENCH_REPEAT: "20"
-    # Pallets listed here are benchmarked a second time at BENCH_REPEAT_HIGH, overwriting their
-    # weight file from the main pass. For pallets whose components span only a handful of values the
+    # Pallets listed here are benchmarked a second time at BENCH_REPEAT_HIGH with median-slopes
+    # analysis, overwriting their weight file from the main pass. For pallets whose components span only a handful of values the
     # least-squares intercept is noise-dominated at 20 repeats; see the comment in ci/benchmark.sh.
     # Set BENCH_PALLETS_HIGH_REPEAT to "" to skip the pass.
     BENCH_REPEAT_HIGH: "100"

@@ -258,7 +258,17 @@ impl_runtime_apis! {
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {
 				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					use frame_support::assert_ok;
+					use frame_system::RawOrigin;
 					use parity_scale_codec::Encode;
+
+					// The collator_selection benchmarks register `owner` as a candidate, which
+					// requires it to be on the preselection list.
+					assert_ok!(crate::AcurastCandidatePreselection::add_candidate(
+						RawOrigin::Root.into(),
+						owner.clone(),
+					));
+
 					let keys = SessionKeys::generate(&owner.encode(), None);
 					(keys.keys, keys.proof.encode())
 				}

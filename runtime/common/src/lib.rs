@@ -1,9 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod barrier;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 pub mod check_nonce;
 pub mod constants;
-pub mod migrations;
 pub mod types;
 pub mod utils;
 pub mod weight;

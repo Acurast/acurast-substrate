@@ -19,7 +19,7 @@ mod benches {
 
 	// helper inside the benchmark module so `T` is injected by the macro
 	fn mint_to<T: Config>(who: &T::AccountId, amount: BalanceFor<T>) {
-		let _ = <T::Currency as Currency<T::AccountId>>::deposit_into_existing(who, amount);
+		let _ = <T::Currency as Currency<T::AccountId>>::deposit_creating(who, amount);
 	}
 
 	#[benchmark]

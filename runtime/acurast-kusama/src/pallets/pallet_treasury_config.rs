@@ -37,7 +37,7 @@ impl pallet_treasury::Config<TreasuryInstance> for Runtime {
 	type Burn = Burn;
 	type PalletId = TreasuryPalletId;
 	type BurnDestination = ();
-	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
+	type WeightInfo = acurast_runtime_common::weight::pallet_treasury_treasury::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureRoot<Self::AccountId>, Self::AccountId, SpendLimit>;
@@ -48,7 +48,8 @@ impl pallet_treasury::Config<TreasuryInstance> for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper =
+		acurast_runtime_common::benchmarking::TreasuryArguments<Runtime, TreasuryAccountId>;
 	type BlockNumberProvider = System;
 }
 
@@ -65,7 +66,8 @@ impl pallet_treasury::Config<OperationFundsInstance> for Runtime {
 	type Burn = Burn;
 	type PalletId = OperationPalletId;
 	type BurnDestination = ();
-	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_treasury_operation_funds::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureCouncilOrRoot, Self::AccountId, SpendLimit>;
@@ -76,7 +78,8 @@ impl pallet_treasury::Config<OperationFundsInstance> for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper =
+		acurast_runtime_common::benchmarking::TreasuryArguments<Runtime, OperationAccountId>;
 	type BlockNumberProvider = System;
 }
 
@@ -93,7 +96,8 @@ impl pallet_treasury::Config<LiquidityFundsInstance> for Runtime {
 	type Burn = Burn;
 	type PalletId = LiquidityPalletId;
 	type BurnDestination = ();
-	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_treasury_liquidity_funds::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureCouncilOrRoot, Self::AccountId, SpendLimit>;
@@ -104,7 +108,8 @@ impl pallet_treasury::Config<LiquidityFundsInstance> for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper =
+		acurast_runtime_common::benchmarking::TreasuryArguments<Runtime, LiquidityAccountId>;
 	type BlockNumberProvider = System;
 }
 
@@ -121,7 +126,8 @@ impl pallet_treasury::Config<ExtraFundsInstance> for Runtime {
 	type Burn = Burn;
 	type PalletId = ExtraPalletId;
 	type BurnDestination = ();
-	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_treasury_extra_funds::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureCouncilOrRoot, Self::AccountId, SpendLimit>;
@@ -132,6 +138,7 @@ impl pallet_treasury::Config<ExtraFundsInstance> for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper =
+		acurast_runtime_common::benchmarking::TreasuryArguments<Runtime, ExtraAccountId>;
 	type BlockNumberProvider = System;
 }

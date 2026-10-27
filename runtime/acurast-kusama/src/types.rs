@@ -15,7 +15,6 @@ use acurast_runtime_common::{
 		BLOCK_PROCESSING_VELOCITY, MILLIUNIT, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	},
-	migrations::storage_versions::StorageVersionBackfill,
 	opaque,
 	types::{AccountId, Address, Balance, CouncilFourSeventh, IsFundable, Signature},
 	weight::ExtrinsicBaseWeight,
@@ -145,7 +144,7 @@ pub type CheckedExtrinsic =
 	generic::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensionV0>;
 
 /// Runtime migrations executed once on the next runtime upgrade.
-pub type Migrations = (StorageVersionBackfill<Runtime>,);
+pub type Migrations = ();
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<

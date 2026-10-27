@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::{stub::*, *};
 use acurast_common::{
 	extract_attestation, parse_cert, Attestation, AttestationChain, AttestationValidator,
-	AttestationValidity, ManagerIdProvider, ManagerLookup, CU32,
+	AttestationValidity, ManagerIdProvider, ManagerLookup, ProcessorInfoProvider, CU32,
 };
 use frame_support::{
 	derive_impl,
@@ -140,6 +140,8 @@ impl pallet_acurast::Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = ();
 	type ProcessorVersion = acurast_common::Version;
+	type ProcessorInfoProvider = MockProcessorInfoProvider;
+	type OnProcessorInvalidated = AcurastProcessorManager;
 	type MaxVersions = CU32<2>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
@@ -159,6 +161,7 @@ impl Config for Test {
 	type PairingProofExpirationTime = ConstU128<600000>;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type Advertisement = ();
+	type MaxAllowedConsumers = ConstU32<100>;
 	type AdvertisementHandler = ();
 	type WeightInfo = weights::WeightInfo<Self>;
 	type ExtensionWeightInfo = weights::ExtensionWeightInfo<Self>;
@@ -172,15 +175,49 @@ impl Config for Test {
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 }
 
+pub struct MockProcessorInfoProvider;
+impl ProcessorInfoProvider for MockProcessorInfoProvider {
+	type AccountId = <Test as frame_system::Config>::AccountId;
+	type ProcessorVersion = <Test as pallet_acurast::Config>::ProcessorVersion;
+
+	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
+		None
+	}
+
+	fn processor_version(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as pallet_acurast::Config>::ProcessorVersion> {
+		None
+	}
+
+	fn last_processor_metric(
+		_processor: &<Test as frame_system::Config>::AccountId,
+		_pool_id: pallet_acurast::PoolId,
+	) -> Option<frame_support::sp_runtime::FixedU128> {
+		None
+	}
+
+	fn has_manager(processor: &<Test as frame_system::Config>::AccountId) -> bool {
+		AcurastProcessorManager::manager_id_for_processor(processor).is_some()
+	}
+
+	fn manager(
+		processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		<AcurastProcessorManager as ManagerLookup>::lookup(processor).map(|(manager, _)| manager)
+	}
+}
+
 pub struct MockAttestationValidator;
 impl AttestationValidator<AccountId> for MockAttestationValidator {
 	fn validate(
 		attestation_chain: &AttestationChain,
 		_account: &AccountId,
+		_manager: Option<&AccountId>,
 	) -> Result<Attestation, DispatchError> {
 		let leaf = attestation_chain.certificate_chain.iter().last().unwrap();
 		let cert = parse_cert(leaf).unwrap();
-		let attestation = extract_attestation(cert.tbs_certificate.extensions).unwrap();
+		let attestation = extract_attestation(&cert.tbs_certificate.extensions).unwrap();
 
 		let attestation_validity = AttestationValidity {
 			not_before: cert.tbs_certificate.validity.not_before.timestamp_millis().unwrap(),
@@ -197,8 +234,9 @@ impl AttestationValidator<AccountId> for MockAttestationValidator {
 	fn validate_and_store(
 		attestation_chain: AttestationChain,
 		account: AccountId,
+		manager: Option<&AccountId>,
 	) -> frame_support::sp_runtime::DispatchResult {
-		let attestation = Self::validate(&attestation_chain, &account)?;
+		let attestation = Self::validate(&attestation_chain, &account, manager)?;
 		<StoredAttestation<Test>>::insert(account, attestation);
 		Ok(())
 	}
@@ -249,6 +287,14 @@ impl crate::BenchmarkHelper<Test> for () {
 
 	fn on_initialize(_block_number: frame_system::pallet_prelude::BlockNumberFor<Test>) {}
 
+	fn warmup_period() -> frame_system::pallet_prelude::BlockNumberFor<Test> {
+		1800
+	}
+
+	fn epoch() -> frame_system::pallet_prelude::BlockNumberFor<Test> {
+		900
+	}
+
 	fn pair_manager_and_processor(
 		_manager: &<Test as frame_system::Config>::AccountId,
 		_processor: &<Test as frame_system::Config>::AccountId,
@@ -256,6 +302,10 @@ impl crate::BenchmarkHelper<Test> for () {
 	}
 
 	fn setup_unpaired_cleanup(_processor: &<Test as frame_system::Config>::AccountId) {}
+
+	fn setup_rkp_takeover() -> (<Test as frame_system::Config>::AccountId, AttestationChain) {
+		pallet_acurast::benchmarking::setup_rkp_takeover::<Test>()
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -284,6 +334,8 @@ where
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
+
+	fn setup_invalid_processor(_processor: &<Test as frame_system::Config>::AccountId) {}
 }
 
 pub struct AcurastManagerIdProvider;

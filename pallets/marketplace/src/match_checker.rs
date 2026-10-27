@@ -4,14 +4,14 @@ use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{
 		traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
-		DispatchError, FixedPointNumber, Permill, SaturatedConversion,
+		DispatchError, FixedPointNumber, Permill,
 	},
 	traits::UnixTime,
 };
-use itertools::Itertools;
 use pallet_acurast::{
 	utils::{ensure_source_verified, ensure_source_verified_and_of_type},
-	JobId, JobRegistrationFor, ProcessorType, RequiredMinMetrics, Schedule, StoredJobRegistration,
+	JobId, JobRegistrationFor, ProcessorInfoProvider, ProcessorType, RequiredMinMetrics, Schedule,
+	StoredJobRegistration,
 };
 use reputation::{BetaReputation, ReputationEngine};
 
@@ -121,13 +121,6 @@ impl<T: Config> Pallet<T> {
 						Error::<T>::ModuleNotAvailableInMatch
 					);
 				}
-
-				// CHECK network request quota sufficient
-				Self::check_network_request_quota_sufficient(
-					&ad,
-					&registration.schedule,
-					registration.network_requests,
-				)?;
 
 				// CHECK source is whitelisted
 				ensure!(
@@ -340,13 +333,6 @@ impl<T: Config> Pallet<T> {
 					);
 				}
 
-				// CHECK network request quota sufficient
-				Self::check_network_request_quota_sufficient(
-					&ad,
-					&registration.schedule,
-					registration.network_requests,
-				)?;
-
 				// CHECK source is whitelisted
 				ensure!(
 					is_processor_allowed::<T>(
@@ -503,34 +489,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	// `unwrap_or(0)` below is deliberate, not a missed `saturating_mul` — see the comment inside.
-	#[allow(clippy::manual_saturating_arithmetic)]
-	fn check_network_request_quota_sufficient(
-		ad: &AdvertisementRestriction<T::AccountId, T::MaxAllowedConsumers>,
-		schedule: &Schedule,
-		network_requests: u32,
-	) -> Result<(), Error<T>> {
-		// CHECK network request quota sufficient
-		ensure!(
-			// duration (s) * network_request_quota >= network_requests (per second)
-			// <=>
-			// duration (ms) / 1000 * network_request_quota >= network_requests (per second)
-			// <=>
-			// duration (ms) * network_request_quota >= network_requests (per second) * 1000
-			//
-			// NOT `saturating_mul`: on overflow this side must collapse to 0 so the `ensure!` fails
-			// and the match is rejected. `saturating_mul` would yield `u64::MAX` and accept it
-			// instead, turning a fail-closed check into a fail-open one.
-			schedule.duration.checked_mul(ad.network_request_quota.into()).unwrap_or(0u64)
-				>= network_requests
-					.saturated_into::<u64>()
-					.checked_mul(1000u64)
-					.unwrap_or(u64::MAX),
-			Error::<T>::NetworkRequestQuotaExceededInMatch
-		);
-		Ok(())
-	}
-
 	fn check_min_reputation(
 		min_reputation: Option<u128>,
 		source: &T::AccountId,
@@ -622,6 +580,12 @@ impl<T: Config> Pallet<T> {
 		let report_tolerance = T::ReportTolerance::get();
 		let mut match_count: u32 = 0;
 		let mut is_existing_match = false;
+		let schedule = match execution_specifier {
+			ExecutionSpecifier::All => *schedule,
+			ExecutionSpecifier::Index(index) => {
+				schedule.execution(index).ok_or(Error::<T>::CalculationOverflow)?
+			},
+		};
 		for (job_id, assignment) in <StoredMatches<T>>::iter_prefix(source) {
 			// Count every entry in the prefix (including stale ones) since all of them are iterated
 			// here and on every future matching call for this processor.
@@ -642,91 +606,16 @@ impl<T: Config> Pallet<T> {
 					continue;
 				}
 
-				match (execution_specifier, assignment.execution) {
-					(ExecutionSpecifier::All, ExecutionSpecifier::All) => {
-						let it = schedule
-							.iter(start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(schedule.duration)?;
-								Some((start, end))
-							});
-
-						let other_it = other
-							.schedule
-							.iter(assignment.start_delay)
-							.ok_or(Error::<T>::CalculationOverflow)?
-							.map(|start| {
-								let end = start.checked_add(other.schedule.duration)?;
-								Some((start, end))
-							});
-
-						it.merge(other_it).try_fold(0u64, |prev_end, bounds| {
-							let (start, end) = bounds.ok_or(Error::<T>::CalculationOverflow)?;
-
-							if prev_end > start {
-								Err(Error::<T>::ScheduleOverlapInMatch)
-							} else {
-								Ok(end)
-							}
-						})?;
+				let other_schedule = match assignment.execution {
+					ExecutionSpecifier::All => other.schedule,
+					ExecutionSpecifier::Index(index) => {
+						other.schedule.execution(index).ok_or(Error::<T>::CalculationOverflow)?
 					},
-					(ExecutionSpecifier::All, ExecutionSpecifier::Index(other_execution_index)) => {
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-
-						if schedule.overlaps(start_delay, (other_start, other_end)) {
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
-					(ExecutionSpecifier::Index(execution_index), ExecutionSpecifier::All) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-
-						if other.schedule.overlaps(start_delay, (start, end)) {
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
-					(
-						ExecutionSpecifier::Index(execution_index),
-						ExecutionSpecifier::Index(other_execution_index),
-					) => {
-						let start = schedule
-							.nth_start_time(start_delay, execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let end = start
-							.checked_add(schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_start = other
-							.schedule
-							.nth_start_time(assignment.start_delay, other_execution_index)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-						let other_end = other_start
-							.checked_add(other.schedule.duration)
-							.ok_or(Error::<T>::CalculationOverflow)?;
-
-						// For a collision we need
-						//       ╭overlapping before end
-						// ___■■■■______
-						// ____ ■■■■____ (other)
-						// AND not
-						//     ╭ending before start
-						// _____■■■■______
-						// _■■■■__________ (other)
-						if other_start < end && other_end > start {
-							Err(Error::<T>::ScheduleOverlapInMatch)?;
-						}
-					},
-				}
+				};
+				let overlaps = schedule
+					.overlaps_schedule(start_delay, &other_schedule, assignment.start_delay)
+					.ok_or(Error::<T>::CalculationOverflow)?;
+				ensure!(!overlaps, Error::<T>::ScheduleOverlapInMatch);
 			}
 		}
 

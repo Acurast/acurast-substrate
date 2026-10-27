@@ -13,7 +13,6 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod migration;
 mod traits;
 mod types;
 pub mod weights;
@@ -206,13 +205,6 @@ pub mod pallet {
 		),
 		VestingInfoFor<T>,
 	>;
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			crate::migration::migrate::<T>()
-		}
-	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>

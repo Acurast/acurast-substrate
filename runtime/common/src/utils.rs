@@ -60,7 +60,9 @@ pub fn check_key_description(
 ) -> bool {
 	let root_of_trust = &key_description.tee_enforced.root_of_trust;
 	if let Some(root_of_trust) = root_of_trust {
-		if root_of_trust.verified_boot_state != VerifiedBootState::Verified {
+		if root_of_trust.verified_boot_state != VerifiedBootState::Verified
+			|| !root_of_trust.device_locked
+		{
 			return false;
 		}
 	} else {

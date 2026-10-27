@@ -21,5 +21,6 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = AcurastCandidatePreselection;
-	type WeightInfo = ();
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_collator_selection::WeightInfo<Runtime>;
 }

@@ -1,13 +1,14 @@
 use frame_support::{
-	sp_runtime::{DispatchError, DispatchResult},
+	sp_runtime::{DispatchError, DispatchResult, FixedU128},
 	traits::{
 		fungible::{Balanced, Imbalance, Inspect},
 		Get, IsType,
 	},
+	BoundedVec,
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::{Attestation, AttestationChain, MetricInput, Version};
+use crate::{Attestation, AttestationChain, MetricInput, MultiOrigin, PoolId, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -78,13 +79,16 @@ pub trait ManagerLookup {
 }
 
 pub trait AttestationValidator<AccountId> {
+	/// Validates the chain of `account`, to be paired with `manager`.
 	fn validate(
 		attestation_chain: &AttestationChain,
 		account: &AccountId,
+		manager: Option<&AccountId>,
 	) -> Result<Attestation, DispatchError>;
 	fn validate_and_store(
 		attestation_chain: AttestationChain,
 		account: AccountId,
+		manager: Option<&AccountId>,
 	) -> DispatchResult;
 }
 
@@ -123,4 +127,53 @@ pub type ImbalanceFor<Currency, AccountId> = Imbalance<
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait OnProcessorUnpaired<AccountId> {
 	fn processor_unpaired(processor: &AccountId, former_manager: &AccountId);
+}
+
+pub trait OnProcessorInvalidated<AccountId> {
+	/// Removes stale data of an invalid or unpaired processor; returns whether anything was removed.
+	fn processor_invalidated(processor: &AccountId) -> bool;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<AccountId> OnProcessorInvalidated<AccountId> for Tuple {
+	fn processor_invalidated(processor: &AccountId) -> bool {
+		let mut removed = false;
+		for_tuples!( #( removed |= Tuple::processor_invalidated(processor); )* );
+		removed
+	}
+}
+
+pub trait AdvertisementHandler<AccountId, Advertisement, MaxAllowedConsumers: Get<u32>> {
+	fn advertise_for(processor: &AccountId, advertisement: Advertisement) -> DispatchResult;
+	/// Replaces the consumers allowed on `processor`; an empty list allows all.
+	fn update_allowed_consumers(
+		processor: &AccountId,
+		allowed_consumers: BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>,
+	) -> DispatchResult;
+}
+
+impl<AccountId, Advertisement, MaxAllowedConsumers: Get<u32>>
+	AdvertisementHandler<AccountId, Advertisement, MaxAllowedConsumers> for ()
+{
+	fn advertise_for(_processor: &AccountId, _advertisement: Advertisement) -> DispatchResult {
+		Ok(())
+	}
+
+	fn update_allowed_consumers(
+		_processor: &AccountId,
+		_allowed_consumers: BoundedVec<MultiOrigin<AccountId>, MaxAllowedConsumers>,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub trait ProcessorInfoProvider {
+	type AccountId;
+	type ProcessorVersion;
+
+	fn last_seen(processor: &Self::AccountId) -> Option<u128>;
+	fn processor_version(processor: &Self::AccountId) -> Option<Self::ProcessorVersion>;
+	fn last_processor_metric(processor: &Self::AccountId, pool_id: PoolId) -> Option<FixedU128>;
+	fn has_manager(processor: &Self::AccountId) -> bool;
+	fn manager(processor: &Self::AccountId) -> Option<Self::AccountId>;
 }

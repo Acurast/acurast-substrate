@@ -1,4 +1,4 @@
-use frame_support::{assert_err, assert_ok, BoundedVec};
+use frame_support::{assert_err, assert_ok, dispatch::Pays, BoundedVec};
 use hex_literal::hex;
 use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 
@@ -348,6 +348,7 @@ fn test_submit_attestation_parse_issuer_name() {
         };
 
         let account_id: AccountId32 = hex!("6c0711dba61c0c7f4a124d85384471b98ce9e28e2a6f7e567c4408f3ab77de09").into();
+        let _ = Timestamp::set(RuntimeOrigin::none(), 1_700_000_000_000);
         assert_ok!(Acurast::submit_attestation(
             RuntimeOrigin::signed(account_id.clone()),
             chain.clone()
@@ -663,4 +664,314 @@ fn test_set_environment() {
 			]
 		);
 	});
+}
+
+#[test]
+fn test_validate_processor() {
+	ExtBuilder.build().execute_with(|| {
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
+		assert_ok!(Acurast::submit_attestation(
+			RuntimeOrigin::signed(processor_account_id()),
+			attestation_chain()
+		));
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(alice_account_id()),
+				processor_account_id()
+			),
+			Error::<Test>::ProcessorStillValid
+		);
+
+		let revoke = vec![CertificateRevocationListUpdate {
+			operation: ListUpdateOperation::Add,
+			item: cert_serial_number(),
+		}];
+		assert_ok!(Acurast::update_certificate_revocation_list(
+			RuntimeOrigin::root(),
+			revoke.try_into().unwrap()
+		));
+		let post_info = Acurast::validate_processor(
+			RuntimeOrigin::signed(alice_account_id()),
+			processor_account_id(),
+		)
+		.unwrap();
+		assert_eq!(Pays::No, post_info.pays_fee);
+		assert_eq!(None, Acurast::stored_attestation(processor_account_id()));
+		assert_eq!(
+			events().last(),
+			Some(&RuntimeEvent::Acurast(
+				crate::Event::ProcessorInvalidated(processor_account_id())
+			))
+		);
+
+		assert_err!(
+			Acurast::validate_processor(
+				RuntimeOrigin::signed(alice_account_id()),
+				processor_account_id()
+			),
+			Error::<Test>::ProcessorStillValid
+		);
+	});
+}
+
+mod rkp {
+	use super::*;
+	use crate::{utils::rkp_cert_id, RkpCertificateProcessor, StoredAttestation};
+
+	/// A mainnet onboarding chain, root first, one hex certificate per line.
+	fn chain(text: &str) -> AttestationChain {
+		let certs = text
+			.lines()
+			.map(|line| sp_core::bytes::from_hex(line).unwrap().try_into().unwrap())
+			.collect::<Vec<_>>();
+		AttestationChain { certificate_chain: certs.try_into().unwrap() }
+	}
+
+	fn genuine() -> (AccountId32, AttestationChain) {
+		let account = hex!("5d449a77dbca2c08271e294abf94f72b21d740886a803dc2f6c9b583ad78c11e");
+		(account.into(), chain(include_str!("../common/src/__test_chains__/rkp_genuine.txt")))
+	}
+
+	fn manager(processor: &AccountId32, manager: Option<AccountId32>) {
+		MANAGERS.with(|managers| match manager {
+			Some(manager) => managers.borrow_mut().insert(processor.clone(), manager),
+			None => managers.borrow_mut().remove(processor),
+		});
+	}
+
+	/// Binds the RKP certificate of the genuine chain to an attested `other` processor.
+	fn bind_to_other(other: &AccountId32) -> crate::CertId {
+		let (account, chain) = genuine();
+		let attestation = validate_and_extract_attestation::<Test>(&account, &chain).unwrap();
+		let cert_id = rkp_cert_id(&attestation).unwrap().clone();
+		RkpCertificateProcessor::<Test>::insert(&cert_id, other);
+		StoredAttestation::<Test>::insert(other, attestation);
+		cert_id
+	}
+
+	/// Binds the RKP certificate of the genuine chain to `other`, attested under another RKP certificate.
+	fn stale_bind_to_other(other: &AccountId32) -> (crate::CertId, crate::CertId) {
+		let cert_id = bind_to_other(other);
+		let other_cert_id = (cert_id.0.clone(), bounded_vec![1, 2, 3]);
+		StoredAttestation::<Test>::mutate(other, |attestation| {
+			attestation.as_mut().unwrap().cert_ids[3] = other_cert_id.clone();
+		});
+		RkpCertificateProcessor::<Test>::insert(&other_cert_id, other);
+		(cert_id, other_cert_id)
+	}
+
+	fn setup() {
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1_789_323_732_000);
+	}
+
+	#[test]
+	fn rkp_certificate_is_bound_on_attestation() {
+		let (account, chain) = genuine();
+		let mut without_root = chain.clone();
+		without_root.certificate_chain.remove(0);
+		for chain in [chain, without_root] {
+			ExtBuilder.build().execute_with(|| {
+				setup();
+				assert_ok!(Acurast::submit_attestation(
+					RuntimeOrigin::signed(account.clone()),
+					chain
+				));
+				let attestation = Acurast::stored_attestation(&account).unwrap();
+				assert_eq!(
+					RkpCertificateProcessor::<Test>::get(rkp_cert_id(&attestation).unwrap()),
+					Some(account.clone())
+				);
+			});
+		}
+	}
+
+	#[test]
+	fn keybox_certificate_is_not_bound() {
+		ExtBuilder.build().execute_with(|| {
+			let _ = Timestamp::set(RuntimeOrigin::none(), 1_789_323_744_000);
+			let account: AccountId32 =
+				hex!("11ca5048308598db1754df76556509a7dc47b8b5c12d72f5be419d88a5a818ca").into();
+			assert_ok!(Acurast::submit_attestation(
+				RuntimeOrigin::signed(account.clone()),
+				chain(include_str!("../common/src/__test_chains__/keybox.txt"))
+			));
+			let attestation = Acurast::stored_attestation(&account).unwrap();
+			assert_eq!(
+				RkpCertificateProcessor::<Test>::get(rkp_cert_id(&attestation).unwrap()),
+				None
+			);
+		});
+	}
+
+	#[test]
+	fn rkp_certificate_of_another_manager_is_rejected() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let other = alice_account_id();
+			let cert_id = bind_to_other(&other);
+			manager(&other, Some(bob_account_id()));
+			manager(&account, Some(alice_account_id()));
+			assert_err!(
+				Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain.clone()),
+				Error::<Test>::RkpCertificateInUse
+			);
+			manager(&account, None);
+			assert_err!(
+				Acurast::submit_attestation(RuntimeOrigin::signed(account), chain),
+				Error::<Test>::RkpCertificateInUse
+			);
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(other.clone()));
+			assert!(StoredAttestation::<Test>::contains_key(&other));
+		});
+	}
+
+	#[test]
+	fn rkp_certificate_is_rebound_under_the_same_manager() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let other = alice_account_id();
+			let cert_id = bind_to_other(&other);
+			manager(&other, Some(bob_account_id()));
+			manager(&account, Some(bob_account_id()));
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(account.clone()));
+			assert!(!StoredAttestation::<Test>::contains_key(&other));
+			assert!(events().contains(&RuntimeEvent::Acurast(
+				crate::Event::ProcessorAttestationReplaced(other, account)
+			)));
+		});
+	}
+
+	#[test]
+	fn stale_binding_of_another_manager_is_ignored() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let other = alice_account_id();
+			let (cert_id, other_cert_id) = stale_bind_to_other(&other);
+			manager(&other, Some(bob_account_id()));
+			manager(&account, Some(alice_account_id()));
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(account));
+			assert_eq!(
+				rkp_cert_id(&Acurast::stored_attestation(&other).unwrap()),
+				Some(&other_cert_id)
+			);
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&other_cert_id), Some(other));
+		});
+	}
+
+	#[test]
+	fn stale_binding_of_the_same_manager_keeps_the_attestation() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let other = alice_account_id();
+			let (_, other_cert_id) = stale_bind_to_other(&other);
+			manager(&other, Some(bob_account_id()));
+			manager(&account, Some(bob_account_id()));
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			assert_eq!(
+				rkp_cert_id(&Acurast::stored_attestation(&other).unwrap()),
+				Some(&other_cert_id)
+			);
+			assert!(!events().iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Acurast(crate::Event::ProcessorAttestationReplaced(..))
+			)));
+		});
+	}
+
+	#[test]
+	fn reattestation_removes_the_previous_binding() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let (cert_id, previous_cert_id) = stale_bind_to_other(&account);
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&previous_cert_id), None);
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(account));
+		});
+	}
+
+	#[test]
+	fn rkp_certificate_of_an_unpaired_or_unattested_processor_is_rebound() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			let other = alice_account_id();
+			manager(&account, Some(bob_account_id()));
+
+			let cert_id = bind_to_other(&other);
+			assert_ok!(Acurast::submit_attestation(
+				RuntimeOrigin::signed(account.clone()),
+				chain.clone()
+			));
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(account.clone()));
+
+			bind_to_other(&other);
+			StoredAttestation::<Test>::remove(&other);
+			manager(&other, Some(charlie_account_id()));
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), Some(account));
+		});
+	}
+
+	#[test]
+	fn rkp_certificate_binding_is_removed_with_the_attestation() {
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let (account, chain) = genuine();
+			assert_ok!(Acurast::submit_attestation(RuntimeOrigin::signed(account.clone()), chain));
+			let cert_id =
+				rkp_cert_id(&Acurast::stored_attestation(&account).unwrap()).unwrap().clone();
+			Acurast::remove_attestation(&account);
+			assert_eq!(RkpCertificateProcessor::<Test>::get(&cert_id), None);
+		});
+	}
+
+	#[test]
+	fn not_approved_build_is_rejected() {
+		ExtBuilder.build().execute_with(|| {
+			let _ = Timestamp::set(RuntimeOrigin::none(), 1_789_406_952_000);
+			let account = hex!("fa7f061355d3dbfcb043a660dd3fdb3e71b8613bbe30d2e8ccbfb40f58d0442d");
+			assert_err!(
+				Acurast::submit_attestation(
+					RuntimeOrigin::signed(account.into()),
+					chain(include_str!("../common/src/__test_chains__/not_approved.txt"))
+				),
+				Error::<Test>::AttestationBuildNotApproved
+			);
+		});
+	}
+
+	#[test]
+	fn too_many_certificates_issued_is_rejected() {
+		ExtBuilder.build().execute_with(|| {
+			let _ = Timestamp::set(RuntimeOrigin::none(), 1_789_576_644_000);
+			let account = hex!("fa140cf55db9143de63fcb324a6a99e5f33cfaf488cad6a4287889a8fcda2d36");
+			assert_err!(
+				Acurast::submit_attestation(
+					RuntimeOrigin::signed(account.into()),
+					chain(include_str!("../common/src/__test_chains__/high_velocity.txt"))
+				),
+				Error::<Test>::AttestationTooManyCertificatesIssued
+			);
+		});
+	}
+
+	#[test]
+	fn expired_rkp_certificate_is_rejected() {
+		ExtBuilder.build().execute_with(|| {
+			let _ = Timestamp::set(RuntimeOrigin::none(), 1_790_403_580_000);
+			let (account, chain) = genuine();
+			assert_err!(
+				Acurast::submit_attestation(RuntimeOrigin::signed(account), chain),
+				Error::<Test>::AttestationCertificateNotValid
+			);
+		});
+	}
 }

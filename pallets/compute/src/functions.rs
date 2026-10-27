@@ -1,4 +1,6 @@
-use acurast_common::{CommitmentIdProvider, MetricInput, OnProcessorUnpaired, PoolId};
+use acurast_common::{
+	CommitmentIdProvider, MetricInput, OnProcessorInvalidated, OnProcessorUnpaired, PoolId,
+};
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{fungible::Balanced, Currency, ExistenceRequirement, Get, Imbalance, IsType},
@@ -606,9 +608,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Removes the processor's state and up to `MaxPools` metrics.
+	fn clear_processor(processor: &T::AccountId) -> bool {
+		let removed = <Processors<T, I>>::take(processor).is_some();
+		let metrics =
+			<Metrics<T, I>>::clear_prefix(processor, <T as Config<I>>::MaxPools::get(), None);
+		removed || metrics.unique > 0
+	}
+}
+
 impl<T: Config<I>, I: 'static> OnProcessorUnpaired<T::AccountId> for Pallet<T, I> {
 	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
-		<Processors<T, I>>::remove(processor);
-		_ = <Metrics<T, I>>::clear_prefix(processor, <T as Config<I>>::MaxPools::get(), None);
+		Self::clear_processor(processor);
+	}
+}
+
+impl<T: Config<I>, I: 'static> OnProcessorInvalidated<T::AccountId> for Pallet<T, I> {
+	fn processor_invalidated(processor: &T::AccountId) -> bool {
+		Self::clear_processor(processor)
 	}
 }

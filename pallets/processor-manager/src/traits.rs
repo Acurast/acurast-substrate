@@ -10,24 +10,12 @@ pub trait ProcessorAssetRecovery<T: Config> {
 	) -> DispatchResult;
 }
 
-pub trait AdvertisementHandler<T: Config> {
-	fn advertise_for(processor: &T::AccountId, advertisement: &T::Advertisement) -> DispatchResult;
-}
-
-impl<T: Config> AdvertisementHandler<T> for () {
-	fn advertise_for(
-		_processor: &T::AccountId,
-		_advertisement: &T::Advertisement,
-	) -> DispatchResult {
-		Ok(())
-	}
-}
-
 pub trait OnboardingProvider<T: Config> {
 	fn validate_pairing(pairing: &ProcessorPairingFor<T>, is_multi: bool) -> DispatchResult;
 	fn validate_attestation(
 		attestation_chain: &AttestationChain,
 		account: &T::AccountId,
+		manager: &T::AccountId,
 	) -> DispatchResult;
 	fn can_fund_processor_onboarding(
 		processor: &T::AccountId,
@@ -67,6 +55,7 @@ pub trait WeightInfo {
 	fn set_management_endpoint() -> Weight;
 	fn onboard() -> Weight;
 	fn update_onboarding_settings() -> Weight;
+	fn update_allowed_consumers() -> Weight;
 }
 
 pub trait ExtensionWeightInfo {

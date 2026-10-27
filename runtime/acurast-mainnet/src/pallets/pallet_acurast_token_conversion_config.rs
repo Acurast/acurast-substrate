@@ -23,5 +23,6 @@ impl pallet_acurast_token_conversion::Config for Runtime {
 	type MaxLockDuration = MaxLockDuration;
 	type OnSlash = ResolveTo<TreasuryAccountId, Balances>;
 	type EnableOrigin = EnsureRoot<Self::AccountId>;
-	type WeightInfo = crate::weights::pallet_acurast_token_conversion::WeightInfo<Self>;
+	type WeightInfo =
+		acurast_runtime_common::weight::pallet_acurast_token_conversion::WeightInfo<Self>;
 }

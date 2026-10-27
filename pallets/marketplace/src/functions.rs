@@ -1,6 +1,9 @@
-use acurast_common::OnProcessorUnpaired;
+use acurast_common::{
+	AdvertisementHandler, JobModules, MultiOrigin, OnProcessorInvalidated, OnProcessorUnpaired,
+};
 use frame_support::{
 	ensure, pallet_prelude::DispatchResult, sp_runtime::DispatchError, traits::IsSubType,
+	BoundedVec,
 };
 use pallet_acurast::{
 	utils::ensure_source_verified, IsFundableCall, JobId, JobRegistrationFor, StoredJobRegistration,
@@ -10,37 +13,27 @@ use sp_core::Get;
 use sp_std::prelude::*;
 
 use crate::{
-	AdvertisementFor, AdvertisementRestriction, AssignedProcessors, AssignmentFor, Call, Config,
-	Error, ExecutionSpecifier, NextReportIndex, Pallet, RewardManager, StoredAdvertisementPricing,
-	StoredAdvertisementRestriction, StoredAverageRewardV3, StoredMatches, StoredReputation,
+	Advertisement, AdvertisementFor, AssignedProcessors, AssignmentFor, Call, Config, Error,
+	ExecutionSpecifier, NextReportIndex, Pallet, RewardManager, StoredAdvertisementRestriction,
+	StoredAverageRewardV3, StoredMatches, StoredReputation,
 };
 
 impl<T: Config> Pallet<T> {
 	pub fn do_advertise(
 		processor: &T::AccountId,
-		advertisement: &AdvertisementFor<T>,
+		available_modules: Option<JobModules>,
+		allowed_consumers: Option<BoundedVec<MultiOrigin<T::AccountId>, T::MaxAllowedConsumers>>,
 	) -> DispatchResult {
-		if let Some(allowed_consumers) = &advertisement.allowed_consumers {
-			let max_allowed_consumers_len = T::MaxAllowedConsumers::get() as usize;
-			ensure!(!allowed_consumers.is_empty(), Error::<T>::TooFewAllowedConsumers);
-			ensure!(
-				allowed_consumers.len() <= max_allowed_consumers_len,
-				Error::<T>::TooManyAllowedConsumers
-			);
-		}
-
-		<StoredAdvertisementRestriction<T>>::insert(
-			processor,
-			AdvertisementRestriction {
-				max_memory: advertisement.max_memory,
-				network_request_quota: advertisement.network_request_quota,
-				storage_capacity: advertisement.storage_capacity,
-				allowed_consumers: advertisement.allowed_consumers.clone(),
-				available_modules: advertisement.available_modules.clone(),
-			},
-		);
-		// update separate pricing index
-		<StoredAdvertisementPricing<T>>::insert(processor, advertisement.pricing.clone());
+		<StoredAdvertisementRestriction<T>>::mutate(processor, |r| {
+			let restrictions = r.get_or_insert_default();
+			if let Some(allowed_consumers) = allowed_consumers {
+				restrictions.allowed_consumers =
+					(!allowed_consumers.is_empty()).then_some(allowed_consumers);
+			}
+			if let Some(available_modules) = available_modules {
+				restrictions.available_modules = available_modules;
+			}
+		});
 		<StoredReputation<T>>::mutate(processor, |r| {
 			if r.is_none() {
 				*r = Some(BetaParameters::default());
@@ -252,6 +245,7 @@ where
 				| Call::acknowledge_execution_match { .. }
 				| Call::report { .. }
 				| Call::cleanup_assignments { .. }
+				| Call::update_available_modules { .. }
 		)
 	}
 
@@ -262,11 +256,11 @@ where
 	}
 }
 
-impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
-	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
-		<StoredAdvertisementPricing<T>>::remove(processor);
-		<StoredAdvertisementRestriction<T>>::remove(processor);
-		<StoredReputation<T>>::remove(processor);
+impl<T: Config> Pallet<T> {
+	/// Removes the processor's advertisement, reputation and up to `MaxMatchesPerProcessor` matches.
+	fn clear_processor(processor: &T::AccountId) -> bool {
+		let mut cleared = <StoredAdvertisementRestriction<T>>::take(processor).is_some();
+		cleared |= <StoredReputation<T>>::take(processor).is_some();
 		let limit = T::MaxMatchesPerProcessor::get();
 		let mut removed: u32 = 0;
 		for (job_id, _) in <StoredMatches<T>>::drain_prefix(processor) {
@@ -277,5 +271,37 @@ impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
 				break;
 			}
 		}
+		cleared || removed > 0
+	}
+}
+
+impl<T: Config> OnProcessorUnpaired<T::AccountId> for Pallet<T> {
+	fn processor_unpaired(processor: &T::AccountId, _former_manager: &T::AccountId) {
+		Self::clear_processor(processor);
+	}
+}
+
+impl<T: Config> OnProcessorInvalidated<T::AccountId> for Pallet<T> {
+	fn processor_invalidated(processor: &T::AccountId) -> bool {
+		Self::clear_processor(processor)
+	}
+}
+
+impl<T: Config> AdvertisementHandler<T::AccountId, AdvertisementFor<T>, T::MaxAllowedConsumers>
+	for Pallet<T>
+{
+	fn update_allowed_consumers(
+		processor: &T::AccountId,
+		allowed_consumers: BoundedVec<MultiOrigin<T::AccountId>, T::MaxAllowedConsumers>,
+	) -> DispatchResult {
+		Self::do_advertise(processor, None, Some(allowed_consumers))
+	}
+
+	fn advertise_for(
+		processor: &T::AccountId,
+		advertisement: AdvertisementFor<T>,
+	) -> DispatchResult {
+		let Advertisement { allowed_consumers, available_modules, .. } = advertisement;
+		Self::do_advertise(processor, Some(available_modules), allowed_consumers)
 	}
 }

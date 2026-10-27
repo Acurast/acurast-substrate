@@ -23,7 +23,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
-	type WeightInfo = cumulus_pallet_parachain_system::weights::SubstrateWeight<Self>;
+	type WeightInfo =
+		acurast_runtime_common::weight::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingSignatureVerifier = ();
@@ -40,7 +41,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
-	type WeightInfo = ();
+	type WeightInfo =
+		acurast_runtime_common::weight::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 	type MaxInboundSuspended = ConstU32<1_000>;
 	type MaxActiveOutboundChannels = ConstU32<128>;
@@ -48,5 +50,6 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo =
+		acurast_runtime_common::weight::cumulus_pallet_weight_reclaim::WeightInfo<Runtime>;
 }

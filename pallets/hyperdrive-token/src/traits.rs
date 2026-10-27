@@ -9,4 +9,6 @@ pub trait WeightInfo {
 	fn set_enabled() -> Weight;
 	fn enable_proxy_chain() -> Weight;
 	fn update_outgoing_transfer_ttl() -> Weight;
+	fn refund_transfers(x: u32) -> Weight;
+	fn remove_transfer_message() -> Weight;
 }

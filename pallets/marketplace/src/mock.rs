@@ -1,4 +1,4 @@
-use acurast_common::{ManagerIdProvider, Slashable};
+use acurast_common::{ManagerIdProvider, ProcessorInfoProvider, Slashable};
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::fungible;
 use frame_support::{
@@ -105,6 +105,7 @@ parameter_types! {
 	pub const HyperdrivePalletId: PalletId = PalletId(*b"hypdrpid");
 	pub const ReportTolerance: u64 = 70_000;
 	pub RootAccountId: AccountId = alice_account_id();
+	pub storage HasManager: bool = true;
 }
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
@@ -166,6 +167,8 @@ impl pallet_acurast::Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type JobHooks = Pallet<Test>;
 	type ProcessorVersion = u32;
+	type ProcessorInfoProvider = MockProcessorInfoProvider;
+	type OnProcessorInvalidated = (AcurastCompute, AcurastMarketplace);
 	type MaxVersions = pallet_acurast::CU32<1>;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_acurast::weights::WeightInfo<Test>;
@@ -408,6 +411,8 @@ impl pallet_acurast::BenchmarkHelper<Test> for TestBenchmarkHelper {
 			.try_into()
 			.expect("pool count is bounded by MaxPools, which fits METRICS_MAX_LENGTH; qed")
 	}
+
+	fn setup_invalid_processor(_processor: &<Test as frame_system::Config>::AccountId) {}
 }
 
 pub struct MockLockup;
@@ -425,9 +430,11 @@ impl ManagerLookup for MockLockup {
 	}
 }
 
-pub struct ProcessorLastSeenProvider;
+pub struct MockProcessorInfoProvider;
+impl ProcessorInfoProvider for MockProcessorInfoProvider {
+	type AccountId = <Test as frame_system::Config>::AccountId;
+	type ProcessorVersion = <Test as pallet_acurast::Config>::ProcessorVersion;
 
-impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 	fn last_seen(_processor: &<Test as frame_system::Config>::AccountId) -> Option<u128> {
 		Some(AcurastMarketplace::now().unwrap().into())
 	}
@@ -443,6 +450,16 @@ impl crate::traits::ProcessorInfoProvider<Test> for ProcessorLastSeenProvider {
 		pool_id: pallet_acurast::PoolId,
 	) -> Option<frame_support::sp_runtime::FixedU128> {
 		Some(AcurastCompute::metrics(processor, pool_id)?.metric)
+	}
+
+	fn has_manager(_processor: &<Test as frame_system::Config>::AccountId) -> bool {
+		HasManager::get()
+	}
+
+	fn manager(
+		_processor: &<Test as frame_system::Config>::AccountId,
+	) -> Option<<Test as frame_system::Config>::AccountId> {
+		None
 	}
 }
 
@@ -476,7 +493,6 @@ impl Config for Test {
 	type ReportTolerance = ReportTolerance;
 	type Balance = Balance;
 	type RewardManager = AssetRewardManager<FeeManagerImpl, Balances, Pallet<Self>, ()>;
-	type ProcessorInfoProvider = ProcessorLastSeenProvider;
 	type MarketplaceHooks = ();
 	type DeploymentHashing = BlakeTwo256;
 	type KeyIdHashing = BlakeTwo256;

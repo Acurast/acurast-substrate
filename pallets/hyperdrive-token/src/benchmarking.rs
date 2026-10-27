@@ -33,7 +33,7 @@ fn run_to_block<T: Config<I>, I: 'static>(new_block: BlockNumberFor<T>) {
 pub fn assert_last_event<T: Config<I>, I: 'static>(
 	generic_event: <T as frame_system::Config>::RuntimeEvent,
 ) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	frame_system::Pallet::<T>::assert_last_event(generic_event);
 }
 
 benchmarks_instance_pallet! {

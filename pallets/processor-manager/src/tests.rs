@@ -2,9 +2,7 @@ use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
 	ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
-use acurast_common::{
-	AttestationChain, ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version,
-};
+use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{
 	assert_err, assert_ok, dispatch::Pays, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
 };
@@ -259,7 +257,7 @@ fn test_onboard_validates_pairing_before_attestation() {
 		let pairing =
 			ProcessorPairingFor::<Test>::new_with_proof(manager_account, timestamp, signature);
 		// the mock validator panics on this chain, so it must not be reached
-		let attestation_chain = AttestationChain {
+		let attestation_chain = acurast_common::AttestationChain {
 			certificate_chain: vec![vec![0u8].try_into().unwrap()].try_into().unwrap(),
 		};
 

@@ -620,6 +620,7 @@ impl Iterator for ScheduleIter {
 pub struct Version {
 	/// Number representing the device's platform:
 	/// 0: Android
+	/// 1: iOS
 	pub platform: u32,
 	pub build_number: u32,
 }

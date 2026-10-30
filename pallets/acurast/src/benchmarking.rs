@@ -330,6 +330,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn update_denied_os_version() {
+		let threshold = OsThreshold {
+			version: Some(vec![15].try_into().unwrap()),
+			patch_level: Some(vec![2025, 6].try_into().unwrap()),
+		};
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, 0, Some(threshold));
+	}
+
+	#[benchmark]
 	fn validate_processor() {
 		set_timestamp::<T>(1657363915001);
 		let processor: T::AccountId = processor_account_id::<T>();

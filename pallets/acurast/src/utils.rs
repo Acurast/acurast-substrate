@@ -7,9 +7,10 @@ use parity_scale_codec::Encode;
 use sp_std::prelude::*;
 
 use crate::{
-	Attestation, AttestationChain, AttestationValidity, CertId, Config, Error, IssuerName,
-	KeyAttestationBarrier, ProcessorInfoProvider, ProcessorType, RkpCertificateProcessor,
-	SerialNumber, StoredAttestation, StoredRevokedCertificate, ValidatingCertIds,
+	Attestation, AttestationChain, AttestationValidity, CertId, Config, DeniedOsVersion, Error,
+	IssuerName, KeyAttestationBarrier, OsVersion, ProcessorInfoProvider, ProcessorType,
+	RkpCertificateProcessor, SerialNumber, StoredAttestation, StoredRevokedCertificate,
+	ValidatingCertIds,
 };
 
 /// Validates and returns an [Attestation] from the provided chain.
@@ -147,6 +148,41 @@ pub(crate) fn ensure_not_revoked<T: Config>(attestation: &Attestation) -> Result
 		}
 	}
 	Ok(())
+}
+
+/// Ensures the attested OS version and patch level are not denied; a missing value is denied once
+/// its threshold is set.
+pub(crate) fn ensure_os_version_allowed<T: Config>(
+	attestation: &Attestation,
+) -> Result<(), Error<T>> {
+	let content = &attestation.content;
+	let Some(threshold) = <DeniedOsVersion<T>>::get(content.platform()) else {
+		return Ok(());
+	};
+	let allowed = |value: Option<Vec<u32>>, threshold: Option<OsVersion>| {
+		threshold.is_none_or(|t| value.is_some_and(|v| !is_os_version_denied(&v, &t)))
+	};
+	ensure!(allowed(content.os_version(), threshold.version), Error::<T>::OsVersionDenied);
+	ensure!(
+		allowed(content.os_patch_level(), threshold.patch_level),
+		Error::<T>::OsPatchLevelDenied
+	);
+	Ok(())
+}
+
+/// Whether `version` is at or below `threshold`, comparing only as many components as `threshold`
+/// has, so `[26, 0]` also denies every `26.0.x`. An empty `threshold` denies nothing.
+pub(crate) fn is_os_version_denied(version: &[u32], threshold: &[u32]) -> bool {
+	if threshold.is_empty() {
+		return false;
+	}
+	version
+		.iter()
+		.copied()
+		.chain(core::iter::repeat(0))
+		.take(threshold.len())
+		.cmp(threshold.iter().copied())
+		.is_le()
 }
 
 /// The leaf's issuer of an Android attestation, which is the RKP device certificate in an RKP chain.

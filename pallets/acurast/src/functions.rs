@@ -15,9 +15,9 @@ use acurast_common::{
 
 use crate::{
 	utils::{
-		ensure_not_expired, ensure_not_revoked, ensure_rkp_certificate_available,
-		ensure_source_verified_and_security_level, holds_rkp_certificate, rkp_cert_id,
-		validate_and_extract_attestation_with_rkp_cert,
+		ensure_not_expired, ensure_not_revoked, ensure_os_version_allowed,
+		ensure_rkp_certificate_available, ensure_source_verified_and_security_level,
+		holds_rkp_certificate, rkp_cert_id, validate_and_extract_attestation_with_rkp_cert,
 	},
 	Config, EnvironmentFor, Error, Event, ExecutionEnvironment, JobHooks, JobRegistrationFor,
 	KeyAttestationBarrier, LocalJobIdSequence, Pallet, RequiredMinMetrics, RkpCertificateProcessor,
@@ -142,6 +142,7 @@ impl<T: Config> Pallet<T> {
 			#[cfg(not(feature = "runtime-benchmarks"))]
 			return Err(Error::<T>::AttestationRejected.into());
 		}
+		ensure_os_version_allowed::<T>(&attestation)?;
 
 		ensure_not_expired::<T>(&attestation)?;
 		ensure_not_revoked::<T>(&attestation)?;

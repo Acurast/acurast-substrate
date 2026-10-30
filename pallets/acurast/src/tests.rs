@@ -5,9 +5,10 @@ use sp_runtime::{bounded_vec, traits::BadOrigin, AccountId32};
 use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
-	mock::*, utils::validate_and_extract_attestation, AllowedSourcesUpdate, AttestationChain,
-	CertificateRevocationListUpdate, Error, ListUpdate, ListUpdateOperation, Revokers,
-	SerialNumber,
+	mock::*,
+	utils::{is_os_version_denied, validate_and_extract_attestation},
+	AllowedSourcesUpdate, AttestationChain, CertificateRevocationListUpdate, Error, ListUpdate,
+	ListUpdateOperation, OsThreshold, Revokers, SerialNumber,
 };
 
 #[test]
@@ -398,6 +399,84 @@ fn test_submit_attestation_failure_1() {
 		assert_eq!(None, Acurast::stored_attestation(processor_account_id()));
 
 		assert_eq!(events(), []);
+	});
+}
+
+#[test]
+fn test_is_os_version_denied() {
+	assert!(is_os_version_denied(&[14, 9], &[15]));
+	assert!(is_os_version_denied(&[15], &[15]));
+	assert!(is_os_version_denied(&[15, 8, 8], &[15]));
+	assert!(!is_os_version_denied(&[16, 0], &[15]));
+	assert!(is_os_version_denied(&[26, 0], &[26, 0]));
+	assert!(is_os_version_denied(&[26], &[26, 0]));
+	assert!(is_os_version_denied(&[26, 0, 1], &[26, 0]));
+	assert!(is_os_version_denied(&[25, 9, 9], &[26, 0]));
+	assert!(!is_os_version_denied(&[26, 1], &[26, 0]));
+	assert!(!is_os_version_denied(&[26, 0, 2], &[26, 0, 1]));
+	assert!(!is_os_version_denied(&[0], &[]));
+}
+
+#[test]
+fn test_submit_attestation_os_version_denied() {
+	ExtBuilder.build().execute_with(|| {
+		let chain = attestation_chain();
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
+		let threshold = |version: Option<Vec<u32>>, patch_level: Option<Vec<u32>>| OsThreshold {
+			version: version.map(|v| v.try_into().unwrap()),
+			patch_level: patch_level.map(|v| v.try_into().unwrap()),
+		};
+		let deny = |platform, version, patch_level| {
+			Acurast::update_denied_os_version(
+				RuntimeOrigin::root(),
+				platform,
+				Some(threshold(version, patch_level)),
+			)
+		};
+		let submit = || {
+			Acurast::submit_attestation(
+				RuntimeOrigin::signed(processor_account_id()),
+				chain.clone(),
+			)
+		};
+
+		assert_err!(
+			Acurast::update_denied_os_version(
+				RuntimeOrigin::signed(processor_account_id()),
+				0,
+				None
+			),
+			BadOrigin
+		);
+		assert_err!(deny(0, None, None), Error::<Test>::InvalidOsVersion);
+		assert_err!(deny(0, Some(vec![]), None), Error::<Test>::InvalidOsVersion);
+		assert_err!(deny(0, None, Some(vec![])), Error::<Test>::InvalidOsVersion);
+
+		assert_ok!(deny(0, Some(vec![12]), None));
+		assert_eq!(
+			events(),
+			[RuntimeEvent::Acurast(crate::Event::DeniedOsVersionUpdated(
+				0,
+				Some(threshold(Some(vec![12]), None))
+			))]
+		);
+		assert_err!(submit(), Error::<Test>::OsVersionDenied);
+
+		assert_ok!(deny(1, Some(vec![99]), None));
+		assert_ok!(deny(0, Some(vec![11, 9]), Some(vec![2022, 5])));
+		assert_ok!(submit());
+
+		assert_ok!(deny(0, Some(vec![12, 0, 0]), None));
+		assert_err!(submit(), Error::<Test>::OsVersionDenied);
+
+		assert_ok!(deny(0, None, Some(vec![2022])));
+		assert_err!(submit(), Error::<Test>::OsPatchLevelDenied);
+
+		assert_ok!(deny(0, Some(vec![11]), Some(vec![2022, 6])));
+		assert_err!(submit(), Error::<Test>::OsPatchLevelDenied);
+
+		assert_ok!(Acurast::update_denied_os_version(RuntimeOrigin::root(), 0, None));
+		assert_ok!(submit());
 	});
 }
 

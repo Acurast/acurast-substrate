@@ -15,7 +15,11 @@ pub mod weights;
 pub use acurast_common::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::BenchmarkHelper;
-use frame_support::traits::EnsureOrigin;
+use frame_support::{
+	pallet_prelude::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo},
+	traits::{ConstU32, EnsureOrigin},
+	BoundedVec,
+};
 use frame_system::RawOrigin;
 pub use pallet::*;
 pub use traits::*;
@@ -51,6 +55,18 @@ pub type EnvironmentFor<T> = Environment<
 	<T as Config>::EnvValueMaxSize,
 >;
 
+/// Dotted OS version, e.g. `[26, 0]` for `26.0`.
+pub type OsVersion = BoundedVec<u32, ConstU32<3>>;
+
+/// Highest denied OS version and Android security patch level (`[YYYY, MM]`); `None` denies nothing.
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq,
+)]
+pub struct OsThreshold {
+	pub version: Option<OsVersion>,
+	pub patch_level: Option<OsVersion>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
@@ -66,7 +82,8 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use crate::{
-		traits::*, utils::ensure_source_verified, EnsureRevoker, EnvironmentFor, JobRegistrationFor,
+		traits::*, utils::ensure_source_verified, EnsureRevoker, EnvironmentFor,
+		JobRegistrationFor, OsThreshold,
 	};
 
 	#[pallet::config]
@@ -171,6 +188,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Revokers<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ()>;
 
+	/// Denied OS thresholds per platform id (see [`Version::platform`]). New attestations at or below either threshold are rejected,
+	/// comparing only as many components as the threshold has.
+	#[pallet::storage]
+	pub type DeniedOsVersion<T: Config> = StorageMap<_, Blake2_128Concat, u32, OsThreshold>;
+
 	/// The processor each remotely provisioned (RKP) device certificate is bound to.
 	#[pallet::storage]
 	pub type RkpCertificateProcessor<T: Config> =
@@ -216,6 +238,8 @@ pub mod pallet {
 		ProcessorInvalidated(T::AccountId),
 		/// A processor took over the RKP device certificate of another and its attestation was removed. [previous, processor]
 		ProcessorAttestationReplaced(T::AccountId, T::AccountId),
+		/// Denied OS thresholds updated. [platform, threshold]
+		DeniedOsVersionUpdated(u32, Option<OsThreshold>),
 	}
 
 	#[pallet::error]
@@ -278,6 +302,12 @@ pub mod pallet {
 		AttestationBuildNotApproved,
 		/// The RKP provisioning info reports too many certificates issued to the device or lacks their count.
 		AttestationTooManyCertificatesIssued,
+		/// The attested OS version is denied.
+		OsVersionDenied,
+		/// The OS threshold is empty or has an empty component.
+		InvalidOsVersion,
+		/// The attested OS security patch level is denied.
+		OsPatchLevelDenied,
 	}
 
 	#[pallet::call]
@@ -500,6 +530,31 @@ pub mod pallet {
 
 			Self::deposit_event(Event::ProcessorInvalidated(processor));
 			Ok(Pays::No.into())
+		}
+
+		/// Denies new attestations for `platform` whose version or patch level, truncated to the
+		/// threshold's length, is at or below it (e.g. `[26, 0]` also denies `26.0.1`). `None` lifts it.
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::update_denied_os_version())]
+		pub fn update_denied_os_version(
+			origin: OriginFor<T>,
+			platform: u32,
+			threshold: Option<OsThreshold>,
+		) -> DispatchResultWithPostInfo {
+			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
+			if let Some(t) = &threshold {
+				let parts = [&t.version, &t.patch_level];
+				ensure!(
+					parts.iter().any(|p| p.is_some())
+						&& parts.iter().all(|p| p.as_ref().is_none_or(|v| !v.is_empty())),
+					Error::<T>::InvalidOsVersion
+				);
+			}
+
+			<DeniedOsVersion<T>>::set(platform, threshold.clone());
+
+			Self::deposit_event(Event::DeniedOsVersionUpdated(platform, threshold));
+			Ok(().into())
 		}
 	}
 }

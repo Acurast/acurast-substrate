@@ -99,6 +99,48 @@ impl TryFrom<ParsedAttestation<'_>> for BoundedAttestationContent {
 	}
 }
 
+impl BoundedAttestationContent {
+	/// The device's platform as in [`crate::Version::platform`].
+	pub fn platform(&self) -> u32 {
+		match self {
+			Self::KeyDescription(_) => 0,
+			Self::DeviceAttestation(_) => 1,
+		}
+	}
+
+	/// The attested OS version, or `None` if missing or malformed.
+	pub fn os_version(&self) -> Option<Vec<u32>> {
+		match self {
+			Self::KeyDescription(key_description) => key_description
+				.tee_enforced
+				.os_version
+				.filter(|v| *v != 0)
+				.map(|v| vec![v / 10_000, v / 100 % 100, v % 100]),
+			Self::DeviceAttestation(device_attestation) => {
+				let version = device_attestation.device_os_information.t1400.as_ref()?;
+				core::str::from_utf8(version)
+					.ok()?
+					.split('.')
+					.map(str::parse)
+					.collect::<Result<_, _>>()
+					.ok()
+			},
+		}
+	}
+
+	/// The attested Android security patch level as `[YYYY, MM]`, or `None` if missing or on iOS.
+	pub fn os_patch_level(&self) -> Option<Vec<u32>> {
+		match self {
+			Self::KeyDescription(key_description) => key_description
+				.tee_enforced
+				.os_patch_level
+				.filter(|v| *v != 0)
+				.map(|v| vec![v / 100, v % 100]),
+			Self::DeviceAttestation(_) => None,
+		}
+	}
+}
+
 #[derive(
 	Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq,
 )]

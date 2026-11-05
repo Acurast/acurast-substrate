@@ -96,15 +96,21 @@ impl<T: frame_system::Config> pallet_acurast::WeightInfo for WeightInfo<T> {
 	/// Proof: `AcurastMarketplace::JobKeyIds` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
 	/// Storage: `Acurast::RequiredMinMetrics` (r:0 w:1)
 	/// Proof: `Acurast::RequiredMinMetrics` (`max_values`: None, `max_size`: Some(411), added: 2886, mode: `MaxEncodedLen`)
-	fn deregister() -> Weight {
+	/// Storage: `Acurast::ExecutionEnvironment` (r:x w:x)
+	/// Proof: `Acurast::ExecutionEnvironment` (`max_values`: None, `max_size`: Some(10743), added: 13218, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[0, 64]`.
+	fn deregister(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `822`
 		//  Estimated: `38283`
 		// Minimum execution time: 62_498_000 picoseconds.
 		Weight::from_parts(100_885_500, 0)
 			.saturating_add(Weight::from_parts(0, 38283))
+			.saturating_add(Weight::from_parts(0, 13218).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(6))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 	}
 	/// Storage: `Acurast::StoredJobRegistration` (r:1 w:1)
 	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34818), added: 37293, mode: `MaxEncodedLen`)

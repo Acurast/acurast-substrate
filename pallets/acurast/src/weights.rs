@@ -72,15 +72,20 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 	/// Proof: AcurastMarketplace JobBudgets (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
 	/// Storage: Acurast StoredJobRegistration (r:0 w:1)
 	/// Proof: Acurast StoredJobRegistration (max_values: None, max_size: Some(34795), added: 37270, mode: MaxEncodedLen)
-	fn deregister() -> Weight {
+	/// Storage: Acurast ExecutionEnvironment (r:x w:x)
+	/// Proof: Acurast ExecutionEnvironment (max_values: None, max_size: Some(10743), added: 13218, mode: MaxEncodedLen)
+	fn deregister(x: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `290`
 		//  Estimated: `6996`
 		// Minimum execution time: 22_000_000 picoseconds.
 		Weight::from_parts(23_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 6996))
+			.saturating_add(Weight::from_parts(0, 13218).saturating_mul(x.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 	}
 	/// Storage: Acurast StoredJobRegistration (r:1 w:1)
 	/// Proof: Acurast StoredJobRegistration (max_values: None, max_size: Some(34795), added: 37270, mode: MaxEncodedLen)

@@ -1054,3 +1054,36 @@ mod rkp {
 		});
 	}
 }
+
+#[test]
+fn deregister_charges_for_removed_environments_only() {
+	let mut ext = ExtBuilder.build();
+	let local_job_id = ext.execute_with(|| {
+		let local_job_id = Acurast::job_id_sequence() + 1;
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			job_registration(None, false),
+		));
+		assert_ok!(Acurast::set_environment(
+			RuntimeOrigin::signed(alice_account_id()),
+			local_job_id,
+			processor_account_id(),
+			Environment {
+				public_key: BoundedVec::truncate_from(vec![1u8; 33]),
+				variables: BoundedVec::default(),
+			},
+		));
+		local_job_id
+	});
+	// `clear_prefix` counts backend removals only
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		let post_info =
+			Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), local_job_id).unwrap();
+
+		assert_eq!(
+			post_info.actual_weight,
+			Some(<<Test as crate::Config>::WeightInfo as crate::WeightInfo>::deregister(1))
+		);
+	});
+}

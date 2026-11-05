@@ -110,7 +110,7 @@ fn test_update_processor_pairings_failure_1() {
 }
 
 #[test]
-fn test_recover_funds_succeed_1() {
+fn test_recover_funds_is_deprecated() {
 	ExtBuilder.build().execute_with(|| {
 		let (manager_account, processor_account) = paired_manager_processor();
 		assert_ok!(Balances::transfer_allow_death(
@@ -118,76 +118,16 @@ fn test_recover_funds_succeed_1() {
 			processor_account.clone(),
 			10_000_000
 		));
-		assert_eq!(Balances::balance(&alice_account_id()), 90_000_000);
 
-		assert_ok!(AcurastProcessorManager::recover_funds(
-			RuntimeOrigin::signed(manager_account),
-			processor_account.clone(),
-			alice_account_id(),
-		));
-		assert_eq!(Balances::balance(&alice_account_id()), 99_999_000); // 1_000 of existensial balance remains on the processor
-
-		assert_eq!(
-			events().last().unwrap(),
-			&RuntimeEvent::AcurastProcessorManager(Event::ProcessorFundsRecovered(
-				processor_account,
-				alice_account_id()
-			)),
+		assert_err!(
+			AcurastProcessorManager::recover_funds(
+				RuntimeOrigin::signed(manager_account),
+				processor_account.clone(),
+				alice_account_id(),
+			),
+			Error::<Test>::CallDeprecated
 		);
-	});
-}
-
-#[test]
-fn test_recover_funds_succeed_2() {
-	ExtBuilder.build().execute_with(|| {
-		let (manager_account, processor_account) = paired_manager_processor();
-
-		assert_ok!(AcurastProcessorManager::recover_funds(
-			RuntimeOrigin::signed(manager_account),
-			processor_account.clone(),
-			alice_account_id(),
-		));
-
-		assert_eq!(
-			events().last().unwrap(),
-			&RuntimeEvent::AcurastProcessorManager(Event::ProcessorFundsRecovered(
-				processor_account,
-				alice_account_id()
-			)),
-		);
-	});
-}
-
-#[test]
-fn test_recover_funds_failure_1() {
-	ExtBuilder.build().execute_with(|| {
-		let (manager_account, _) = paired_manager_processor();
-
-		let (_, processor_account) = generate_pair_account();
-
-		let call = AcurastProcessorManager::recover_funds(
-			RuntimeOrigin::signed(manager_account),
-			processor_account.clone(),
-			alice_account_id(),
-		);
-
-		assert_err!(call, Error::<Test>::ProcessorHasNoManager);
-	});
-}
-
-#[test]
-fn test_recover_funds_failure_2() {
-	ExtBuilder.build().execute_with(|| {
-		let (manager_account, _) = paired_manager_processor();
-		let (_, processor_account) = paired_manager_processor();
-
-		let call = AcurastProcessorManager::recover_funds(
-			RuntimeOrigin::signed(manager_account),
-			processor_account.clone(),
-			alice_account_id(),
-		);
-
-		assert_err!(call, Error::<Test>::ProcessorPairedWithAnotherManager);
+		assert_eq!(Balances::balance(&processor_account), 10_000_000);
 	});
 }
 

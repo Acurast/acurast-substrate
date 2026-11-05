@@ -12,9 +12,8 @@ use frame_support::{
 		BuildStorage, DispatchError, MultiSignature,
 	},
 	traits::{
-		fungible::{Inspect, Mutate},
+		fungible::Mutate,
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-		tokens::{Fortitude, Precision, Preservation},
 		AsEnsureOriginWithArg, ConstU16, ConstU64,
 	},
 };
@@ -154,7 +153,6 @@ impl Config for Test {
 	type ManagerId = AssetId;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ComputeHooks = ();
-	type ProcessorAssetRecovery = AcurastProcessorAssetRecovery;
 	type MaxPairingUpdates = ConstU32<5>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
@@ -367,31 +365,6 @@ impl ManagerIdProvider<<Test as frame_system::Config>::AccountId, <Test as Confi
 		Uniques::owner(0, manager_id).ok_or(frame_support::pallet_prelude::DispatchError::Other(
 			"Onwer for provided Manager ID not found",
 		))
-	}
-}
-
-pub struct AcurastProcessorAssetRecovery;
-impl ProcessorAssetRecovery<Test> for AcurastProcessorAssetRecovery {
-	fn recover_assets(
-		processor: &<Test as frame_system::Config>::AccountId,
-		destination_account: &<Test as frame_system::Config>::AccountId,
-	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
-			processor,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		if usable_balance > 0 {
-			let burned = <Balances as Mutate<_>>::burn_from(
-				processor,
-				usable_balance,
-				Preservation::Preserve,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)?;
-			Balances::mint_into(destination_account, burned)?;
-		}
-		Ok(())
 	}
 }
 

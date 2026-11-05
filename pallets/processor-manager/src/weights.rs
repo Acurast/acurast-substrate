@@ -56,24 +56,6 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 2507).saturating_mul(x.into()))
 	}
 
-	/// Storage: Uniques Account (r:1 w:0)
-	/// Proof: Uniques Account (max_values: None, max_size: Some(112), added: 2587, mode: MaxEncodedLen)
-	/// Storage: AcurastProcessorManager ProcessorToManagerIdIndex (r:1 w:0)
-	/// Proof: AcurastProcessorManager ProcessorToManagerIdIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: Assets Asset (r:3 w:1)
-	/// Proof: Assets Asset (max_values: None, max_size: Some(210), added: 2685, mode: MaxEncodedLen)
-	/// Storage: Assets Account (r:2 w:0)
-	/// Proof: Assets Account (max_values: None, max_size: Some(102), added: 2577, mode: MaxEncodedLen)
-	fn recover_funds() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1982`
-		//  Estimated: `22263`
-		// Minimum execution time: 64_000_000 picoseconds.
-		Weight::from_parts(65_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 22263))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: AcurastProcessorManager ProcessorToManagerIdIndex (r:1 w:0)
 	/// Proof: AcurastProcessorManager ProcessorToManagerIdIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
 	/// Storage: Timestamp Now (r:1 w:0)

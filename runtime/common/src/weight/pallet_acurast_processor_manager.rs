@@ -83,22 +83,6 @@ impl<T: frame_system::Config> pallet_acurast_processor_manager::WeightInfo for W
 	}
 	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
 	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
-	/// Storage: `Uniques::Asset` (r:1 w:0)
-	/// Proof: `Uniques::Asset` (`max_values`: None, `max_size`: Some(146), added: 2621, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn recover_funds() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `951`
-		//  Estimated: `6196`
-		// Minimum execution time: 50_915_000 picoseconds.
-		Weight::from_parts(83_166_000, 0)
-			.saturating_add(Weight::from_parts(0, 6196))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// Storage: `AcurastProcessorManager::ProcessorToManagerIdIndex` (r:1 w:0)
-	/// Proof: `AcurastProcessorManager::ProcessorToManagerIdIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `AcurastProcessorManager::ProcessorHeartbeat` (r:0 w:1)

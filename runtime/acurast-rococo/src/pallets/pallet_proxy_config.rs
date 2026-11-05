@@ -54,7 +54,7 @@ pub enum ProxyType {
 	/// Fully permissioned proxy. Can execute any call on behalf of _proxied_.
 	#[default]
 	Any,
-	/// Can execute any call that does not transfer funds or assets.
+	/// Can execute only allow-listed calls that cannot transfer, lock or escrow funds.
 	NonTransfer,
 	/// Proxy for all Balances pallet calls.
 	Balances,
@@ -88,19 +88,31 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 		}
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => {
-				!matches!(c, RuntimeCall::Balances { .. })
-					&& !matches!(c, RuntimeCall::AcurastHyperdriveToken { .. })
-					&& !matches!(c, RuntimeCall::PolkadotXcm { .. })
-					&& !matches!(
-						c,
-						RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
-					) && !matches!(
+			ProxyType::NonTransfer => match c {
+				RuntimeCall::AcurastProcessorManager(
+					pallet_acurast_processor_manager::Call::recover_funds { .. },
+				) => false,
+				RuntimeCall::Vesting(
+					pallet_vesting::Call::vest { .. } | pallet_vesting::Call::vest_other { .. },
+				) => true,
+				_ => matches!(
 					c,
-					RuntimeCall::AcurastProcessorManager(
-						pallet_acurast_processor_manager::Call::recover_funds { .. },
-					)
-				)
+					RuntimeCall::System { .. }
+						| RuntimeCall::Timestamp { .. }
+						| RuntimeCall::Scheduler { .. }
+						| RuntimeCall::Preimage { .. }
+						| RuntimeCall::Multisig { .. }
+						| RuntimeCall::Utility { .. }
+						| RuntimeCall::Proxy { .. }
+						| RuntimeCall::Referenda { .. }
+						| RuntimeCall::ConvictionVoting { .. }
+						| RuntimeCall::Council { .. }
+						| RuntimeCall::CouncilMembership { .. }
+						| RuntimeCall::CollatorSelection { .. }
+						| RuntimeCall::Session { .. }
+						| RuntimeCall::AcurastProcessorManager { .. }
+						| RuntimeCall::AcurastCandidatePreselection { .. }
+				),
 			},
 			ProxyType::Balances => {
 				matches!(c, RuntimeCall::Balances { .. } | RuntimeCall::Multisig { .. })

@@ -21,6 +21,7 @@ hex-literal = { version = "0.3", default-features = false }
 
 # Acurast
 pallet-acurast = { path = "../acurast", default-features = false }
+acurast-p256-crypto = { workspace = true }
 
 # SDKs
 tezos-core = { git = "https://github.com/airgap-it/tezos-rust-sdk", default-features = false, branch = "feat/nostd" }
@@ -68,6 +69,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-acurast/std",
+	"acurast-p256-crypto/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",

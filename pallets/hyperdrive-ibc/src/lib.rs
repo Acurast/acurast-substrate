@@ -10,6 +10,8 @@ pub use types::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
+mod mock;
+#[cfg(test)]
 mod tests;
 mod traits;
 
@@ -108,13 +110,27 @@ pub mod pallet {
 		MessageProcessedWithErrors {
 			message: IncomingMessageWithMetaFor<T>,
 		},
+		OracleUpdatedV2 {
+			added: Vec<(P256Public, ActivityWindow<BlockNumberFor<T>>)>,
+			updated: Vec<(P256Public, ActivityWindow<BlockNumberFor<T>>)>,
+			removed: Vec<P256Public>,
+		},
 	}
 
 	/// This storage field maps the oracles' public keys to their respective activity window.
+	///
+	/// Deprecated: holds the secp256k1 oracles of the deprecated calls taking [`Signatures`],
+	/// superseded by [`OraclePublicKeysV2`].
 	#[pallet::storage]
 	#[pallet::getter(fn relayer_oracle_public_keys)]
 	pub type OraclePublicKeys<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, Public, ActivityWindow<BlockNumberFor<T>>>;
+
+	/// This storage field maps the oracles' secp256r1 (P-256) public keys to their respective
+	/// activity window.
+	#[pallet::storage]
+	pub type OraclePublicKeysV2<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, P256Public, ActivityWindow<BlockNumberFor<T>>>;
 
 	/// This storage field contains the latest number of total messages sent.
 	/// Useful to generate a unique nonce for a message as `hash(message_counter() + 1)`.
@@ -183,6 +199,9 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Used to add, update or remove oracles.
+		///
+		/// Deprecated: use [`Pallet::update_oracles_v2`] to manage secp256r1 (P-256) oracles.
+		#[deprecated(note = "Use `update_oracles_v2` with secp256r1 (P-256) oracle keys")]
 		#[pallet::call_index(0)]
 		#[pallet::weight(< T as Config < I >>::WeightInfo::update_oracles(updates.len() as u32))]
 		pub fn update_oracles(
@@ -248,6 +267,12 @@ pub mod pallet {
 		}
 
 		/// Used by a relayer to confirm that a message has been delivered, claiming the message fee.
+		///
+		/// Deprecated: use [`Pallet::confirm_message_delivery_v2`] with secp256r1 (P-256)
+		/// signatures.
+		#[deprecated(
+			note = "Use `confirm_message_delivery_v2` with secp256r1 (P-256) oracle signatures"
+		)]
 		#[pallet::call_index(2)]
 		#[pallet::weight(< T as Config < I >>::WeightInfo::confirm_message_delivery(signatures.len() as u32))]
 		pub fn confirm_message_delivery(
@@ -323,6 +348,9 @@ pub mod pallet {
 		}
 
 		/// Receives messages signed by the oracles.
+		///
+		/// Deprecated: use [`Pallet::receive_message_v2`] with secp256r1 (P-256) signatures.
+		#[deprecated(note = "Use `receive_message_v2` with secp256r1 (P-256) oracle signatures")]
 		#[pallet::call_index(4)]
 		#[pallet::weight(< T as Config < I >>::WeightInfo::receive_message(signatures.len() as u32))]
 		pub fn receive_message(
@@ -411,6 +439,159 @@ pub mod pallet {
 				Ok(().into())
 			}
 		}
+
+		/// Receives messages signed by the oracles with secp256r1 (P-256) keys registered in
+		/// [`OraclePublicKeysV2`].
+		///
+		/// Equivalent to [`Pallet::receive_message`] except for the signature scheme; the signed
+		/// payload is the same SCALE encoded `(ParachainId, Message)`.
+		#[pallet::call_index(6)]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::receive_message_v2(signatures.len() as u32))]
+		pub fn receive_message_v2(
+			origin: OriginFor<T>,
+			sender: SubjectFor<T>,
+			nonce: MessageNonce,
+			recipient: SubjectFor<T>,
+			payload: Payload,
+			relayer: MultiOrigin<T::AccountId>,
+			signatures: SignaturesV2,
+		) -> DispatchResult {
+			let _who = ensure_signed(origin)?;
+
+			// Validate recipient matches the configured chain
+			ensure!(
+				ProxyChain::from(&recipient) == (&T::SelfChain::get()).into(),
+				Error::<T, I>::IncorrectRecipient
+			);
+
+			let id = Self::message_id(&sender, nonce);
+			ensure!(
+				<IncomingMessages<T, I>>::get(id).is_none(),
+				Error::<T, I>::MessageAlreadyReceived
+			);
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let message =
+				MessageFor::<T> { id, sender, nonce, recipient: recipient.clone(), payload };
+
+			Self::check_signatures_v2(
+				&message.clone(),
+				None,
+				signatures,
+				T::MinReceiptConfirmationSignatures::get(),
+			)?;
+
+			let message_with_meta = IncomingMessageWithMetaFor::<T> {
+				message: message.clone(),
+				current_block,
+				relayer,
+			};
+			<IncomingMessages<T, I>>::insert(id, message_with_meta.clone());
+			<IncomingMessagesLookup<T, I>>::insert(&recipient, id, ());
+
+			// don't fail extrinsic from here onwards
+			if let Err(e) = Self::process_message(message.clone()) {
+				log::warn!("Received message {:?} processed with errors: {:?}", message, e.error);
+				Self::deposit_event(Event::MessageProcessedWithErrors {
+					message: message_with_meta,
+				});
+			} else {
+				Self::deposit_event(Event::MessageProcessed { message: message_with_meta });
+			}
+
+			Ok(())
+		}
+
+		/// Used by a relayer to confirm that a message has been delivered, claiming the message fee.
+		///
+		/// Equivalent to [`Pallet::confirm_message_delivery`] except for the signature scheme; the
+		/// signatures are by secp256r1 (P-256) oracles registered in [`OraclePublicKeysV2`].
+		#[pallet::call_index(7)]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::confirm_message_delivery_v2(signatures.len() as u32))]
+		pub fn confirm_message_delivery_v2(
+			origin: OriginFor<T>,
+			// We only pass the id and retrieve message from runtime storage to ensure the signatures are over the message originally sent (+ the relayer's address).
+			id: MessageId,
+			// Signatures confirming the message delivery within `ttl_block`.
+			//
+			// Can be left empty if the message was not delivered in time. In this case the fee is paid back to sender (not necessarily the origin of this call).
+			signatures: SignaturesV2,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let message = Self::outgoing_messages(id).ok_or(Error::<T, I>::MessageNotFound)?;
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			ensure!(message.ttl_block >= current_block, Error::<T, I>::DeliveryConfirmationOverdue);
+
+			Self::check_signatures_v2(
+				&message.message,
+				// include the relayer's address in the payload validated for signature to avoid front-running on actual relayer that paid for tx on destination chain
+				Some(who.clone()),
+				signatures,
+				T::MinDeliveryConfirmationSignatures::get(),
+			)?;
+
+			T::Currency::transfer_on_hold(
+				&HoldReason::OutgoingMessageFee.into(),
+				&message.payer,
+				&who,
+				message.fee,
+				Precision::Exact,
+				Restriction::Free,
+				Fortitude::Polite,
+			)
+			.map_err(|_| Error::<T, I>::CouldNotReleaseHoldFee)?;
+
+			Self::deposit_event(Event::MessageDelivered { id });
+
+			// clear
+			<OutgoingMessages<T, I>>::remove(id);
+			<OutgoingMessagesLookup<T, I>>::remove(&message.message.sender, message.message.nonce);
+
+			Ok(())
+		}
+
+		/// Used to add, update or remove secp256r1 (P-256) oracles in [`OraclePublicKeysV2`].
+		#[pallet::call_index(8)]
+		#[pallet::weight(< T as Config < I >>::WeightInfo::update_oracles_v2(updates.len() as u32))]
+		pub fn update_oracles_v2(
+			origin: OriginFor<T>,
+			updates: OracleUpdatesV2<T>,
+		) -> DispatchResultWithPostInfo {
+			T::UpdateOrigin::ensure_origin(origin)?;
+
+			// Process actions
+			let (added, updated, removed) =
+				updates.iter().fold((vec![], vec![], vec![]), |acc, action| {
+					let (mut added, mut updated, mut removed) = acc;
+					match action {
+						OracleUpdateV2::Add(public, activity_window) => {
+							<OraclePublicKeysV2<T, I>>::set(*public, Some(activity_window.clone()));
+							added.push((*public, activity_window.clone()))
+						},
+						OracleUpdateV2::Update(account, activity_window) => {
+							<OraclePublicKeysV2<T, I>>::set(
+								*account,
+								Some(activity_window.clone()),
+							);
+							updated.push((*account, activity_window.clone()))
+						},
+						OracleUpdateV2::Remove(account) => {
+							<OraclePublicKeysV2<T, I>>::remove(account);
+							removed.push(*account)
+						},
+					}
+					(added, updated, removed)
+				});
+
+			// Emit event to inform that the state transmitters were updated
+			Self::deposit_event(Event::OracleUpdatedV2 { added, updated, removed });
+
+			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::No })
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -486,7 +667,82 @@ pub mod pallet {
 			}
 
 			if valid < min_signatures {
-				log::info!("check_signatures failed since not enough valid signatures remain. Unknown oracles: {:?}, inactive oracles: {:?}.", outside_activity_window, outside_activity_window);
+				log::info!("check_signatures failed since not enough valid signatures remain. Unknown oracles: {:?}, inactive oracles: {:?}.", not_found, outside_activity_window);
+				Err(Error::<T, I>::NotEnoughSignaturesValid)?
+			}
+
+			Ok(())
+		}
+
+		pub fn check_signatures_v2(
+			message: &MessageFor<T>,
+			relayer: Option<T::AccountId>,
+			signatures: SignaturesV2,
+			min_signatures: u32,
+		) -> Result<(), Error<T, I>> {
+			ensure!(
+				signatures.len() >= min_signatures as usize,
+				Error::<T, I>::NotEnoughSignaturesProvided
+			);
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			// we always deny invalid signatures but skip signatures for unknown public keys or known public keys outside activity window
+			// this allows for some flexibility while deprecating relayer oracles
+			let mut not_found: Vec<([u8; 65], [u8; PUBLIC_KEY_SERIALIZED_SIZE])> =
+				Default::default();
+			let mut outside_activity_window: Vec<([u8; 65], [u8; PUBLIC_KEY_SERIALIZED_SIZE])> =
+				Default::default();
+			let mut valid = 0;
+			let mut checked: BTreeSet<P256Public> = BTreeSet::new();
+			let full_message: Vec<u8> = if let Some(relayer) = &relayer {
+				(T::ParachainId::get(), message, relayer).encode()
+			} else {
+				(T::ParachainId::get(), message).encode()
+			};
+			signatures.into_iter().try_for_each(
+				|(signature, public)| -> Result<(), Error<T, I>> {
+					match <OraclePublicKeysV2<T, I>>::get(public) {
+						None => {
+							not_found.push((signature.0, public.0));
+						},
+						Some(activity_window) if !checked.contains(&public) => {
+							// valid window is defined inclusive start_block, exclusive end_block
+							if activity_window.start_block <= current_block
+								&& activity_window
+									.end_block
+									.is_none_or(|end_block| current_block < end_block)
+							{
+								// Only consumed by the `ensure!` below, which benchmark builds skip.
+								#[cfg_attr(feature = "runtime-benchmarks", allow(unused_variables))]
+								let is_valid = signature.verify(full_message.as_slice(), &public);
+								#[cfg(not(feature = "runtime-benchmarks"))]
+								ensure!(is_valid, Error::<T, I>::SignatureInvalid);
+								valid += 1;
+								checked.insert(public);
+							} else {
+								outside_activity_window.push((signature.0, public.0));
+							}
+						},
+						_ => {},
+					}
+
+					Ok(())
+				},
+			)?;
+
+			if !not_found.len().is_zero() {
+				log::warn!(
+					"Some provided signatures from unknown public keys provided: {:?}",
+					not_found
+				);
+			}
+			if !outside_activity_window.len().is_zero() {
+				log::warn!("Some provided signatures were invalid since the oracles' public key are outside their activity window: {:?}", outside_activity_window);
+			}
+
+			if valid < min_signatures {
+				log::info!("check_signatures_v2 failed since not enough valid signatures remain. Unknown oracles: {:?}, inactive oracles: {:?}.", not_found, outside_activity_window);
 				Err(Error::<T, I>::NotEnoughSignaturesValid)?
 			}
 

@@ -1,4 +1,10 @@
 use crate::Config;
+/// A compressed secp256r1 (P-256) public key, i.e. the key type of
+/// [`acurast_p256_crypto::MultiSigner::P256`].
+pub use acurast_p256_crypto::application_crypto::p256::Public as P256Public;
+/// A recoverable secp256r1 (P-256) signature, i.e. the signature type of
+/// [`acurast_p256_crypto::MultiSignature::P256`].
+pub use acurast_p256_crypto::application_crypto::p256::Signature as P256Signature;
 use frame_support::{
 	pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::fungible::Inspect,
 };
@@ -16,13 +22,23 @@ pub const SIGNATURES_MAX_LENGTH: u32 = 32;
 
 pub type Signatures = BoundedVec<(Signature, Public), ConstU32<SIGNATURES_MAX_LENGTH>>;
 
+/// secp256r1 (P-256) oracle signatures, checked against [`crate::OraclePublicKeysV2`].
+pub type SignaturesV2 = BoundedVec<(P256Signature, P256Public), ConstU32<SIGNATURES_MAX_LENGTH>>;
+
+/// A well-formed P-256 signature for the benchmarks: `b"acurast"` signed by the key with seed
+/// `[1u8; 32]`, checked by the `p256_signature_vector` test.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+pub(crate) const BENCHMARK_P256_SIGNATURE: [u8; 65] = hex_literal::hex!("c2f38f1efce593920b17f0befda6a7590fc181f6d30b8ff5cdc4af1b503f4c55bf0146087d9f5f1026247a36b0c8b7fcab408e39a22a2956ae078b8de78770ec01");
+
 pub const ORACLE_UPDATES_MAX_LENGTH: u32 = 50;
 pub type OracleUpdates<T> = BoundedVec<OracleUpdateFor<T>, ConstU32<ORACLE_UPDATES_MAX_LENGTH>>;
+pub type OracleUpdatesV2<T> = BoundedVec<OracleUpdateV2For<T>, ConstU32<ORACLE_UPDATES_MAX_LENGTH>>;
 
 pub const MESSAGES_CLEANUP_MAX_LENGTH: u32 = 50;
 pub type MessagesCleanup = BoundedVec<MessageId, ConstU32<MESSAGES_CLEANUP_MAX_LENGTH>>;
 
 pub type OracleUpdateFor<T> = OracleUpdate<BlockNumberFor<T>>;
+pub type OracleUpdateV2For<T> = OracleUpdateV2<BlockNumberFor<T>>;
 
 pub type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -75,6 +91,15 @@ pub enum OracleUpdate<BlockNumber> {
 	Add(Public, ActivityWindow<BlockNumber>),
 	Remove(Public),
 	Update(Public, ActivityWindow<BlockNumber>),
+}
+
+/// Like [`OracleUpdate`], for secp256r1 (P-256) oracles registered in
+/// [`crate::OraclePublicKeysV2`].
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq)]
+pub enum OracleUpdateV2<BlockNumber> {
+	Add(P256Public, ActivityWindow<BlockNumber>),
+	Remove(P256Public),
+	Update(P256Public, ActivityWindow<BlockNumber>),
 }
 
 /// The message (without metadata) that gets signed by oracle and verified by recipient.

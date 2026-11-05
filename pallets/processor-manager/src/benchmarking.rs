@@ -175,25 +175,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn recover_funds() -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		let caller: T::AccountId = alice_account_id().into();
-		whitelist_account!(caller);
-		// The processor must hold a reducible balance, otherwise `recover_assets` short-circuits on
-		// `usable_balance > 0` and the burn/mint the extrinsic exists to perform is never measured.
-		let processor: T::AccountId = T::BenchmarkHelper::funded_account(1);
-		pair::<T>(&caller, &processor)?;
-		// Kept distinct from `caller`: the origin's account is whitelisted, so minting into it would
-		// hide the destination write.
-		let destination: T::AccountId = generate_account(2).into();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), processor.into().into(), destination.into().into());
-
-		Ok(())
-	}
-
-	#[benchmark]
 	fn heartbeat() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
 		let manager: T::AccountId = alice_account_id().into();

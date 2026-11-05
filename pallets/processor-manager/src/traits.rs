@@ -3,13 +3,6 @@ use frame_support::pallet_prelude::{DispatchResult, Weight};
 
 use crate::{BalanceFor, Config, ProcessorPairingFor};
 
-pub trait ProcessorAssetRecovery<T: Config> {
-	fn recover_assets(
-		processor: &T::AccountId,
-		destination_account: &T::AccountId,
-	) -> DispatchResult;
-}
-
 pub trait OnboardingProvider<T: Config> {
 	fn validate_pairing(pairing: &ProcessorPairingFor<T>, is_multi: bool) -> DispatchResult;
 	fn validate_attestation(
@@ -38,7 +31,6 @@ pub trait OnboardingProvider<T: Config> {
 /// Weight functions needed for pallet_acurast_processor_manager.
 pub trait WeightInfo {
 	fn update_processor_pairings(x: u32) -> Weight;
-	fn recover_funds() -> Weight;
 	fn heartbeat() -> Weight;
 	fn heartbeat_with_version() -> Weight;
 	fn heartbeat_with_version_no_claim() -> Weight;

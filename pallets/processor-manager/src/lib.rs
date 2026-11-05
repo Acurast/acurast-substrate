@@ -71,7 +71,6 @@ pub mod pallet {
 		type ManagerId: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + From<u128>;
 		type ManagerIdProvider: ManagerIdProvider<Self::AccountId, Self::ManagerId>;
 		type ComputeHooks: ComputeHooks<Self::AccountId, Self::ManagerId, BalanceFor<Self>>;
-		type ProcessorAssetRecovery: ProcessorAssetRecovery<Self>;
 		type MaxPairingUpdates: Get<u32>;
 		type MaxProcessorsInSetUpdateInfo: Get<u32>;
 		type Counter: Parameter + Member + MaxEncodedLen + Copy + CheckedAdd + Ord + From<u8>;
@@ -321,29 +320,17 @@ pub mod pallet {
 			Err(Error::<T>::CallDeprecated.into())
 		}
 
+		/// DEPRECATED and permanently disabled.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::recover_funds())]
+		#[pallet::weight(T::DbWeight::get().reads(1))]
+		#[allow(unused_variables)]
 		pub fn recover_funds(
 			origin: OriginFor<T>,
 			processor: <T::Lookup as StaticLookup>::Source,
 			destination: <T::Lookup as StaticLookup>::Source,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			let processor_account_id = <T::Lookup as StaticLookup>::lookup(processor)?;
-			_ = Self::ensure_managed(&who, &processor_account_id)?;
-			let destination_account_id = <T::Lookup as StaticLookup>::lookup(destination)?;
-
-			T::ProcessorAssetRecovery::recover_assets(
-				&processor_account_id,
-				&destination_account_id,
-			)?;
-
-			Self::deposit_event(Event::<T>::ProcessorFundsRecovered(
-				processor_account_id,
-				destination_account_id,
-			));
-
-			Ok(().into())
+			let _ = ensure_signed(origin)?;
+			Err(Error::<T>::CallDeprecated.into())
 		}
 
 		#[pallet::call_index(3)]

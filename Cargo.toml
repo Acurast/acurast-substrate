@@ -69,7 +69,6 @@ pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselecti
 pallet-acurast-token-conversion = { path = "./pallets/token-conversion", default-features = false }
 pallet-acurast-token-claim = { path = "./pallets/token-claim", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
-acurast-hyperdrive-substrate-core = { path = "./hyperdrive/substrate-core", default-features = false }
 
 acurast-runtime-common = { path = "runtime/common", default-features = false }
 acurast-rococo-runtime = { path = "runtime/acurast-rococo", default-features = false }

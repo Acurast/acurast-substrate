@@ -1,8 +1,4 @@
-use frame_support::traits::{
-	fungible::{Inspect, Mutate},
-	nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
-	tokens::{Fortitude, Precision, Preservation},
-};
+use frame_support::traits::nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable};
 use sp_core::{ConstU128, ConstU32};
 use sp_std::prelude::*;
 
@@ -21,7 +17,6 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type ManagerId = u128;
 	type ManagerIdProvider = AcurastManagerIdProvider;
 	type ComputeHooks = AcurastCompute;
-	type ProcessorAssetRecovery = AcurastProcessorRecovery;
 	type MaxPairingUpdates = ConstU32<20>;
 	type MaxProcessorsInSetUpdateInfo = ConstU32<100>;
 	type Counter = u64;
@@ -92,33 +87,5 @@ impl
 				"Onwer for provided Manager ID not found",
 			),
 		)
-	}
-}
-
-pub struct AcurastProcessorRecovery;
-impl pallet_acurast_processor_manager::ProcessorAssetRecovery<Runtime>
-	for AcurastProcessorRecovery
-{
-	fn recover_assets(
-		processor: &<Runtime as frame_system::Config>::AccountId,
-		destination_account: &<Runtime as frame_system::Config>::AccountId,
-	) -> frame_support::pallet_prelude::DispatchResult {
-		let usable_balance = <Balances as Inspect<_>>::reducible_balance(
-			processor,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		if usable_balance > 0 {
-			let burned = <Balances as Mutate<_>>::burn_from(
-				processor,
-				usable_balance,
-				Preservation::Preserve,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)?;
-			Balances::mint_into(destination_account, burned)?;
-		}
-
-		Ok(())
 	}
 }

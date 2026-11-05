@@ -1,6 +1,6 @@
 use core::ops::AddAssign as _;
 use frame_support::{
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	sp_runtime::{BoundedVec, DispatchError},
 	traits::Get,
@@ -82,13 +82,14 @@ impl<T: Config> Pallet<T> {
 		Ok(().into())
 	}
 
-	pub fn deregister_for(job_id: JobId<T::AccountId>) -> DispatchResultWithPostInfo {
+	/// Deregisters the job and returns the number of execution environments removed.
+	pub fn deregister_for(job_id: JobId<T::AccountId>) -> Result<u32, DispatchErrorWithPostInfo> {
 		<T as Config>::JobHooks::deregister_hook(&job_id)?;
-		Self::clear_environment_for(&job_id);
+		let removed_environments = Self::clear_environment_for(&job_id);
 		<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
 		<RequiredMinMetrics<T>>::remove(&job_id);
 		Self::deposit_event(Event::JobRegistrationRemoved(job_id));
-		Ok(().into())
+		Ok(removed_environments)
 	}
 
 	pub fn set_environment_for(
@@ -106,8 +107,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn clear_environment_for(job_id: &JobId<T::AccountId>) {
-		let _ = <ExecutionEnvironment<T>>::clear_prefix(job_id, T::MaxSlots::get(), None);
+	/// Removes up to [`Config::MaxSlots`] execution environments of the job from the backend and returns how many were removed.
+	pub fn clear_environment_for(job_id: &JobId<T::AccountId>) -> u32 {
+		<ExecutionEnvironment<T>>::clear_prefix(job_id, T::MaxSlots::get(), None).backend
 	}
 }
 

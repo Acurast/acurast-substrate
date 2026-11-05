@@ -6,7 +6,7 @@ use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_std::prelude::*;
 
-use acurast_common::{AttestationChain, JobRegistration, Script};
+use acurast_common::{AttestationChain, JobRegistration, Script, PUB_KEYS_MAX_LENGTH};
 
 use crate::{
 	utils::{validate_and_extract_attestation, validate_and_extract_attestation_with_rkp_cert},
@@ -184,6 +184,24 @@ fn environment<T: Config>(vars: u32) -> EnvironmentFor<T> {
 	}
 }
 
+fn max_environment<T: Config>() -> EnvironmentFor<T> {
+	let key = vec![1u8; T::EnvKeyMaxSize::get() as usize];
+	let value = vec![2u8; T::EnvValueMaxSize::get() as usize];
+	Environment {
+		public_key: BoundedVec::truncate_from(vec![3u8; PUB_KEYS_MAX_LENGTH as usize]),
+		variables: BoundedVec::truncate_from(
+			(0..T::MaxEnvVars::get())
+				.map(|_| {
+					(
+						BoundedVec::truncate_from(key.clone()),
+						BoundedVec::truncate_from(value.clone()),
+					)
+				})
+				.collect::<Vec<_>>(),
+		),
+	}
+}
+
 #[benchmarks(
 	where
 		T: pallet_timestamp::Config<Moment = u64>,
@@ -216,17 +234,24 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn deregister() {
+	fn deregister(x: Linear<0, { T::MaxSlots::get() }>) {
 		set_timestamp::<T>(1000);
 		let (caller, _) = register_job::<T>(true, false);
 		let local_job_id = 1;
+		let job_id = (MultiOrigin::Acurast(caller.clone()), local_job_id);
+		for i in 0..x {
+			<ExecutionEnvironment<T>>::insert(
+				&job_id,
+				account::<T::AccountId>("processor", i, SEED),
+				max_environment::<T>(),
+			);
+		}
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), local_job_id);
 
-		assert_last_event::<T>(
-			Event::<T>::JobRegistrationRemoved((MultiOrigin::Acurast(caller), local_job_id)).into(),
-		);
+		assert!(<ExecutionEnvironment<T>>::iter_key_prefix(&job_id).next().is_none());
+		assert_last_event::<T>(Event::<T>::JobRegistrationRemoved(job_id).into());
 	}
 
 	#[benchmark]

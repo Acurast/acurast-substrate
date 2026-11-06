@@ -578,3 +578,15 @@ fn test_refund_transfers_fail_bad_origin() {
 		);
 	});
 }
+
+#[test]
+fn test_clean_incoming_without_work_pays_fee() {
+	new_test_ext().execute_with(|| {
+		let post = AcurastHyperdriveIbc::clean_incoming(
+			RuntimeOrigin::signed(alice_account_id()),
+			Default::default(),
+		)
+		.unwrap();
+		assert_eq!(post.pays_fee, frame_support::dispatch::Pays::Yes);
+	});
+}

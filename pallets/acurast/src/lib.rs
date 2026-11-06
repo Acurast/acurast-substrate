@@ -82,8 +82,9 @@ pub mod pallet {
 	use sp_std::prelude::*;
 
 	use crate::{
-		traits::*, utils::ensure_source_verified, EnsureRevoker, EnvironmentFor,
-		JobRegistrationFor, OsThreshold,
+		traits::*,
+		utils::{ensure_source_verified, is_unrevocable_serial},
+		EnsureRevoker, EnvironmentFor, JobRegistrationFor, OsThreshold,
 	};
 
 	#[pallet::config]
@@ -308,6 +309,8 @@ pub mod pallet {
 		InvalidOsVersion,
 		/// The attested OS security patch level is denied.
 		OsPatchLevelDenied,
+		/// The serial is shared by every attestation of a platform and only [Config::UpdateOrigin] can revoke it.
+		UnrevocableCertificate,
 	}
 
 	#[pallet::call]
@@ -427,7 +430,8 @@ pub mod pallet {
 		}
 
 		/// Updates the certificate revocation list by adding or removing a revoked certificate serial number. Attestations signed
-		/// by a revoked certificate will not be considered valid anymore. Callable by [Config::UpdateOrigin] or an account in [Revokers].
+		/// by a revoked certificate will not be considered valid anymore. Callable by [Config::UpdateOrigin] or an account in [Revokers];
+		/// only [Config::UpdateOrigin] may revoke a serial shared by every attestation of a platform.
 		#[pallet::weight(<T as Config>::WeightInfo::update_certificate_revocation_list(updates.len() as u32))]
 		#[pallet::call_index(6)]
 		pub fn update_certificate_revocation_list(
@@ -437,12 +441,18 @@ pub mod pallet {
 				T::MaxCertificateRevocationListUpdates,
 			>,
 		) -> DispatchResultWithPostInfo {
-			EitherOfDiverse::<T::UpdateOrigin, EnsureRevoker<T>>::ensure_origin(origin)
-				.map_err(|_| Error::<T>::CertificateRevocationListUpdateNotAllowed)?;
+			let by_revoker =
+				EitherOfDiverse::<T::UpdateOrigin, EnsureRevoker<T>>::ensure_origin(origin)
+					.map_err(|_| Error::<T>::CertificateRevocationListUpdateNotAllowed)?
+					.is_right();
 
 			for update in &updates {
 				match &update.operation {
 					ListUpdateOperation::Add => {
+						ensure!(
+							!(by_revoker && is_unrevocable_serial(&update.item)),
+							Error::<T>::UnrevocableCertificate
+						);
 						<StoredRevokedCertificate<T>>::insert(&update.item, ());
 					},
 					ListUpdateOperation::Remove => {

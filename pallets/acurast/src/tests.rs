@@ -1158,3 +1158,59 @@ fn deregister_charges_for_removed_environments_only() {
 		);
 	});
 }
+
+#[test]
+fn set_environment_caps_environments_per_job() {
+	let source = |i: u32| {
+		let mut raw = [0u8; 32];
+		raw[..4].copy_from_slice(&i.to_le_bytes());
+		AccountId32::new(raw)
+	};
+	let env = || Environment {
+		public_key: BoundedVec::truncate_from(vec![1u8; 33]),
+		variables: BoundedVec::default(),
+	};
+	let mut ext = ExtBuilder.build();
+	let job_id = ext.execute_with(|| {
+		let local_job_id = Acurast::job_id_sequence() + 1;
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			job_registration(None, false),
+		));
+		assert_ok!(Acurast::set_environments(
+			RuntimeOrigin::signed(alice_account_id()),
+			local_job_id,
+			BoundedVec::truncate_from((0..64).map(|i| (source(i), env())).collect::<Vec<_>>()),
+		));
+		(MultiOrigin::Acurast(alice_account_id()), local_job_id)
+	});
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		assert_err!(
+			Acurast::set_environment(
+				RuntimeOrigin::signed(alice_account_id()),
+				job_id.1,
+				source(64),
+				env(),
+			),
+			Error::<Test>::TooManyEnvironments
+		);
+		assert_err!(
+			Acurast::set_environments(
+				RuntimeOrigin::signed(alice_account_id()),
+				job_id.1,
+				bounded_vec![(source(0), env()), (source(64), env())],
+			),
+			Error::<Test>::TooManyEnvironments
+		);
+		assert_ok!(Acurast::set_environment(
+			RuntimeOrigin::signed(alice_account_id()),
+			job_id.1,
+			source(63),
+			env(),
+		));
+
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id.1));
+		assert_eq!(crate::ExecutionEnvironment::<Test>::iter_key_prefix(&job_id).count(), 0);
+	});
+}

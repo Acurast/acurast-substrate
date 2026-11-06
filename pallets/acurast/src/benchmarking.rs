@@ -184,6 +184,17 @@ fn environment<T: Config>(vars: u32) -> EnvironmentFor<T> {
 	}
 }
 
+/// Stores `n` environments for `job_id`, one per `processor` account `0..n`.
+fn fill_environments<T: Config>(job_id: &JobId<T::AccountId>, n: u32) {
+	for i in 0..n {
+		<ExecutionEnvironment<T>>::insert(
+			job_id,
+			account::<T::AccountId>("processor", i, SEED),
+			environment::<T>(1),
+		);
+	}
+}
+
 fn max_environment<T: Config>() -> EnvironmentFor<T> {
 	let key = vec![1u8; T::EnvKeyMaxSize::get() as usize];
 	let value = vec![2u8; T::EnvValueMaxSize::get() as usize];
@@ -325,6 +336,10 @@ mod benchmarks {
 		set_timestamp::<T>(1000);
 		let (caller, _) = register_job::<T>(true, false);
 		let local_job_id = 1;
+		fill_environments::<T>(
+			&(MultiOrigin::Acurast(caller.clone()), local_job_id),
+			T::MaxSlots::get(),
+		);
 
 		#[extrinsic_call]
 		_(
@@ -349,6 +364,10 @@ mod benchmarks {
 		let environments: Vec<(T::AccountId, EnvironmentFor<T>)> =
 			(0..x).map(|j| (account("processor", j, SEED), environment::<T>(y))).collect();
 		let local_job_id = 1;
+		fill_environments::<T>(
+			&(MultiOrigin::Acurast(caller.clone()), local_job_id),
+			T::MaxSlots::get(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), local_job_id, environments.try_into().unwrap());

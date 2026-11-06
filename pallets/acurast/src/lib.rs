@@ -311,6 +311,8 @@ pub mod pallet {
 		OsPatchLevelDenied,
 		/// The serial is shared by every attestation of a platform and only [Config::UpdateOrigin] can revoke it.
 		UnrevocableCertificate,
+		/// The job already holds an execution environment for [`Config::MaxSlots`] sources.
+		TooManyEnvironments,
 	}
 
 	#[pallet::call]

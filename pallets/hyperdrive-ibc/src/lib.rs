@@ -405,7 +405,7 @@ pub mod pallet {
 				}
 			}
 
-			if i == l {
+			if i == l && i > 0 {
 				Ok(Pays::No.into())
 			} else {
 				Ok(().into())

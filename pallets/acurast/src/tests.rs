@@ -6,7 +6,10 @@ use acurast_common::{Environment, MinMetric, MultiOrigin};
 
 use crate::{
 	mock::*,
-	utils::{is_os_version_denied, validate_and_extract_attestation},
+	utils::{
+		is_os_version_denied, is_unrevocable_serial, validate_and_extract_attestation,
+		UNREVOCABLE_SERIALS,
+	},
 	AllowedSourcesUpdate, AttestationChain, CertificateRevocationListUpdate, Error, ListUpdate,
 	ListUpdateOperation, OsThreshold, Revokers, SerialNumber,
 };
@@ -629,6 +632,64 @@ fn test_update_revocation_list_by_revoker() {
 }
 
 #[test]
+fn test_update_revocation_list_rejects_unrevocable_serials() {
+	ExtBuilder.build().execute_with(|| {
+		let _ = Timestamp::set(RuntimeOrigin::none(), 1657363915001);
+		let attestation =
+			validate_and_extract_attestation::<Test>(&processor_account_id(), &attestation_chain())
+				.unwrap();
+		assert!(is_unrevocable_serial(&attestation.cert_ids[0].1));
+		assert!(is_unrevocable_serial(&attestation.cert_ids[3].1));
+		assert!(!is_unrevocable_serial(&cert_serial_number()));
+
+		assert_ok!(Acurast::update_revokers(
+			RuntimeOrigin::root(),
+			vec![ListUpdate { operation: ListUpdateOperation::Add, item: alice_account_id() }]
+				.try_into()
+				.unwrap(),
+		));
+		for serial in UNREVOCABLE_SERIALS {
+			let serial: SerialNumber = serial.to_vec().try_into().unwrap();
+			let updates = |operation| -> BoundedVec<_, _> {
+				vec![
+					CertificateRevocationListUpdate { operation, item: cert_serial_number() },
+					CertificateRevocationListUpdate { operation, item: serial.clone() },
+				]
+				.try_into()
+				.unwrap()
+			};
+			assert_err!(
+				Acurast::update_certificate_revocation_list(
+					RuntimeOrigin::signed(alice_account_id()),
+					updates(ListUpdateOperation::Add),
+				),
+				Error::<Test>::UnrevocableCertificate,
+			);
+			assert_eq!(None, Acurast::stored_revoked_certificate::<SerialNumber>(serial.clone()));
+			assert_eq!(
+				None,
+				Acurast::stored_revoked_certificate::<SerialNumber>(cert_serial_number())
+			);
+
+			assert_ok!(Acurast::update_certificate_revocation_list(
+				RuntimeOrigin::root(),
+				updates(ListUpdateOperation::Add),
+			));
+			assert_eq!(
+				Some(()),
+				Acurast::stored_revoked_certificate::<SerialNumber>(serial.clone())
+			);
+
+			assert_ok!(Acurast::update_certificate_revocation_list(
+				RuntimeOrigin::signed(alice_account_id()),
+				updates(ListUpdateOperation::Remove),
+			));
+			assert_eq!(None, Acurast::stored_revoked_certificate::<SerialNumber>(serial.clone()));
+		}
+	});
+}
+
+#[test]
 fn test_update_revocation_list_submit_attestation() {
 	ExtBuilder.build().execute_with(|| {
 		let updates = vec![CertificateRevocationListUpdate {
@@ -842,6 +903,16 @@ mod rkp {
 
 	fn setup() {
 		let _ = Timestamp::set(RuntimeOrigin::none(), 1_789_323_732_000);
+	}
+
+	#[test]
+	fn rkp_root_serial_is_unrevocable() {
+		let (account, chain) = genuine();
+		ExtBuilder.build().execute_with(|| {
+			setup();
+			let attestation = validate_and_extract_attestation::<Test>(&account, &chain).unwrap();
+			assert!(crate::utils::is_unrevocable_serial(&attestation.cert_ids[0].1));
+		});
 	}
 
 	#[test]

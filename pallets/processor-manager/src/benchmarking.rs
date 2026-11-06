@@ -530,6 +530,7 @@ mod benchmarks {
 		set_timestamp::<T>(1000);
 		let endpoint: Endpoint = b"https://my-management-endpoint.io".to_vec().try_into().unwrap();
 		let caller: T::AccountId = alice_account_id().into();
+		Pallet::<T>::do_get_or_create_manager_id(&caller)?;
 		whitelist_account!(caller);
 
 		#[extrinsic_call]

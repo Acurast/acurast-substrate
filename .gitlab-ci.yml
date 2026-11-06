@@ -25,6 +25,7 @@ variables:
 
 stages:
   - benchmarking
+  - format
   - checks
   - build
   - publish
@@ -35,8 +36,8 @@ stages:
     - apt update && apt install --assume-yes git clang libclang-dev curl libssl-dev llvm libudev-dev make protobuf-compiler
 
 format-check:
-  stage: checks
-  extends: .prepare_rust
+  stage: format
+  image: rust:1.93.0
   script:
     - cargo fmt --check
 
@@ -62,7 +63,10 @@ build-mainnet:
 
 build-canary:
   stage: build
-  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: manual
+      allow_failure: true
   variables:
     LOCAL_ACURAST: "acurast-$CI_PIPELINE_ID"
   script:
@@ -104,6 +108,8 @@ build-dev-experimental:
 
 publish-dockerhub-canary:
   stage: publish
+  needs:
+    - build-canary
   variables:
     IMAGE_TAG: $DOCKERHUB_CANARY_BASE:$CI_COMMIT_TAG
   rules:

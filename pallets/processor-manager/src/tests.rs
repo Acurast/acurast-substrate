@@ -1,6 +1,6 @@
 use crate::{
-	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
-	ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
+	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, ManagementEndpoint,
+	OnboardingSettings, ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
 use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{
@@ -708,5 +708,34 @@ fn test_validate_processor_keeps_pairing_of_revoked_processor() {
 		assert_eq!(None, Acurast::stored_attestation(&processor_account));
 		assert!(AcurastProcessorManager::manager_id_for_processor(&processor_account).is_some());
 		assert!(AcurastProcessorManager::processor_last_seen(&processor_account).is_some());
+	});
+}
+
+#[test]
+fn test_set_management_endpoint_requires_existing_manager() {
+	ExtBuilder.build().execute_with(|| {
+		let stranger = bob_account_id();
+		let endpoint: crate::Endpoint = b"https://endpoint.example".to_vec().try_into().unwrap();
+
+		assert!(AcurastProcessorManager::set_management_endpoint(
+			RuntimeOrigin::signed(stranger.clone()),
+			Some(endpoint.clone())
+		)
+		.is_err());
+		assert_eq!(None, AcurastProcessorManager::last_manager_id());
+		assert!(<Test as crate::Config>::ManagerIdProvider::manager_id_for(&stranger).is_err());
+
+		let (manager_id, _) =
+			AcurastProcessorManager::do_get_or_create_manager_id(&stranger).unwrap();
+		assert_ok!(AcurastProcessorManager::set_management_endpoint(
+			RuntimeOrigin::signed(stranger.clone()),
+			Some(endpoint.clone())
+		));
+		assert_eq!(Some(endpoint), ManagementEndpoint::<Test>::get(manager_id));
+		assert_ok!(AcurastProcessorManager::set_management_endpoint(
+			RuntimeOrigin::signed(stranger),
+			None
+		));
+		assert_eq!(None, ManagementEndpoint::<Test>::get(manager_id));
 	});
 }

@@ -96,9 +96,18 @@ impl<T: Config> Pallet<T> {
 		job_id: JobId<T::AccountId>,
 		environments: BoundedVec<(T::AccountId, EnvironmentFor<T>), T::MaxSlots>,
 	) -> Result<(), Error<T>> {
+		ensure!(
+			<StoredJobRegistration<T>>::contains_key(&job_id.0, job_id.1),
+			Error::<T>::JobRegistrationNotFound
+		);
+		// keep the prefix within what `clear_environment_for` can remove
+		let max = T::MaxSlots::get() as usize;
+		let mut stored = <ExecutionEnvironment<T>>::iter_key_prefix(&job_id).take(max).count();
 		for (source, env) in environments {
-			let _registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-				.ok_or(Error::<T>::JobRegistrationNotFound)?;
+			if !<ExecutionEnvironment<T>>::contains_key(&job_id, &source) {
+				ensure!(stored < max, Error::<T>::TooManyEnvironments);
+				stored += 1;
+			}
 			<ExecutionEnvironment<T>>::insert(&job_id, &source, env);
 		}
 

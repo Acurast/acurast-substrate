@@ -1,6 +1,6 @@
 use crate::{
-	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, OnboardingSettings,
-	ManagementEndpoint, ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
+	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, ManagementEndpoint,
+	OnboardingSettings, ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
 };
 use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{

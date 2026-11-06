@@ -177,6 +177,8 @@ impl BenchmarkHelper<Test> for () {
 	fn dummy_signature() -> MultiSignature {
 		use sp_core::crypto::UncheckedFrom;
 
-		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		let mut sig = [0u8; 64];
+		sig[63] = 0x80;
+		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from(sig))
 	}
 }

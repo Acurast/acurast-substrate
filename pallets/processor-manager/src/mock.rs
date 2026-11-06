@@ -257,7 +257,9 @@ impl<AccountId: Clone> ManagerLookup for MockManagerProvider<AccountId> {
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::BenchmarkHelper<Test> for () {
 	fn dummy_proof() -> <Test as Config>::Proof {
-		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		let mut sig = [0u8; 64];
+		sig[63] = 0x80;
+		MultiSignature::Sr25519(sp_core::sr25519::Signature::unchecked_from(sig))
 	}
 
 	fn advertisement() -> <Test as Config>::Advertisement {}

@@ -217,7 +217,10 @@ impl pallet_acurast_marketplace::BenchmarkHelper<Runtime> for AcurastBenchmarkHe
 
 impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn dummy_proof() -> <Runtime as pallet_acurast_processor_manager::Config>::Proof {
-		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		// schnorrkel marker bit set so verification runs the full curve math
+		let mut sig = [0u8; 64];
+		sig[63] = 0x80;
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from(sig))
 	}
 
 	fn advertisement() -> <Runtime as pallet_acurast_processor_manager::Config>::Advertisement {
@@ -393,6 +396,9 @@ impl pallet_acurast_processor_manager::BenchmarkHelper<Runtime> for AcurastBench
 
 impl pallet_acurast_token_claim::BenchmarkHelper<Runtime> for AcurastBenchmarkHelper {
 	fn dummy_signature() -> <Runtime as pallet_acurast_token_claim::Config>::Signature {
-		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from([0u8; 64]))
+		// schnorrkel marker bit set so verification runs the full curve math
+		let mut sig = [0u8; 64];
+		sig[63] = 0x80;
+		Signature::Sr25519(sp_core::sr25519::Signature::unchecked_from(sig))
 	}
 }

@@ -539,7 +539,7 @@ pub mod pallet {
 			endpoint: Option<Endpoint>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let (manager_id, _) = Self::do_get_or_create_manager_id(&who)?;
+			let manager_id = T::ManagerIdProvider::manager_id_for(&who)?;
 			if let Some(endpoint) = endpoint {
 				<ManagementEndpoint<T>>::insert(manager_id, endpoint);
 			} else {

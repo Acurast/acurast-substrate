@@ -960,8 +960,10 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Weighed for `2 * MaxSlots` assignments, the bound for a `Competing` job (two consecutive
+		/// executions' matches); refunded to the number actually removed.
 		#[pallet::call_index(16)]
-		#[pallet::weight(< T as Config >::WeightInfo::cleanup_job_assignments())]
+		#[pallet::weight(< T as Config >::WeightInfo::cleanup_job_assignments(2 * T::MaxSlots::get()))]
 		pub fn cleanup_job_assignments(
 			origin: OriginFor<T>,
 			job_id: JobId<T::AccountId>,
@@ -972,13 +974,15 @@ pub mod pallet {
 			let is_expired = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
 				.map(|job| job.schedule.is_expired(now, T::ReportTolerance::get()))
 				.unwrap_or(true);
+			let mut removed: u32 = 0;
 			if is_expired {
 				for (p, _) in <AssignedProcessors<T>>::drain_prefix(&job_id) {
 					<StoredMatches<T>>::remove(&p, &job_id);
+					removed = removed.saturating_add(1);
 				}
 				Self::deposit_event(Event::JobAssignmentsCleanedUp(job_id));
 			}
-			Ok(().into())
+			Ok(Some(<T as Config>::WeightInfo::cleanup_job_assignments(removed)).into())
 		}
 
 		#[pallet::call_index(17)]

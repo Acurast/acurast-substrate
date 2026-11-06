@@ -500,8 +500,6 @@ where
 
 	assert_eq!(status, Some(JobStatus::Matched));
 
-	<T as Config>::BenchmarkHelper::remove_job_registration(&job_id);
-
 	Ok(job_id)
 }
 
@@ -907,6 +905,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(BENCH_NOW);
 		let job_id = cleanup_storage_helper::<T>(None, x as u8)?;
+		<T as Config>::BenchmarkHelper::remove_job_registration(&job_id);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, job_id, x as u8);
@@ -1044,63 +1043,29 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn cleanup_job_assignments() -> Result<(), BenchmarkError> {
+	fn cleanup_job_assignments(
+		x: Linear<1, { 2 * <T as pallet_acurast::Config>::MaxSlots::get() }>,
+	) -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(BENCH_NOW);
-		let slots: u8 = T::MaxSlots::get() as u8;
 		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u64::MAX.into());
-		let processors = (0..slots)
-			.map(|index| {
-				<T as Config>::BenchmarkHelper::funded_account((index + 1) as u32, 0u8.into())
-			})
+		let job_id = cleanup_storage_helper::<T>(Some(consumer.clone()), x as u8)?;
+
+		// The helper matches whole executions (multiples of `MaxSlots`); trim to exactly `x`.
+		let surplus = <AssignedProcessors<T>>::iter_prefix(&job_id)
+			.skip(x as usize)
+			.map(|(p, _)| p)
 			.collect::<Vec<_>>();
-		let (manager_id, _) =
-			pallet_acurast_processor_manager::Pallet::<T>::do_get_or_create_manager_id(&consumer)?;
-		for processor in &processors {
-			pallet_acurast_processor_manager::Pallet::<T>::do_add_processor_manager_pairing(
-				processor, manager_id,
-			)?;
-			let ad = advertisement::<T>(1, 1_000_000);
-			assert_ok!(AcurastMarketplace::<T>::advertise(
-				RawOrigin::Signed(processor.clone()).into(),
-				ad
-			));
+		for p in surplus {
+			<AssignedProcessors<T>>::remove(&job_id, &p);
+			<StoredMatches<T>>::remove(&p, &job_id);
 		}
+		assert_eq!(<AssignedProcessors<T>>::iter_prefix(&job_id).count(), x as usize);
 
-		let job = job_registration_with_reward::<T>(
-			script(),
-			slots,
-			<T as Config>::MinDuration::get(),
-			500_000_000_000,
-			0,
-			0,
-			0,
-			None,
-			Some(
-				processors
-					.into_iter()
-					.map(|processor| PlannedExecution { source: processor, start_delay: 0 })
-					.collect::<Vec<_>>(),
-			),
-		);
-		assert_ok!(Acurast::<T>::register(RawOrigin::Signed(consumer.clone()).into(), job.clone()));
-		let job_id_sequence = Acurast::<T>::job_id_sequence();
-		let job_id = (MultiOrigin::Acurast(consumer.clone()), job_id_sequence);
-
-		// The instant match must have produced one assignment per slot; otherwise the extrinsic below
-		// has nothing to drain and the weight describes an empty call.
-		assert_eq!(<AssignedProcessors<T>>::iter_prefix(&job_id).count(), slots as usize);
-
-		// The clock has to pass the schedule's real expiry, which `is_expired` computes as
-		// `actual_end(actual_start(max_start_delay)) + ReportTolerance` — NOT `end_time`.
-		//
-		// This was `end_time + 1`, which stopped being past expiry once this benchmark switched from
-		// `duration: 1` to `Config::MinDuration` (60s): `actual_end` then landed 4_999 ms (exactly
-		// `max_start_delay`) beyond `end_time + 1`, so `is_expired` was false, the drain loop never
-		// ran, and the generated weight claimed 0 writes for an extrinsic that removes up to
-		// `MaxSlots` (64) assignments — 128 writes in the previous, working weight set.
-		let expiry = job
-			.schedule
-			.actual_end(job.schedule.actual_start(job.schedule.max_start_delay))
+		let schedule = pallet_acurast::StoredJobRegistration::<T>::get(&job_id.0, job_id.1)
+			.ok_or(BenchmarkError::Stop("job registration missing"))?
+			.schedule;
+		let expiry = schedule
+			.actual_end(schedule.actual_start(schedule.max_start_delay))
 			.saturating_add(<T as Config>::ReportTolerance::get());
 		pallet_timestamp::Now::<T>::put(expiry + 1);
 

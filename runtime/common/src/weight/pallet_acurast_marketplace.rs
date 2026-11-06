@@ -422,19 +422,19 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Acurast::StoredJobRegistration` (r:1 w:0)
 	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34818), added: 37293, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastMarketplace::AssignedProcessors` (r:65 w:64)
+	/// Storage: `AcurastMarketplace::AssignedProcessors` (r:129 w:128)
 	/// Proof: `AcurastMarketplace::AssignedProcessors` (`max_values`: None, `max_size`: Some(118), added: 2593, mode: `MaxEncodedLen`)
-	/// Storage: `AcurastMarketplace::StoredMatches` (r:0 w:64)
+	/// Storage: `AcurastMarketplace::StoredMatches` (r:0 w:128)
 	/// Proof: `AcurastMarketplace::StoredMatches` (`max_values`: None, `max_size`: Some(345), added: 2820, mode: `MaxEncodedLen`)
-	fn cleanup_job_assignments() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6798`
-		//  Estimated: `169535`
-		// Minimum execution time: 400_912_000 picoseconds.
-		Weight::from_parts(629_770_500, 0)
-			.saturating_add(Weight::from_parts(0, 169535))
-			.saturating_add(T::DbWeight::get().reads(67))
-			.saturating_add(T::DbWeight::get().writes(128))
+	/// The range of component `x` is `[1, 128]`.
+	fn cleanup_job_assignments(x: u32, ) -> Weight {
+		Weight::from_parts(40_486_660, 0)
+			.saturating_add(Weight::from_parts(0, 38786))
+			.saturating_add(Weight::from_parts(9_207_560, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
+			.saturating_add(Weight::from_parts(0, 2593).saturating_mul(x.into()))
 	}
 	/// Storage: `AcurastMarketplace::JobPriceSettings` (r:0 w:1)
 	/// Proof: `AcurastMarketplace::JobPriceSettings` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)

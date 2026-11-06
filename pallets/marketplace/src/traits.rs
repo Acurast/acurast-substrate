@@ -22,7 +22,7 @@ pub trait WeightInfo {
 	fn transfer_editor() -> Weight;
 	fn deploy() -> Weight;
 	fn update_min_fee_per_millisecond() -> Weight;
-	fn cleanup_job_assignments() -> Weight;
+	fn cleanup_job_assignments(x: u32) -> Weight;
 	fn update_price_settings() -> Weight;
 	fn cleanup_job_matcher() -> Weight;
 	fn update_available_modules() -> Weight;

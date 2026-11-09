@@ -260,27 +260,12 @@ impl Verify for MultiSignature {
 				msig.verify(msg, signer)
 			},
 			(Self::P256(ref sig), who) => {
-				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
-					.and_then(|signature| signature.recover_verifying_key(msg.get()))
-					.map(|pubkey| {
-						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice())
-							== <dyn AsRef<[u8; 32]>>::as_ref(who)
-					})
-					.unwrap_or(false)
+				sig.recover(msg.get()).is_some_and(|pubkey| p256_account_matches(&pubkey, who))
 			},
 			(Self::P256WithAuthData(sig, auth_data, client_context), who) => {
-				p256::ecdsa::recoverable::Signature::try_from(sig.as_ref())
-					.and_then(|signature| {
-						let msg_bytes = msg.get();
-						let signed_msg =
-							Self::construct_full_message(msg_bytes, auth_data, client_context);
-						signature.recover_verifying_key(&signed_msg)
-					})
-					.map(|pubkey| {
-						&sp_io::hashing::blake2_256(pubkey.to_bytes().as_slice())
-							== <dyn AsRef<[u8; 32]>>::as_ref(who)
-					})
-					.unwrap_or(false)
+				let signed_msg = Self::construct_full_message(msg.get(), auth_data, client_context);
+				sig.recover(&signed_msg)
+					.is_some_and(|pubkey| p256_account_matches(&pubkey, who))
 			},
 			(Self::Ed25519WithPrefix(sig, prefix), _) => {
 				let msig: SPMultiSignature = (*sig).into();
@@ -311,6 +296,12 @@ impl Verify for MultiSignature {
 			},
 		}
 	}
+}
+
+/// P-256 account ids are the blake2-256 hash of the compressed public key.
+fn p256_account_matches(pubkey: &p256::ecdsa::VerifyingKey, who: &AccountId32) -> bool {
+	&sp_io::hashing::blake2_256(&crate::core::p256::compressed(pubkey))
+		== <dyn AsRef<[u8; 32]>>::as_ref(who)
 }
 
 use base64::{
@@ -344,6 +335,57 @@ impl MultiSignature {
 			[auth_data.as_slice(), &msg].concat()
 		} else {
 			sp_io::hashing::sha2_256(&[auth_data.as_slice(), &msg].concat()).to_vec()
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use hex_literal::hex;
+
+	// Produced with the previous `p256` fork (Acurast/elliptic-curves), so these pin that
+	// signatures accepted before the switch to upstream `p256` still are.
+	const PUBLIC: [u8; 33] =
+		hex!("020217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed");
+	const MESSAGE: [u8; 256] = [0xAB; 256];
+
+	fn account() -> AccountId32 {
+		sp_io::hashing::blake2_256(&PUBLIC).into()
+	}
+
+	#[test]
+	fn p256_verifies_fork_signature() {
+		let sig = MultiSignature::P256(Signature(hex!("4c726995e2c4f8f6a002449a18e3f9fcdb31edc2462d25f5b10359996c4fac05b9b3582cdf90fcc8aeac1b76e9868a15131b19be632bfc1f8ffc73a27a4877aa00")));
+		assert!(sig.verify(&MESSAGE[..], &account()));
+		assert!(!sig.verify(&MESSAGE[..255], &account()));
+		assert!(!sig.verify(&MESSAGE[..], &AccountId32::new([0; 32])));
+	}
+
+	#[test]
+	fn p256_with_auth_data_verifies_fork_signature() {
+		let sig = MultiSignature::P256WithAuthData(
+			Signature(hex!("708f023f182e5ad2e4636c0bf1670e0c4646f3e58ca945b3551ef3af060af8bf4d9bde1023528c2c79c3603d577e8dba84162d4aee330f7b7a7dc9106fb2d78e00")),
+			vec![0xA1; 256].try_into().unwrap(),
+			Some((vec![0xC1; 500].try_into().unwrap(), vec![0xC2; 500].try_into().unwrap())),
+		);
+		assert!(sig.verify(&MESSAGE[..], &account()));
+		assert!(!sig.verify(&MESSAGE[..255], &account()));
+	}
+
+	// Android Keystore does not normalize `s`, so high-S signatures must keep verifying.
+	// Rejecting them would be a consensus-visible change.
+	#[test]
+	fn p256_accepts_high_s_like_the_fork() {
+		let who: AccountId32 = sp_io::hashing::blake2_256(&hex!(
+			"02c156afee1ce52ef83a0dd168c1144eb20008697e6664fa132ba23c128cce8055"
+		))
+		.into();
+		for sig in [
+			hex!("696e710fc4516d0a2ba91162777b5f0a4d0e9849a6121a4bae00a0d2df70b5d2ef6e26b0191024872aa22530ed3bef47cd8b0c635e659c79a4cc4a1533013b9c01"),
+			hex!("696e710fc4516d0a2ba91162777b5f0a4d0e9849a6121a4bae00a0d2df70b5d21091d94ee6efdb79d55ddacf12c410b7ef5bee4a48b2020b4eed80adc961e9b500"),
+		] {
+			assert!(MultiSignature::P256(Signature(sig)).verify(&b""[..], &who));
 		}
 	}
 }

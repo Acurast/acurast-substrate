@@ -273,7 +273,7 @@ fn ensure_valid_public_key_for_source<T: Config>(
 			ECDSACurve::CurveP256(public_key) => {
 				let encoded_source = source.encode();
 				let encoded_public_key =
-					sp_io::hashing::blake2_256(&public_key.to_bytes()).to_vec();
+					sp_io::hashing::blake2_256(public_key.to_sec1_point(true).as_bytes()).to_vec();
 
 				ensure!(
 					encoded_source == encoded_public_key,

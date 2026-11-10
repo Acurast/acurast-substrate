@@ -1,9 +1,9 @@
 pub mod p256 {
 	#[cfg(feature = "std")]
-	use p256::ecdsa::{signature::Signer, SigningKey};
+	use p256::ecdsa::SigningKey;
 	use p256::{
-		ecdsa::{recoverable, VerifyingKey},
-		elliptic_curve, EncodedPoint, PublicKey, SecretKey,
+		ecdsa::{RecoveryId, Signature as EcdsaSignature, VerifyingKey},
+		elliptic_curve, FieldBytes, SecretKey,
 	};
 	use parity_scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	use scale_info::TypeInfo;
@@ -169,13 +169,22 @@ pub mod p256 {
 		const LEN: usize = 65;
 	}
 
-	impl TryFrom<recoverable::Signature> for Signature {
-		type Error = ();
-
-		fn try_from(data: recoverable::Signature) -> Result<Self, Self::Error> {
-			let signature_bytes = p256::ecdsa::signature::Signature::as_bytes(&data);
-			Signature::try_from(signature_bytes)
+	impl Signature {
+		/// Recovers the key that signed the SHA-256 digest of `message`, from the `r || s || v`
+		/// encoding.
+		pub(crate) fn recover(&self, message: &[u8]) -> Option<VerifyingKey> {
+			let signature = EcdsaSignature::from_slice(&self.0[..64]).ok()?;
+			let recovery_id = RecoveryId::from_byte(self.0[64])?;
+			VerifyingKey::recover_from_msg(message, &signature, recovery_id).ok()
 		}
+	}
+
+	/// The 33-byte compressed SEC1 encoding, which is what [`Public`] holds.
+	pub(crate) fn compressed(key: &VerifyingKey) -> [u8; PUBLIC_KEY_LENGTH] {
+		key.to_sec1_point(true)
+			.as_bytes()
+			.try_into()
+			.expect("a compressed P-256 point is 33 bytes; qed")
 	}
 
 	impl TryFrom<&[u8]> for Signature {
@@ -273,21 +282,7 @@ pub mod p256 {
 		type Signer = Public;
 
 		fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &Self::Signer) -> bool {
-			match PublicKey::from_sec1_bytes(signer.as_ref()) {
-				Ok(public_key) => {
-					let message = msg.get();
-					let signature_bytes: &[u8] = self.as_ref();
-					let verifying_key = VerifyingKey::from(public_key);
-
-					recoverable::Signature::try_from(signature_bytes)
-						.and_then(|signature| signature.recover_verifying_key(message))
-						.map(|verifying_key_from_signature| {
-							verifying_key == verifying_key_from_signature
-						})
-						.unwrap_or(false)
-				},
-				Err(_) => false,
-			}
+			self.recover(msg.get()).is_some_and(|key| compressed(&key) == signer.0)
 		}
 	}
 
@@ -300,10 +295,11 @@ pub mod p256 {
 
 	impl Pair {
 		pub fn generate_from_seed_bytes(bytes: &[u8]) -> Result<Self, elliptic_curve::Error> {
-			let secret = SecretKey::from_be_bytes(bytes)?;
-			let public = secret.public_key();
-			let pub_bytes = public.to_bytes().map_err(|_| elliptic_curve::Error)?;
-			Ok(Pair { public: Public(pub_bytes), secret })
+			// Not `SecretKey::from_slice`, which would zero-pad 24 to 31 byte input.
+			let bytes = <&FieldBytes>::try_from(bytes).map_err(|_| elliptic_curve::Error)?;
+			let secret = SecretKey::from_bytes(bytes)?;
+			let public = Public(compressed(&VerifyingKey::from(secret.public_key())));
+			Ok(Pair { public, secret })
 		}
 
 		pub fn get_public(&self) -> Public {
@@ -318,18 +314,6 @@ pub mod p256 {
 	/// Derive a single hard junction.
 	fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; SEED_LENGTH]) -> Seed {
 		("Secp256r1", secret_seed, cc).using_encoded(blake2_256)
-	}
-
-	trait ToBytes33 {
-		fn to_bytes(&self) -> Result<[u8; PUBLIC_KEY_LENGTH], ()>;
-	}
-
-	impl ToBytes33 for p256::PublicKey {
-		fn to_bytes(&self) -> Result<[u8; PUBLIC_KEY_LENGTH], ()> {
-			let encoded_point = EncodedPoint::from(self);
-			let compressed_point = encoded_point.compress();
-			compressed_point.as_bytes().try_into().map_err(|_| ())
-		}
 	}
 
 	impl TraitPair for Pair {
@@ -377,10 +361,11 @@ pub mod p256 {
 		/// Sign a message.
 		#[cfg(feature = "std")]
 		fn sign(&self, message: &[u8]) -> Signature {
-			let key = SigningKey::from(&self.secret);
-			let p256_signature: recoverable::Signature = key.sign(message);
-
-			Signature::try_from(p256_signature).expect("invalid signature")
+			let (signature, recovery_id) = SigningKey::from(&self.secret).sign_recoverable(message);
+			let mut bytes = [0u8; SIGNATURE_LENGTH];
+			bytes[..64].copy_from_slice(&signature.to_bytes());
+			bytes[64] = recovery_id.to_byte();
+			Signature(bytes)
 		}
 
 		/// Verify a signature on a message. Returns true if the signature is good.
@@ -405,7 +390,7 @@ pub mod p256 {
 	impl Pair {
 		/// Get the seed for this key.
 		pub fn seed(&self) -> Seed {
-			*self.secret.to_be_bytes().as_ref()
+			self.secret.to_bytes().into()
 		}
 
 		/// Exactly as `from_string` except that if no matches are found then, the the first 32

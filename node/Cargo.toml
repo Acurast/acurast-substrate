@@ -104,7 +104,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 bigdecimal = "0.4"
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", rev = "157ddb58ce7df037b556a2771e54a5668e96f2ab" }
+substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2606-5" }
 
 [features]
 default = ["acurast-local", "acurast-dev", "acurast-rococo"]

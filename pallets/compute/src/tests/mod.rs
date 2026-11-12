@@ -2439,6 +2439,61 @@ fn test_create_pools_name_conflict() {
 }
 
 #[test]
+fn test_repeated_commit_in_epoch_writes_nothing() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+		setup_balances();
+		assert_ok!(Compute::create_pool(
+			RuntimeOrigin::root(),
+			*b"cpu-ops-per-second______",
+			Perquintill::from_percent(25),
+			bounded_vec![],
+		));
+		let manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+		let metrics = [(1u8, 1000u128, 1u128)];
+
+		roll_to_block(302 + 39);
+		assert!(Compute::commit(&alice_account_id(), &manager, &metrics).storage_written);
+		assert!(!Compute::commit(&alice_account_id(), &manager, &metrics).storage_written);
+		assert!(!Compute::commit(&alice_account_id(), &manager, &[]).storage_written);
+	});
+}
+
+#[test]
+fn test_empty_commit_does_not_reuse_metrics_after_commit_in_epoch() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+		setup_balances();
+		for name in [*b"cpu-ops-per-second______", *b"mem-read-bytes-per-sec__"] {
+			assert_ok!(Compute::create_pool(
+				RuntimeOrigin::root(),
+				name,
+				Perquintill::from_percent(25),
+				bounded_vec![],
+			));
+		}
+		let manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
+				.unwrap();
+
+		roll_to_block(302 + 39);
+		Compute::commit(
+			&alice_account_id(),
+			&manager,
+			&[(1u8, 1000u128, 1u128), (2u8, 1000u128, 1u128)],
+		);
+		let previous_epoch = Compute::current_cycle().epoch;
+
+		roll_to_block(302 + 39 + 100);
+		Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]);
+		assert!(!Compute::commit(&alice_account_id(), &manager, &[]).storage_written);
+		assert_eq!(Compute::metrics(alice_account_id(), 2).unwrap().epoch, previous_epoch);
+	});
+}
+
+#[test]
 fn test_single_processor_commit() {
 	ExtBuilder.build().execute_with(|| {
 		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
@@ -2457,7 +2512,7 @@ fn test_single_processor_commit() {
 			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&alice_account_id())
 				.unwrap();
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		// With roll_to_block calling on_initialize for each block 1-10, epoch_offset changes
@@ -2475,7 +2530,7 @@ fn test_single_processor_commit() {
 
 		roll_to_block(302 + 39);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2496,7 +2551,7 @@ fn test_single_processor_commit() {
 		);
 
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2517,7 +2572,7 @@ fn test_single_processor_commit() {
 
 		roll_to_block(302 + 130);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).reward,
 			642123287671232
 		);
 		assert_eq!(
@@ -2539,7 +2594,7 @@ fn test_single_processor_commit() {
 		// commit different value in same epoch (does not change existing values for same epoch since first value is kept)
 		roll_to_block(302 + 170);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 2000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 2000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2565,7 +2620,7 @@ fn test_single_processor_commit() {
 		// claim for epoch 1 and commit for epoch 2
 		roll_to_block(302 + 230);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &manager, &[(1u8, 1000u128, 1u128)]).reward,
 			642123287671232
 		);
 		assert_eq!(
@@ -2645,7 +2700,7 @@ fn commit_alice_bob() {
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(Compute::metrics(alice_account_id(), 1), None);
 		assert_eq!(
-			Compute::commit(&alice_account_id(), &alice_manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&alice_account_id(), &alice_manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2660,7 +2715,7 @@ fn commit_alice_bob() {
 		roll_to_block(20);
 		assert_eq!(Compute::metrics(bob_account_id(), 1), None);
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2682,7 +2737,7 @@ fn commit_alice_bob() {
 				&alice_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
 			)
-			.0,
+			.reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2709,7 +2764,7 @@ fn commit_alice_bob() {
 	// Bob commits values for epoch 1 (where he is active) for only pool 2
 	{
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]).0,
+			Compute::commit(&bob_account_id(), &bob_manager, &[(2u8, 6000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2779,7 +2834,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			)
-			.0,
+			.reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2802,7 +2857,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&charlie_manager,
 				&[(1u8, 1234u128, 10u128), (2u8, 1234u128, 10u128), (3u8, 1234u128, 10u128)]
 			)
-			.0,
+			.reward,
 			Zero::zero()
 		);
 		assert_eq!(
@@ -2825,7 +2880,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&alice_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
 			)
-			.0,
+			.reward,
 			1926369863013698,
 		);
 		assert_eq!(
@@ -2857,7 +2912,7 @@ fn commit(with_charlie: bool, modify_reward: bool) {
 				&bob_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 2000u128, 1u128)]
 			)
-			.0,
+			.reward,
 			0, // already claimed by Alice above
 		);
 		assert_eq!(
@@ -3315,7 +3370,7 @@ fn test_commit_compute_with_slash() {
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -3325,7 +3380,7 @@ fn test_commit_compute_with_slash() {
 
 		// Charlie commits 4000 units for pool 2 as an active processor
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -4034,7 +4089,7 @@ fn test_delegate_undelegate_after_slash() {
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(
-			Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -4044,7 +4099,7 @@ fn test_delegate_undelegate_after_slash() {
 
 		// Charlie commits 4000 units for pool 2 as an active processor
 		assert_eq!(
-			Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -4174,7 +4229,7 @@ fn test_kick_out_stale_delegation_after_slash_and_commitment_ended() {
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(
-			Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Compute::commit(&committer, &committer_manager, &[(2u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -4184,7 +4239,7 @@ fn test_kick_out_stale_delegation_after_slash_and_commitment_ended() {
 
 		// Charlie commits 4000 units for pool 2 as an active processor
 		assert_eq!(
-			Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Compute::commit(&committer, &committer_manager, &[(2u8, 4000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -5276,7 +5331,7 @@ fn test_slash_committer_with_hold_and_near_max_stake() {
 		roll_to_block(10);
 		assert_eq!(Compute::current_cycle(), Cycle { epoch: 0, epoch_start: 2 });
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).0,
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -5286,7 +5341,7 @@ fn test_slash_committer_with_hold_and_near_max_stake() {
 
 		// Charlie commits 4000 units for pool 2 as an active processor
 		assert_eq!(
-			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).0,
+			Compute::commit(&charlie, &charlie_manager, &[(2u8, 4000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 
@@ -5863,11 +5918,11 @@ fn test_unpair_clears_metrics() {
 				&alice_manager,
 				&[(1u8, 1000u128, 1u128), (2u8, 1000u128, 1u128)]
 			)
-			.0,
+			.reward,
 			Zero::zero()
 		);
 		assert_eq!(
-			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).0,
+			Compute::commit(&bob_account_id(), &bob_manager, &[(1u8, 1000u128, 1u128)]).reward,
 			Zero::zero()
 		);
 

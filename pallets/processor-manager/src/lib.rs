@@ -28,7 +28,7 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
+		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::*,
 		sp_runtime::traits::{CheckedAdd, IdentifyAccount, StaticLookup, Verify},
 		traits::{
@@ -365,7 +365,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::heartbeat_with_version())]
+		#[pallet::weight(Pallet::<T>::heartbeat_weights(0).full)]
 		pub fn heartbeat_with_version(
 			origin: OriginFor<T>,
 			version: Version,
@@ -373,30 +373,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
-			let now = T::UnixTime::now().as_millis();
-
-			<ProcessorHeartbeat<T>>::insert(&who, now);
-			<ProcessorVersion<T>>::insert(&who, version);
-
-			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
-
-			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
-				return Ok(().into());
-			};
-
-			let result = T::ComputeHooks::commit(&who, &manager, &[]);
-			match result {
-				(_, true, true) => Ok(().into()),
-				(_, false, false) => Ok(PostDispatchInfo {
-					actual_weight: Some(T::WeightInfo::heartbeat_with_version_no_claim()),
-					pays_fee: Pays::Yes,
-				}),
-				(_, true, false) => Ok(PostDispatchInfo {
-					actual_weight: Some(T::WeightInfo::heartbeat_with_version_metrics_claim()),
-					pays_fee: Pays::Yes,
-				}),
-				_ => Ok(().into()),
-			}
+			Ok(Some(Self::do_heartbeat(&who, version, &[])).into())
 		}
 
 		#[pallet::call_index(6)]
@@ -492,7 +469,7 @@ pub mod pallet {
 		/// We do not emit separate `ProcessorHeartbeatWithMetrics` for backwards compatibility of clients.
 		/// The version field allows to know if this event (and the potential subsequent ProcessorRewardSent) is emitted from [`Self::heartbeat_with_version`] or [`Self::heartbeat_with_metrics`] .
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::heartbeat_with_metrics(metrics.len() as u32))]
+		#[pallet::weight(Pallet::<T>::heartbeat_weights(metrics.len() as u32).full)]
 		pub fn heartbeat_with_metrics(
 			origin: OriginFor<T>,
 			version: Version,
@@ -501,35 +478,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			_ = Self::manager_id_for_processor(&who).ok_or(Error::<T>::ProcessorHasNoManager)?;
 
-			let now = T::UnixTime::now().as_millis();
-
-			<ProcessorHeartbeat<T>>::insert(&who, now);
-			<ProcessorVersion<T>>::insert(&who, version);
-
-			Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(who.clone(), version));
-
-			let Some(manager) = T::ManagerProviderForEligibleProcessor::lookup(&who) else {
-				return Ok(().into());
-			};
-
-			let result = T::ComputeHooks::commit(&who, &manager, metrics.as_ref());
-
-			match result {
-				(_, true, true) => Ok(().into()),
-				(_, false, false) => Ok(PostDispatchInfo {
-					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_no_claim(
-						metrics.len() as u32,
-					)),
-					pays_fee: Pays::Yes,
-				}),
-				(_, true, false) => Ok(PostDispatchInfo {
-					actual_weight: Some(T::WeightInfo::heartbeat_with_metrics_claim(
-						metrics.len() as u32
-					)),
-					pays_fee: Pays::Yes,
-				}),
-				_ => Ok(().into()),
-			}
+			Ok(Some(Self::do_heartbeat(&who, version, &metrics)).into())
 		}
 
 		#[pallet::call_index(13)]

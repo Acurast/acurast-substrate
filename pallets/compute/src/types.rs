@@ -495,6 +495,8 @@ impl MetricPoolUpdateInfo {
 
 #[derive(Debug, Default)]
 pub struct CommitMetricsInfo {
+	/// Whether any metric was written.
+	pub storage_written: bool,
 	pub previous_metrics: Option<Vec<(PoolId, Metric)>>,
 	pub previous_pool_totals: Option<Vec<(PoolId, (Metric, Perquintill))>>,
 	pub previous_sums: Option<Vec<(PoolId, (Metric, Metric))>>,
@@ -542,9 +544,4 @@ impl CommitMetricsInfo {
 	}
 }
 
-#[derive(Debug, Default)]
-pub struct RewardInfo<Balance> {
-	pub reward: Balance,
-	pub metrics_reward_claimed: bool,
-	pub staked_compute_reward_claimed: bool,
-}
+pub use acurast_common::RewardInfo;

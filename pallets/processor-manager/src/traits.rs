@@ -35,9 +35,11 @@ pub trait WeightInfo {
 	fn heartbeat_with_version() -> Weight;
 	fn heartbeat_with_version_no_claim() -> Weight;
 	fn heartbeat_with_version_metrics_claim() -> Weight;
+	fn heartbeat_with_version_no_commit() -> Weight;
 	fn heartbeat_with_metrics(x: u32) -> Weight;
 	fn heartbeat_with_metrics_no_claim(x: u32) -> Weight;
 	fn heartbeat_with_metrics_claim(x: u32) -> Weight;
+	fn heartbeat_with_metrics_no_commit(x: u32) -> Weight;
 	fn advertise_for() -> Weight;
 	fn update_binary_hash() -> Weight;
 	fn update_api_version() -> Weight;

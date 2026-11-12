@@ -773,3 +773,13 @@ impl<
 		ML::lookup_manager_id(processor)
 	}
 }
+
+/// Outcome of [`crate::ComputeHooks::commit`].
+#[derive(Debug, Default)]
+pub struct RewardInfo<Balance> {
+	pub reward: Balance,
+	pub metrics_reward_claimed: bool,
+	pub staked_compute_reward_claimed: bool,
+	/// Whether any compute storage was written for the processor.
+	pub storage_written: bool,
+}

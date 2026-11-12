@@ -232,6 +232,18 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(4))
     }
 
+	fn heartbeat_with_version_no_commit() -> Weight {
+		Self::heartbeat_with_metrics_no_commit(0)
+	}
+
+	fn heartbeat_with_metrics_no_commit(x: u32) -> Weight {
+		Weight::from_parts(49_914_873, 0)
+			.saturating_add(Weight::from_parts(0, 15088))
+			.saturating_add(Weight::from_parts(1_631_420, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+
 	fn update_allowed_consumers() -> Weight {
 		Weight::from_parts(30_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 17914))

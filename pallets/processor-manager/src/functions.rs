@@ -1,9 +1,9 @@
 use acurast_common::{
-	AttestationValidator, IsFundableCall, ManagerIdProvider, ManagerLookup, OnProcessorInvalidated,
-	OnProcessorUnpaired, ProcessorVersionProvider, Version,
+	AttestationValidator, ComputeHooks, IsFundableCall, ManagerIdProvider, ManagerLookup,
+	MetricInput, OnProcessorInvalidated, OnProcessorUnpaired, ProcessorVersionProvider, Version,
 };
 use frame_support::{
-	pallet_prelude::{DispatchResult, Zero},
+	pallet_prelude::{DispatchResult, Weight, Zero},
 	sp_runtime::{
 		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
 		DispatchError,
@@ -11,18 +11,92 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectHold, MutateHold},
 		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
-		Currency, ExistenceRequirement, IsSubType, IsType,
+		Currency, ExistenceRequirement, Get, IsSubType, IsType, UnixTime,
 	},
 };
 
 use crate::{
-	BalanceFor, Call, Config, Error, HoldReason, LastManagerId, ManagedProcessors,
+	BalanceFor, Call, Config, Error, Event, HoldReason, LastManagerId, ManagedProcessors,
 	OnboardingProvider, Pallet, ProcessorHeartbeat, ProcessorMigrationData, ProcessorPairingFor,
 	ProcessorRewardDistributionWindow, ProcessorToManagerIdIndex, ProcessorUpdateInfo,
-	ProcessorVersion,
+	ProcessorVersion, WeightInfo,
 };
 
+/// Weights of a heartbeat call per commit outcome, each measured with a changed version.
+pub(crate) struct HeartbeatWeights {
+	pub full: Weight,
+	pub claim: Weight,
+	pub no_claim: Weight,
+	pub no_commit: Weight,
+}
+
 impl<T: Config> Pallet<T> {
+	/// Records a heartbeat, commits compute for an eligible processor and returns the weight to charge.
+	pub(crate) fn do_heartbeat(
+		processor: &T::AccountId,
+		version: Version,
+		metrics: &[MetricInput],
+	) -> Weight
+	where
+		BalanceFor<T>: IsType<u128>,
+	{
+		<ProcessorHeartbeat<T>>::insert(processor, T::UnixTime::now().as_millis());
+		let version_changed = <ProcessorVersion<T>>::get(processor) != Some(version);
+		if version_changed {
+			<ProcessorVersion<T>>::insert(processor, version);
+		}
+		Self::deposit_event(Event::<T>::ProcessorHeartbeatWithVersion(processor.clone(), version));
+
+		let weights = Self::heartbeat_weights(metrics.len() as u32);
+		let weight = match T::ManagerProviderForEligibleProcessor::lookup(processor) {
+			None => weights.no_commit,
+			Some(manager) => {
+				let info = T::ComputeHooks::commit(processor, &manager, metrics);
+				if info.staked_compute_reward_claimed {
+					weights.full
+				} else if info.metrics_reward_claimed {
+					weights.claim
+				} else if info.storage_written {
+					weights.no_claim
+				} else {
+					weights.no_commit
+				}
+			},
+		};
+		if version_changed {
+			weight
+		} else {
+			weight.saturating_sub(T::DbWeight::get().writes(1))
+		}
+	}
+
+	/// Weights of a heartbeat sending `x` metrics; with none it reuses stored metrics like
+	/// `heartbeat_with_version`.
+	pub(crate) fn heartbeat_weights(x: u32) -> HeartbeatWeights {
+		let (full, claim, no_claim, no_commit) = if x == 0 {
+			(
+				T::WeightInfo::heartbeat_with_version(),
+				T::WeightInfo::heartbeat_with_version_metrics_claim(),
+				T::WeightInfo::heartbeat_with_version_no_claim(),
+				T::WeightInfo::heartbeat_with_version_no_commit(),
+			)
+		} else {
+			(
+				T::WeightInfo::heartbeat_with_metrics(x),
+				T::WeightInfo::heartbeat_with_metrics_claim(x),
+				T::WeightInfo::heartbeat_with_metrics_no_claim(x),
+				T::WeightInfo::heartbeat_with_metrics_no_commit(x),
+			)
+		};
+		// a refund above the declared weight is dropped by `calc_actual_weight`
+		HeartbeatWeights {
+			full,
+			claim: claim.min(full),
+			no_claim: no_claim.min(full),
+			no_commit: no_commit.min(full),
+		}
+	}
+
 	/// Returns the manager id for the given manager account. If a manager id does not exist it is first created.
 	pub fn do_get_or_create_manager_id(
 		manager: &T::AccountId,

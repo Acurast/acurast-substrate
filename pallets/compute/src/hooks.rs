@@ -2,7 +2,7 @@ use frame_support::traits::{Currency, ExistenceRequirement, IsType};
 use sp_runtime::traits::{One, Saturating, Zero};
 use sp_std::prelude::*;
 
-use acurast_common::{ComputeHooks, MetricInput};
+use acurast_common::{ComputeHooks, MetricInput, RewardInfo};
 
 use crate::*;
 
@@ -13,14 +13,14 @@ impl<T: Config<I>, I: 'static> ComputeHooks<T::AccountId, T::ManagerId, BalanceF
 		processor: &T::AccountId,
 		manager: &(T::AccountId, T::ManagerId),
 		metrics: &[MetricInput],
-	) -> (BalanceFor<T, I>, bool, bool)
+	) -> RewardInfo<BalanceFor<T, I>>
 	where
 		BalanceFor<T, I>: IsType<u128>,
 	{
 		let pool_ids = (1..=Self::last_metric_pool_id()).collect::<Vec<_>>();
 		let cycle = Self::current_cycle();
-		let RewardInfo { reward, metrics_reward_claimed, staked_compute_reward_claimed } =
-			Self::do_commit(processor, manager, metrics, pool_ids.as_slice(), cycle);
+		let info = Self::do_commit(processor, manager, metrics, pool_ids.as_slice(), cycle);
+		let reward = info.reward;
 
 		if !reward.is_zero() {
 			<ManagerMetricRewards<T, I>>::mutate(manager.1, |reward_state| {
@@ -43,6 +43,6 @@ impl<T: Config<I>, I: 'static> ComputeHooks<T::AccountId, T::ManagerId, BalanceF
 			});
 		}
 
-		(reward, metrics_reward_claimed, staked_compute_reward_claimed)
+		info
 	}
 }

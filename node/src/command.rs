@@ -10,6 +10,7 @@ use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
+	benchmarking::P256RemarkBuilder,
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{self, new_partial, IdentifyVariant, NetworkVariant},
@@ -447,7 +448,10 @@ pub fn run() -> Result<()> {
 					},
 				}),
 				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
-					cmd.run_with_default_builder_and_spec::<acurast_runtime_common::opaque::Block, ReclaimHostFunctions>(
+					cmd.run_with_extrinsic_builder_and_spec::<acurast_runtime_common::opaque::Block, ReclaimHostFunctions>(
+						Box::new(|metadata, genesis, version| {
+							Box::new(P256RemarkBuilder::new(metadata, genesis, version))
+						}),
 						Some(config.chain_spec),
 					)
 				}),

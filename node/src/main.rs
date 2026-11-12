@@ -5,6 +5,7 @@
 // would churn signatures across the node for no gain on a binary's top-level error path.
 #![allow(clippy::result_large_err)]
 
+mod benchmarking;
 mod chain_spec;
 mod cli;
 mod client;

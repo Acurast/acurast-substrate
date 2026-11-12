@@ -20,8 +20,8 @@ use crate::{
 	InflationInfo, InflationInfoFor, LastMetricPoolId, Metric, MetricCommit, MetricPool,
 	MetricPoolConfigValues, MetricPoolFor, MetricPoolLookup, MetricPoolName, MetricPoolUpdateInfo,
 	MetricPools, Metrics, MetricsEpochSum, NextCommitmentId, Pallet, ProcessorState,
-	ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget, RewardContributionProvider,
-	RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
+	ProcessorStateFor, ProcessorStatus, Processors, ProvisionalBuffer, RewardBudget,
+	RewardContributionProvider, RewardInfo, SlidingBuffer, StakeBasedRewards, PER_TOKEN_DECIMALS,
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -297,57 +297,79 @@ where
 	{
 		let current_block = <frame_system::Pallet<T>>::block_number();
 
-		Processors::<T, I>::mutate(processor, |p_| {
-			let p: &mut ProcessorState<_, _, _> = p_.get_or_insert_with(|| {
-				// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
-				let epoch_offset =
-					current_block.saturating_sub(cycle.epoch_start) % T::Epoch::get();
-				let warmup_end =
-					current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get());
-				ProcessorState::initial(epoch_offset, warmup_end)
-			});
+		let stored = Processors::<T, I>::get(processor);
+		let mut p = stored.clone().unwrap_or_else(|| {
+			// this is the very first commit so create a `ProcessorState` aligning with the current block -> individual epoch start to avoid congestion of claim calls
+			let epoch_offset = current_block.saturating_sub(cycle.epoch_start) % T::Epoch::get();
+			let warmup_end = current_block.saturating_add(<T as Config<I>>::WarmupPeriod::get());
+			ProcessorState::initial(epoch_offset, warmup_end)
+		});
 
-			// check if warmup passed and updated status if so
-			if let ProcessorStatus::WarmupUntil(b) = p.status {
-				if current_block >= b {
-					p.status = ProcessorStatus::Active;
-				}
+		// check if warmup passed and updated status if so
+		if let ProcessorStatus::WarmupUntil(b) = p.status {
+			if current_block >= b {
+				p.status = ProcessorStatus::Active;
 			}
+		}
 
-			p.committed = cycle.epoch;
-			let active = matches!(p.status, ProcessorStatus::Active);
+		p.committed = cycle.epoch;
+		let active = matches!(p.status, ProcessorStatus::Active);
 
-			let manager_id = manager.1;
-			let commit_metrics_info = if !metrics.is_empty() {
-				Self::commit_new_metrics(processor, manager_id, metrics, active, cycle, pool_ids)
-			} else {
-				Self::reuse_metrics(processor, manager_id, active, cycle)
-			};
+		let manager_id = manager.1;
+		let committed_in_epoch = stored.as_ref().is_some_and(|s| s.committed == cycle.epoch);
+		let commit_metrics_info = if !metrics.is_empty() {
+			Self::commit_new_metrics(processor, manager_id, metrics, active, cycle, pool_ids)
+		} else if committed_in_epoch {
+			CommitMetricsInfo::default()
+		} else {
+			Self::reuse_metrics(processor, manager_id, active, cycle)
+		};
+		let metrics_written = commit_metrics_info.storage_written;
 
-			if !active {
-				return RewardInfo::default();
-			}
+		let mut info = if active && metrics_written {
+			Self::reward_commit(&mut p, commit_metrics_info, cycle, manager_id, pool_ids)
+		} else {
+			RewardInfo::default()
+		};
 
-			let total_metric_reward =
-				Self::compute_based_rewards().get(cycle.epoch.saturating_sub(One::one()));
-			if let Some(reward_contribution) =
-				commit_metrics_info.compute_reward_contribution(total_metric_reward)
-			{
-				p.reward_contribution = reward_contribution;
-			}
+		let state_changed = stored.as_ref() != Some(&p);
+		if state_changed {
+			Processors::<T, I>::insert(processor, p);
+		}
+		info.storage_written = metrics_written || state_changed;
+		info
+	}
 
-			let Some(previous_epoch_metric_sums) = commit_metrics_info.previous_sums else {
-				return RewardInfo::default();
-			};
+	/// Updates the reward contribution of an active processor and pays out last epoch's rewards.
+	fn reward_commit(
+		p: &mut ProcessorStateFor<T, I>,
+		commit_metrics_info: CommitMetricsInfo,
+		cycle: CycleFor<T>,
+		manager_id: T::ManagerId,
+		pool_ids: &[PoolId],
+	) -> RewardInfo<BalanceFor<T, I>>
+	where
+		BalanceFor<T, I>: IsType<u128>,
+	{
+		let total_metric_reward =
+			Self::compute_based_rewards().get(cycle.epoch.saturating_sub(One::one()));
+		if let Some(reward_contribution) =
+			commit_metrics_info.compute_reward_contribution(total_metric_reward)
+		{
+			p.reward_contribution = reward_contribution;
+		}
 
-			Self::reward(
-				previous_epoch_metric_sums.as_slice(),
-				cycle,
-				manager_id,
-				pool_ids,
-				total_metric_reward,
-			)
-		})
+		let Some(previous_epoch_metric_sums) = commit_metrics_info.previous_sums else {
+			return RewardInfo::default();
+		};
+
+		Self::reward(
+			previous_epoch_metric_sums.as_slice(),
+			cycle,
+			manager_id,
+			pool_ids,
+			total_metric_reward,
+		)
 	}
 
 	fn reward(
@@ -371,6 +393,7 @@ where
 				reward,
 				metrics_reward_claimed: true,
 				staked_compute_reward_claimed: false,
+				storage_written: false,
 			};
 		};
 		let bonus = Commitments::<T, I>::mutate(commitment_id, |commitment| {
@@ -396,7 +419,12 @@ where
 			bonus
 		});
 		reward = reward.saturating_add(bonus);
-		RewardInfo { reward, metrics_reward_claimed: true, staked_compute_reward_claimed: true }
+		RewardInfo {
+			reward,
+			metrics_reward_claimed: true,
+			staked_compute_reward_claimed: true,
+			storage_written: false,
+		}
 	}
 
 	fn update_metrics_epoch_sum(
@@ -452,6 +480,7 @@ where
 	) -> CommitMetricsInfo {
 		let epoch = cycle.epoch;
 
+		let mut storage_written = false;
 		let mut prev_metrics: Vec<(PoolId, Metric)> = vec![];
 		let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 		let mut prev_pool_totals: Vec<(PoolId, (Metric, Perquintill))> = vec![];
@@ -474,6 +503,7 @@ where
 				})
 				.unwrap_or(true);
 			if first_in_epoch {
+				storage_written = true;
 				// insert even if not active for tracability before warmup ended
 				Metrics::<T, I>::insert(processor, pool_id, MetricCommit { epoch, metric });
 				if active {
@@ -493,6 +523,7 @@ where
 		}
 
 		CommitMetricsInfo {
+			storage_written,
 			previous_sums: if !prev_metrics_sum.is_empty() { Some(prev_metrics_sum) } else { None },
 			previous_metrics: if !prev_metrics.is_empty() { Some(prev_metrics) } else { None },
 			previous_pool_totals: if !prev_pool_totals.is_empty() {
@@ -503,6 +534,7 @@ where
 		}
 	}
 
+	/// Recommits the processor's still valid metrics; called at most once per epoch, before any commit in it.
 	fn reuse_metrics(
 		processor: &T::AccountId,
 		manager_id: T::ManagerId,
@@ -522,6 +554,7 @@ where
 		let mut prev_metrics_sum: Vec<(PoolId, (Metric, Metric))> = vec![];
 		let mut prev_pool_totals: Vec<(PoolId, (Metric, Perquintill))> = vec![];
 
+		let storage_written = !to_update.is_empty();
 		for (pool_id, commit) in to_update {
 			// if we are here we know that this reused metric is "first_in_epoch" since we reuse maximally once per epoch
 			let metric_commit = MetricCommit { epoch, metric: commit.metric };
@@ -541,6 +574,7 @@ where
 		}
 
 		CommitMetricsInfo {
+			storage_written,
 			previous_sums: if !prev_metrics_sum.is_empty() { Some(prev_metrics_sum) } else { None },
 			previous_metrics: if !prev_metrics.is_empty() { Some(prev_metrics) } else { None },
 			previous_pool_totals: if !prev_pool_totals.is_empty() {

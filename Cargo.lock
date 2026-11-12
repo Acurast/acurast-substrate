@@ -220,6 +220,7 @@ version = "0.27.2"
 dependencies = [
  "acurast-kusama-runtime",
  "acurast-mainnet-runtime",
+ "acurast-p256-crypto",
  "acurast-rococo-runtime",
  "acurast-runtime-common",
  "anyhow",
@@ -294,6 +295,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
+ "subxt",
  "tunnel-server",
 ]
 

@@ -278,10 +278,12 @@ echo "=== benchmark pallet ==="
 #     cumulus-pallet-parachain-system panics with "included head not present in relay storage proof".
 #     It is read back out of the chain spec so this stays correct for every network.
 #
-#   * The extrinsic half signs a `System::remark` as Alice, who holds no balance in any of our chain
-#     specs, so it fails with Invalid(Payment). --genesis-patch cannot help: it is refused alongside
-#     --chain, and --runtime on its own trips the node's load_spec("") lookup. So we export the spec,
-#     endow Alice in it, and benchmark against that copy. Nothing else in genesis is touched.
+#   * The extrinsic half signs a `System::remark` with the P-256 key `//Alice` (node/src/benchmarking.rs),
+#     so ExtrinsicBaseWeight includes the in-wasm P-256 verification most transactions pay. That
+#     account holds no balance in any of our chain specs, so it fails with Invalid(Payment).
+#     --genesis-patch cannot help: it is refused alongside --chain, and --runtime on its own trips the
+#     node's load_spec("") lookup. So we export the spec, endow the account in it, and benchmark
+#     against that copy. Nothing else in genesis is touched.
 #
 # --mul applies the same hardware correction the perl pass below applies to pallet weights, recorded
 # in the generated header as WEIGHT-MUL. Those two files use
@@ -299,17 +301,18 @@ if [ -n "$BENCH_OVERHEAD" ]; then
 	# need one; `build-spec` and `benchmark overhead` both do.
 	"$NODE" build-spec --chain="$CHAIN" --base-path=/bench/db > "$OUT/spec.json"
 
-	# Endow //Alice by textual insertion rather than a JSON decode/encode round-trip. The genesis
+	# Endow the signer by textual insertion rather than a JSON decode/encode round-trip. The genesis
 	# holds u128 balances larger than 2^64 (e.g. acurastHyperdriveToken.initialEthTokenAllocation),
 	# and perl -- JSON::PP with allow_bignum included -- reads those into a double and writes them
 	# back as `7.623964e+19`, which the runtime rejects with "Invalid JSON blob". Inserting one array
 	# element leaves every other byte of the spec untouched.
+	export SIGNER=5GcMbLqv9iziFaUzhi3EgNwAfSjbtUEdYBsDGBeoy8DctUxk
 	perl -0777 -i -pe '
 		s{("balances"\s*:\s*\{\s*"balances"\s*:\s*\[)}
-		 {$1\n            [\n              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",\n              1000000000000000000000\n            ],}
+		 {$1\n            [\n              "$ENV{SIGNER}",\n              1000000000000000000000\n            ],}
 	' "$OUT/spec.json"
-	grep -q 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY "$OUT/spec.json" \
-		|| { echo "failed to endow //Alice in $OUT/spec.json" >&2; exit 1; }
+	grep -q "$SIGNER" "$OUT/spec.json" \
+		|| { echo "failed to endow P-256 //Alice in $OUT/spec.json" >&2; exit 1; }
 
 	PARA_ID="$(perl -0777 -ne 'print $1 if /"para_id"\s*:\s*(\d+)/' "$OUT/spec.json")"
 	[ -n "$PARA_ID" ] || { echo "no para_id in $OUT/spec.json" >&2; exit 1; }
@@ -323,6 +326,12 @@ if [ -n "$BENCH_OVERHEAD" ]; then
 		--mul="$(perl -e 'printf "%.4f", $ARGV[0] / $ARGV[1]' "$SCALE_NUM" "$SCALE_DEN")" \
 		--weight-path="$OUT" \
 		2>&1 | collapse_repeats | tee "$OUT/overhead.log"
+
+	# P-256 verification puts ExtrinsicBaseWeight above the template's 1 ms sanity bound.
+	perl -0777 -i -pe 's{1 ms\.}{2 ms.}g; s{<= constants::WEIGHT_REF_TIME_PER_MILLIS,}{<= 2 * constants::WEIGHT_REF_TIME_PER_MILLIS,}' \
+		"$OUT/extrinsic_weights.rs"
+	grep -q '2 \* constants::WEIGHT_REF_TIME_PER_MILLIS' "$OUT/extrinsic_weights.rs" \
+		|| { echo "failed to raise the sanity bound in $OUT/extrinsic_weights.rs" >&2; exit 1; }
 fi
 
 # A second pass at a higher --repeat for pallets whose weights come out of a least-squares fit over a

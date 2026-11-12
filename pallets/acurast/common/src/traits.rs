@@ -8,7 +8,7 @@ use frame_support::{
 };
 use sp_std::{fmt, prelude::*};
 
-use crate::{Attestation, AttestationChain, MetricInput, MultiOrigin, PoolId, Version};
+use crate::{Attestation, AttestationChain, MetricInput, MultiOrigin, PoolId, RewardInfo, Version};
 
 /// A bound that can be used to restrict length sequence types such as [`frame_support::BoundedVec`] appearing in types used in dispatchable functions.
 ///
@@ -43,7 +43,7 @@ pub trait ComputeHooks<AccountId, ManagerId, Balance> {
 		processor: &AccountId,
 		manager: &(AccountId, ManagerId),
 		metrics: &[MetricInput],
-	) -> (Balance, bool, bool)
+	) -> RewardInfo<Balance>
 	where
 		Balance: IsType<u128>;
 }
@@ -53,11 +53,16 @@ impl<AccountId, ManagerId, Balance> ComputeHooks<AccountId, ManagerId, Balance> 
 		_processor: &AccountId,
 		_manager: &(AccountId, ManagerId),
 		_metrics: &[MetricInput],
-	) -> (Balance, bool, bool)
+	) -> RewardInfo<Balance>
 	where
 		Balance: IsType<u128>,
 	{
-		(0u128.into(), false, false)
+		RewardInfo {
+			reward: 0u128.into(),
+			metrics_reward_claimed: false,
+			staked_compute_reward_claimed: false,
+			storage_written: false,
+		}
 	}
 }
 

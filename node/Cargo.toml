@@ -95,6 +95,11 @@ cumulus-primitives-aura = { workspace = true }
 
 color-print = "0.3.4"
 
+# Overhead benchmark extrinsic builder
+acurast-p256-crypto = { workspace = true, features = ["std"] }
+# Must match the subxt version of frame-benchmarking-cli.
+subxt = { version = "0.44", default-features = false, features = ["native"] }
+
 # Tunnel server
 tunnel-server = { version = "0.1.9", git = "https://github.com/Acurast/quic-tunnel", tag = "0.1.9" }
 anyhow = "1"

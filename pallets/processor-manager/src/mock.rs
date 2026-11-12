@@ -5,6 +5,8 @@ use acurast_common::{
 	extract_attestation, parse_cert, Attestation, AttestationChain, AttestationValidator,
 	AttestationValidity, ManagerIdProvider, ManagerLookup, ProcessorInfoProvider, CU32,
 };
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible::Mutate;
 use frame_support::{
 	derive_impl,
 	sp_runtime::{
@@ -12,7 +14,6 @@ use frame_support::{
 		BuildStorage, DispatchError, MultiSignature,
 	},
 	traits::{
-		fungible::Mutate,
 		nonfungibles::{Create, InspectEnumerable as NFTInspectEnumerable},
 		AsEnsureOriginWithArg, ConstU16, ConstU64,
 	},
@@ -70,7 +71,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type DbWeight = ();
+	type DbWeight = frame_support::weights::constants::RocksDbWeight;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type SS58Prefix = ConstU16<42>;

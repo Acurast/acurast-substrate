@@ -6,7 +6,7 @@ use super::*;
 
 use acurast_common::{
 	AdvertisementHandler, AttestationChain, ListUpdateOperation, MetricInput, MultiOrigin, PoolId,
-	Version, METRICS_MAX_LENGTH,
+	Version,
 };
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -139,6 +139,46 @@ fn metric_inputs<T: Config>(count: u32) -> Vec<MetricInput> {
 		.collect()
 }
 
+/// Version the setup heartbeats send; measured heartbeats send [`NEW_VERSION`] so weights include its write.
+const VERSION: Version = Version { platform: 0, build_number: 1 };
+const NEW_VERSION: Version = Version { platform: 0, build_number: 2 };
+
+/// Sets up an attested processor paired with a funded manager at block 100; returns `(processor, manager)`.
+fn heartbeat_setup<T: Config + pallet_timestamp::Config<Moment = u64>>(
+) -> Result<(T::AccountId, T::AccountId), BenchmarkError>
+where
+	T::AccountId: From<AccountId32>,
+	BlockNumberFor<T>: IsType<u32>,
+{
+	set_timestamp::<T>(1000);
+	T::BenchmarkHelper::setup_compute_settings();
+	let caller: T::AccountId = alice_account_id().into();
+	let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
+	whitelist_account!(caller);
+	T::BenchmarkHelper::attest_account(&caller);
+	roll_to_block::<T>(100u32.into());
+	pair::<T>(&manager, &caller)?;
+	assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
+	Ok((caller, manager))
+}
+
+/// Sends a setup heartbeat with [`VERSION`] and `values`.
+fn setup_heartbeat<T: Config>(
+	caller: &T::AccountId,
+	values: &[MetricInput],
+) -> Result<(), BenchmarkError>
+where
+	T::AccountId: IsType<<<T::Proof as Verify>::Signer as IdentifyAccount>::AccountId>,
+	BalanceFor<T>: IsType<u128>,
+{
+	Pallet::<T>::heartbeat_with_metrics(
+		RawOrigin::Signed(caller.clone()).into(),
+		VERSION,
+		values.to_vec().try_into().unwrap(),
+	)?;
+	Ok(())
+}
+
 #[benchmarks(
 	where
 		T: Config + pallet_timestamp::Config<Moment = u64>,
@@ -219,231 +259,148 @@ mod benchmarks {
 
 	#[benchmark]
 	fn heartbeat_with_version() -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
-
+		let (caller, manager) = heartbeat_setup::<T>()?;
 		let values = metric_inputs::<T>(6);
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		// make sure warmup passed
 		roll_to_block::<T>(after_warmup::<T>(0));
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(1));
 		T::BenchmarkHelper::commit(&manager);
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(2));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), version);
+		_(RawOrigin::Signed(caller), NEW_VERSION);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn heartbeat_with_version_no_claim() -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
-
-		let values = metric_inputs::<T>(6);
-
-		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
-		// make sure warmup passed
+		let (caller, _) = heartbeat_setup::<T>()?;
+		setup_heartbeat::<T>(&caller, &metric_inputs::<T>(6))?;
 		roll_to_block::<T>(after_warmup::<T>(0));
 
 		#[extrinsic_call]
-		heartbeat_with_version(RawOrigin::Signed(caller), version);
+		heartbeat_with_version(RawOrigin::Signed(caller), NEW_VERSION);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn heartbeat_with_version_metrics_claim() -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
-
+		let (caller, _) = heartbeat_setup::<T>()?;
 		let values = metric_inputs::<T>(6);
-
-		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
-		// make sure warmup passed
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(0));
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(1));
 
 		#[extrinsic_call]
-		heartbeat_with_version(RawOrigin::Signed(caller), version);
+		heartbeat_with_version(RawOrigin::Signed(caller), NEW_VERSION);
+
+		Ok(())
+	}
+
+	/// A repeated heartbeat in an epoch the processor already committed all its metrics in.
+	#[benchmark]
+	fn heartbeat_with_version_no_commit() -> Result<(), BenchmarkError> {
+		let (caller, _) = heartbeat_setup::<T>()?;
+		let values = metric_inputs::<T>(T::BenchmarkHelper::max_compute_pools());
+		setup_heartbeat::<T>(&caller, &values)?;
+		roll_to_block::<T>(after_warmup::<T>(0));
+		setup_heartbeat::<T>(&caller, &values)?;
+
+		let post_info;
+		#[block]
+		{
+			post_info =
+				Pallet::<T>::heartbeat_with_version(RawOrigin::Signed(caller).into(), NEW_VERSION)?;
+		}
+		assert_eq!(post_info.actual_weight, Some(Pallet::<T>::heartbeat_weights(0).no_commit));
 
 		Ok(())
 	}
 
 	#[benchmark]
-	fn heartbeat_with_metrics(x: Linear<1, METRICS_MAX_LENGTH>) -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
+	fn heartbeat_with_metrics(
+		x: Linear<1, { T::BenchmarkHelper::max_compute_pools() }>,
+	) -> Result<(), BenchmarkError> {
+		let (caller, manager) = heartbeat_setup::<T>()?;
 		let values = metric_inputs::<T>(x);
 
 		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		// make sure warmup passed
 		roll_to_block::<T>(after_warmup::<T>(0));
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(1));
 		T::BenchmarkHelper::commit(&manager);
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(2));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), version, values.try_into().unwrap());
+		_(RawOrigin::Signed(caller), NEW_VERSION, values.try_into().unwrap());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn heartbeat_with_metrics_no_claim(
-		x: Linear<1, METRICS_MAX_LENGTH>,
+		x: Linear<1, { T::BenchmarkHelper::max_compute_pools() }>,
 	) -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
+		let (caller, _) = heartbeat_setup::<T>()?;
 		let values = metric_inputs::<T>(x);
-
-		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
-		// make sure warmup passed
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(0));
 
 		#[extrinsic_call]
-		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());
+		heartbeat_with_metrics(RawOrigin::Signed(caller), NEW_VERSION, values.try_into().unwrap());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn heartbeat_with_metrics_claim(
-		x: Linear<1, METRICS_MAX_LENGTH>,
+		x: Linear<1, { T::BenchmarkHelper::max_compute_pools() }>,
 	) -> Result<(), BenchmarkError> {
-		set_timestamp::<T>(1000);
-		T::BenchmarkHelper::setup_compute_settings();
-		let caller: T::AccountId = alice_account_id().into();
-		let manager: T::AccountId = T::BenchmarkHelper::funded_account(0);
-		whitelist_account!(caller);
-		T::BenchmarkHelper::attest_account(&caller);
-		roll_to_block::<T>(100u32.into());
-		pair::<T>(&manager, &caller)?;
-		assert_ne!(Pallet::<T>::manager_id_for_processor(&caller), None);
-		let version = Version { platform: 0, build_number: 1 };
+		let (caller, _) = heartbeat_setup::<T>()?;
 		let values = metric_inputs::<T>(x);
-
-		// commit initially (starting warmup)
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
-		// make sure warmup passed
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(0));
-		Pallet::<T>::heartbeat_with_metrics(
-			RawOrigin::Signed(caller.clone()).into(),
-			version,
-			values.clone().try_into().unwrap(),
-		)?;
-
+		setup_heartbeat::<T>(&caller, &values)?;
 		roll_to_block::<T>(after_warmup::<T>(1));
 
 		#[extrinsic_call]
-		heartbeat_with_metrics(RawOrigin::Signed(caller), version, values.try_into().unwrap());
+		heartbeat_with_metrics(RawOrigin::Signed(caller), NEW_VERSION, values.try_into().unwrap());
+
+		Ok(())
+	}
+
+	/// A repeated heartbeat in an epoch the processor already committed the same metrics in.
+	#[benchmark]
+	fn heartbeat_with_metrics_no_commit(
+		x: Linear<1, { T::BenchmarkHelper::max_compute_pools() }>,
+	) -> Result<(), BenchmarkError> {
+		let (caller, _) = heartbeat_setup::<T>()?;
+		let values = metric_inputs::<T>(x);
+		setup_heartbeat::<T>(&caller, &values)?;
+		roll_to_block::<T>(after_warmup::<T>(0));
+		setup_heartbeat::<T>(&caller, &values)?;
+
+		let post_info;
+		#[block]
+		{
+			post_info = Pallet::<T>::heartbeat_with_metrics(
+				RawOrigin::Signed(caller).into(),
+				NEW_VERSION,
+				values.try_into().unwrap(),
+			)?;
+		}
+		assert_eq!(post_info.actual_weight, Some(Pallet::<T>::heartbeat_weights(x).no_commit));
 
 		Ok(())
 	}

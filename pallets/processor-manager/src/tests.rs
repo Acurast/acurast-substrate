@@ -366,6 +366,28 @@ fn test_heartbeat_with_version_success() {
 }
 
 #[test]
+fn test_heartbeat_without_commit_refunds_to_no_commit_weight() {
+	ExtBuilder.build().execute_with(|| {
+		let (_, processor_account) = paired_manager_processor();
+		let origin = RuntimeOrigin::signed(processor_account);
+		let version = Version { platform: 0, build_number: 1 };
+		let x = 2;
+		let no_commit = AcurastProcessorManager::heartbeat_weights(x).no_commit;
+		let version_write = <Test as frame_system::Config>::DbWeight::get().writes(1);
+		let metrics = || vec![(1u8, 1u128, 1u128); x as usize].try_into().unwrap();
+
+		let first =
+			AcurastProcessorManager::heartbeat_with_metrics(origin.clone(), version, metrics())
+				.unwrap();
+		assert_eq!(first.actual_weight, Some(no_commit));
+
+		let repeat =
+			AcurastProcessorManager::heartbeat_with_metrics(origin, version, metrics()).unwrap();
+		assert_eq!(repeat.actual_weight, Some(no_commit - version_write));
+	});
+}
+
+#[test]
 fn test_heartbeat_with_version_failure() {
 	ExtBuilder.build().execute_with(|| {
 		let (_, processor_account) = generate_pair_account();

@@ -8,6 +8,9 @@ pub trait WeightInfo {
 	fn remove_message() -> Weight;
 	fn receive_message(n: u32) -> Weight;
 	fn clean_incoming(x: u32) -> Weight;
+	fn receive_message_v2(n: u32) -> Weight;
+	fn confirm_message_delivery_v2(n: u32) -> Weight;
+	fn update_oracles_v2(n: u32) -> Weight;
 }
 
 /// Benchmark setup for the runtime's [`crate::Config::MessageProcessor`].

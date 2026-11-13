@@ -8595,6 +8595,7 @@ dependencies = [
 name = "pallet-acurast-hyperdrive-ibc"
 version = "0.27.2"
 dependencies = [
+ "acurast-p256-crypto",
  "alloy-sol-types",
  "cumulus-primitives-core",
  "derive_more 0.99.20",

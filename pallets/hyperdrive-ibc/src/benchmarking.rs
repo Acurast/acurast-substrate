@@ -8,13 +8,15 @@ use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use sp_std::prelude::*;
 
+use acurast_p256_crypto::application_crypto::p256::Pair as P256Pair;
 use pallet_acurast::{AccountId20, ContractCall, Layer, MultiOrigin, ProxyAcurastChain, Subject};
 
 use crate::{
-	ActivityWindow, BalanceOf, BenchmarkHelper, Call, Config, HoldReason,
-	IncomingMessageWithMetaFor, IncomingMessages, IncomingMessagesLookup, MessageFor, MessageNonce,
-	OraclePublicKeys, OracleUpdate, OutgoingMessageWithMetaFor, OutgoingMessages,
-	OutgoingMessagesLookup, Pallet, Payload, Public, Signatures, SubjectFor,
+	types::BENCHMARK_P256_SIGNATURE, ActivityWindow, BalanceOf, BenchmarkHelper, Call, Config,
+	HoldReason, IncomingMessageWithMetaFor, IncomingMessages, IncomingMessagesLookup, MessageFor,
+	MessageNonce, OraclePublicKeys, OraclePublicKeysV2, OracleUpdate, OracleUpdateV2,
+	OutgoingMessageWithMetaFor, OutgoingMessages, OutgoingMessagesLookup, P256Public,
+	P256Signature, Pallet, Payload, Public, Signatures, SignaturesV2, SubjectFor,
 	MESSAGES_CLEANUP_MAX_LENGTH, ORACLE_UPDATES_MAX_LENGTH, PUBLIC_KEY_SERIALIZED_SIZE,
 	SIGNATURES_MAX_LENGTH,
 };
@@ -27,20 +29,41 @@ fn seed_active_oracles<T: Config<I>, I: 'static>(count: u8) -> Vec<Public>
 where
 	BlockNumberFor<T>: From<u32>,
 {
-	let now = System::<T>::block_number();
-	let start = now;
-	let end = Some(now.saturating_add(10_000u32.into()));
-	let mut pubs = Vec::with_capacity(count as usize);
-	for i in 0..count {
-		let pk = [i; PUBLIC_KEY_SERIALIZED_SIZE];
-		let public: Public = pk.into();
-		OraclePublicKeys::<T, I>::insert(
-			public,
-			ActivityWindow { start_block: start, end_block: end },
-		);
-		pubs.push(public);
+	let publics: Vec<Public> =
+		(0..count).map(|i| Public::from_raw([i; PUBLIC_KEY_SERIALIZED_SIZE])).collect();
+	let window = active_window::<T, I>();
+	for public in &publics {
+		OraclePublicKeys::<T, I>::insert(public, window.clone());
 	}
-	pubs
+	publics
+}
+
+/// Like [`seed_active_oracles`], but with valid P-256 public keys: P-256 verification decodes
+/// the signer's key before recovering, so invalid key bytes would skip the recovery.
+fn seed_active_p256_oracles<T: Config<I>, I: 'static>(count: u8) -> Vec<P256Public>
+where
+	BlockNumberFor<T>: From<u32>,
+{
+	let publics: Vec<P256Public> = (0..count)
+		.map(|i| {
+			P256Pair::generate_from_seed_bytes(&[i.saturating_add(1); 32])
+				.expect("valid P-256 secret key; qed")
+				.get_public()
+		})
+		.collect();
+	let window = active_window::<T, I>();
+	for public in &publics {
+		OraclePublicKeysV2::<T, I>::insert(public, window.clone());
+	}
+	publics
+}
+
+fn active_window<T: Config<I>, I: 'static>() -> ActivityWindow<BlockNumberFor<T>>
+where
+	BlockNumberFor<T>: From<u32>,
+{
+	let now = System::<T>::block_number();
+	ActivityWindow { start_block: now, end_block: Some(now.saturating_add(10_000u32.into())) }
 }
 
 /// Lowest signature count benchmarked: the highest `Min*ConfirmationSignatures` of the runtimes.
@@ -61,6 +84,22 @@ where
 	seed_active_oracles::<T, I>(n as u8)
 		.into_iter()
 		.map(|p| (SIGNATURE.into(), p))
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap()
+}
+
+/// `n` secp256r1 (P-256) signatures from distinct active oracles.
+///
+/// Like [`oracle_signatures`], the signature is well-formed (see the `p256_signature_vector`
+/// test) so each verify does a full public key recovery.
+fn oracle_signatures_v2<T: Config<I>, I: 'static>(n: u32) -> SignaturesV2
+where
+	BlockNumberFor<T>: From<u32>,
+{
+	seed_active_p256_oracles::<T, I>(n as u8)
+		.into_iter()
+		.map(|p| (P256Signature(BENCHMARK_P256_SIGNATURE), p))
 		.collect::<Vec<_>>()
 		.try_into()
 		.unwrap()
@@ -161,9 +200,26 @@ mod benches {
 
 		let mut updates: Vec<OracleUpdate<BlockNumberFor<T>>> = vec![];
 		for i in 0..n {
-			let pkb = [i as u8; PUBLIC_KEY_SERIALIZED_SIZE];
-			let public: Public = pkb.into();
+			let public = Public::from_raw([i as u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 			updates.push(OracleUpdate::Add(public, window.clone()));
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, updates.try_into().unwrap());
+	}
+
+	#[benchmark]
+	fn update_oracles_v2(n: Linear<1, ORACLE_UPDATES_MAX_LENGTH>) {
+		let now = frame_system::Pallet::<T>::block_number();
+		let window = ActivityWindow::<BlockNumberFor<T>> {
+			start_block: now.saturating_sub(1u32.into()),
+			end_block: Some(now.saturating_add(10u32.into())),
+		};
+
+		let mut updates: Vec<OracleUpdateV2<BlockNumberFor<T>>> = vec![];
+		for i in 0..n {
+			let public = P256Public::from_raw([i as u8; PUBLIC_KEY_SERIALIZED_SIZE]);
+			updates.push(OracleUpdateV2::Add(public, window.clone()));
 		}
 
 		#[extrinsic_call]
@@ -206,6 +262,37 @@ mod benches {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(relayer), id, signatures);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn confirm_message_delivery_v2(
+		n: Linear<MIN_BENCHMARKED_SIGNATURES, SIGNATURES_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
+		let relayer: T::AccountId = whitelisted_caller();
+		let payer: T::AccountId = account("payer", 0, 0);
+
+		let (sender, recipient) = default_subjects::<T, I>();
+		let ttl = T::MinTTL::get().saturating_add(10u32.into());
+		let fee = T::MinFee::get();
+
+		fund_for_fee::<T, I>(&payer, fee);
+		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());
+		let payload = b"bench-msg".to_vec();
+
+		let msg = seed_outgoing_message::<T, I>(sender, payer, nonce, recipient, payload, ttl, fee);
+
+		let signatures = oracle_signatures_v2::<T, I>(n);
+		let id = msg.message.id;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(relayer), id, signatures);
+
+		ensure!(
+			OutgoingMessages::<T, I>::get(id).is_none(),
+			BenchmarkError::Stop("message not confirmed")
+		);
 
 		Ok(())
 	}
@@ -277,6 +364,43 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn receive_message_v2(
+		n: Linear<MIN_BENCHMARKED_SIGNATURES, SIGNATURES_MAX_LENGTH>,
+	) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let (sender, recipient, payload) = T::BenchmarkHelper::worst_case_incoming_message()
+			.unwrap_or_else(|| {
+				let (recipient, sender) = default_subjects::<T, I>();
+				(sender, recipient, b"incoming".to_vec())
+			});
+		let relayer = MultiOrigin::Acurast(account::<T::AccountId>("relayer", 0, 0));
+
+		let nonce: MessageNonce = T::MessageIdHashing::hash_of(&b"nonce".as_slice());
+
+		let signatures = oracle_signatures_v2::<T, I>(n);
+		let id = Pallet::<T, I>::message_id(&sender, nonce);
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(caller),
+			sender,
+			nonce,
+			recipient,
+			payload.try_into().unwrap(),
+			relayer,
+			signatures,
+		);
+
+		// The call succeeds even if processing fails, so make sure the setup took the intended route
+		// rather than silently measuring an early processing error.
+		let message =
+			IncomingMessages::<T, I>::get(id).ok_or(BenchmarkError::Stop("not stored"))?;
+		System::<T>::assert_last_event(crate::Event::<T, I>::MessageProcessed { message }.into());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn clean_incoming(x: Linear<1, MESSAGES_CLEANUP_MAX_LENGTH>) {
 		let caller: T::AccountId = whitelisted_caller();
 		let (sender, recipient) = default_subjects::<T, I>();
@@ -303,4 +427,6 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), ids.try_into().unwrap());
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

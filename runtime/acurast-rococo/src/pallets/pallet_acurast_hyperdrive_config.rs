@@ -22,7 +22,9 @@ use crate::{
 parameter_types! {
 	pub const MinFee: Balance = UNIT / 10;
 	pub const MinTransferAmount: Balance = UNIT;
-	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::AcurastCanary;
+	/// `Acurast` (`Subject` index 0) like mainnet rather than `AcurastCanary`, also for the devnet
+	/// running this runtime.
+	pub const SelfChain: ProxyAcurastChain = ProxyAcurastChain::Acurast;
 }
 
 impl pallet_acurast_hyperdrive_ibc::Config<Instance1> for Runtime {

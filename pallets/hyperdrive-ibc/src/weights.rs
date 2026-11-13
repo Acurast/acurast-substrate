@@ -106,4 +106,25 @@ impl<T: frame_system::Config> crate::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 7114))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
+	fn receive_message_v2(_n: u32) -> Weight {
+		Weight::from_parts(9_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn confirm_message_delivery_v2(_n: u32) -> Weight {
+		Weight::from_parts(21_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7114))
+			.saturating_add(T::DbWeight::get().reads(2))
+	}
+	fn update_oracles_v2(l: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_591_379, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 1_559
+			.saturating_add(Weight::from_parts(1_290_074, 0).saturating_mul(l.into()))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

@@ -160,4 +160,39 @@ impl<T: frame_system::Config> pallet_acurast_hyperdrive_ibc::WeightInfo for Weig
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 3717).saturating_mul(x.into()))
 	}
+	/// PLACEHOLDER until `receive_message_v2` is benchmarked: the `receive_message` weights with a
+	/// conservative per-signature `ref_time` of 2ms, since secp256r1 (P-256) recovery runs in wasm
+	/// rather than via a host function like secp256k1.
+	/// The range of component `n` is `[3, 32]`.
+	fn receive_message_v2(n: u32, ) -> Weight {
+		Weight::from_parts(100_584_743, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			.saturating_add(Weight::from_parts(2_000_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(Weight::from_parts(0, 2533).saturating_mul(n.into()))
+	}
+	/// PLACEHOLDER until `confirm_message_delivery_v2` is benchmarked: the
+	/// `confirm_message_delivery` weights with a conservative per-signature `ref_time` of 2ms, since
+	/// secp256r1 (P-256) recovery runs in wasm rather than via a host function like secp256k1.
+	/// The range of component `n` is `[3, 32]`.
+	fn confirm_message_delivery_v2(n: u32, ) -> Weight {
+		Weight::from_parts(88_431_084, 0)
+			.saturating_add(Weight::from_parts(0, 4721))
+			.saturating_add(Weight::from_parts(2_000_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(Weight::from_parts(0, 2533).saturating_mul(n.into()))
+	}
+	/// PLACEHOLDER until `update_oracles_v2` is benchmarked: the `update_oracles` weights, as it
+	/// does the same writes into `OraclePublicKeysV2`.
+	/// The range of component `n` is `[1, 50]`.
+	fn update_oracles_v2(n: u32, ) -> Weight {
+		Weight::from_parts(7_514_013, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(Weight::from_parts(2_294_733, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
 }

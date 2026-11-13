@@ -60,18 +60,9 @@ test:
   stage: checks
   extends: .prepare_rust
   variables:
-    SKIP_WASM_BUILD: "1"
     CARGO_PROFILE_DEV_DEBUG: "0"
   script:
-    - cargo test --workspace --exclude acurast-node
-
-check-node:
-  stage: checks
-  extends: .prepare_rust
-  variables:
-    CARGO_PROFILE_DEV_DEBUG: "0"
-  script:
-    - cargo check -p acurast-node
+    - cargo test --workspace
 
 build-mainnet:
   stage: build

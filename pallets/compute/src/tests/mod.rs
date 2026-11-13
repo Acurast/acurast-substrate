@@ -5944,3 +5944,104 @@ fn test_unpair_clears_metrics() {
 		assert!(Compute::metrics(bob_account_id(), 1).is_some());
 	});
 }
+
+/// Charlie is manager and committer: measures 4000 in pool 2 in epoch 1, commits 3200 backed by `stake` in epoch 2.
+/// Bob, under his own manager (Dave), measures the same in pool 2 but does not commit.
+fn commit_charlie(stake: Balance, cooldown_period: u64) -> u128 {
+	assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+	setup_balances();
+	create_pools();
+	let charlie = charlie_account_id();
+	offer_accept_backing(charlie.clone());
+	let manager = <Test as Config>::ManagerProviderForEligibleProcessor::lookup(&charlie).unwrap();
+	let bob = bob_account_id();
+	MockManagerProvider::set_mapping(bob.clone(), dave_account_id());
+	let bob_manager = <Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob).unwrap();
+	roll_to_block(10);
+	Compute::commit(&charlie, &manager, &[(2u8, 1000u128, 1u128)]);
+	Compute::commit(&bob, &bob_manager, &[(2u8, 1000u128, 1u128)]);
+	roll_to_block(150);
+	Compute::commit(&charlie, &manager, &[(2u8, 4000u128, 1u128)]);
+	Compute::commit(&bob, &bob_manager, &[(2u8, 4000u128, 1u128)]);
+	roll_to_block(202);
+	assert_ok!(Compute::commit_compute(
+		RuntimeOrigin::signed(charlie.clone()),
+		stake,
+		cooldown_period,
+		bounded_vec![ComputeCommitment { pool_id: 2, metric: FixedU128::from_u32(3200) }],
+		Perbill::from_percent(10),
+		true,
+	));
+	<Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie).unwrap()
+}
+
+#[test]
+fn test_stake_more_rejects_cooldown_above_max() {
+	ExtBuilder.build().execute_with(|| {
+		let commitment_id = commit_charlie(10 * UNIT, REDELEGATE_COOLDOWN_LONG);
+		let reward_weight = || {
+			Compute::commitments(commitment_id)
+				.unwrap()
+				.weights
+				.get_current()
+				.1
+				.self_reward_weight
+		};
+		assert_eq!(reward_weight(), U256::from(10 * UNIT));
+
+		assert_err!(
+			Compute::stake_more(
+				RuntimeOrigin::signed(charlie_account_id()),
+				0,
+				Some(REDELEGATE_COOLDOWN_LONG * 222),
+				None,
+				None,
+				None,
+			),
+			Error::<Test, ()>::AboveMaxCooldownPeriod
+		);
+		// reward weight never exceeds the stake
+		assert_eq!(reward_weight(), U256::from(10 * UNIT));
+	});
+}
+
+#[test]
+fn test_stake_more_cooldown_only_increase_checks_overstake() {
+	ExtBuilder.build().execute_with(|| {
+		commit_charlie(10 * UNIT, REDELEGATE_COOLDOWN);
+
+		// In epoch 3 Charlie's measured metric (0) is below his commitment (3200):
+		// the ratio check on the committed metric passes, but the commitment counts as overstaked.
+		// Only Bob reports in epoch 2: the pool total (and with it the target weight per compute) stays non-zero,
+		// while Charlie's measured metric for epoch 2 is 0.
+		roll_to_block(250);
+		let bob = bob_account_id();
+		let bob_manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&bob).unwrap();
+		Compute::commit(&bob, &bob_manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(302);
+		assert_eq!(Compute::current_cycle().epoch, 3);
+
+		// unchanged cooldown does not touch the weight, so the overstake check is skipped
+		assert_ok!(Compute::stake_more(
+			RuntimeOrigin::signed(charlie_account_id()),
+			0,
+			Some(REDELEGATE_COOLDOWN),
+			None,
+			None,
+			None,
+		));
+		// raising only the cooldown increases the weight and must run the overstake check
+		assert_err!(
+			Compute::stake_more(
+				RuntimeOrigin::signed(charlie_account_id()),
+				0,
+				Some(REDELEGATE_COOLDOWN_LONG),
+				None,
+				None,
+				None,
+			),
+			Error::<Test, ()>::MaxStakeMetricRatioExceeded
+		);
+	});
+}

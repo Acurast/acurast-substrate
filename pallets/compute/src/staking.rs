@@ -637,10 +637,15 @@ where
 				Self::lock_funds(who, stake.amount, LockReason::Staking)?;
 			}
 
+			let old_cooldown_period = stake.cooldown_period;
 			if let Some(cooldown_period) = cooldown_period {
 				ensure!(
 					cooldown_period >= stake.cooldown_period,
 					Error::<T, I>::CooldownPeriodCannotDecrease
+				);
+				ensure!(
+					cooldown_period <= T::MaxCooldownPeriod::get(),
+					Error::<T, I>::AboveMaxCooldownPeriod
 				);
 				stake.cooldown_period = cooldown_period;
 			}
@@ -665,9 +670,7 @@ where
 			Self::update_total_stake(StakeChange::Add(extra_amount))?;
 
 			// skip check for commitment overstaked if only metric increased, but not weight in terms of stake and/or cooldown
-			if !extra_amount.is_zero()
-				|| cooldown_period.map(|c| c > stake.cooldown_period).unwrap_or(false)
-			{
+			if !extra_amount.is_zero() || stake.cooldown_period > old_cooldown_period {
 				ensure!(
 					!Self::is_commitment_overstaked(commitment_id, c)?,
 					Error::<T, I>::MaxStakeMetricRatioExceeded

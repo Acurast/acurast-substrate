@@ -70,6 +70,55 @@ fn test_update_processor_pairings_succeed_1() {
 	});
 }
 
+fn unpair(manager_account: &AccountId, processor_account: &AccountId) {
+	let updates = vec![ProcessorPairingUpdateFor::<Test> {
+		operation: ListUpdateOperation::Remove,
+		item: ProcessorPairingFor::<Test>::new(processor_account.clone()),
+	}];
+	assert_ok!(AcurastProcessorManager::update_processor_pairings(
+		RuntimeOrigin::signed(manager_account.clone()),
+		updates.try_into().unwrap(),
+	));
+}
+
+#[test]
+fn test_pairing_references_processor_account_until_unpaired() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		assert_eq!(1, System::sufficients(&processor_account));
+		System::inc_account_nonce(&processor_account);
+
+		unpair(&manager_account, &processor_account);
+		assert!(!frame_system::Account::<Test>::contains_key(&processor_account));
+	});
+}
+
+#[test]
+fn test_unpair_reaps_account_of_pairing_without_reference() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		frame_system::Account::<Test>::mutate(&processor_account, |account| {
+			account.sufficients = 0;
+			account.nonce = 1;
+		});
+
+		unpair(&manager_account, &processor_account);
+		assert!(!frame_system::Account::<Test>::contains_key(&processor_account));
+	});
+}
+
+#[test]
+fn test_unpair_keeps_account_with_provider() {
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		System::inc_providers(&processor_account);
+
+		unpair(&manager_account, &processor_account);
+		let account = frame_system::Account::<Test>::get(&processor_account);
+		assert_eq!((1, 0), (account.providers, account.sufficients));
+	});
+}
+
 #[test]
 fn test_update_processor_pairings_with_empty_list_creates_no_manager() {
 	ExtBuilder.build().execute_with(|| {

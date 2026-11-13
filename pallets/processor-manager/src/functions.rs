@@ -130,6 +130,8 @@ impl<T: Config> Pallet<T> {
 		}
 		<ManagedProcessors<T>>::insert(manager_id, processor_account, ());
 		<ProcessorToManagerIdIndex<T>>::insert(processor_account, manager_id);
+		// keeps the processor's nonce row referenced while its manager pays the fees
+		frame_system::Pallet::<T>::inc_sufficients(processor_account);
 
 		Ok(())
 	}
@@ -146,6 +148,11 @@ impl<T: Config> Pallet<T> {
 		<ProcessorVersion<T>>::remove(processor_account);
 		<ProcessorHeartbeat<T>>::remove(processor_account);
 		<ProcessorUpdateInfo<T>>::remove(processor_account);
+		// shortcut: assumes no other pallet holds sufficients on processors, track the reference per pairing if one does
+		if frame_system::Pallet::<T>::sufficients(processor_account) == 0 {
+			frame_system::Pallet::<T>::inc_sufficients(processor_account);
+		}
+		frame_system::Pallet::<T>::dec_sufficients(processor_account);
 		<T as Config>::OnProcessorUnpaired::processor_unpaired(processor_account, manager);
 		Ok(())
 	}

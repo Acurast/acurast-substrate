@@ -32,6 +32,21 @@ stages:
 
 .prepare_rust:
   image: rust:1.93.0
+  variables:
+    # GitLab caches only paths inside the project dir
+    CARGO_HOME: $CI_PROJECT_DIR/.cargo-home
+    CARGO_INCREMENTAL: "0"
+    FF_USE_FASTZIP: "true"
+    CACHE_COMPRESSION_LEVEL: fastest
+  cache:
+    key:
+      files:
+        - Cargo.lock
+      prefix: $CI_JOB_NAME
+    paths:
+      - target/
+      - .cargo-home/registry/
+      - .cargo-home/git/
   before_script:
     - apt update && apt install --assume-yes git clang libclang-dev curl libssl-dev llvm libudev-dev make protobuf-compiler
 
@@ -44,8 +59,19 @@ format-check:
 test:
   stage: checks
   extends: .prepare_rust
+  variables:
+    SKIP_WASM_BUILD: "1"
+    CARGO_PROFILE_DEV_DEBUG: "0"
   script:
-    - cargo test
+    - cargo test --workspace --exclude acurast-node
+
+check-node:
+  stage: checks
+  extends: .prepare_rust
+  variables:
+    CARGO_PROFILE_DEV_DEBUG: "0"
+  script:
+    - cargo check -p acurast-node
 
 build-mainnet:
   stage: build

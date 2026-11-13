@@ -737,7 +737,7 @@ pub mod pallet {
 						MultiOrigin::Acurast(dest_account_id) => {
 							if !amount.is_zero() {
 								T::Currency::transfer(
-									&T::EthereumVault::get(),
+									&Self::vault(&proxy)?,
 									&dest_account_id,
 									amount.saturated_into::<BalanceFor<T, I>>(),
 									Preservation::Protect,

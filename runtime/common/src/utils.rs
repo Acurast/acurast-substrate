@@ -89,18 +89,20 @@ pub fn check_key_description(
 			.iter()
 			.map(|package_info| package_info.package_name.as_slice())
 			.collect::<Vec<_>>();
-		let is_package_name_allowed = package_names
-			.iter()
-			.all(|package_name| allowed_package_names.contains(package_name));
+		let is_package_name_allowed = !package_names.is_empty()
+			&& package_names
+				.iter()
+				.all(|package_name| allowed_package_names.contains(package_name));
 		if is_package_name_allowed {
 			let signature_digests = attestation_application_id
 				.signature_digests
 				.iter()
 				.map(|signature_digest| signature_digest.as_slice())
 				.collect::<Vec<_>>();
-			result = signature_digests
-				.iter()
-				.all(|digest| allowed_signature_digests.contains(digest));
+			result = !signature_digests.is_empty()
+				&& signature_digests
+					.iter()
+					.all(|digest| allowed_signature_digests.contains(digest));
 		}
 	}
 	result
@@ -114,4 +116,61 @@ pub fn check_device_attestation(
 		return allowed_bundle_ids.contains(&bundle_id.as_slice());
 	}
 	false
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use pallet_acurast::{
+		BoundedAttestationApplicationId, BoundedAttestationPackageInfo, BoundedAuthorizationList,
+		BoundedRootOfTrust,
+	};
+	use parity_scale_codec::Decode;
+
+	const PACKAGE: &[u8] = b"com.acurast.attested.executor";
+	const DIGEST: &[u8] = &[1; 32];
+
+	fn key_description(packages: &[&[u8]], digests: &[&[u8]]) -> BoundedKeyDescription {
+		let mut tee_enforced = BoundedAuthorizationList::decode(&mut &[0u8; 64][..]).unwrap();
+		tee_enforced.root_of_trust = Some(BoundedRootOfTrust {
+			verified_boot_key: Default::default(),
+			device_locked: true,
+			verified_boot_state: VerifiedBootState::Verified,
+			verified_boot_hash: None,
+		});
+		tee_enforced.attestation_application_id = Some(BoundedAttestationApplicationId {
+			package_infos: packages
+				.iter()
+				.map(|p| BoundedAttestationPackageInfo {
+					package_name: p.to_vec().try_into().unwrap(),
+					version: 1,
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap(),
+			signature_digests: digests
+				.iter()
+				.map(|d| d.to_vec().try_into().unwrap())
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap(),
+		});
+		BoundedKeyDescription {
+			attestation_security_level: AttestationSecurityLevel::TrustedEnvironemnt,
+			key_mint_security_level: AttestationSecurityLevel::TrustedEnvironemnt,
+			software_enforced: tee_enforced.clone(),
+			tee_enforced,
+		}
+	}
+
+	#[test]
+	fn check_key_description_rejects_empty_sets() {
+		let check = |p: &[&[u8]], d: &[&[u8]]| {
+			check_key_description(&key_description(p, d), &[PACKAGE], &[DIGEST])
+		};
+		assert!(check(&[PACKAGE], &[DIGEST]));
+		assert!(!check(&[], &[DIGEST]));
+		assert!(!check(&[PACKAGE], &[]));
+		assert!(!check(&[], &[]));
+	}
 }

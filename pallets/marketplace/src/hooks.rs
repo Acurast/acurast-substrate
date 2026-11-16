@@ -173,14 +173,16 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
 				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(job_id, 10, None);
-				let _ = <NextReportIndex<T>>::clear_prefix(
-					job_id,
-					<T as pallet_acurast::Config>::MaxSlots::get(),
-					None,
-				);
-				<JobMatcher<T>>::remove(job_id);
 			},
 		}
+
+		// Competing jobs keep entries from the previous execution's processors too.
+		let _ = <NextReportIndex<T>>::clear_prefix(
+			job_id,
+			2 * <T as pallet_acurast::Config>::MaxSlots::get(),
+			None,
+		);
+		<JobMatcher<T>>::remove(job_id);
 
 		Ok(().into())
 	}

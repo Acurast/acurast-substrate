@@ -199,8 +199,12 @@ fn test_deregister_on_matched_job() {
 			Some(JobStatus::Matched),
 			AcurastMarketplace::stored_job_status(&job_id1.0, &job_id1.1)
 		);
+		crate::JobMatcher::<Test>::insert(&job_id1, bob_account_id());
+		crate::NextReportIndex::<Test>::insert(&job_id1, processor_account_id(), 0);
 
 		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
+		assert!(!crate::JobMatcher::<Test>::contains_key(&job_id1));
+		assert!(!crate::NextReportIndex::<Test>::contains_key(&job_id1, processor_account_id()));
 		// The amount should have been refunded
 		assert_eq!(Balances::free_balance(alice_account_id()), 100_000_000);
 

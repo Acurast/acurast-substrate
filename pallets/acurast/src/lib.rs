@@ -384,7 +384,7 @@ pub mod pallet {
 						current_allowed_sources.push(update.item.clone())
 					},
 					(Some(pos), ListUpdateOperation::Remove) => {
-						current_allowed_sources.remove(pos);
+						current_allowed_sources.swap_remove(pos);
 					},
 					_ => {},
 				}

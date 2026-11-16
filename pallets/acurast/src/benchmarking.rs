@@ -269,13 +269,22 @@ mod benchmarks {
 	fn update_allowed_sources(x: Linear<1, { T::MaxAllowedSources::get() }>) {
 		set_timestamp::<T>(1000);
 		let (caller, _) = register_job::<T>(true, false);
+		let local_job_id = 1;
+		// Worst case: full stored list, every update scans all of it.
+		let stored: Vec<T::AccountId> = (0..T::MaxAllowedSources::get())
+			.map(|i| account("processor", i, SEED))
+			.collect();
+		<StoredJobRegistration<T>>::mutate(
+			&MultiOrigin::Acurast(caller.clone()),
+			local_job_id,
+			|r| r.as_mut().unwrap().allowed_sources = Some(stored.try_into().unwrap()),
+		);
 		let updates: Vec<AllowedSourcesUpdate<T::AccountId>> = (0..x)
 			.map(|i| AllowedSourcesUpdate {
-				operation: ListUpdateOperation::Add,
-				item: account("processor", i, SEED),
+				operation: ListUpdateOperation::Remove,
+				item: account("absent", i, SEED),
 			})
 			.collect();
-		let local_job_id = 1;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), local_job_id, updates.try_into().unwrap());

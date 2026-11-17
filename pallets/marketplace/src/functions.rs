@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
 		T::RewardManager::handle_reward(job_id, assignment.fee_per_execution)?;
 
-		Self::do_update_reputation(processor, &assignment, missing_reports)?;
+		Self::do_update_reputation(processor, &assignment, 1, missing_reports)?;
 
 		// if this is the last report, do cleanup
 		if next_expected_report_index.is_none() {
@@ -170,6 +170,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_update_reputation(
 		processor: &T::AccountId,
 		assignment: &AssignmentFor<T>,
+		successes: u64,
 		missing_reports: u64,
 	) -> Result<(), DispatchError> {
 		if ensure_source_verified::<T>(processor).is_ok() {
@@ -182,7 +183,7 @@ impl<T: Config> Pallet<T> {
 
 				beta_params = BetaReputation::update(
 					beta_params,
-					assignment.sla.met,
+					successes,
 					missing_reports,
 					assignment.fee_per_execution,
 					average_reward.into(),

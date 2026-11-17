@@ -1134,7 +1134,7 @@ fn test_match() {
 		assert_eq!(Some(2), AcurastMarketplace::total_assigned());
 		// reputation increased
 		assert_eq!(
-			Permill::from_parts(725_789),
+			Permill::from_parts(678_601),
 			BetaReputation::<u128>::normalize(
 				AcurastMarketplace::stored_reputation(processor_account_id()).unwrap()
 			)

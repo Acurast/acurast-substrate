@@ -796,7 +796,7 @@ impl<T: Config> Pallet<T> {
 							)
 							.is_err();
 							if is_stale {
-								Self::do_update_reputation(processor, assignment, 1)?;
+								Self::do_update_reputation(processor, assignment, 0, 1)?;
 								*value = Some(execution_index);
 							}
 						},

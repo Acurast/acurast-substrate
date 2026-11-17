@@ -59,7 +59,7 @@ where
 		call: &<Runtime>::RuntimeCall,
 		_dispatch_info: &DispatchInfoOf<<Runtime>::RuntimeCall>,
 		fee: Self::Balance,
-		_tip: Self::Balance,
+		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
 			return Ok(None);
@@ -70,6 +70,9 @@ where
 		// that was paired without the manager's authorization) from billing arbitrary runtime
 		// calls to its manager.
 		let fee_payer = fee_payer::<Runtime, P, OP>(who, call);
+		if &fee_payer != who && !tip.is_zero() {
+			return Err(InvalidTransaction::Payment.into());
+		}
 		let mut released = Self::Balance::zero();
 		if &fee_payer != who && P::is_fundable_call(call) {
 			released = OP::release_fee_funds(&fee_payer, fee.into()).into();
@@ -139,9 +142,12 @@ where
 		call: &<Runtime>::RuntimeCall,
 		_dispatch_info: &DispatchInfoOf<<Runtime>::RuntimeCall>,
 		fee: Self::Balance,
-		_tip: Self::Balance,
+		tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
 		let fee_payer = crate::utils::fee_payer::<Runtime, P, OP>(who, call);
+		if &fee_payer != who && !tip.is_zero() {
+			return Err(InvalidTransaction::Payment.into());
+		}
 		if fee.is_zero() || (OP::is_funding_call(call) && OP::can_fund_processor_onboarding(who, &fee_payer).is_some()) {
 			return Ok(())
 		}

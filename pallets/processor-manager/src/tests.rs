@@ -810,3 +810,25 @@ fn test_set_management_endpoint_requires_existing_manager() {
 		assert_eq!(None, ManagementEndpoint::<Test>::get(manager_id));
 	});
 }
+
+#[test]
+fn test_onboard_fee_payer() {
+	use crate::OnboardingProvider;
+
+	ExtBuilder.build().execute_with(|| {
+		let (manager_account, processor_account) = paired_manager_processor();
+		let (_, new_manager) = generate_pair_account();
+		let onboard: RuntimeCall = crate::Call::onboard {
+			pairing: ProcessorPairingFor::<Test>::new(new_manager.clone()),
+			multi: false,
+			attestation_chain: attestation_chain(),
+		}
+		.into();
+		let heartbeat: RuntimeCall = crate::Call::heartbeat {}.into();
+		let fee_payer = <AcurastProcessorManager as OnboardingProvider<Test>>::fee_payer;
+
+		assert_eq!(fee_payer(&processor_account, &onboard), processor_account);
+		assert_eq!(fee_payer(&processor_account, &heartbeat), manager_account);
+		assert_eq!(fee_payer(&processor_account_id(), &onboard), new_manager);
+	});
+}

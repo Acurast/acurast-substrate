@@ -390,15 +390,14 @@ where
 	}
 
 	fn fee_payer(account: &T::AccountId, call: &T::RuntimeCall) -> T::AccountId {
-		let mut manager = Self::lookup(account).map(|(account_id, _)| account_id);
-
-		if manager.is_none() {
-			if let Some((pairing, _, _)) = Self::pairing_for_call(call) {
-				manager = Some(pairing.account.clone());
-			}
+		let manager = Self::lookup(account).map(|(account_id, _)| account_id);
+		match (manager, Self::pairing_for_call(call)) {
+			(None, Some((pairing, _, _))) => pairing.account.clone(),
+			// `onboard` always fails for an already paired processor
+			(Some(_), Some(_)) => account.clone(),
+			(Some(manager), None) => manager,
+			(None, None) => account.clone(),
 		}
-
-		manager.unwrap_or(account.clone())
 	}
 }
 

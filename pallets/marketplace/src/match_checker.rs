@@ -3,7 +3,7 @@ use frame_support::{
 	ensure,
 	pallet_prelude::*,
 	sp_runtime::{
-		traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating, Zero},
+		traits::{CheckedAdd, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero},
 		DispatchError, FixedPointNumber, Permill,
 	},
 	traits::UnixTime,
@@ -501,7 +501,7 @@ impl<T: Config> Pallet<T> {
 				.ok_or(Error::<T>::CalculationOverflow)?;
 
 			ensure!(
-				reputation >= Permill::from_parts(min_reputation as u32),
+				reputation >= Permill::from_parts(min_reputation.saturated_into()),
 				Error::<T>::InsufficientReputationInMatch
 			);
 		}

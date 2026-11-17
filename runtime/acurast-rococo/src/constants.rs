@@ -96,8 +96,7 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
-	/// Relay Chain `TransactionByteFee` / 10
-	pub const TransactionByteFee: Balance = 10 * MICROUNIT;
+	pub const TransactionByteFee: Balance = 8 * MICROUNIT;
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const Period: u32 = 6 * MINUTES;
 	pub const Offset: u32 = 0;

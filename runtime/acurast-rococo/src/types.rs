@@ -1,7 +1,10 @@
 use derive_more::{From, Into};
 use frame_support::{
 	traits::{Currency, EitherOfDiverse},
-	weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+	weights::{
+		constants::WEIGHT_REF_TIME_PER_MILLIS, WeightToFeeCoefficient, WeightToFeeCoefficients,
+		WeightToFeePolynomial,
+	},
 };
 use frame_system::EnsureRoot;
 use smallvec::smallvec;
@@ -16,7 +19,6 @@ use acurast_runtime_common::{
 	},
 	opaque,
 	types::{AccountId, Address, Balance, CouncilFourSeventh, IsFundable, Signature},
-	weight::ExtrinsicBaseWeight,
 };
 use pallet_acurast_processor_manager::onboarding::Onboarding;
 
@@ -170,10 +172,9 @@ pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
-		// for acurast, we map to 1/10 of that, or 1/10 MILLIUNIT
+		// 1 ms of ref_time costs 1/10 MILLIUNIT
 		let p = MILLIUNIT / 10;
-		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		let q = Balance::from(WEIGHT_REF_TIME_PER_MILLIS);
 		smallvec![WeightToFeeCoefficient {
 			degree: 1,
 			negative: false,

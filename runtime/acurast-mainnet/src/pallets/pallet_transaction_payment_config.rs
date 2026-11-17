@@ -30,6 +30,7 @@ mod tests {
 	use super::*;
 	use acurast_runtime_common::constants::UNIT;
 	use frame_support::{
+		assert_ok,
 		dispatch::{DispatchInfo, PostDispatchInfo},
 		pallet_prelude::DispatchResult,
 		traits::fungible::{Inspect, InspectHold, Mutate, MutateHold},
@@ -39,7 +40,10 @@ mod tests {
 		BalanceFor, HoldReason, OnboardingProvider, ProcessorPairingFor,
 	};
 	use pallet_transaction_payment::OnChargeTransaction;
-	use sp_runtime::{AccountId32, BuildStorage};
+	use sp_runtime::{
+		transaction_validity::{InvalidTransaction, TransactionValidityError},
+		AccountId32, BuildStorage,
+	};
 
 	use crate::{RuntimeCall, RuntimeHoldReason};
 
@@ -144,5 +148,42 @@ mod tests {
 	#[test]
 	fn refund_of_free_paid_fee_stays_free() {
 		assert_eq!(charge(0, 4 * UNIT, UNIT), (99 * UNIT, 0));
+	}
+
+	#[test]
+	fn sponsored_tip_is_rejected() {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		sp_io::TestExternalities::new(storage).execute_with(|| {
+			Balances::set_balance(&MANAGER, 100 * UNIT);
+			let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+			let info = DispatchInfo::default();
+			let payment = Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
+			assert_eq!(
+				<Charger as OnChargeTransaction<Runtime>>::can_withdraw_fee(
+					&PROCESSOR,
+					&call,
+					&info,
+					5 * UNIT,
+					4 * UNIT
+				),
+				payment
+			);
+			assert!(<Charger as OnChargeTransaction<Runtime>>::withdraw_fee(
+				&PROCESSOR,
+				&call,
+				&info,
+				5 * UNIT,
+				4 * UNIT
+			)
+			.is_err());
+			assert_eq!(Balances::balance(&MANAGER), 100 * UNIT);
+			assert_ok!(<Charger as OnChargeTransaction<Runtime>>::can_withdraw_fee(
+				&MANAGER,
+				&call,
+				&info,
+				5 * UNIT,
+				4 * UNIT
+			));
+		});
 	}
 }

@@ -435,7 +435,10 @@ pub mod pallet {
 				},
 			)?;
 
-			ensure!(to_transfer >= T::Currency::minimum_balance(), Error::<T>::VestAmountTooLow);
+			ensure!(
+				to_transfer >= T::Currency::minimum_balance() || remaining.is_zero(),
+				Error::<T>::VestAmountTooLow
+			);
 
 			// Transfer the vested portion from funder to destination
 			T::Currency::transfer(
@@ -483,7 +486,10 @@ pub mod pallet {
 				},
 			)?;
 
-			ensure!(to_transfer >= T::Currency::minimum_balance(), Error::<T>::VestAmountTooLow);
+			ensure!(
+				to_transfer >= T::Currency::minimum_balance() || remaining.is_zero(),
+				Error::<T>::VestAmountTooLow
+			);
 
 			T::Currency::transfer(
 				&config.funder,

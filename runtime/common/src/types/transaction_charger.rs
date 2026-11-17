@@ -23,6 +23,8 @@ use crate::utils::fee_payer;
 pub struct LiquidityInfo<Runtime: TransactionPaymentConfig, F: Balanced<Runtime::AccountId>> {
 	pub imbalance: Option<Credit<Runtime::AccountId, F>>,
 	pub fee_payer: Option<Runtime::AccountId>,
+	/// Part of the fee released from the payer's onboarding hold.
+	pub released: <F as Inspect<Runtime::AccountId>>::Balance,
 }
 
 pub struct TransactionCharger<F, OU, P, OP>(PhantomData<(F, OU, P, OP)>);
@@ -68,8 +70,9 @@ where
 		// that was paired without the manager's authorization) from billing arbitrary runtime
 		// calls to its manager.
 		let fee_payer = fee_payer::<Runtime, P, OP>(who, call);
+		let mut released = Self::Balance::zero();
 		if &fee_payer != who && P::is_fundable_call(call) {
-			OP::release_fee_funds(&fee_payer, fee.into());
+			released = OP::release_fee_funds(&fee_payer, fee.into()).into();
 		}
 
 		match F::withdraw(
@@ -80,7 +83,11 @@ where
 			Fortitude::Polite,
 		) {
 			Ok(imbalance) => {
-				Ok(Some(LiquidityInfo { imbalance: Some(imbalance), fee_payer: Some(fee_payer) }))
+				Ok(Some(LiquidityInfo {
+					imbalance: Some(imbalance),
+					fee_payer: Some(fee_payer),
+					released,
+				}))
 			},
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
@@ -94,7 +101,7 @@ where
 		tip: Self::Balance,
 		info: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		let Some(LiquidityInfo { imbalance, fee_payer }) = info else {
+		let Some(LiquidityInfo { imbalance, fee_payer, released }) = info else {
 			return Ok(());
 		};
 		let Some(paid) = imbalance else {
@@ -112,6 +119,10 @@ where
 		} else {
 			Debt::<Runtime::AccountId, F>::zero()
 		};
+		let rehold = refund_imbalance.peek().min(released.saturating_sub(corrected_fee));
+		if !rehold.is_zero() {
+			OP::hold_fee_funds(fee_payer, rehold.into());
+		}
 		// merge the imbalance caused by paying the fees and refunding parts of it again.
 		let adjusted_paid = paid
 			.offset(refund_imbalance)

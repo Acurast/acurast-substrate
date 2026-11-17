@@ -1141,7 +1141,7 @@ fn deregister_charges_for_removed_environments_only() {
 			processor_account_id(),
 			Environment {
 				public_key: BoundedVec::truncate_from(vec![1u8; 33]),
-				variables: BoundedVec::default(),
+				variables: bounded_vec![(bounded_vec![1], bounded_vec![2])],
 			},
 		));
 		local_job_id
@@ -1168,7 +1168,7 @@ fn set_environment_caps_environments_per_job() {
 	};
 	let env = || Environment {
 		public_key: BoundedVec::truncate_from(vec![1u8; 33]),
-		variables: BoundedVec::default(),
+		variables: bounded_vec![(bounded_vec![1], bounded_vec![2])],
 	};
 	let mut ext = ExtBuilder.build();
 	let job_id = ext.execute_with(|| {
@@ -1207,6 +1207,24 @@ fn set_environment_caps_environments_per_job() {
 			RuntimeOrigin::signed(alice_account_id()),
 			job_id.1,
 			source(63),
+			env(),
+		));
+
+		// an environment without variables releases a slot for a new source
+		assert_ok!(Acurast::set_environment(
+			RuntimeOrigin::signed(alice_account_id()),
+			job_id.1,
+			source(0),
+			Environment {
+				public_key: BoundedVec::truncate_from(vec![1u8; 33]),
+				variables: BoundedVec::default(),
+			},
+		));
+		assert!(!crate::ExecutionEnvironment::<Test>::contains_key(&job_id, source(0)));
+		assert_ok!(Acurast::set_environment(
+			RuntimeOrigin::signed(alice_account_id()),
+			job_id.1,
+			source(64),
 			env(),
 		));
 

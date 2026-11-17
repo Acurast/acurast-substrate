@@ -110,7 +110,16 @@ impl<T: Config> Pallet<T> {
 		let max = T::MaxSlots::get() as usize;
 		let mut stored = <ExecutionEnvironment<T>>::iter_key_prefix(&job_id).take(max).count();
 		for (source, env) in environments {
-			if !<ExecutionEnvironment<T>>::contains_key(&job_id, &source) {
+			let exists = <ExecutionEnvironment<T>>::contains_key(&job_id, &source);
+			// an environment without variables releases the source's slot
+			if env.variables.is_empty() {
+				if exists {
+					<ExecutionEnvironment<T>>::remove(&job_id, &source);
+					stored = stored.saturating_sub(1);
+				}
+				continue;
+			}
+			if !exists {
 				ensure!(stored < max, Error::<T>::TooManyEnvironments);
 				stored += 1;
 			}

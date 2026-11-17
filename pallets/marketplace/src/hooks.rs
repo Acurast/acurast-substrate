@@ -4,6 +4,9 @@ use crate::*;
 use frame_support::{ensure, pallet_prelude::*};
 use pallet_acurast::{AllowedSourcesUpdate, JobHooks, JobRegistrationFor, StoredJobRegistration};
 
+/// Upper bound of `StoredJobExecutionStatus` rows removed by `deregister_hook`.
+pub const MAX_EXECUTION_STATUS_CLEANUP: u32 = 10;
+
 impl<T: Config> JobHooks<T> for Pallet<T> {
 	/// Registers a job in the marketplace by providing a [JobRegistration].
 	/// If a job for the same `(accountId, script)` was previously registered, it will be overwritten.
@@ -115,6 +118,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 
 		<JobKeyIds<T>>::remove(job_id);
 
+		let mut drained: u32 = 0;
 		match job_status {
 			JobStatus::Open => {
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
@@ -122,7 +126,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
 				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
 					job_id,
-					registration.schedule.execution_count() as u32,
+					MAX_EXECUTION_STATUS_CLEANUP,
 					None,
 				);
 			},
@@ -132,23 +136,22 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				// Remove matching data
 				for (p, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
 					<StoredMatches<T>>::remove(&p, job_id);
+					drained += 1;
 				}
 
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
 				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
 					job_id,
-					registration.schedule.execution_count() as u32,
+					MAX_EXECUTION_STATUS_CLEANUP,
 					None,
 				);
 			},
 			JobStatus::Assigned(_) => {
-				// Get the job requirements
-				let registration = <StoredJobRegistration<T>>::get(&job_id.0, job_id.1)
-					.ok_or(pallet_acurast::Error::<T>::JobRegistrationNotFound)?;
 				let now = Self::now()?;
 
 				// Pay reward to the processor and clear matching data
 				for (processor, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
+					drained += 1;
 					// find assignment
 					let assignment = <StoredMatches<T>>::take(&processor, job_id);
 
@@ -172,19 +175,29 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
 
 				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
-				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(job_id, 10, None);
+				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
+					job_id,
+					MAX_EXECUTION_STATUS_CLEANUP,
+					None,
+				);
 			},
 		}
 
 		// Competing jobs keep entries from the previous execution's processors too.
-		let _ = <NextReportIndex<T>>::clear_prefix(
+		let removed_reports = <NextReportIndex<T>>::clear_prefix(
 			job_id,
 			2 * <T as pallet_acurast::Config>::MaxSlots::get(),
 			None,
-		);
+		)
+		.unique;
 		<JobMatcher<T>>::remove(job_id);
 
-		Ok(().into())
+		Ok(Some(<T as Config>::WeightInfo::deregister_hook(drained, removed_reports)).into())
+	}
+
+	fn deregister_hook_weight() -> Weight {
+		let max = 2 * <T as pallet_acurast::Config>::MaxSlots::get();
+		<T as Config>::WeightInfo::deregister_hook(max, max)
 	}
 
 	/// Updates the allowed sources list of a [JobRegistration].

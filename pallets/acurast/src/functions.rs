@@ -4,6 +4,7 @@ use frame_support::{
 	ensure,
 	sp_runtime::{BoundedVec, DispatchError},
 	traits::Get,
+	weights::Weight,
 };
 use sp_std::prelude::*;
 
@@ -82,14 +83,19 @@ impl<T: Config> Pallet<T> {
 		Ok(().into())
 	}
 
-	/// Deregisters the job and returns the number of execution environments removed.
-	pub fn deregister_for(job_id: JobId<T::AccountId>) -> Result<u32, DispatchErrorWithPostInfo> {
-		<T as Config>::JobHooks::deregister_hook(&job_id)?;
+	/// Deregisters the job and returns the number of removed execution environments and the
+	/// weight used by the deregister hook.
+	pub fn deregister_for(
+		job_id: JobId<T::AccountId>,
+	) -> Result<(u32, Weight), DispatchErrorWithPostInfo> {
+		let hook_weight = <T as Config>::JobHooks::deregister_hook(&job_id)?
+			.actual_weight
+			.unwrap_or_else(<T as Config>::JobHooks::deregister_hook_weight);
 		let removed_environments = Self::clear_environment_for(&job_id);
 		<StoredJobRegistration<T>>::remove(&job_id.0, job_id.1);
 		<RequiredMinMetrics<T>>::remove(&job_id);
 		Self::deposit_event(Event::JobRegistrationRemoved(job_id));
-		Ok(removed_environments)
+		Ok((removed_environments, hook_weight))
 	}
 
 	pub fn set_environment_for(

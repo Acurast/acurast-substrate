@@ -58,6 +58,8 @@ pub trait JobHooks<T: Config> {
 	fn deregister_hook(
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
 	) -> DispatchResultWithPostInfo;
+	/// Worst-case weight of `deregister_hook`.
+	fn deregister_hook_weight() -> Weight;
 	fn update_allowed_sources_hook(
 		who: &<T as frame_system::Config>::AccountId,
 		job_id: &JobId<<T as frame_system::Config>::AccountId>,
@@ -79,6 +81,9 @@ impl<T: Config> JobHooks<T> for () {
 		_job_id: &JobId<<T as frame_system::Config>::AccountId>,
 	) -> DispatchResultWithPostInfo {
 		Ok(().into())
+	}
+	fn deregister_hook_weight() -> Weight {
+		Weight::zero()
 	}
 	fn update_allowed_sources_hook(
 		_who: &<T as frame_system::Config>::AccountId,

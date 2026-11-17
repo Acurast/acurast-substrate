@@ -202,7 +202,15 @@ fn test_deregister_on_matched_job() {
 		crate::JobMatcher::<Test>::insert(&job_id1, bob_account_id());
 		crate::NextReportIndex::<Test>::insert(&job_id1, processor_account_id(), 0);
 
-		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1));
+		let info =
+			Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id1.1).unwrap();
+		assert_eq!(
+			info.actual_weight,
+			Some(
+				<pallet_acurast::weights::WeightInfo<Test> as pallet_acurast::WeightInfo>::deregister(0)
+					+ <crate::weights::WeightInfo<Test> as crate::WeightInfo>::deregister_hook(1, 1)
+			)
+		);
 		assert!(!crate::JobMatcher::<Test>::contains_key(&job_id1));
 		assert!(!crate::NextReportIndex::<Test>::contains_key(&job_id1, processor_account_id()));
 		// The amount should have been refunded

@@ -356,13 +356,18 @@ where
 		(available >= fee, missing)
 	}
 
-	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>) {
-		_ = T::Currency::release(
-			&HoldReason::Onboarding.into(),
+	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>) -> BalanceFor<T> {
+		T::Currency::release(&HoldReason::Onboarding.into(), account, fee, Precision::BestEffort)
+			.unwrap_or_else(|_| Zero::zero())
+	}
+
+	fn hold_fee_funds(account: &T::AccountId, amount: BalanceFor<T>) {
+		let amount = amount.min(T::Currency::reducible_balance(
 			account,
-			fee,
-			Precision::BestEffort,
-		);
+			Preservation::Protect,
+			Fortitude::Polite,
+		));
+		_ = T::Currency::hold(&HoldReason::Onboarding.into(), account, amount);
 	}
 
 	fn pairing_for_call(

@@ -20,7 +20,10 @@ pub trait OnboardingProvider<T: Config> {
 		amount: BalanceFor<T>,
 	) -> DispatchResult;
 	fn can_cover_fee(account: &T::AccountId, fee: BalanceFor<T>) -> (bool, BalanceFor<T>);
-	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>);
+	/// Releases up to `fee` from the onboarding hold and returns the amount released.
+	fn release_fee_funds(account: &T::AccountId, fee: BalanceFor<T>) -> BalanceFor<T>;
+	/// Puts up to `amount` of free balance back on the onboarding hold.
+	fn hold_fee_funds(account: &T::AccountId, amount: BalanceFor<T>);
 	fn pairing_for_call(
 		call: &T::RuntimeCall,
 	) -> Option<(&ProcessorPairingFor<T>, bool, Option<&AttestationChain>)>;

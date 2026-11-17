@@ -1976,15 +1976,14 @@ where
 			Self::decrease_committer_stake(&committer, commitment_id, self_slash_amount)?;
 		}
 
-		// Calculate slasher reward
-		let mut slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
+		// Paid from the committer's own slash, so it is capped at a share of it.
+		let slasher_reward: BalanceFor<T, I> = T::SlashRewardRatio::get()
 			.mul_floor(total_slash_amount.saturated_into::<u128>())
+			.min(
+				T::SelfSlashRewardRatio::get()
+					.mul_floor(self_slash_amount.saturated_into::<u128>()),
+			)
 			.into();
-
-		// we cannot transfer from delegators, so the slasher_reward is capped at what the committer gets slashed
-		if slasher_reward > self_slash_amount {
-			slasher_reward = self_slash_amount;
-		}
 
 		// Slash the full self_slash_amount from committer (works with funds in locks and holds)
 		let mut slashed_imbalance = Self::slash_for(&committer, self_slash_amount)?;

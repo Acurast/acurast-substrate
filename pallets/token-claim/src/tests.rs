@@ -1347,3 +1347,34 @@ fn test_multi_claim_signature_bound_to_claim_type() {
 		);
 	});
 }
+
+#[test]
+fn test_vest_pays_residual_below_ed_and_closes_schedule() {
+	ExtBuilder.build().execute_with(|| {
+		let duration = LockDuration::get() as u128;
+		let claim_amount: Balance = duration * 5 + 500;
+		assert!(claim_amount % duration < EXISTENTIAL_DEPOSIT);
+
+		assert_ok!(<Balances as Mutate<_>>::mint_into(
+			&<Test as Config>::Funder::get(),
+			claim_amount * 10
+		));
+		let (_, account) = generate_pair_account("User");
+		let (signer, _) = generate_pair_account("Bob");
+		let proof =
+			ClaimProof::new(claim_amount, generate_signature(&signer, &account, claim_amount));
+		assert_ok!(AcurastTokenClaim::claim(
+			RuntimeOrigin::signed(account.clone()),
+			proof,
+			account.clone()
+		));
+
+		System::set_block_number(1 + LockDuration::get() as u64);
+		assert_ok!(AcurastTokenClaim::vest(RuntimeOrigin::signed(account.clone()), None, None));
+
+		System::set_block_number((LockDuration::get() as u64) * 100);
+		assert_ok!(AcurastTokenClaim::vest(RuntimeOrigin::signed(account.clone()), None, None));
+		assert_eq!(Balances::balance(&account), claim_amount);
+		assert!(AcurastTokenClaim::vesting(&account, &account).is_none());
+	});
+}

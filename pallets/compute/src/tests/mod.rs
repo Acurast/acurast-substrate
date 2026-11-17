@@ -6045,3 +6045,49 @@ fn test_stake_more_cooldown_only_increase_checks_overstake() {
 		);
 	});
 }
+
+#[test]
+fn test_score_continues_after_zero_measured_metric() {
+	ExtBuilder.build().execute_with(|| {
+		let commitment_id = 0;
+		for pool_id in [1, 2] {
+			crate::ComputeCommitments::<Test, ()>::insert(
+				commitment_id,
+				pool_id,
+				FixedU128::from_u32(1),
+			);
+			crate::StakeBasedRewards::<Test, ()>::insert(
+				pool_id,
+				SlidingBuffer::new_with(
+					2,
+					RewardBudget::new(0, U256::from(PER_TOKEN_DECIMALS) * 100),
+				),
+			);
+		}
+		let commitment = CommitmentFor::<Test, ()> {
+			stake: None,
+			commission: Perbill::zero(),
+			delegations_total_amount: 0,
+			delegations_total_rewardable_amount: 0,
+			weights: crate::MemoryBuffer::new_with(
+				1,
+				CommitmentWeights { self_reward_weight: U256::from(1000), ..Default::default() },
+			),
+			pool_rewards: crate::MemoryBuffer::new_with(0, Default::default()),
+			last_scoring_epoch: 0,
+			last_slashing_epoch: 0,
+		};
+
+		assert_ok!(Compute::score(
+			1,
+			2,
+			commitment_id,
+			&commitment,
+			&[
+				(1, (FixedU128::zero(), FixedU128::zero())),
+				(2, (FixedU128::from_u32(1), FixedU128::from_u32(1)))
+			],
+		));
+		assert_eq!(Compute::scores(commitment_id, 2).get(2), (U256::from(100), U256::from(100)));
+	});
+}

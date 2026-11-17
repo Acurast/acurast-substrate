@@ -303,7 +303,7 @@ where
 						.checked_mul(score_without_delegations)
 						.ok_or(Error::<T, I>::CalculationOverflow)?
 						.checked_div(U256::from(commitment_bounded_metric_sum.into_inner()))
-						.ok_or(Error::<T, I>::CalculationOverflow)?;
+						.unwrap_or_default();
 					let bonus_score_limit =
 						T::BusyWeightBonus::get().mul_floor(score_without_delegations);
 					if bonus_score_limit < bonus_score {

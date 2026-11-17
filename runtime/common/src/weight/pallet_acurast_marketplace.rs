@@ -441,6 +441,50 @@ impl<T: frame_system::Config> pallet_acurast_marketplace::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2593).saturating_mul(x.into()))
 	}
+	/// Storage: `AcurastMarketplace::StoredJobStatus` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::StoredJobStatus` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
+	/// Storage: `Acurast::StoredJobRegistration` (r:1 w:0)
+	/// Proof: `Acurast::StoredJobRegistration` (`max_values`: None, `max_size`: Some(34818), added: 37293, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::AssignedProcessors` (r:129 w:128)
+	/// Proof: `AcurastMarketplace::AssignedProcessors` (`max_values`: None, `max_size`: Some(118), added: 2593, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::StoredMatches` (r:128 w:128)
+	/// Proof: `AcurastMarketplace::StoredMatches` (`max_values`: None, `max_size`: Some(345), added: 2820, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobBudgets` (r:1 w:1)
+	/// Proof: `AcurastMarketplace::JobBudgets` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::StoredJobExecutionStatus` (r:10 w:10)
+	/// Proof: `AcurastMarketplace::StoredJobExecutionStatus` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::NextReportIndex` (r:128 w:128)
+	/// Proof: `AcurastMarketplace::NextReportIndex` (`max_values`: None, `max_size`: Some(126), added: 2601, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobMatcher` (r:0 w:1)
+	/// Proof: `AcurastMarketplace::JobMatcher` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// Storage: `AcurastMarketplace::JobKeyIds` (r:0 w:1)
+	/// Proof: `AcurastMarketplace::JobKeyIds` (`max_values`: None, `max_size`: Some(102), added: 2577, mode: `MaxEncodedLen`)
+	/// The range of component `x` is `[0, 128]`.
+	/// The range of component `y` is `[0, 128]`.
+	fn deregister_hook(x: u32, y: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1460 + x * (227 ±0) + y * (61 ±0)`
+		//  Estimated: `38283 + x * (2820 ±0) + y * (2601 ±0)`
+		// Minimum execution time: 189_000_000 picoseconds.
+		Weight::from_parts(189_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 38283))
+			// Standard Error: 817_962
+			.saturating_add(Weight::from_parts(6_752_267, 0).saturating_mul(x.into()))
+			// Standard Error: 817_962
+			.saturating_add(Weight::from_parts(5_135_009, 0).saturating_mul(y.into()))
+			.saturating_add(T::DbWeight::get().reads(16))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(y.into())))
+			.saturating_add(T::DbWeight::get().writes(15))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(x.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(y.into())))
+			.saturating_add(Weight::from_parts(0, 2820).saturating_mul(x.into()))
+			.saturating_add(Weight::from_parts(0, 2601).saturating_mul(y.into()))
+	}
 	/// Storage: `AcurastMarketplace::JobPriceSettings` (r:0 w:1)
 	/// Proof: `AcurastMarketplace::JobPriceSettings` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
 	fn update_price_settings() -> Weight {

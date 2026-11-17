@@ -15,8 +15,8 @@ use sp_std::prelude::*;
 
 use crate::Config;
 use pallet_acurast::{
-	ComputeHooks, JobId, JobIdSequence, JobModule, JobModules, JobRegistrationFor, Metrics,
-	MultiOrigin, Pallet as Acurast, Schedule, Script,
+	ComputeHooks, JobHooks, JobId, JobIdSequence, JobModule, JobModules, JobRegistrationFor,
+	Metrics, MultiOrigin, Pallet as Acurast, Schedule, Script,
 };
 use pallet_acurast_compute::Pallet as AcurastCompute;
 
@@ -1073,6 +1073,59 @@ mod benchmarks {
 		_(RawOrigin::Signed(consumer), job_id.clone());
 
 		// Proves the worst case was actually measured: every assignment is gone.
+		assert_eq!(<AssignedProcessors<T>>::iter_prefix(&job_id).count(), 0);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn deregister_hook(
+		x: Linear<0, { 2 * <T as pallet_acurast::Config>::MaxSlots::get() }>,
+		y: Linear<0, { 2 * <T as pallet_acurast::Config>::MaxSlots::get() }>,
+	) -> Result<(), BenchmarkError> {
+		set_timestamp::<T>(BENCH_NOW);
+		let consumer = <T as Config>::BenchmarkHelper::funded_account(0, u64::MAX.into());
+		let job_id = cleanup_storage_helper::<T>(Some(consumer), x as u8)?;
+
+		// Keep execution 0 first: only assignments of the next execution are paid out.
+		let mut assigned = <AssignedProcessors<T>>::iter_prefix(&job_id)
+			.map(|(p, _)| {
+				let index = match <StoredMatches<T>>::get(&p, &job_id).map(|a| a.execution) {
+					Some(ExecutionSpecifier::Index(i)) => i,
+					_ => 0,
+				};
+				(index, p)
+			})
+			.collect::<Vec<_>>();
+		assigned.sort_by_key(|(index, _)| *index);
+		for (_, p) in assigned.iter().skip(x as usize) {
+			<AssignedProcessors<T>>::remove(&job_id, p);
+			<StoredMatches<T>>::remove(p, &job_id);
+		}
+		for (_, p) in assigned.iter().take(x as usize) {
+			<StoredMatches<T>>::mutate(p, &job_id, |a| {
+				if let Some(a) = a {
+					a.acknowledged = true;
+				}
+			});
+		}
+		for i in 0..y {
+			<NextReportIndex<T>>::insert(&job_id, account::<T::AccountId>("report", i, 0), 0);
+		}
+		for i in 0..crate::hooks::MAX_EXECUTION_STATUS_CLEANUP {
+			<StoredJobExecutionStatus<T>>::insert(&job_id, i as u64, JobStatus::Matched);
+		}
+		<StoredJobStatus<T>>::insert(&job_id.0, job_id.1, JobStatus::Assigned(x as u8));
+
+		let schedule = pallet_acurast::StoredJobRegistration::<T>::get(&job_id.0, job_id.1)
+			.ok_or(BenchmarkError::Stop("job registration missing"))?
+			.schedule;
+		set_now::<T>(schedule.start_time - 120_000);
+
+		#[block]
+		{
+			assert_ok!(<AcurastMarketplace<T> as JobHooks<T>>::deregister_hook(&job_id));
+		}
+
 		assert_eq!(<AssignedProcessors<T>>::iter_prefix(&job_id).count(), 0);
 		Ok(())
 	}

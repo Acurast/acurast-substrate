@@ -345,7 +345,7 @@ pub mod pallet {
 
 		/// Deregisters a job for the given script.
 		#[pallet::call_index(1)]
-		#[pallet::weight(< T as Config >::WeightInfo::deregister(T::MaxSlots::get()))]
+		#[pallet::weight(< T as Config >::WeightInfo::deregister(T::MaxSlots::get()).saturating_add(T::JobHooks::deregister_hook_weight()))]
 		pub fn deregister(
 			origin: OriginFor<T>,
 			local_job_id: JobIdSequence,
@@ -353,8 +353,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let multi_origin = MultiOrigin::Acurast(who);
 			let job_id = (multi_origin, local_job_id);
-			let removed_environments = Self::deregister_for(job_id)?;
-			Ok(Some(T::WeightInfo::deregister(removed_environments)).into())
+			let (removed_environments, hook_weight) = Self::deregister_for(job_id)?;
+			Ok(Some(T::WeightInfo::deregister(removed_environments).saturating_add(hook_weight))
+				.into())
 		}
 
 		/// Updates the allowed sources list of a [JobRegistration].

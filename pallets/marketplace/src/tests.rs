@@ -1893,6 +1893,90 @@ fn test_report_afer_last_report() {
 }
 
 #[test]
+fn test_report_window() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 3_000_000 * 2,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad.clone(),
+		));
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+		));
+		assert_ok!(AcurastMarketplace::propose_matching(
+			RuntimeOrigin::signed(charlie_account_id()),
+			vec![Match {
+				job_id: job_id.clone(),
+				sources: bounded_vec![PlannedExecution {
+					source: processor_account_id(),
+					start_delay: 0,
+				}],
+			}]
+			.try_into()
+			.unwrap(),
+		));
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			PubKeys::default(),
+		));
+
+		let report = || {
+			AcurastMarketplace::report(
+				RuntimeOrigin::signed(processor_account_id()),
+				job_id.clone(),
+				ExecutionResult::Success(operation_hash()),
+			)
+		};
+		let start = registration.schedule.start_time;
+		let tolerance = <Test as Config>::ReportTolerance::get();
+
+		assert_err!(report(), Error::<Test>::ReportOutsideSchedule);
+
+		later(start + registration.schedule.duration + tolerance + 1000);
+		assert_err!(report(), Error::<Test>::ReportOutsideSchedule);
+
+		later(start + registration.schedule.interval + 1000);
+		assert_ok!(report());
+		assert_eq!(None, crate::NextReportIndex::<Test>::get(&job_id, processor_account_id()));
+	});
+}
+
+#[test]
 fn test_deploy_reuse_keys_same_editor() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 

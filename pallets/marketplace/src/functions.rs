@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 				Self::check_report_is_timely(registration, assignment, now, expected_report_index)
 					.is_ok();
 
-			if !is_report_timely && expected_report_index != execution_index {
+			if !is_report_timely {
 				Self::check_report_is_timely(registration, assignment, now, execution_index)?;
 				missing_reports = execution_index.saturating_sub(expected_report_index);
 				expected_report_index = execution_index;

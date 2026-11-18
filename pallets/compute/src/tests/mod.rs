@@ -6091,3 +6091,53 @@ fn test_score_continues_after_zero_measured_metric() {
 		assert_eq!(Compute::scores(commitment_id, 2).get(2), (U256::from(100), U256::from(100)));
 	});
 }
+
+#[test]
+fn test_slash_reward_split() {
+	ExtBuilder.build().execute_with(|| {
+		assert_ok!(Compute::enable_inflation(RuntimeOrigin::root()));
+		setup_balances();
+		create_pools();
+		let charlie = charlie_account_id();
+		offer_accept_backing(charlie.clone());
+		let manager =
+			<Test as Config>::ManagerProviderForEligibleProcessor::lookup(&charlie).unwrap();
+		roll_to_block(10);
+		Compute::commit(&charlie, &manager, &[(2u8, 1000u128, 1u128)]);
+		roll_to_block(150);
+		Compute::commit(&charlie, &manager, &[(2u8, 4000u128, 1u128)]);
+		roll_to_block(202);
+		assert_ok!(Compute::commit_compute(
+			RuntimeOrigin::signed(charlie.clone()),
+			10 * UNIT,
+			36,
+			bounded_vec![ComputeCommitment { pool_id: 2, metric: FixedU128::from_u32(3200) }],
+			Perbill::from_percent(10),
+			true,
+		));
+		let commitment_id =
+			<Test as Config>::CommitmentIdProvider::commitment_id_for(&charlie).unwrap();
+		assert_ok!(Compute::delegate(
+			RuntimeOrigin::signed(bob_account_id()),
+			charlie.clone(),
+			89 * UNIT,
+			36,
+			false,
+		));
+		roll_to_block(302);
+		Compute::commit(&charlie, &manager, &[(2u8, 1600u128, 1u128)]);
+		roll_to_block(402);
+
+		let balance_before =
+			<Balances as frame_support::traits::Currency<_>>::total_balance(&charlie);
+		let stake_before = Compute::commitments(commitment_id).unwrap().stake.unwrap().amount;
+		assert_ok!(Compute::slash(RuntimeOrigin::signed(charlie.clone()), charlie.clone()));
+		let stake_after = Compute::commitments(commitment_id).unwrap().stake.unwrap().amount;
+		let slashed = stake_before - stake_after;
+		let lost = balance_before
+			- <Balances as frame_support::traits::Currency<_>>::total_balance(&charlie);
+
+		assert!(slashed > 0);
+		assert!(lost >= slashed / 2, "slashed {slashed}, balance change {lost}");
+	});
+}

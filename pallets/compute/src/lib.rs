@@ -131,6 +131,9 @@ pub mod pallet {
 		/// The ratio of slashed amount that is rewarded to the caller who triggers the slash extrinsic.
 		#[pallet::constant]
 		type SlashRewardRatio: Get<Perquintill>;
+		/// Caps the slash reward at this ratio of the committer's own slashed amount.
+		#[pallet::constant]
+		type SelfSlashRewardRatio: Get<Perquintill>;
 		/// Maximum commission increase per day. When a committer is overstaked, they can increase commission up to this rate.
 		#[pallet::constant]
 		type MaxCommissionIncreasePerDay: Get<Perbill>;

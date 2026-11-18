@@ -38,6 +38,7 @@ parameter_types! {
 	pub const MinStake: Balance = 10 * UNIT;
 	pub const BaseSlashRation: Perquintill = Perquintill::from_parts(34246575340000); // 0.003424657534% of total stake per missed epoch
 	pub const SlashRewardRatio: Perquintill = Perquintill::from_percent(10); // 10% of slash goes to caller
+	pub const SelfSlashRewardRatio: Perquintill = Perquintill::from_percent(50);
 	pub const MaxCommissionIncreasePerDay: Perbill =Perbill::from_parts(2500000); // 0.25% per day
 	pub const BlocksPerDay: BlockNumber = DAYS;
 	pub const MaxDelegationRatio: Perquintill = Perquintill::from_percent(90);
@@ -72,6 +73,7 @@ impl pallet_acurast_compute::Config for Runtime {
 	type MinStake = MinStake;
 	type BaseSlashRation = BaseSlashRation;
 	type SlashRewardRatio = SlashRewardRatio;
+	type SelfSlashRewardRatio = SelfSlashRewardRatio;
 	type MaxCommissionIncreasePerDay = MaxCommissionIncreasePerDay;
 	type BlocksPerDay = BlocksPerDay;
 	type MetricValidity = MetricEpochValidity;

@@ -7,7 +7,7 @@ use frame_support::{
 	},
 	traits::{
 		fungible::{Balanced, Credit},
-		tokens::{fungible, Fortitude, Precision, Preservation},
+		tokens::{fungible, DepositConsequence, Fortitude, Precision, Preservation, Provenance},
 		OnUnbalanced,
 	},
 	PalletId,
@@ -151,10 +151,6 @@ where
 	) -> Result<(), DispatchError> {
 		let matcher_fee_percentage = AssetSplit::get_matcher_percentage();
 		let matcher_fee = matcher_fee_percentage.mul_floor(price_difference);
-		Budget::unreserve(job_id, matcher_fee)
-			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
-
-		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
 		// Extract fee from the matcher reward
 		let fee_percentage = AssetSplit::get_fee_percentage();
@@ -162,6 +158,19 @@ where
 
 		// Subtract the fee from the reward
 		let reward_after_fee = matcher_fee - fee;
+
+		// Unpayable reward stays in the job budget.
+		if reward_after_fee.gt(&(0u128).into())
+			&& Currency::can_deposit(matcher, reward_after_fee, Provenance::Extant)
+				!= DepositConsequence::Success
+		{
+			return Ok(());
+		}
+
+		Budget::unreserve(job_id, matcher_fee)
+			.map_err(|_| DispatchError::Other("Severe Error: JobBudget::unreserve failed"))?;
+
+		let pallet_account: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 
 		// Transfer fees to Acurast fees manager account
 		let fee_pallet_account: T::AccountId = AssetSplit::pallet_id().into_account_truncating();

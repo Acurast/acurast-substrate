@@ -1977,6 +1977,75 @@ fn test_report_window() {
 }
 
 #[test]
+fn test_acknowledge_with_small_matcher_reward() {
+	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
+
+	let ad = advertisement(1000, 1, 100_000, 50_000, 8);
+	let registration = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 5000,
+			start_time: 1_671_800_400_000, // 23.12.2022 13:00
+			end_time: 1_671_804_000_000,   // 23.12.2022 14:00
+			interval: 1_800_000,           // 30min
+			max_start_delay: 5000,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Single(None),
+				slots: 1,
+				reward: 7_000,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+
+		assert_ok!(Timestamp::set(RuntimeOrigin::none(), now));
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad.clone(),
+		));
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+		));
+		assert_ok!(AcurastMarketplace::propose_matching(
+			RuntimeOrigin::signed(eve_account_id()),
+			vec![Match {
+				job_id: job_id.clone(),
+				sources: bounded_vec![PlannedExecution {
+					source: processor_account_id(),
+					start_delay: 0,
+				}],
+			}]
+			.try_into()
+			.unwrap(),
+		));
+		let reserved = AcurastMarketplace::reserved(&job_id);
+
+		assert_ok!(AcurastMarketplace::acknowledge_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			PubKeys::default(),
+		));
+		assert_eq!(reserved, AcurastMarketplace::reserved(&job_id));
+		assert_eq!(0, Balances::free_balance(eve_account_id()));
+	});
+}
+
+#[test]
 fn test_deploy_reuse_keys_same_editor() {
 	let now: u64 = 1_671_800_100_000; // 23.12.2022 12:55;
 

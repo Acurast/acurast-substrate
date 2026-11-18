@@ -510,10 +510,9 @@ mod benchmarks {
 	#[benchmark]
 	fn update_onboarding_settings() -> Result<(), BenchmarkError> {
 		set_timestamp::<T>(1000);
-		let settings = OnboardingSettings::<BalanceFor<T>, <T as frame_system::Config>::AccountId> {
+		let settings = OnboardingSettings::<BalanceFor<T>> {
 			funds: 100_000_000_000u128.into(),
 			max_funds: 1_000_000_000_000u128.into(),
-			funds_account: alice_account_id().into(),
 		};
 
 		#[extrinsic_call]

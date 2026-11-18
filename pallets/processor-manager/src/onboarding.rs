@@ -163,7 +163,7 @@ pub mod extension {
 				AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction,
 				Dispatchable, IdentifyAccount, StaticLookup, Verify,
 			},
-			traits::{IsSubType, IsType},
+			traits::{Currency, IsSubType, IsType},
 			weights::Weight,
 		};
 		use frame_system::{pallet_prelude::*, RawOrigin};
@@ -204,11 +204,14 @@ pub mod extension {
 						.into(),
 				);
 
-				let settings = OnboardingSettings::<BalanceFor<T>, T::AccountId> {
+				let settings = OnboardingSettings::<BalanceFor<T>> {
 					funds: 100_000_000_000u128.into(),
 					max_funds: 1_000_000_000_000u128.into(),
-					funds_account: T::BenchmarkHelper::funded_account(0),
 				};
+				T::Currency::make_free_balance_be(
+					&ProcessorManager::<T>::onboarding_funds_account(),
+					(1u128 << 60).into(),
+				);
 
 				assert_ok!(ProcessorManager::<T>::update_onboarding_settings(
 					RawOrigin::<T::AccountId>::Root.into(),

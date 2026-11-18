@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod functions;
+pub mod migration;
 pub mod onboarding;
 mod traits;
 mod types;
@@ -35,9 +36,12 @@ pub mod pallet {
 			fungible::{InspectHold, MutateHold},
 			Currency, EnsureOrigin, Get, UnixTime,
 		},
-		Blake2_128, Blake2_128Concat, Parameter,
+		Blake2_128, Blake2_128Concat, PalletId, Parameter,
 	};
-	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
+	use frame_system::{
+		ensure_signed,
+		pallet_prelude::{BlockNumberFor, OriginFor},
+	};
 	use parity_scale_codec::MaxEncodedLen;
 	use sp_std::prelude::*;
 
@@ -100,6 +104,9 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 		type AttestationHandler: AttestationValidator<Self::AccountId>;
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Its derived account funds processor onboarding.
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 		type OnProcessorUnpaired: OnProcessorUnpaired<Self::AccountId>;
 		type WeightInfo: WeightInfo;
 		type ExtensionWeightInfo: ExtensionWeightInfo;
@@ -110,7 +117,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub api_version: u32,
-		pub onboarding_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
+		pub onboarding_settings: Option<OnboardingSettings<BalanceFor<T>>>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -200,14 +207,14 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn processor_onboarding_settings)]
 	pub(super) type ProcessorOnboardingSettings<T: Config> =
-		StorageValue<_, OnboardingSettings<BalanceFor<T>, T::AccountId>, OptionQuery>;
+		StorageValue<_, OnboardingSettings<BalanceFor<T>>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn processor_migration_data)]
 	pub(super) type ProcessorMigrationData<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Proof<T::Proof>>;
 
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -265,6 +272,13 @@ pub mod pallet {
 		MigrationDisabled,
 		/// The called extrinsic has been deprecated and permanently disabled.
 		CallDeprecated,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			crate::migration::on_runtime_upgrade::<T>()
+		}
 	}
 
 	#[pallet::call]
@@ -537,7 +551,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_onboarding_settings())]
 		pub fn update_onboarding_settings(
 			origin: OriginFor<T>,
-			new_settings: Option<OnboardingSettings<BalanceFor<T>, T::AccountId>>,
+			new_settings: Option<OnboardingSettings<BalanceFor<T>>>,
 		) -> DispatchResultWithPostInfo {
 			<T as Config>::UpdateOrigin::ensure_origin(origin)?;
 

@@ -126,6 +126,7 @@ parameter_types! {
 	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
+	pub const ProcessorManagerPalletId: PalletId = PalletId(*b"acrstonb");
 	pub const ComputePalletId: PalletId = PalletId(*b"cmptepid");
 
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);

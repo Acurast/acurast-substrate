@@ -126,6 +126,7 @@ parameter_types! {
 	pub OperationalFeeAccount: AccountId = HyperdriveTokenPalletAccount::get();
 	pub HyperdriveTokenSolanaFeeVault: AccountId = PalletId(*b"hyptfsol").into_account_truncating();
 	pub const FeeManagerPalletId: PalletId = PalletId(*b"acrstfee");
+	pub const ProcessorManagerPalletId: PalletId = PalletId(*b"acrstonb");
 	pub const DefaultFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(30);
 	pub const DefaultMatcherFeePercentage: sp_runtime::Percent = sp_runtime::Percent::from_percent(10);
 	pub const CorePackageName: &'static [u8] = b"com.acurast.attested.executor.canary";

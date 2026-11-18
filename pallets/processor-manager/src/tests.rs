@@ -1,10 +1,15 @@
 use crate::{
 	mock::*, stub::*, BalanceFor, BinaryLocation, Error, Event, ManagementEndpoint,
-	OnboardingSettings, ProcessorPairingFor, ProcessorPairingUpdateFor, UpdateInfo,
+	OnboardingProvider, OnboardingSettings, ProcessorPairingFor, ProcessorPairingUpdateFor,
+	UpdateInfo,
 };
 use acurast_common::{ListUpdateOperation, ManagerIdProvider, ManagerLookup, Version};
 use frame_support::{
-	assert_err, assert_ok, dispatch::Pays, sp_runtime::traits::BadOrigin, traits::fungible::Inspect,
+	assert_err, assert_ok,
+	dispatch::Pays,
+	sp_runtime::traits::BadOrigin,
+	storage::unhashed,
+	traits::{fungible::Inspect, GetStorageVersion, StorageVersion},
 };
 use hex_literal::hex;
 
@@ -676,12 +681,10 @@ fn set_processor_update_info_failure_4() {
 #[test]
 fn test_update_onboarding_settings() {
 	ExtBuilder.build().execute_with(|| {
-		let settings =
-			OnboardingSettings::<BalanceFor<Test>, <Test as frame_system::Config>::AccountId> {
-				funds: 100_000_000_000u128,
-				max_funds: 1_000_000_000_000u128,
-				funds_account: alice_account_id(),
-			};
+		let settings = OnboardingSettings::<BalanceFor<Test>> {
+			funds: 100_000_000_000u128,
+			max_funds: 1_000_000_000_000u128,
+		};
 
 		assert_ok!(AcurastProcessorManager::update_onboarding_settings(
 			RuntimeOrigin::root(),
@@ -694,6 +697,53 @@ fn test_update_onboarding_settings() {
 			last_events.last(),
 			Some(RuntimeEvent::AcurastProcessorManager(Event::OnboardingSettingsUpdated)).as_ref()
 		);
+	});
+}
+
+#[test]
+fn test_onboarding_funds_account() {
+	ExtBuilder.build().execute_with(|| {
+		let funds_account = AcurastProcessorManager::onboarding_funds_account();
+		let processor = generate_account(1);
+		let manager = generate_account(2);
+		assert_ok!(AcurastProcessorManager::update_onboarding_settings(
+			RuntimeOrigin::root(),
+			Some(OnboardingSettings { funds: 1_000, max_funds: 10_000 })
+		));
+
+		assert_eq!(
+			None,
+			AcurastProcessorManager::can_fund_processor_onboarding(&processor, &manager)
+		);
+
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			funds_account.clone(),
+			1_000_000
+		));
+		assert_eq!(
+			Some((funds_account, 1_000)),
+			AcurastProcessorManager::can_fund_processor_onboarding(&processor, &manager)
+		);
+	});
+}
+
+#[test]
+fn test_onboarding_settings_migration() {
+	ExtBuilder.build().execute_with(|| {
+		StorageVersion::new(1).put::<AcurastProcessorManager>();
+		unhashed::put(
+			&crate::ProcessorOnboardingSettings::<Test>::hashed_key(),
+			&(1_000u128, 10_000u128, alice_account_id()),
+		);
+
+		crate::migration::on_runtime_upgrade::<Test>();
+
+		assert_eq!(
+			Some(OnboardingSettings { funds: 1_000, max_funds: 10_000 }),
+			AcurastProcessorManager::processor_onboarding_settings()
+		);
+		assert_eq!(StorageVersion::new(2), AcurastProcessorManager::on_chain_storage_version());
 	});
 }
 

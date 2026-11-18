@@ -5,7 +5,7 @@ use acurast_common::{
 use frame_support::{
 	pallet_prelude::{DispatchResult, Weight, Zero},
 	sp_runtime::{
-		traits::{CheckedAdd, IdentifyAccount, Saturating, Verify},
+		traits::{AccountIdConversion, CheckedAdd, IdentifyAccount, Saturating, Verify},
 		DispatchError,
 	},
 	traits::{
@@ -31,6 +31,11 @@ pub(crate) struct HeartbeatWeights {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Account that funds processor onboarding.
+	pub fn onboarding_funds_account() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
+
 	/// Records a heartbeat, commits compute for an eligible processor and returns the weight to charge.
 	pub(crate) fn do_heartbeat(
 		processor: &T::AccountId,
@@ -329,11 +334,12 @@ where
 
 		let amount = settings.funds.min(settings.max_funds.saturating_sub(manager_hold_balance));
 
-		let consequences = T::Currency::can_withdraw(&settings.funds_account, amount);
+		let funds_account = Self::onboarding_funds_account();
+		let consequences = T::Currency::can_withdraw(&funds_account, amount);
 		if !matches!(consequences, WithdrawConsequence::Success) {
 			return None;
 		}
-		Some((settings.funds_account, amount))
+		Some((funds_account, amount))
 	}
 
 	fn fund(

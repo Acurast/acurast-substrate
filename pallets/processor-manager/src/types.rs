@@ -181,10 +181,9 @@ pub type Endpoint = BoundedVec<u8, ConstU32<MAX_ENDPOINT_LENGTH>>;
 	Serialize,
 	Deserialize,
 )]
-pub struct OnboardingSettings<Balance, AccountId> {
+pub struct OnboardingSettings<Balance> {
 	pub funds: Balance,
 	pub max_funds: Balance,
-	pub funds_account: AccountId,
 }
 
 pub type ProcessorPairingFor<T> =

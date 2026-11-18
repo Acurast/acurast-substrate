@@ -2563,6 +2563,94 @@ fn later(now: u64) {
 }
 
 #[test]
+fn test_deregister_during_execution() {
+	let start: u64 = 1_671_800_400_000;
+	let interval: u64 = 300_000;
+	let ad = advertisement(1000, 1, 100_000, 50_000, 100);
+	let registration = JobRegistrationFor::<Test> {
+		script: script(),
+		allowed_sources: None,
+		allow_only_verified_sources: false,
+		schedule: Schedule {
+			duration: 150_000,
+			start_time: start,
+			end_time: start + 3 * interval,
+			interval,
+			max_start_delay: 0,
+		},
+		memory: 5_000u32,
+		network_requests: 5,
+		storage: 20_000u32,
+		required_modules: JobModules::default(),
+		extra: RegistrationExtra {
+			requirements: JobRequirements {
+				assignment_strategy: AssignmentStrategy::Competing,
+				slots: 1,
+				reward: 3_000_000,
+				min_reputation: None,
+				processor_version: None,
+				runtime: Runtime::NodeJS,
+			},
+		},
+	};
+
+	ExtBuilder.build().execute_with(|| {
+		let initial_job_id = Acurast::job_id_sequence();
+		later(start - <Test as Config>::MatchingCompetingDueDelta::get());
+
+		assert_ok!(AcurastMarketplace::advertise(
+			RuntimeOrigin::signed(processor_account_id()),
+			ad.clone(),
+		));
+		let job_id = (MultiOrigin::Acurast(alice_account_id()), initial_job_id + 1);
+		assert_ok!(Acurast::register(
+			RuntimeOrigin::signed(alice_account_id()),
+			registration.clone(),
+		));
+
+		let match_execution = |execution_index: u64| {
+			AcurastMarketplace::propose_execution_matching(
+				RuntimeOrigin::signed(bob_account_id()),
+				vec![ExecutionMatch {
+					job_id: job_id.clone(),
+					execution_index,
+					sources: vec![PlannedExecution {
+						source: processor_account_id(),
+						start_delay: 0,
+					}]
+					.try_into()
+					.unwrap(),
+				}]
+				.try_into()
+				.unwrap(),
+			)
+		};
+
+		assert_ok!(match_execution(0));
+		assert_ok!(AcurastMarketplace::acknowledge_execution_match(
+			RuntimeOrigin::signed(processor_account_id()),
+			job_id.clone(),
+			0,
+			PubKeys::default(),
+		));
+
+		later(start + interval - <Test as Config>::MatchingCompetingDueDelta::get() + 10_000);
+		assert_ok!(match_execution(1));
+		assert_eq!(
+			Some(JobStatus::Matched),
+			AcurastMarketplace::stored_job_status(&job_id.0, job_id.1)
+		);
+
+		let fee = AcurastMarketplace::stored_matches(processor_account_id(), job_id.clone())
+			.unwrap()
+			.fee_per_execution;
+		let issuance = Balances::total_issuance();
+		assert_ok!(Acurast::deregister(RuntimeOrigin::signed(alice_account_id()), job_id.1));
+		assert_eq!(issuance - fee, Balances::total_issuance());
+	});
+}
+
+#[test]
 fn test_no_repeated_reports_from_stale_execution_index() {
 	let start: u64 = 1_671_800_400_000;
 	let interval: u64 = 1_800_000;

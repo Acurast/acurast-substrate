@@ -130,23 +130,7 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 					None,
 				);
 			},
-			JobStatus::Matched => {
-				T::MarketplaceHooks::finalize_job(job_id, T::RewardManager::refund(job_id)?)?;
-
-				// Remove matching data
-				for (p, _) in <AssignedProcessors<T>>::drain_prefix(job_id) {
-					<StoredMatches<T>>::remove(&p, job_id);
-					drained += 1;
-				}
-
-				<StoredJobStatus<T>>::remove(&job_id.0, job_id.1);
-				let _ = <StoredJobExecutionStatus<T>>::clear_prefix(
-					job_id,
-					MAX_EXECUTION_STATUS_CLEANUP,
-					None,
-				);
-			},
-			JobStatus::Assigned(_) => {
+			JobStatus::Matched | JobStatus::Assigned(_) => {
 				let now = Self::now()?;
 
 				// Pay reward to the processor and clear matching data
@@ -156,17 +140,34 @@ impl<T: Config> JobHooks<T> for Pallet<T> {
 					let assignment = <StoredMatches<T>>::take(&processor, job_id);
 
 					if let Some(assignment) = assignment {
-						if let ExecutionSpecifier::Index(index) = assignment.execution {
-							let next_execution_index = registration
-								.schedule
-								.next_execution_index(assignment.start_delay, now);
-							if index != next_execution_index {
-								continue;
-							}
-						}
-
-						if assignment.acknowledged {
-							T::RewardManager::handle_reward(job_id, assignment.fee_per_execution)?;
+						let fee = assignment.fee_per_execution;
+						match assignment.execution {
+							ExecutionSpecifier::All => {
+								if assignment.acknowledged {
+									T::RewardManager::handle_reward(job_id, fee)?;
+								}
+							},
+							ExecutionSpecifier::Index(index) => {
+								let next_execution_index = registration
+									.schedule
+									.next_execution_index(assignment.start_delay, now);
+								if assignment.acknowledged && index == next_execution_index {
+									T::RewardManager::handle_reward(job_id, fee)?;
+								}
+								let running = <NextReportIndex<T>>::get(job_id, &processor)
+									.is_some_and(|i| {
+										Self::check_report_is_timely(
+											&registration,
+											&assignment,
+											now,
+											i,
+										)
+										.is_ok()
+									});
+								if running {
+									T::RewardManager::handle_reward(job_id, fee)?;
+								}
+							},
 						}
 					}
 				}

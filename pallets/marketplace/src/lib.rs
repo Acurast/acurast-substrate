@@ -634,7 +634,7 @@ pub mod pallet {
 
 		/// Report on completion of fulfillments done on target chain for a previously registered and matched job.
 		/// Reward is paid out to source if timing of this call is within expected interval. More precisely,
-		/// the report is accepted if `[now, now + tolerance]` overlaps with an execution of the schedule agreed on.
+		/// the report is accepted if `now` lies within `[start, start + duration + tolerance)` of an execution of the schedule agreed on.
 		/// `tolerance` is a pallet config value.
 		#[pallet::call_index(4)]
 		#[pallet::weight(< T as Config >::WeightInfo::report())]

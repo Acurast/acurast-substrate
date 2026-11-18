@@ -172,6 +172,7 @@ impl Config for Test {
 	type AttestationHandler = MockAttestationValidator;
 	type OnProcessorUnpaired = Acurast;
 	type UpdateOrigin = EnsureRoot<Self::AccountId>;
+	type PalletId = ProcessorManagerPalletId;
 }
 
 pub struct MockProcessorInfoProvider;

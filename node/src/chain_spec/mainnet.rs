@@ -127,7 +127,6 @@ fn genesis_config(
 			"onboardingSettings": {
 				"funds": 100_000_000_000u128,
 				"max_funds": 300_000_000_000u128,
-				"funds_account": onboarding_funds_account(),
 			}
 		},
 		"councilMembership": {
@@ -171,7 +170,7 @@ pub fn extra_funds_pallet_account() -> AccountId {
 }
 
 pub fn onboarding_funds_account() -> AccountId {
-	accountid_from_str("5EAFqBNRWhe93pXvvkXB1oBHe15btTyw6vy21eGtwRqXjFLz")
+	acurast_runtime::ProcessorManagerPalletId::get().into_account_truncating()
 }
 
 pub fn matcher_accounts() -> Vec<AccountId> {

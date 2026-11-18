@@ -39,6 +39,7 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 	pub const MaxLocks: u32 = 50;
 	pub const AcurastPalletId: PalletId = PalletId(*b"acrstpid");
+	pub const ProcessorManagerPalletId: PalletId = PalletId(*b"acrstonb");
 	pub const ReportTolerance: u64 = 12000;
 }
 

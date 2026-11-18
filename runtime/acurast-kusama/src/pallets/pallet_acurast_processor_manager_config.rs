@@ -9,7 +9,8 @@ use pallet_acurast::ManagerProviderForEligibleProcessor;
 use crate::benchmarking;
 use crate::{
 	Acurast, AcurastCompute, AcurastMarketplace, AcurastProcessorManager, Balances,
-	EnsureCouncilOrRoot, ManagerCollectionId, RootAccountId, Runtime, RuntimeHoldReason, Uniques,
+	EnsureCouncilOrRoot, ManagerCollectionId, ProcessorManagerPalletId, RootAccountId, Runtime,
+	RuntimeHoldReason, Uniques,
 };
 
 impl pallet_acurast_processor_manager::Config for Runtime {
@@ -37,6 +38,7 @@ impl pallet_acurast_processor_manager::Config for Runtime {
 	type AttestationHandler = Acurast;
 	type OnProcessorUnpaired = (Acurast, AcurastCompute, AcurastMarketplace);
 	type UpdateOrigin = EnsureCouncilOrRoot;
+	type PalletId = ProcessorManagerPalletId;
 	type WeightInfo = weight::pallet_acurast_processor_manager::WeightInfo<Self>;
 	type ExtensionWeightInfo =
 		weight::pallet_acurast_processor_manager_onboarding_extension::WeightInfo<Self>;

@@ -67,6 +67,7 @@ pallet-acurast-rewards-treasury = { path = "./pallets/rewards-treasury", default
 # The Collator Selection pallet is used to select collators for the parachain. (PoA)
 pallet-acurast-candidate-preselection = { path = "./pallets/candidate-preselection", default-features = false }
 pallet-acurast-token-conversion = { path = "./pallets/token-conversion", default-features = false }
+pallet-acurast-domains = { path = "./pallets/domains", default-features = false }
 pallet-acurast-token-claim = { path = "./pallets/token-claim", default-features = false }
 acurast-p256-crypto = { path = "./p256-crypto", default-features = false }
 

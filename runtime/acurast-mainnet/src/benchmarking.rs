@@ -63,6 +63,7 @@ define_benchmarks!(
 	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
+	[pallet_acurast_domains, AcurastDomains]
 	[pallet_acurast_token_conversion, AcurastTokenConversion]
 	[pallet_acurast_token_claim, AcurastTokenClaim]
 );

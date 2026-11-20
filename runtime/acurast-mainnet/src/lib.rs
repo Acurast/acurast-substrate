@@ -137,6 +137,8 @@ mod runtime {
 	// together with the versioned transaction extensions.
 	// #[runtime::pallet_index(56)]
 	// pub type VerifySignature = pallet_verify_signature;
+	#[runtime::pallet_index(57)]
+	pub type AcurastDomains = pallet_acurast_domains;
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

@@ -37,6 +37,7 @@ pallet-acurast-rewards-treasury = { workspace = true }
 pallet-acurast-candidate-preselection = { workspace = true }
 pallet-acurast-token-claim = { workspace = true }
 pallet-acurast-token-conversion = { workspace = true }
+pallet-acurast-domains = { workspace = true }
 
 acurast-runtime-common = { workspace = true }
 
@@ -163,6 +164,7 @@ std = [
 	"pallet-acurast-candidate-preselection/std",
 	"pallet-acurast-token-claim/std",
 	"pallet-acurast-token-conversion/std",
+	"pallet-acurast-domains/std",
 	"acurast-runtime-common/std",
 	"polkadot-runtime-common/std",
 	"sp-arithmetic/std",
@@ -205,6 +207,7 @@ runtime-benchmarks = [
 	"pallet-acurast-candidate-preselection/runtime-benchmarks",
 	"pallet-acurast-token-claim/runtime-benchmarks",
 	"pallet-acurast-token-conversion/runtime-benchmarks",
+	"pallet-acurast-domains/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

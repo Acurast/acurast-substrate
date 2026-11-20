@@ -36,6 +36,7 @@ pallet-acurast-hyperdrive-token = { workspace = true }
 pallet-acurast-candidate-preselection = { workspace = true }
 pallet-acurast-token-claim = { workspace = true }
 pallet-acurast-token-conversion = { workspace = true }
+pallet-acurast-domains = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
@@ -130,6 +131,7 @@ std = [
 	"pallet-vesting/std",
 	"cumulus-pallet-weight-reclaim/std",
 	"pallet-acurast-token-conversion/std",
+	"pallet-acurast-domains/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-referenda/std",

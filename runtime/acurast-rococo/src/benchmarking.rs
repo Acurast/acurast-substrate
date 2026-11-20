@@ -63,6 +63,7 @@ define_benchmarks!(
 	[pallet_acurast_hyperdrive_ibc, AcurastHyperdriveIbc]
 	[pallet_acurast_hyperdrive_token, AcurastHyperdriveToken]
 	[pallet_acurast_candidate_preselection, AcurastCandidatePreselection]
+	[pallet_acurast_domains, AcurastDomains]
 );
 
 // The benchmark endows its own caller and the default `setup_benchmark_environment` is a
